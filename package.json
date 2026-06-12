@@ -16,6 +16,8 @@
     "seed": "tsx scripts/seed-owner.ts",
     "smoke:m2": "tsx scripts/smoke-m2.ts",
     "smoke:m3": "tsx scripts/smoke-m3.ts",
+    "smoke:m4": "tsx scripts/smoke-m4.ts",
+    "backfill:auto-tags": "tsx scripts/backfill-auto-tags.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
