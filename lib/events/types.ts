@@ -52,12 +52,98 @@ export interface InvoicePaidPayload {
   total_myr: number;
   payment_method: "cash" | "duitnow_qr" | "duitnow_transfer" | "gateway";
   paid_at: string;
+  /**
+   * Customer FK from `invoices.customer_id`. **NEW for M6**; Marketing's
+   * `invoice.paid` listener uses this to route the metric update.
+   *
+   * Nullable for backwards compatibility — Finance may still emit
+   * historic invoices without a customer link (cash walk-in). When null,
+   * the M6 listener marks the event as `skipped_no_customer` rather than
+   * erroring.
+   *
+   * Tracked in plan §3.3 as dependency D2 (owned by Finance).
+   */
+  customer_id?: string | null;
+  /**
+   * Tenant scope. Mirrors `events_outbox.business_id` for handler-side
+   * cross-business verification (M6 listener rejects if it disagrees).
+   */
+  business_id?: string;
   line_items: Array<{
     product_id: string | null;
     qty: number;
     unit_price_myr: number;
     subtotal_myr: number;
   }>;
+}
+
+/**
+ * `order.delivered` payload (plan §3.2.2).
+ *
+ * Emitted by Operations when an order ships / is delivered. Marketing
+ * uses it to bump `customers.total_spend_myr / order_count /
+ * last_purchase_at`. When `invoice_id` is non-null and the matching
+ * `invoice.paid` has already been processed, the listener skips this
+ * event to avoid double-counting (the invoice is authoritative).
+ *
+ * Tracked in plan §3.3 as dependency D3 (owned by Operations).
+ */
+export interface OrderDeliveredPayload {
+  order_id: string;
+  customer_id: string | null;
+  invoice_id: string | null;
+  business_id?: string;
+  total_myr: number;
+  delivered_at: string;
+  line_items: Array<{
+    product_id: string | null;
+    qty: number;
+    unit_price_myr: number;
+    subtotal_myr: number;
+  }>;
+}
+
+/**
+ * `booking.completed` payload (plan §3.2.3).
+ *
+ * Emitted by Operations when a service booking is marked complete.
+ * Identical metric-update pattern to `order.delivered`; same
+ * invoice-look-aside dedup rule.
+ *
+ * Tracked in plan §3.3 as dependency D4 (owned by Operations).
+ */
+export interface BookingCompletedPayload {
+  booking_id: string;
+  customer_id: string | null;
+  invoice_id: string | null;
+  business_id?: string;
+  service_total_myr: number;
+  completed_at: string;
+}
+
+/**
+ * `lead.converted` payload (plan §3.2.4).
+ *
+ * Emitted by Sales when a lead is converted to a customer. The actual
+ * customer record is created by Sales' convert-to-customer flow
+ * (which POSTs `/api/marketing/customers` synchronously); this event
+ * is informational/analytical from Marketing's POV — the listener
+ * records the link in `marketing_event_dedup` for audit but performs
+ * no metric mutation (the customer has no purchase history yet on
+ * conversion).
+ *
+ * Tracked in plan §3.3 as dependency D5 (Sales — Asyraf-owned).
+ */
+export interface LeadConvertedPayload {
+  lead_id: string;
+  /** Surviving customer id (set by Sales after the Marketing API call). */
+  customer_id: string | null;
+  business_id?: string;
+  name: string;
+  phone_e164: string | null;
+  email: string | null;
+  note: string | null;
+  converted_at: string;
 }
 
 /**
