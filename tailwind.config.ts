@@ -16,6 +16,10 @@ const config: Config = {
     "./components/**/*.{ts,tsx}",
     "./lib/**/*.{ts,tsx}",
   ],
+  // Class-based dark mode: a `dark` class on <html> activates `dark:` variants.
+  // The class is toggled by `ThemeProvider` + a no-flash inline script in
+  // `app/layout.tsx`. See `lib/theme/` for the resolver and storage key.
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -56,6 +60,21 @@ const config: Config = {
           DEFAULT: "#1A1A1A",
           muted: "#6B6B6B",
           subtle: "#9A9A9A",
+        },
+        // Dark-mode neutrals. Light aliases point at existing cream/white
+        // tokens so a single utility (e.g. `bg-surface-light dark:bg-surface-dark`)
+        // covers both modes without touching the brand/accent scales.
+        surface: {
+          light: "#FAF7F2", // alias of cream-100 (page bg, light)
+          dark: "#0F1115", // page bg, dark (near-black w/ slight blue undertone)
+        },
+        panel: {
+          light: "#FFFFFF", // sidebar / cards in light mode
+          dark: "#161A21", // sidebar / cards in dark mode (one notch up from surface)
+        },
+        hairline: {
+          light: "#E5E0D8", // alias of cream-300 (borders, light)
+          dark: "#262B33", // borders / dividers, dark
         },
         status: {
           // Intentionally kept as a standalone success green (the old

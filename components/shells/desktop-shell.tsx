@@ -14,9 +14,11 @@ import {
   Sparkles,
   Store,
   Settings,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { ReactNode } from "react";
+import { signOutAction } from "@/app/sign-in/actions";
 
 const SIDEBAR_GROUPS = [
   {
@@ -24,7 +26,7 @@ const SIDEBAR_GROUPS = [
     items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
-    label: "Pillars",
+    label: "Modules",
     items: [
       { href: "/admin", label: "Admin", icon: FileText },
       { href: "/finance", label: "Finance", icon: Banknote },
@@ -39,7 +41,7 @@ const SIDEBAR_GROUPS = [
     items: [
       { href: "/boardroom", label: "AI Boardroom", icon: Sparkles },
       { href: "/marketplace", label: "Marketplace", icon: Store },
-      { href: "/settings/team", label: "Settings", icon: Settings },
+      { href: "/settings", label: "Settings", icon: Settings },
     ],
   },
 ] as const;
@@ -48,27 +50,35 @@ export function DesktopShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="min-h-dvh bg-cream-100 text-ink">
+    <div className="min-h-dvh bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
       <div className="flex">
-        <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-cream-300 bg-white sticky top-0 h-dvh">
-          <div className="px-5 py-4 border-b border-cream-200">
-            <Link href="/" className="flex items-center">
+        <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-hairline-light bg-panel-light dark:border-hairline-dark dark:bg-panel-dark sticky top-0 h-dvh">
+          <div className="px-5 py-5 border-b border-cream-200 bg-brand-50 dark:border-hairline-dark dark:bg-brand-900/30">
+            <Link href="/" className="flex items-center gap-3">
               <Image
-                src="/brand/logo.png"
+                src="/icon.png"
                 alt="Bantu Niaga"
-                width={180}
+                width={48}
                 height={48}
                 priority
-                className="h-10 w-auto"
+                className="h-11 w-11 shrink-0"
               />
+              <div className="leading-tight min-w-0">
+                <p className="text-lg font-bold tracking-tight">
+                  <span className="text-brand-700 dark:text-brand-200">Bantu</span>{" "}
+                  <span className="text-accent-500">Niaga</span>
+                </p>
+                <p className="text-[10px] text-ink-muted dark:text-cream-400 mt-0.5 truncate">
+                  SME-OS · All-in-One
+                </p>
+              </div>
             </Link>
-            <p className="mt-1 text-xs text-ink-muted">v0 · scaffold</p>
           </div>
 
-          <nav className="flex-1 overflow-y-auto py-3">
+          <nav className="flex-1 overflow-y-auto py-4">
             {SIDEBAR_GROUPS.map((group) => (
-              <div key={group.label} className="mb-4">
-                <p className="px-5 mb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
+              <div key={group.label} className="mb-5">
+                <p className="px-5 mb-2 text-[11px] font-semibold uppercase tracking-wider text-brand-700/70 dark:text-brand-200/70">
                   {group.label}
                 </p>
                 <ul>
@@ -82,10 +92,10 @@ export function DesktopShell({ children }: { children: ReactNode }) {
                         <Link
                           href={href}
                           className={cn(
-                            "flex items-center gap-3 px-5 py-2 text-sm transition-colors",
+                            "flex items-center gap-3 px-5 py-2.5 text-sm transition-colors",
                             active
-                              ? "bg-brand-50 text-brand-700 font-medium border-l-2 border-brand-500"
-                              : "text-ink-muted hover:bg-cream-100 hover:text-ink border-l-2 border-transparent",
+                              ? "bg-brand-50 text-brand-700 font-semibold border-l-4 border-accent-500 dark:bg-brand-900/30 dark:text-brand-200"
+                              : "text-ink-muted hover:bg-cream-100 hover:text-ink border-l-4 border-transparent dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
                           )}
                         >
                           <Icon className="h-4 w-4" strokeWidth={2} />
@@ -98,6 +108,18 @@ export function DesktopShell({ children }: { children: ReactNode }) {
               </div>
             ))}
           </nav>
+
+          <div className="border-t border-cream-200 px-3 py-3 dark:border-hairline-dark">
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100"
+              >
+                <LogOut className="h-4 w-4" strokeWidth={2} />
+                <span>Sign out</span>
+              </button>
+            </form>
+          </div>
         </aside>
 
         <main className="flex-1 min-w-0">

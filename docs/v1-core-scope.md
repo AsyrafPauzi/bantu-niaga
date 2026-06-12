@@ -144,6 +144,7 @@ Everything below the core line stays in `docs/marketplace-addons.md`. Reference 
 - **Finance:** Full Ledger Analytics · LHDN Exporter · **Payment Gateway Connector** (new) · Recurring Invoices (future) · Cashflow Forecast (future) · Bank statement CSV import (future)
 - **Operations:** Micro Stock Tracker · Recipe / BOM (future) · Multi-location stock (future) · Auto-PO from low-stock (future) · Delivery tracker (future) · Recurring bookings (future)
 - **Marketing:** Smart Link Tracker · Promo Engine · WA Broadcast Manager (future) · Loyalty stamps (future) · Reviews collector (future)
+  > Marketing M1 (2026-06-12) shipped the canonical `customers`, `customer_tag_history`, `customer_csv_imports`, `content_plan(+_media)` schema, plus the `customer_external_refs` registry (empty — downstream pillars register their own FKs) and `marketing_event_dedup` (table only — the M6 listener writes to it).
 - **Sales:** Stale Deal Alarms · Hardware / POS Extensions · Layaway tracker (future) · Online storefront (future) · End-of-day reconciliation (future)
 - **HR:** Shift Rota · Self-Service Leave Forms · Statutory Payroll EPF/SOCSO/EIS/PCB (future) · Time Clock (future) · EA Form generator (future)
 
