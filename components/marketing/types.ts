@@ -40,3 +40,31 @@ export interface CustomerTagHistoryRow {
 
 export type ListSortField = "name" | "last_purchase_at" | "total_spend_myr";
 export type ListSortOrder = "asc" | "desc";
+
+// ─────────────────────────────────────────────────────────────────────────
+// Content calendar — Marketing M5
+// ─────────────────────────────────────────────────────────────────────────
+
+export type ContentChannel = "tiktok" | "instagram" | "facebook";
+export type ContentStatus = "idea" | "drafted" | "scheduled" | "posted";
+
+export interface ContentMediaRow {
+  file_id: string;
+  position: number;
+}
+
+export interface ContentEntryRow {
+  id: string;
+  business_id: string;
+  channel: ContentChannel;
+  status: ContentStatus;
+  scheduled_at: string | null;
+  hook: string | null;
+  caption: string | null;
+  created_by: string | null;
+  posted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Populated by GET /api/marketing/content (and the list page). */
+  media?: ContentMediaRow[];
+}

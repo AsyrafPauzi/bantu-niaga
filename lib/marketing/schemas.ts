@@ -222,6 +222,127 @@ export const csvExportQuerySchema = z.object({
 export type CsvExportQuery = z.infer<typeof csvExportQuerySchema>;
 
 // ─────────────────────────────────────────────────────────────────────────
+// Content calendar — Marketing M5
+//
+// Mirrors `docs/plans/marketing-implementation-plan.md` §4.2.7 and the
+// existing `content_plan` table columns (channel / status / scheduled_at
+// / hook / caption). The DB column is `channel`, not `platform` — we
+// keep the API/UI vocabulary aligned with the schema.
+//
+// v1 is plan-only. Media attachments store the `file_id` (a uuid) into
+// `content_plan_media` without an FK constraint; the FK lands once
+// Admin Storage publishes its canonical `files` table (D6 contract).
+// The placeholder thumbnails on the UI side render the uuid as a label
+// so operators can audit the link manually until D6 is wired.
+// ─────────────────────────────────────────────────────────────────────────
+
+export const CONTENT_CHANNELS = ["tiktok", "instagram", "facebook"] as const;
+export type ContentChannel = (typeof CONTENT_CHANNELS)[number];
+
+export const CONTENT_STATUSES = [
+  "idea",
+  "drafted",
+  "scheduled",
+  "posted",
+] as const;
+export type ContentStatus = (typeof CONTENT_STATUSES)[number];
+
+export const contentChannelSchema = z.enum(CONTENT_CHANNELS);
+export const contentStatusSchema = z.enum(CONTENT_STATUSES);
+
+export const contentEntryCreateSchema = z
+  .object({
+    channel: contentChannelSchema,
+    status: contentStatusSchema.optional().default("idea"),
+    scheduled_at: z.string().datetime({ offset: true }).nullable().optional(),
+    hook: z.string().trim().max(280).nullable().optional(),
+    caption: z.string().trim().max(4000).nullable().optional(),
+    media_file_ids: z
+      .array(z.string().uuid())
+      .max(10)
+      .optional()
+      .default([]),
+  })
+  .strict();
+
+export type ContentEntryCreateInput = z.infer<typeof contentEntryCreateSchema>;
+
+export const contentEntryUpdateSchema = z
+  .object({
+    channel: contentChannelSchema.optional(),
+    status: contentStatusSchema.optional(),
+    scheduled_at: z
+      .string()
+      .datetime({ offset: true })
+      .nullable()
+      .optional(),
+    hook: z.string().trim().max(280).nullable().optional(),
+    caption: z.string().trim().max(4000).nullable().optional(),
+  })
+  .strict();
+
+export type ContentEntryUpdateInput = z.infer<typeof contentEntryUpdateSchema>;
+
+/**
+ * Calendar / list query. Two mutually-supportive shapes:
+ *   - `?year=YYYY&month=1..12` → returns the entries whose `scheduled_at`
+ *     (or `created_at` for unscheduled rows) falls in that month, in
+ *     Asia/Kuala_Lumpur. The server still queries by UTC bounds and lets
+ *     the UI do the local-time formatting.
+ *   - `?status=…` and / or `?channel=…` → returns ALL matching entries
+ *     across time, sorted by `scheduled_at` (nulls last) then `created_at`.
+ *   - no params → all upcoming (scheduled_at ≥ today) + all unscheduled
+ *     idea / drafted entries.
+ */
+export const contentListQuerySchema = z
+  .object({
+    year: z.coerce.number().int().min(2000).max(3000).optional(),
+    month: z.coerce.number().int().min(1).max(12).optional(),
+    channel: contentChannelSchema.optional(),
+    status: contentStatusSchema.optional(),
+  })
+  .refine(
+    (v) =>
+      (v.year === undefined && v.month === undefined) ||
+      (v.year !== undefined && v.month !== undefined),
+    {
+      message: "year and month must be supplied together",
+      path: ["month"],
+    },
+  );
+
+export type ContentListQuery = z.infer<typeof contentListQuerySchema>;
+
+/**
+ * Body for `POST /api/marketing/content/[id]/media`. v1 just records the
+ * uuid; Admin Storage's `files` table FK lands in a follow-up migration
+ * once D6 ships.
+ */
+export const contentMediaAttachSchema = z
+  .object({
+    file_id: z.string().uuid(),
+    position: z.coerce.number().int().min(0).max(99).optional().default(0),
+  })
+  .strict();
+
+export type ContentMediaAttachInput = z.infer<typeof contentMediaAttachSchema>;
+
+/**
+ * Server-side guard for the `status` lifecycle:
+ *   idea → drafted → scheduled → posted   (forward path)
+ *   any of {idea, drafted, scheduled} → any of {idea, drafted, scheduled}
+ *   posted → (terminal — cannot be unposted in v1)
+ */
+export function isValidContentStatusTransition(
+  current: ContentStatus,
+  next: ContentStatus,
+): boolean {
+  if (current === next) return true;
+  if (current === "posted") return false;
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Re-exports
 // ─────────────────────────────────────────────────────────────────────────
 
