@@ -89,7 +89,7 @@ supabase/
 | [`docs/architecture/dual-mode.md`](docs/architecture/dual-mode.md) | Desktop ERP + Mobile PWA architecture |
 | [`docs/architecture/cross-pillar-sync.md`](docs/architecture/cross-pillar-sync.md) | Event bus design |
 | [`docs/marketplace-addons.md`](docs/marketplace-addons.md) | Add-on catalog (deferred until v1 core ships) |
-| [`docs/pricing.md`](docs/pricing.md), [`docs/packaging.md`](docs/packaging.md) | Tiers + add-on pricing |
+| [`docs/plans/`](docs/plans/) | Implementation plans for Marketing, Sales, HR + locked decisions |
 
 ## Design tokens
 

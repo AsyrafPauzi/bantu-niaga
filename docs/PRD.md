@@ -3,7 +3,7 @@
 > **Status:** v0.3 — Draft for engineering kickoff
 > **Owner:** Founder (Asyraf)
 > **Last updated:** 2026-06-02
-> **Related docs:** [README](./README.md) · [Pillars](./pillars/) · [Architecture](./architecture/) · [AI](./ai/) · [Pricing](./pricing.md) · [Packaging](./packaging.md)
+> **Related docs:** [README](./README.md) · [Pillars](./pillars/) · [Architecture](./architecture/) · [AI](./ai/) · [v1 core scope](./v1-core-scope.md) · [Plans](./plans/)
 
 ---
 
@@ -243,7 +243,7 @@ All three layers (DB / API / UI) read from **one matrix file**. Add a new featur
 
 ## 8. User Stories (v1 Scope)
 
-Prioritized **MoSCoW** — see [pricing.md](./pricing.md) and the pillar docs for full detail. Each story carries a US-ID for traceability.
+Prioritized **MoSCoW** — see [v1-core-scope.md](./v1-core-scope.md) and the pillar docs for full detail. Each story carries a US-ID for traceability.
 
 ### 8.1 Admin
 | ID | Story | Priority |

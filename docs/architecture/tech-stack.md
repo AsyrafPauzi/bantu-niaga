@@ -124,7 +124,7 @@ The same Next.js codebase serves **two product modes** — see [dual-mode.md](./
 
 ### Subscription model
 - Each business has one subscription per active product (base tier, each add-on, each AI Agent).
-- Proration on activation, fixed cycle on deactivation (see [pricing.md](../pricing.md)).
+- Proration on activation, fixed cycle on deactivation. (Tier and price data lives in code under `lib/billing/tiers.ts`, not in docs.)
 - Webhook handlers (`payment.success`, `payment.failed`, `subscription.cancelled`) drive feature gate state in real time.
 
 ### Failure handling

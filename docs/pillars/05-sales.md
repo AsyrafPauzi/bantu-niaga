@@ -85,7 +85,7 @@ Business
 ### 5.2 Convert a lead to a customer
 1. Sales → Leads → open card.
 2. Update status to **Won** → modal asks "Convert to Customer?".
-3. Confirm → customer record created in Marketing CRM, lead is archived.
+3. Confirm → customer record created in Marketing CRM, lead persists with `status='WON'` and `converted_customer_id` set (preserves attribution; locked in `docs/plans/marketing-decisions.md` Q7). Sales pipeline view defaults to filtering `status IN ('NEW','QUALIFIED','CONTACTED','NEGOTIATING')` so won leads don't clutter the active board.
 
 ### 5.3 Stale deal alarm (add-on)
 1. Lead status `Negotiating` + `last_contacted_at` > 48h ago.

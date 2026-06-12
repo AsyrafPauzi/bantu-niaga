@@ -127,10 +127,10 @@ The following items, previously listed in pillar `§6 Open Questions`, are now c
 
 These updates fall out of the core decision but are not part of this finalization. They should follow soon after:
 
-1. **`docs/marketplace-addons.md`** — add a new Finance add-on **Payment Gateway Connector** (Billplz / Curlec / Stripe / iPay88), ~RM 15–25/mo. Surfaces FPX, cards, e-wallets, dynamic DuitNow QR with auto-reconciliation via webhook.
-2. **`docs/pricing.md`** — mirror the same Payment Gateway Connector add-on under the Finance add-on price table.
-3. **`docs/packaging.md`** — refresh "What you get out of the box" sections to reflect the new core additions per pillar.
-4. **`docs/PRD.md`** — verify alignment if it has its own scope section.
+1. **`docs/marketplace-addons.md`** — add a new Finance add-on **Payment Gateway Connector** (Billplz / Curlec / Stripe / iPay88), surfaces FPX, cards, e-wallets, dynamic DuitNow QR with auto-reconciliation via webhook.
+2. **`docs/PRD.md`** — verify alignment if it has its own scope section.
+
+(Tier and price data lives in code under `lib/billing/tiers.ts`, not in docs.)
 
 The add-on platform itself (the 5-contract architecture: schema slots · events · UI slots · feature flags · permission scopes) is **deferred** — to be revisited after v1 core ships.
 
