@@ -1,0 +1,5 @@
+# Edge Functions live here.
+# Examples (created in their respective phases):
+#   - event-dispatcher/   reads events_outbox, fans out to listeners
+#   - lhdn-export/        long-running XML export (LHDN add-on)
+#   - ai-boardroom/       multi-agent orchestrator (Phase 5)
