@@ -1,0 +1,9 @@
+name,phone,email,address,notes,manual_tags
+Ali bin Abu,012-345 6789,,,,
+Ali B. Abu,0123456789,,,Duplicate within file (same phone),
+Different Person,012-345 6789,,,Same phone diff name (within file),
+,+60139998888,,,Missing name,
+Empty Phone,,,, missing phone field ,
+Bad Phone,not-a-number,,,,
+Bad Email,+60111122223,not-an-email,,,
+Fresh Customer,+60145551234,fresh@example.com,,Brand new,vip

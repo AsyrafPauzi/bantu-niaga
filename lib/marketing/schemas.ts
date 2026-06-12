@@ -168,6 +168,60 @@ export const searchQuerySchema = z.object({
 export type SearchQuery = z.infer<typeof searchQuerySchema>;
 
 // ─────────────────────────────────────────────────────────────────────────
+// CSV import / export — Marketing M3
+//
+// The upload endpoint is multipart/form-data, so Zod isn't used for the
+// body itself; instead we expose a response schema and the import_id
+// path-param shape, plus the commit + export query schemas.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Server-side max file size (bytes). Plan §8.6. */
+export const CSV_MAX_FILE_BYTES = 5 * 1024 * 1024;
+/** Server-side max parsed rows (decisions doc Q7). */
+export const CSV_MAX_ROWS = 5000;
+/** Preview cache TTL — used both at write (DB default) and read time. */
+export const CSV_PREVIEW_TTL_HOURS = 24;
+
+export const csvUploadResponseSchema = z.object({
+  import_id: z.string().uuid(),
+  file_size_bytes: z.number().int().nonnegative(),
+  uploaded_at: z.string().datetime(),
+});
+
+export type CsvUploadResponse = z.infer<typeof csvUploadResponseSchema>;
+
+/** Path-param shape for /csv-import/[id]/preview and /commit. */
+export const csvImportIdParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
+/**
+ * Commit body — only carries the import_id (which is also in the URL path
+ * for safety; commit handlers MUST verify they match before trusting
+ * either). No row payload: the commit endpoint reads from the cached
+ * preview on the import row so the operator can't slip in tampered rows
+ * after preview.
+ */
+export const csvCommitBodySchema = z
+  .object({
+    import_id: z.string().uuid(),
+  })
+  .strict();
+
+export type CsvCommitBody = z.infer<typeof csvCommitBodySchema>;
+
+/**
+ * Export query schema. v1 streams the full customer book; the only
+ * parameter is the optional `tag` filter for "export only my VIPs" use
+ * cases. Default = all live customers (no merged, no soft-deleted).
+ */
+export const csvExportQuerySchema = z.object({
+  tag: z.string().trim().min(1).max(40).optional(),
+});
+
+export type CsvExportQuery = z.infer<typeof csvExportQuerySchema>;
+
+// ─────────────────────────────────────────────────────────────────────────
 // Re-exports
 // ─────────────────────────────────────────────────────────────────────────
 

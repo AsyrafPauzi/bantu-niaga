@@ -15,6 +15,7 @@
     "supabase:reset": "supabase db reset",
     "seed": "tsx scripts/seed-owner.ts",
     "smoke:m2": "tsx scripts/smoke-m2.ts",
+    "smoke:m3": "tsx scripts/smoke-m3.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
