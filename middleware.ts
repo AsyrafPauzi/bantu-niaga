@@ -41,26 +41,41 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  const supabase = createServerClient(env.url, env.anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet: CookieToSet[]) {
-        cookiesToSet.forEach(({ name, value }) =>
-          request.cookies.set(name, value),
-        );
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
-        );
-      },
-    },
-  });
+  let user = null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = createServerClient(env.url, env.anonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: CookieToSet[]) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
+        },
+      },
+    });
+
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (err) {
+    // Fail closed: if Supabase is unreachable, env is misconfigured, or the
+    // SDK throws for any reason, treat the request as unauthenticated rather
+    // than crashing the edge middleware (which surfaces as MIDDLEWARE_
+    // INVOCATION_FAILED 500 in Vercel). Falling through lets the redirect /
+    // 401 logic below take over so the user sees /sign-in instead of a 500.
+    // eslint-disable-next-line no-console
+    console.error(
+      "[middleware] supabase.auth.getUser() failed; treating request as unauthenticated:",
+      err instanceof Error ? err.message : err,
+    );
+    user = null;
+  }
 
   if (user) return response;
 
