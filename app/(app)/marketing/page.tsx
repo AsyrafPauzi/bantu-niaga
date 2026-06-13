@@ -1,4 +1,35 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  AlertTriangle,
+  Calendar,
+  Camera,
+  Eye,
+  Facebook,
+  Gift,
+  Heart,
+  MessageSquare,
+  Plus,
+  Search,
+  Send,
+  Share2,
+  Star,
+  Tag,
+  Upload,
+  UserCheck,
+  UserPlus,
+  Users,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
+import { AiBanner } from "@/components/dashboard/ai-banner";
+import { BulletRow } from "@/components/dashboard/bullet-row";
+import { KpiTile } from "@/components/dashboard/kpi-tile";
+import { ListRow } from "@/components/dashboard/list-row";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { SectionCard } from "@/components/dashboard/section-card";
+import { StatusPill } from "@/components/dashboard/status-pill";
+import { TxRow } from "@/components/dashboard/tx-row";
 import { Card, CardBody } from "@/components/ui/card";
 import {
   getCurrentUser,
@@ -11,37 +42,115 @@ import {
   getCustomerGrowthSeries,
   getKpiDeltas,
   getKpiSnapshot,
-  getNewCustomersSparkline,
   getRecentActivity,
   getSegmentBreakdown,
-  getSpendDistribution,
   getTopCustomers,
   getUpcomingContent,
 } from "@/lib/marketing/dashboard-queries";
-import { DashboardHeader } from "@/components/marketing/dashboard/DashboardHeader";
-import { DashboardSection } from "@/components/marketing/dashboard/DashboardSection";
-import { KpiTileBig } from "@/components/marketing/dashboard/KpiTileBig";
-import { GrowthChart } from "@/components/marketing/dashboard/GrowthChart";
-import { SegmentDonut } from "@/components/marketing/dashboard/SegmentDonut";
-import { TopCustomersTable } from "@/components/marketing/dashboard/TopCustomersTable";
-import { UpcomingContentList } from "@/components/marketing/dashboard/UpcomingContentList";
-import { RecentActivityFeed } from "@/components/marketing/dashboard/RecentActivityFeed";
-import { SpendDistributionBar } from "@/components/marketing/dashboard/SpendDistributionBar";
-import { QuickActionsRow } from "@/components/marketing/dashboard/QuickActionsRow";
-import { ConnectPosCard } from "@/components/marketing/dashboard/ConnectPosCard";
-import { PeriodPill } from "@/components/marketing/dashboard/PeriodPill";
 
-/**
- * Marketing pillar landing page — dense CRM dashboard.
- *
- * Server Component. Pulls all dashboard data in parallel via
- * `Promise.all` so the page renders in a single round-trip. Each
- * chart child component is a "use client" island that wraps Recharts.
- */
 export const metadata = { title: "Marketing" };
 export const dynamic = "force-dynamic";
 
-export default async function MarketingLandingPage() {
+const QUICK_ACTIONS = [
+  {
+    icon: Send,
+    title: "Send broadcast",
+    subtitle: "WhatsApp · email",
+    href: "/marketing/customers",
+  },
+  {
+    icon: Tag,
+    title: "Tag customers",
+    subtitle: "Bulk auto-tag",
+    href: "/marketing/customers",
+  },
+  {
+    icon: Gift,
+    title: "Create coupon",
+    subtitle: "% / RM off",
+    href: "/marketing/content/new",
+  },
+  {
+    icon: Calendar,
+    title: "Schedule post",
+    subtitle: "TikTok · IG · FB",
+    href: "/marketing/content/new",
+  },
+  {
+    icon: Upload,
+    title: "Import CSV",
+    subtitle: "Bulk upload",
+    href: "/marketing/customers/import",
+  },
+];
+
+const CHANNEL_META: Record<
+  "tiktok" | "instagram" | "facebook",
+  { label: string; icon: LucideIcon; color: string }
+> = {
+  tiktok: {
+    label: "TikTok",
+    icon: Video,
+    color: "text-accent-700 dark:text-accent-200",
+  },
+  instagram: {
+    label: "Instagram",
+    icon: Camera,
+    color: "text-brand-700 dark:text-brand-200",
+  },
+  facebook: {
+    label: "Facebook",
+    icon: Facebook,
+    color: "text-brand-700 dark:text-brand-200",
+  },
+};
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function fmtRel(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffSec = Math.max(0, Math.round((now - then) / 1000));
+  if (diffSec < 60) return "Just now";
+  if (diffSec < 3600) return `${Math.round(diffSec / 60)} min ago`;
+  if (diffSec < 86400) return `${Math.round(diffSec / 3600)} hr ago`;
+  const days = Math.round(diffSec / 86400);
+  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+  const months = Math.round(days / 30);
+  return `${months} mo${months === 1 ? "" : "s"} ago`;
+}
+
+function fmtScheduled(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.valueOf())) return "—";
+  const sameDay = d.toDateString() === new Date().toDateString();
+  if (sameDay) {
+    return `Today · ${d.toLocaleTimeString("en-MY", { hour: "numeric", minute: "2-digit" })}`;
+  }
+  return d.toLocaleString("en-MY", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function eventIcon(name: string): LucideIcon {
+  if (name === "customer.created") return UserPlus;
+  if (name === "customer.tag_changed") return Tag;
+  if (name === "customer.merged") return UserCheck;
+  if (name === "customer.deleted") return AlertTriangle;
+  return UserCheck;
+}
+
+export default async function MarketingOverviewPage() {
   let user;
   try {
     user = await getCurrentUser();
@@ -58,8 +167,8 @@ export default async function MarketingLandingPage() {
             Marketing
           </h1>
           <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-            You don&apos;t have access to the Marketing pillar. Ask your
-            owner / manager.
+            You don&apos;t have access to the Marketing pillar. Ask your owner
+            or manager.
           </p>
         </CardBody>
       </Card>
@@ -67,205 +176,559 @@ export default async function MarketingLandingPage() {
   }
 
   const supabase = await createSupabaseServerClient();
+  const [snapshot, deltas, growth, segments, topCustomers, upcoming, activity] =
+    await Promise.all([
+      getKpiSnapshot(supabase, user.businessId),
+      getKpiDeltas(supabase, user.businessId),
+      getCustomerGrowthSeries(supabase, user.businessId, 12),
+      getSegmentBreakdown(supabase, user.businessId),
+      getTopCustomers(supabase, user.businessId, 5),
+      getUpcomingContent(supabase, user.businessId, 7),
+      getRecentActivity(supabase, user.businessId, 5),
+    ]);
 
-  const [
-    snapshot,
-    deltas,
-    growth,
-    segments,
-    topCustomers,
-    upcomingContent,
-    recentActivity,
-    spendBuckets,
-    spark,
-    businessRow,
-  ] = await Promise.all([
-    getKpiSnapshot(supabase, user.businessId),
-    getKpiDeltas(supabase, user.businessId),
-    getCustomerGrowthSeries(supabase, user.businessId, 12),
-    getSegmentBreakdown(supabase, user.businessId),
-    getTopCustomers(supabase, user.businessId, 5),
-    getUpcomingContent(supabase, user.businessId, 7),
-    getRecentActivity(supabase, user.businessId, 8),
-    getSpendDistribution(supabase, user.businessId),
-    getNewCustomersSparkline(supabase, user.businessId, 7),
-    supabase
-      .from("businesses")
-      .select("name")
-      .eq("id", user.businessId)
-      .maybeSingle(),
-  ]);
+  const totalCustomers = snapshot.totalCustomers;
+  const vipCount = snapshot.vipCount;
+  const repeatCount = snapshot.repeatCount;
+  const newCount = snapshot.newThisMonth;
+  const atRiskCount = snapshot.atRiskCount;
+  const dormantCount = snapshot.dormantCount;
 
-  const businessName =
-    typeof businessRow?.data?.name === "string" ? businessRow.data.name : "";
+  const segPct = (n: number): number =>
+    totalCustomers > 0 ? Math.min(100, Math.round((n / totalCustomers) * 100)) : 0;
 
-  const orderCount = Math.round(
-    snapshot.totalSpendMyr > 0 && snapshot.avgAovMyr > 0
-      ? snapshot.totalSpendMyr / snapshot.avgAovMyr
-      : 0,
-  );
+  const SEGMENT_ROWS = [
+    {
+      label: "VIP",
+      sublabel: "≥ RM 1,000 lifetime spend",
+      value: formatCount(vipCount),
+      fill: segPct(vipCount),
+      tone: "accent" as const,
+    },
+    {
+      label: "Repeat",
+      sublabel: "3+ orders in last 90 days",
+      value: formatCount(repeatCount),
+      fill: segPct(repeatCount),
+      tone: "brand" as const,
+    },
+    {
+      label: "New (MTD)",
+      sublabel: "Joined this month",
+      value: formatCount(newCount),
+      fill: segPct(newCount),
+      tone: "success" as const,
+    },
+    {
+      label: "At-risk",
+      sublabel: "No purchase in 60+ days",
+      value: formatCount(atRiskCount),
+      fill: segPct(atRiskCount),
+      tone: "warning" as const,
+    },
+    {
+      label: "Dormant",
+      sublabel: "No purchase in 120+ days",
+      value: formatCount(dormantCount),
+      fill: segPct(dormantCount),
+      tone: "muted" as const,
+    },
+  ];
 
-  const summary = `${formatCount(snapshot.totalCustomers)} customers · ${formatMyr(snapshot.totalSpendMyr)} lifetime spend · ${formatCount(snapshot.vipCount)} VIPs`;
+  const growthMax = Math.max(1, ...growth.map((g) => g.newAdditions));
+  const newThisMonthRow = growth[growth.length - 1]?.newAdditions ?? 0;
+  const newLastMonthRow = growth[growth.length - 2]?.newAdditions ?? 0;
+  const momDelta = newThisMonthRow - newLastMonthRow;
+  const momPct =
+    newLastMonthRow > 0
+      ? Math.round((momDelta / newLastMonthRow) * 100)
+      : newThisMonthRow > 0
+        ? 100
+        : 0;
 
-  const formatSignedCount = (n: number): string =>
+  const fmtSignedCount = (n: number): string =>
     `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("en-MY")}`;
-  const formatSignedMyr = (n: number): string => {
-    if (!Number.isFinite(n) || n === 0) return "RM 0";
-    const sign = n > 0 ? "+" : "−";
-    return `${sign}RM ${Math.abs(n).toFixed(2)}`;
-  };
+
+  const aiMessage =
+    atRiskCount > 0
+      ? `${formatCount(atRiskCount)} customers are At-risk and your VIP cohort is ${formatCount(vipCount)} strong. Send a personalised win-back broadcast — I can draft it.`
+      : `${formatCount(totalCustomers)} active customers · ${formatCount(vipCount)} VIPs. No At-risk segment right now; great time to nurture Repeats into VIPs.`;
 
   return (
     <div className="space-y-6">
-      <DashboardHeader
-        businessName={businessName}
-        summary={summary}
-        action={<PeriodPill label="This month" />}
+      <PageHeader
+        eyebrow="Marketing"
+        title="Overview"
+        description="Customer base, segments, channels, and content — at a glance."
+        action={
+          <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-2 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-sm text-ink-subtle shadow-card md:flex dark:border-hairline-dark dark:bg-panel-dark">
+              <Search className="h-4 w-4" strokeWidth={2} />
+              <span>Search customers, content…</span>
+            </div>
+            <Link
+              href="/marketing/customers/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-600 active:bg-accent-700"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.25} />
+              New customer
+            </Link>
+          </div>
+        }
       />
-
-      <QuickActionsRow />
 
       <section
         aria-label="Headline KPIs"
         className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4"
       >
-        <KpiTileBig
+        <KpiTile
           label="Total customers"
-          value={formatCount(snapshot.totalCustomers)}
-          sublabel="Live + un-merged records"
-          tone="brand"
+          value={formatCount(totalCustomers)}
           delta={
             deltas.totalCustomersDelta !== 0
-              ? {
-                  value: deltas.totalCustomersDelta,
-                  display: formatSignedCount(deltas.totalCustomersDelta),
-                  label: "vs last month",
-                }
-              : null
+              ? fmtSignedCount(deltas.totalCustomersDelta)
+              : undefined
           }
-          spark={spark}
-          sparkKey="total-customers"
+          deltaTone={deltas.totalCustomersDelta >= 0 ? "success" : "danger"}
+          helper="vs last month"
+          icon={Users}
         />
-        <KpiTileBig
-          label="New this month"
-          value={formatCount(snapshot.newThisMonth)}
-          sublabel="Created since the 1st"
-          tone="success"
-          delta={{
-            value: snapshot.newThisMonth,
-            display: `${snapshot.newThisMonth > 0 ? "+" : ""}${formatCount(snapshot.newThisMonth)}`,
-            label: "this month",
-          }}
-          spark={spark}
-          sparkKey="new-this-month"
+        <KpiTile
+          label="New (MTD)"
+          value={formatCount(newCount)}
+          delta={momDelta !== 0 ? `${momPct >= 0 ? "+" : ""}${momPct}%` : undefined}
+          deltaTone={momDelta >= 0 ? "success" : "danger"}
+          helper="vs last month"
+          icon={UserPlus}
         />
-        <KpiTileBig
-          label="Total spend"
-          value={formatMyr(snapshot.totalSpendMyr)}
-          sublabel="Lifetime, all live customers"
-          tone="accent"
+        <KpiTile
+          label="VIP customers"
+          value={formatCount(vipCount)}
           delta={
-            deltas.totalSpendDelta !== 0
-              ? {
-                  value: deltas.totalSpendDelta,
-                  display: formatSignedMyr(deltas.totalSpendDelta),
-                  label: "vs last month",
-                }
-              : null
+            totalCustomers > 0
+              ? `${Math.round((vipCount / totalCustomers) * 100)}% of base`
+              : undefined
           }
+          deltaTone="brand"
+          helper={`${formatMyr(snapshot.totalSpendMyr)} lifetime`}
+          icon={Star}
         />
-        <KpiTileBig
-          label="Avg order value"
-          value={formatMyr(snapshot.avgAovMyr)}
-          sublabel={`Across ${formatCount(orderCount)} orders`}
-          tone="info"
-          delta={
-            deltas.aovDelta !== 0
-              ? {
-                  value: deltas.aovDelta,
-                  display: formatSignedMyr(deltas.aovDelta),
-                  label: "vs last month",
-                }
-              : null
-          }
+        <KpiTile
+          label="At-risk"
+          value={formatCount(atRiskCount)}
+          delta={atRiskCount > 0 ? "needs care" : "all clear"}
+          deltaTone={atRiskCount > 0 ? "warning" : "success"}
+          helper="auto-segmented"
+          icon={AlertTriangle}
         />
       </section>
 
+      <AiBanner
+        label="Maya · Marketing AI"
+        message={aiMessage}
+        cta="Draft broadcast"
+        href="/marketing/customers"
+      />
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
-        <div className="space-y-4 lg:col-span-2 lg:space-y-6">
-          <Card>
-            <DashboardSection
-              accent
-              className="p-4 sm:p-5"
-              title="Customer growth"
-              subtitle="Cumulative customers vs new additions, last 12 months."
+        <SectionCard
+          title="Customer segments"
+          subtitle="Auto-tagged by spend, recency, and frequency"
+          className="lg:col-span-2"
+          bodyClassName="space-y-4"
+          action={
+            <Link
+              href="/marketing/customers"
+              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              <GrowthChart data={growth} />
-            </DashboardSection>
-          </Card>
+              View all
+            </Link>
+          }
+        >
+          {SEGMENT_ROWS.map((s) => (
+            <BulletRow key={s.label} {...s} />
+          ))}
+        </SectionCard>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-6">
-            <Card>
-              <DashboardSection
-                accent
-                className="p-4 sm:p-5"
-                title="Auto-segments"
-                subtitle="VIP / Repeat / New / Dormant / At-risk distribution."
-              >
-                <SegmentDonut slices={segments} />
-              </DashboardSection>
-            </Card>
-
-            <Card>
-              <DashboardSection
-                accent
-                className="p-4 sm:p-5"
-                title="Spend distribution"
-                subtitle="How your book splits across spend bands."
-              >
-                <SpendDistributionBar data={spendBuckets} />
-              </DashboardSection>
-            </Card>
-          </div>
-        </div>
-
-        <div className="space-y-4 lg:space-y-6">
-          <Card>
-            <DashboardSection
-              accent
-              className="p-4 sm:p-5"
-              title="Top customers"
-              subtitle="By lifetime spend."
+        <SectionCard
+          title="Recent activity"
+          subtitle="Live customer events"
+          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
+          action={
+            <Link
+              href="/marketing/customers"
+              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              <TopCustomersTable rows={topCustomers} />
-            </DashboardSection>
-          </Card>
-
-          <Card>
-            <DashboardSection
-              accent
-              className="p-4 sm:p-5"
-              title="Upcoming content"
-              subtitle="Next 7 days · TikTok, IG, FB."
-            >
-              <UpcomingContentList rows={upcomingContent} />
-            </DashboardSection>
-          </Card>
-
-          <Card>
-            <DashboardSection
-              accent
-              className="p-4 sm:p-5"
-              title="Recent activity"
-              subtitle="Live customer events."
-            >
-              <RecentActivityFeed rows={recentActivity} />
-            </DashboardSection>
-          </Card>
-        </div>
+              All
+            </Link>
+          }
+        >
+          {activity.length === 0 ? (
+            <p className="py-4 text-center text-sm text-ink-muted dark:text-cream-400">
+              No recent activity yet.
+            </p>
+          ) : (
+            activity.map((row) => (
+              <TxRow
+                key={row.id}
+                icon={eventIcon(row.event_name)}
+                tone={row.event_name === "customer.deleted" ? "warning" : "brand"}
+                title={row.summary}
+                subtitle={fmtRel(row.created_at)}
+                amount={row.event_name.replace("customer.", "")}
+              />
+            ))
+          )}
+        </SectionCard>
       </div>
 
-      <ConnectPosCard />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+        <SectionCard
+          title="Top customers"
+          subtitle="By lifetime spend"
+          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
+          action={
+            <Link
+              href="/marketing/customers"
+              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            >
+              All
+            </Link>
+          }
+        >
+          {topCustomers.length === 0 ? (
+            <p className="py-4 text-center text-sm text-ink-muted dark:text-cream-400">
+              No customers yet.
+            </p>
+          ) : (
+            topCustomers.map((c) => (
+              <Link
+                key={c.id}
+                href={`/marketing/customers/${c.id}`}
+                className="block hover:bg-cream-100/40 dark:hover:bg-hairline-dark/30"
+              >
+                <ListRow
+                  initials={initialsOf(c.name)}
+                  title={c.name}
+                  subtitle={`${c.auto_tags.includes("vip") ? "VIP" : c.auto_tags.includes("repeat") ? "Repeat" : "—"} · ${formatCount(c.order_count)} orders`}
+                  value={formatMyr(c.total_spend_myr)}
+                />
+              </Link>
+            ))
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title="Upcoming content"
+          subtitle="Next 7 days · TikTok, IG, FB"
+          className="lg:col-span-2"
+          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
+          action={
+            <Link
+              href="/marketing/content"
+              className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200"
+            >
+              Open calendar
+            </Link>
+          }
+        >
+          {upcoming.length === 0 ? (
+            <p className="py-4 text-center text-sm text-ink-muted dark:text-cream-400">
+              Nothing scheduled in the next 7 days. Plan a post →
+            </p>
+          ) : (
+            upcoming.map((p) => {
+              const meta = CHANNEL_META[p.channel];
+              const Icon = meta.icon;
+              return (
+                <Link
+                  key={p.id}
+                  href={`/marketing/content/${p.id}`}
+                  className="flex items-center gap-3 py-2.5 hover:bg-cream-100/40 dark:hover:bg-hairline-dark/30"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cream-100 dark:bg-hairline-dark/40">
+                    <Icon className={`h-4 w-4 ${meta.color}`} strokeWidth={2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink dark:text-cream-100">
+                      {p.hook ?? "Untitled post"}
+                    </p>
+                    <p className="truncate text-xs text-ink-muted dark:text-cream-400">
+                      <span className={`font-semibold ${meta.color}`}>
+                        {meta.label}
+                      </span>{" "}
+                      · {fmtScheduled(p.scheduled_at)}
+                    </p>
+                  </div>
+                  <StatusPill
+                    tone={p.status === "scheduled" ? "success" : "neutral"}
+                  >
+                    {p.status === "scheduled" ? "Scheduled" : "Draft"}
+                  </StatusPill>
+                </Link>
+              );
+            })
+          )}
+        </SectionCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+      <SectionCard
+        title="Customer growth"
+        subtitle={`New customers per month · last ${growth.length} months`}
+        className="lg:col-span-2"
+        action={
+          <span className="inline-flex items-center rounded-full bg-cream-200 px-2.5 py-1 text-[11px] font-semibold text-ink dark:bg-hairline-dark dark:text-cream-100">
+            Last {growth.length} months
+          </span>
+        }
+      >
+        <div className="flex h-44 items-end gap-2 sm:h-48">
+          {growth.map((g, i) => (
+            <div
+              key={g.month}
+              className="flex flex-1 flex-col items-center gap-2"
+            >
+              <div
+                className={`w-full rounded-t-md ${
+                  i === growth.length - 1 ? "bg-accent-500" : "bg-brand-200"
+                }`}
+                style={{
+                  height: `${Math.max(2, (g.newAdditions / growthMax) * 100)}%`,
+                }}
+                title={`${g.monthLabel}: +${g.newAdditions} (total ${g.total})`}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex gap-2">
+          {growth.map((g) => (
+            <span
+              key={g.month}
+              className="flex-1 text-center text-[11px] font-medium text-ink-muted dark:text-cream-400"
+            >
+              {g.monthLabel.split(" ")[0]}
+            </span>
+          ))}
+        </div>
+        <div className="mt-5 grid grid-cols-3 gap-4 border-t border-cream-200 pt-4 text-sm dark:border-hairline-dark">
+          <div>
+            <p
+              className={`font-semibold ${momDelta >= 0 ? "text-status-success" : "text-status-danger"}`}
+            >
+              {fmtSignedCount(momDelta)} this month
+            </p>
+            <p className="text-xs text-ink-muted dark:text-cream-400">
+              {momDelta === 0 ? "—" : `${momPct >= 0 ? "+" : ""}${momPct}% MoM`}
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-ink dark:text-cream-100">
+              {formatCount(totalCustomers)} total
+            </p>
+            <p className="text-xs text-ink-muted dark:text-cream-400">
+              Active customer base
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-brand-700 dark:text-brand-200">
+              {formatMyr(snapshot.totalSpendMyr)}
+            </p>
+            <p className="text-xs text-ink-muted dark:text-cream-400">
+              Lifetime spend
+            </p>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Channel performance"
+        subtitle="Reach + engagement · last 30 days"
+        bodyClassName="space-y-4"
+      >
+        {[
+          {
+            channel: "tiktok" as const,
+            reach: "8,240",
+            engagement: "6.2%",
+            posts: snapshot.totalCustomers > 0 ? upcoming.filter((u) => u.channel === "tiktok").length : 0,
+            fill: 78,
+          },
+          {
+            channel: "instagram" as const,
+            reach: "4,920",
+            engagement: "4.1%",
+            posts: upcoming.filter((u) => u.channel === "instagram").length,
+            fill: 56,
+          },
+          {
+            channel: "facebook" as const,
+            reach: "2,130",
+            engagement: "2.3%",
+            posts: upcoming.filter((u) => u.channel === "facebook").length,
+            fill: 32,
+          },
+        ].map((row) => {
+          const meta = CHANNEL_META[row.channel];
+          const Icon = meta.icon;
+          return (
+            <div key={row.channel} className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="inline-flex items-center gap-2 font-semibold text-ink dark:text-cream-100">
+                  <Icon className={`h-4 w-4 ${meta.color}`} strokeWidth={2} />
+                  {meta.label}
+                </span>
+                <span className="tabular-nums text-ink-muted dark:text-cream-400">
+                  {row.reach} reach · {row.engagement}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream-200 dark:bg-hairline-dark">
+                <div
+                  className={`h-full rounded-full ${
+                    row.channel === "tiktok"
+                      ? "bg-accent-500"
+                      : row.channel === "instagram"
+                        ? "bg-brand-500"
+                        : "bg-brand-300"
+                  }`}
+                  style={{ width: `${row.fill}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-ink-muted dark:text-cream-400">
+                {row.posts} upcoming post{row.posts === 1 ? "" : "s"}
+              </p>
+            </div>
+          );
+        })}
+        <p className="border-t border-cream-200 pt-3 text-[11px] italic text-ink-subtle dark:border-hairline-dark">
+          Sample reach values — connect your channels in Settings to activate
+          live metrics.
+        </p>
+      </SectionCard>
+      </div>
+
+      <SectionCard
+        title="Top performing content"
+        subtitle="Best posts in the last 30 days"
+        action={
+          <Link
+            href="/marketing/content"
+            className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+          >
+            View all
+          </Link>
+        }
+        bodyClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        {[
+          {
+            id: "sample-1",
+            channel: "tiktok" as const,
+            title: "Hari Raya menu reveal",
+            views: "12.4K",
+            likes: "842",
+            comments: "63",
+            shares: "104",
+          },
+          {
+            id: "sample-2",
+            channel: "instagram" as const,
+            title: "Behind-the-scenes kedai",
+            views: "5.1K",
+            likes: "412",
+            comments: "28",
+            shares: "37",
+          },
+          {
+            id: "sample-3",
+            channel: "facebook" as const,
+            title: "Promo Jumaat 20% off",
+            views: "3.2K",
+            likes: "188",
+            comments: "12",
+            shares: "22",
+          },
+          {
+            id: "sample-4",
+            channel: "tiktok" as const,
+            title: "Customer review viral",
+            views: "21.7K",
+            likes: "1.2K",
+            comments: "91",
+            shares: "215",
+          },
+        ].map((post) => {
+          const meta = CHANNEL_META[post.channel];
+          const Icon = meta.icon;
+          return (
+            <div
+              key={post.id}
+              className="space-y-2 rounded-xl border border-cream-200 bg-cream-100/60 p-3 dark:border-hairline-dark dark:bg-hairline-dark/30"
+            >
+              <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-accent-50 dark:bg-accent-700/15">
+                <Icon
+                  className={`h-8 w-8 ${meta.color} opacity-70`}
+                  strokeWidth={1.5}
+                />
+              </div>
+              <div>
+                <p className="line-clamp-2 text-sm font-semibold text-ink dark:text-cream-100">
+                  {post.title}
+                </p>
+                <p className={`mt-0.5 text-[11px] font-semibold ${meta.color}`}>
+                  {meta.label}
+                </p>
+              </div>
+              <div className="grid grid-cols-4 gap-1 border-t border-cream-200 pt-2 text-[10px] dark:border-hairline-dark">
+                {[
+                  { icon: Eye, value: post.views },
+                  { icon: Heart, value: post.likes },
+                  { icon: MessageSquare, value: post.comments },
+                  { icon: Share2, value: post.shares },
+                ].map((m, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col items-center gap-0.5 text-ink-muted dark:text-cream-400"
+                  >
+                    <m.icon className="h-3 w-3" strokeWidth={2} />
+                    <span className="tabular-nums">{m.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </SectionCard>
+
+      <section
+        aria-label="Quick actions"
+        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"
+      >
+        {QUICK_ACTIONS.map((a) => (
+          <Link
+            key={a.title}
+            href={a.href}
+            className="flex items-center gap-3 rounded-xl border border-hairline-light bg-panel-light p-3.5 shadow-card transition-shadow hover:shadow-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-hairline-dark dark:bg-panel-dark"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-700 dark:bg-accent-700/20 dark:text-accent-200">
+              <a.icon className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink dark:text-cream-100">
+                {a.title}
+              </p>
+              <p className="truncate text-xs text-ink-muted dark:text-cream-400">
+                {a.subtitle}
+              </p>
+            </div>
+          </Link>
+        ))}
+      </section>
+
+      <p className="text-center text-[11px] text-ink-subtle">
+        Channel and content engagement use sample data until social webhooks
+        are connected. Configure your channels in Settings →
+      </p>
     </div>
   );
 }
