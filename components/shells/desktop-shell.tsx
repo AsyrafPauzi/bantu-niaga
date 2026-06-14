@@ -8,6 +8,7 @@ import {
   FileText,
   Banknote,
   Boxes,
+  Lock,
   Megaphone,
   ShoppingCart,
   Users,
@@ -15,12 +16,33 @@ import {
   Store,
   Settings,
   LogOut,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/app/sign-in/actions";
+import type { TierKey } from "@/lib/settings/plans";
+import {
+  hasPillar,
+  minimumTierFor,
+  type Pillar,
+} from "@/lib/auth/entitlements";
+import { tierBy } from "@/lib/settings/plans";
 
-const SIDEBAR_GROUPS = [
+interface SidebarItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  /** When set, the sidebar checks the current tier against this pillar. */
+  pillar?: Pillar;
+}
+
+interface SidebarGroup {
+  label: string;
+  items: SidebarItem[];
+}
+
+const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
   {
     label: "Overview",
     items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }],
@@ -28,25 +50,41 @@ const SIDEBAR_GROUPS = [
   {
     label: "Modules",
     items: [
-      { href: "/admin", label: "Admin", icon: FileText },
-      { href: "/finance", label: "Finance", icon: Banknote },
-      { href: "/operations", label: "Operations", icon: Boxes },
-      { href: "/marketing", label: "Marketing", icon: Megaphone },
-      { href: "/sales", label: "Sales", icon: ShoppingCart },
-      { href: "/hr", label: "HR", icon: Users },
+      { href: "/admin", label: "Admin", icon: FileText, pillar: "admin" },
+      { href: "/finance", label: "Finance", icon: Banknote, pillar: "finance" },
+      {
+        href: "/operations",
+        label: "Operations",
+        icon: Boxes,
+        pillar: "operations",
+      },
+      {
+        href: "/marketing",
+        label: "Marketing",
+        icon: Megaphone,
+        pillar: "marketing",
+      },
+      { href: "/sales", label: "Sales", icon: ShoppingCart, pillar: "sales" },
+      { href: "/hr", label: "HR", icon: Users, pillar: "hr" },
     ],
   },
   {
-    label: "Cross-cutting",
+    label: "Platform",
     items: [
       { href: "/boardroom", label: "AI Boardroom", icon: Sparkles },
       { href: "/marketplace", label: "Marketplace", icon: Store },
       { href: "/settings", label: "Settings", icon: Settings },
     ],
   },
-] as const;
+];
 
-export function DesktopShell({ children }: { children: ReactNode }) {
+export function DesktopShell({
+  tier,
+  children,
+}: {
+  tier: TierKey;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
 
   return (
@@ -82,24 +120,47 @@ export function DesktopShell({ children }: { children: ReactNode }) {
                   {group.label}
                 </p>
                 <ul>
-                  {group.items.map(({ href, label, icon: Icon }) => {
+                  {group.items.map(({ href, label, icon: Icon, pillar }) => {
                     const active =
                       href === "/"
                         ? pathname === "/"
                         : pathname === href || pathname.startsWith(`${href}/`);
+                    const locked = pillar ? !hasPillar(tier, pillar) : false;
+                    const minTier = locked
+                      ? tierBy(minimumTierFor(pillar!))
+                      : null;
+                    const lockedHref = locked
+                      ? `/settings/subscription?locked=${pillar}`
+                      : href;
                     return (
                       <li key={href}>
                         <Link
-                          href={href}
+                          href={lockedHref}
+                          title={
+                            locked
+                              ? `Available on ${minTier?.label ?? "a higher"} plan`
+                              : undefined
+                          }
                           className={cn(
-                            "flex items-center gap-3 px-5 py-2.5 text-sm transition-colors",
+                            "flex items-center justify-between gap-3 px-5 py-2.5 text-sm transition-colors border-l-4",
                             active
-                              ? "bg-brand-50 text-brand-700 font-semibold border-l-4 border-accent-500 dark:bg-brand-900/30 dark:text-brand-200"
-                              : "text-ink-muted hover:bg-cream-100 hover:text-ink border-l-4 border-transparent dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
+                              ? "bg-brand-50 text-brand-700 font-semibold border-accent-500 dark:bg-brand-900/30 dark:text-brand-200"
+                              : locked
+                                ? "text-ink-subtle hover:bg-cream-100 hover:text-ink-muted border-transparent dark:text-cream-500 dark:hover:bg-hairline-dark/60"
+                                : "text-ink-muted hover:bg-cream-100 hover:text-ink border-transparent dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
                           )}
                         >
-                          <Icon className="h-4 w-4" strokeWidth={2} />
-                          <span>{label}</span>
+                          <span className="flex items-center gap-3 min-w-0">
+                            <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
+                            <span className="truncate">{label}</span>
+                          </span>
+                          {locked ? (
+                            <Lock
+                              className="h-3.5 w-3.5 shrink-0 text-ink-subtle dark:text-cream-500"
+                              strokeWidth={2}
+                              aria-label="Locked on this plan"
+                            />
+                          ) : null}
                         </Link>
                       </li>
                     );

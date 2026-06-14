@@ -16,15 +16,25 @@
  *
  * `STUB_USER` is still exported for tests that need a synthetic owner
  * identity without a real session — but production paths never see it.
+ *
+ * Wrapped in `react.cache()` so the dozens of components that call
+ * `getCurrentUser()` during a single Server-Component render tree share
+ * one Supabase round-trip instead of N.
  */
+import "server-only";
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ROLES, type Role } from "@/lib/permissions";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { getActiveImpersonation } from "@/lib/auth/impersonation";
 
 export interface CurrentUser {
   id: string;
   role: Role;
   businessId: string;
   isStub: boolean;
+  /** True when this user is being viewed via a platform-admin impersonation session. */
+  impersonatedBy?: { adminUserId: string; adminEmail: string };
 }
 
 export class UnauthorizedError extends Error {
@@ -54,7 +64,9 @@ function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value);
 }
 
-export async function getCurrentUser(): Promise<CurrentUser> {
+export const getCurrentUser = cache(_getCurrentUser);
+
+async function _getCurrentUser(): Promise<CurrentUser> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -62,6 +74,35 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   if (!user) {
     throw new UnauthorizedError("no_session", "No authenticated session.");
+  }
+
+  // If the caller has an active platform-admin impersonation token, resolve
+  // the target user via the service-role client (bypassing the admin's RLS
+  // scope which doesn't include the target's row).
+  const impersonation = await getActiveImpersonation();
+  if (impersonation && impersonation.adminUserId === user.id) {
+    const svc = createServiceRoleClient();
+    const { data: target } = await svc
+      .from("users")
+      .select("id, role, business_id")
+      .eq("id", impersonation.targetUserId)
+      .maybeSingle();
+    if (
+      target &&
+      isRole(target.role) &&
+      typeof target.business_id === "string"
+    ) {
+      return {
+        id: target.id as string,
+        role: target.role,
+        businessId: target.business_id,
+        isStub: false,
+        impersonatedBy: {
+          adminUserId: impersonation.adminUserId,
+          adminEmail: impersonation.adminEmail,
+        },
+      };
+    }
   }
 
   const { data: profile, error } = await supabase

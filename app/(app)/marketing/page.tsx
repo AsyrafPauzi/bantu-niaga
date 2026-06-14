@@ -47,6 +47,7 @@ import {
   getTopCustomers,
   getUpcomingContent,
 } from "@/lib/marketing/dashboard-queries";
+import { getDemoChannelMix, getDemoTopPosts } from "@/lib/demo/figures";
 
 export const metadata = { title: "Marketing" };
 export const dynamic = "force-dynamic";
@@ -167,7 +168,7 @@ export default async function MarketingOverviewPage() {
             Marketing
           </h1>
           <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-            You don&apos;t have access to the Marketing pillar. Ask your owner
+            You don&apos;t have access to the Marketing module. Ask your owner
             or manager.
           </p>
         </CardBody>
@@ -193,6 +194,9 @@ export default async function MarketingOverviewPage() {
   const newCount = snapshot.newThisMonth;
   const atRiskCount = snapshot.atRiskCount;
   const dormantCount = snapshot.dormantCount;
+
+  const channelMix = getDemoChannelMix(user.businessId);
+  const topPosts = getDemoTopPosts(user.businessId, 4);
 
   const segPct = (n: number): number =>
     totalCustomers > 0 ? Math.min(100, Math.round((n / totalCustomers) * 100)) : 0;
@@ -546,29 +550,18 @@ export default async function MarketingOverviewPage() {
         subtitle="Reach + engagement · last 30 days"
         bodyClassName="space-y-4"
       >
-        {[
-          {
-            channel: "tiktok" as const,
-            reach: "8,240",
-            engagement: "6.2%",
-            posts: snapshot.totalCustomers > 0 ? upcoming.filter((u) => u.channel === "tiktok").length : 0,
-            fill: 78,
-          },
-          {
-            channel: "instagram" as const,
-            reach: "4,920",
-            engagement: "4.1%",
-            posts: upcoming.filter((u) => u.channel === "instagram").length,
-            fill: 56,
-          },
-          {
-            channel: "facebook" as const,
-            reach: "2,130",
-            engagement: "2.3%",
-            posts: upcoming.filter((u) => u.channel === "facebook").length,
-            fill: 32,
-          },
-        ].map((row) => {
+        {channelMix
+          .filter(
+            (c): c is typeof c & { channel: "tiktok" | "instagram" | "facebook" } =>
+              c.channel !== "whatsapp",
+          )
+          .map((row) => {
+            const upcomingCount = upcoming.filter(
+              (u) => u.channel === row.channel,
+            ).length;
+            return { ...row, posts: upcomingCount || row.posts };
+          })
+          .map((row) => {
           const meta = CHANNEL_META[row.channel];
           const Icon = meta.icon;
           return (
@@ -601,8 +594,8 @@ export default async function MarketingOverviewPage() {
           );
         })}
         <p className="border-t border-cream-200 pt-3 text-[11px] italic text-ink-subtle dark:border-hairline-dark">
-          Sample reach values — connect your channels in Settings to activate
-          live metrics.
+          Activate the TikTok Shop sync or WhatsApp Business add-on in the
+          Marketplace to swap in live metrics.
         </p>
       </SectionCard>
       </div>
@@ -620,44 +613,7 @@ export default async function MarketingOverviewPage() {
         }
         bodyClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
       >
-        {[
-          {
-            id: "sample-1",
-            channel: "tiktok" as const,
-            title: "Hari Raya menu reveal",
-            views: "12.4K",
-            likes: "842",
-            comments: "63",
-            shares: "104",
-          },
-          {
-            id: "sample-2",
-            channel: "instagram" as const,
-            title: "Behind-the-scenes kedai",
-            views: "5.1K",
-            likes: "412",
-            comments: "28",
-            shares: "37",
-          },
-          {
-            id: "sample-3",
-            channel: "facebook" as const,
-            title: "Promo Jumaat 20% off",
-            views: "3.2K",
-            likes: "188",
-            comments: "12",
-            shares: "22",
-          },
-          {
-            id: "sample-4",
-            channel: "tiktok" as const,
-            title: "Customer review viral",
-            views: "21.7K",
-            likes: "1.2K",
-            comments: "91",
-            shares: "215",
-          },
-        ].map((post) => {
+        {topPosts.map((post) => {
           const meta = CHANNEL_META[post.channel];
           const Icon = meta.icon;
           return (
@@ -726,8 +682,9 @@ export default async function MarketingOverviewPage() {
       </section>
 
       <p className="text-center text-[11px] text-ink-subtle">
-        Channel and content engagement use sample data until social webhooks
-        are connected. Configure your channels in Settings →
+        Live customer + segment data · channel reach and post engagement will
+        switch to real numbers once you activate the TikTok or WhatsApp add-on
+        from the <Link href="/marketplace" className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200">Marketplace</Link>.
       </p>
     </div>
   );

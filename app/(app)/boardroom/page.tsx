@@ -291,7 +291,7 @@ export default function BoardroomPage() {
                 </button>
               </form>
               <p className="mt-2 text-xs text-ink-muted dark:text-cream-400">
-                Each AI agent answers from its own pillar context with a token-bounded slice. Subscribe more agents in <span className="font-medium text-brand-700 dark:text-brand-200">Marketplace</span> to expand the room.
+                Each AI agent answers from its own module context with a token-bounded slice. Subscribe more agents in <span className="font-medium text-brand-700 dark:text-brand-200">Marketplace</span> to expand the room.
               </p>
             </CardBody>
           </Card>

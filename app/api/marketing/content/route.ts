@@ -56,6 +56,8 @@ async function requireUser() {
 
 const CONTENT_SELECT =
   "id, business_id, channel, status, scheduled_at, hook, caption, " +
+  "hashtags, views, likes, comments_count, shares, saves, " +
+  "forecast_reach_min, forecast_reach_max, " +
   "created_by, posted_at, created_at, updated_at";
 
 export async function GET(request: Request) {
@@ -201,6 +203,9 @@ export async function POST(request: Request) {
       scheduled_at: parsed.scheduled_at ?? null,
       hook: parsed.hook ?? null,
       caption: parsed.caption ?? null,
+      hashtags: parsed.hashtags ?? [],
+      forecast_reach_min: parsed.forecast_reach_min ?? null,
+      forecast_reach_max: parsed.forecast_reach_max ?? null,
       created_by: user.id,
       posted_at: postedAt,
     })

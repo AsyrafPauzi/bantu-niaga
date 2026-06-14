@@ -31,7 +31,7 @@ export function ConnectPosCard() {
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Link href="/sales">
             <Button size="sm">
-              Open Sales pillar
+              Open Sales module
               <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
             </Button>
           </Link>

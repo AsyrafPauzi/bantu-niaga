@@ -17,6 +17,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./", import.meta.url)),
+      // `server-only` throws inside non-server bundles by design. Stub it
+      // out in tests so we can unit-test server-flagged modules.
+      "server-only": fileURLToPath(
+        new URL("./tests/stubs/server-only.ts", import.meta.url),
+      ),
     },
   },
 });

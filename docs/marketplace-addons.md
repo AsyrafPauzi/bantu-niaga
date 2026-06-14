@@ -1,86 +1,123 @@
-# Marketplace Add-ons — Master Catalog
+# Marketplace — Add-on catalog
 
-> Every paid upgrade in BantuNiaga, in one place. Prices are monthly add-ons on top of the Base Subscription.
+> The Marketplace is the in-product switchboard for capabilities that
+> aren't bundled with the four plan tiers. Owners turn an add-on on with
+> one tap; billing prorates against the current cycle.
+>
+> This doc records the **catalog that actually ships in the app today**.
+> The source of truth is the DB seed in
+> [`supabase/migrations/00000000000011_marketplace_m1.sql`](../supabase/migrations/00000000000011_marketplace_m1.sql)
+> + the category cleanup in
+> [`00000000000014_marketplace_categories.sql`](../supabase/migrations/00000000000014_marketplace_categories.sql).
 
-## How the Marketplace Works
+---
 
-- Every account has all six **Base Packages** included.
-- The Marketplace is a switchboard inside the dashboard — owners enable an add-on with one tap, billing prorates.
-- Add-ons are scoped to **a single business account**; they don't transfer.
-- Storage tiers are **mutually exclusive** (one tier active at a time); all other add-ons are independent.
+## How the Marketplace works
 
-## Full Catalog
+- The catalog is global (`public.marketplace_addons`, public read).
+- Per-business activation state lives in `public.business_addons` with
+  owner-only RLS.
+- The activate / deactivate flow is atomic via the
+  `public.marketplace_activate_addon(slug, qty)` and
+  `public.marketplace_deactivate_addon(slug)` RPCs — each writes an
+  invoice row + audit-log entry in the same transaction.
+- Add-ons are scoped to a single business; they don't transfer between
+  tenants.
+- `included_in_tier` on each add-on declares the tiers that get it for
+  free; activation on those tiers shows **Included** and a *Configure*
+  CTA instead of a price.
 
-| Pillar | Add-on | Price (RM/mo) | Summary |
-|--------|--------|--------------:|---------|
-| Admin | Custom Document Builder | 15 | Drag-and-drop visual editor: customize core text, sections, branding, build templates from scratch. |
-| Admin | Storage Tier — 5 GB | 5 | Raises storage cap from 1 GB to 5 GB. |
-| Admin | Storage Tier — 20 GB | 15 | Raises storage cap to 20 GB. |
-| Finance | Full Ledger Analytics Suite | 25 | Balance Sheet, multi-account reconciliations, structural P&L reports. |
-| Finance | LHDN Tax & E-Invoicing Exporter | 35 | XML schemas for Malaysian e-invoicing; Form B / Form P mapping. |
-| Operations | Micro Stock Tracker & Low-Stock Alarms | 20 | Auto-decrements stock on paid invoices; alerts when below safety line. |
-| Marketing | Smart Link Tracker (UTM) | 15 | Generates UTM-tagged links; trace traffic per source/campaign. |
-| Marketing | Promo Engine & WhatsApp Script Templates | 20 | Builds discounts + ready-to-paste WhatsApp scripts. |
-| Sales | Stale Deal & Detail Alarms | 15 | Alerts when premium leads stay uncontacted > 48 hours. |
-| Sales | Hardware & Advanced POS Extensions | 25 | Thermal printer pairing, barcode scanning, table maps, offline cache. |
-| HR | Shift Rota Scheduler | 20 | Drag-and-drop weekly shift planner. |
-| HR | Self-Service Mobile Leave Forms | 25 | Public secure leave-request URL + auto email on Approve/Reject. |
+UI lives in [`components/marketplace/MarketplaceView.tsx`](../components/marketplace/MarketplaceView.tsx).
+Server page in [`app/(app)/marketplace/page.tsx`](../app/(app)/marketplace/page.tsx).
+Pencil design: **Screen — Marketplace** in `pencil-new.pen`.
 
-## Bundles (Suggested)
+## Tabs (UI categories)
 
-These are recommended combinations — not enforced bundles. They're useful as sales talking points.
+The view exposes nine filter chips in this exact order:
 
-### "Retail Starter" — RM 60/mo of add-ons
-For a small kedai runcit or convenience store.
+```
+Admin · HR · Finance · Operations · Marketing · Sales · AI agents · All add-ons · Active
+```
 
-- Micro Stock Tracker (RM20)
-- Hardware & POS Extensions (RM25)
-- Storage 5 GB (RM5)
-- Stale Deal Alarms (RM15) — optional if owner has B2B side
+> Why no "Cross-cutting" tab? Earlier seeds used a `cross` pillar for
+> platform-wide utilities (extra storage, extra seats). Renamed and
+> re-classified — storage now lives under **Admin**, seats under
+> **Admin**, and the engineer-flavoured "Cross-cutting" bucket is gone
+> from the UI. The `cross` value remains valid in the DB check
+> constraint and `AddonPillar` TypeScript union for forward-compat;
+> no add-on uses it today.
 
-### "Compliance Pack" — RM 60/mo
-For a growing business that needs to be LHDN-ready.
+## Live catalog (M1 + 2026-06-14 update)
 
-- Full Ledger Analytics Suite (RM25)
-- LHDN E-Invoicing Exporter (RM35)
+| Slug                   | Name                            | Pillar     | Price          | Included in           | Notes                                                                 |
+|------------------------|---------------------------------|------------|----------------|-----------------------|-----------------------------------------------------------------------|
+| `whatsapp-business`    | WhatsApp Business API           | Marketing  | RM 35/month    | —                     | Featured. Tier-1 official channel via Meta. 1,000 free outbound/month. |
+| `tiktok-sync`          | TikTok Shop sync                | Marketing  | RM 25/month    | —                     | 15-min two-way sync.                                                  |
+| `extra-seat`           | Extra staff seat                | Admin      | RM 15/seat/mo  | —                     | Per-seat. Carries role permissions + audit trail.                     |
+| `storage-10gb`         | Extra 10 GB storage             | Admin      | RM 8/month     | —                     | Singapore region. Soft warn at 80%.                                   |
+| `boost-credits-300`    | Boost Credits · 300             | AI agents  | RM 50 one-time | —                     | Top up for Maya / Operations AI / Boardroom. Credits never expire.    |
+| `boardroom-weekly`     | Boardroom AI weekly digest      | AI agents  | RM 20/month    | —                     | Sunday-morning multi-pillar report.                                   |
+| `lhdn-einvoice`        | LHDN e-Invoice connector        | Finance    | Included       | `sme`, `enterprise`   | MyInvois. Mandatory for businesses with >RM 25 m revenue.             |
+| `shopee-sync`          | Shopee Mall sync                | Sales      | RM 25/month    | —                     | Daily bank reconciliation. SLS / J&T / DHL pickup integration.        |
+| `payroll-bank-export`  | Payroll bank export             | HR         | RM 20/month    | —                     | Maybank · CIMB · Public Bank · RHB direct-credit CSV.                 |
+| `holiday-calendar-sync`| Public holiday calendar sync    | HR         | Included       | `sme`, `enterprise`   | MY federal + state holidays into HR leave calendar.                   |
 
-### "Growth Marketing" — RM 35/mo
-For online sellers leaning on TikTok/IG.
+Operations currently has no add-ons (the empty-state copy explains
+this); future stock-management add-ons land here.
 
-- Smart Link Tracker (RM15)
-- Promo Engine & WA Templates (RM20)
+## Entitlement interaction with plan tiers
 
-### "People Ops" — RM 45/mo
-For a 5–15 person team.
+Add-ons are independent of the [tier → pillar entitlement
+matrix](./architecture/entitlements.md). Activating an add-on does NOT
+unlock its pillar:
 
-- Shift Rota Scheduler (RM20)
-- Self-Service Leave Forms (RM25)
+- A Free-tier owner can activate **Payroll bank export** — but their HR
+  pillar is still locked, so the add-on stays dormant until they upgrade
+  to Growth or Pro.
+- Conversely, an Enterprise owner with the Marketing pillar unlocked can
+  still choose not to activate **WhatsApp Business API**.
 
-### "Bespoke Branding" — RM 30/mo
-For service businesses (consultants, agencies, contractors).
+The product framing: tiers unlock **modules**, add-ons add
+**capabilities to modules you already have**.
 
-- Custom Document Builder (RM15)
-- Storage 20 GB (RM15)
+## Activation / deactivation behaviour
 
-## Add-on Dependencies & Interactions
+- **Activation** — prorated for the current billing cycle; the feature
+  unlocks immediately. The activate RPC computes `v_amount_myr` from
+  `price_cents / 100` for the prorated portion and writes an invoice
+  row with `period_label = '<name> proration'`.
+- **Deactivation** — access remains until `next_charge_at` (the end of
+  the paid period); `cancel_at` is stamped and the card shows
+  *"Cancels soon"*. No refund. Re-activation before `cancel_at` clears
+  the flag.
+- **Included** add-ons (LHDN, holiday calendar) cannot be deactivated
+  while the tier covers them. The UI swaps the *Activate* button for a
+  *Configure* CTA.
 
-A few add-ons enrich each other or interlock with Base features. These are worth noting in onboarding flows:
+## Adding a new add-on
 
-| Add-on | Depends on / Enriches |
-|--------|------------------------|
-| Micro Stock Tracker | Finance → Invoice (Paid event triggers decrement); Operations → Product Manager (must have SKUs). |
-| LHDN Exporter | Finance → Invoice ledger; recommended pairing with Full Ledger Analytics. |
-| Self-Service Leave Forms | HR → Core Registry (Staff IDs); Admin → Storage (MC photo uploads); Admin → Notifications. |
-| Hardware & POS Extensions | Sales → POS; Operations → Product Manager (barcodes / SKUs). |
-| Promo Engine | Marketing → Customer CRM (for targeting). |
-| Smart Link Tracker | Independent — but ROI shows best when paired with Promo Engine. |
+1. Pick a stable `slug` (kebab-case, ASCII).
+2. Pick the correct pillar — the tab strip is in the same order as the
+   sidebar's pillar order, plus AI agents. If your add-on doesn't fit
+   any pillar, that's a signal to rename or split it. The `cross` value
+   is a last resort.
+3. Decide on `cadence`:
+   - `monthly` / `yearly` for recurring,
+   - `one_time` for credit packs / setup fees,
+   - `included` for tier-bundled features that still need an
+     activation toggle.
+4. Add a row to the seed insert in migration 11 (or a new migration if
+   the seed is already shipped) and re-run `supabase migration up` on
+   dev. The `on conflict (slug) do update` clause makes the seed
+   idempotent.
+5. If the new add-on has a corresponding icon, register it in
+   `ICON_MAP` inside `MarketplaceView.tsx` (Lucide icons only).
 
-## Activation / Deactivation Rules
+## Removed sections from earlier drafts
 
-- **Activation:** prorated for the current billing cycle; feature unlocks immediately.
-- **Deactivation:** access remains until the end of the paid period; feature locks at next cycle.
-- **Data retention on deactivation:**
-  - Custom Document Builder → custom templates stay read-only; can be re-activated to edit.
-  - Storage downgrades → uploads block if over the new cap; existing files remain accessible read-only until usage drops below the cap. (Final policy: see Open Questions in Admin pillar.)
-  - LHDN Exporter → previously generated XMLs remain downloadable; no new generation.
-  - Stock Tracker → stock counts freeze at last value; no auto-decrement.
+Pre-2026-06-14 the marketplace was framed as a flat catalog of pillar
+upgrades (Stock Tracker, Shift Rota, Self-Service Leave Forms…).
+That list lives on as a wishlist in
+[`v1-core-scope.md`](./v1-core-scope.md) under "What's NOT in v1 Core".
+Once those features land, they'll come back here as activatable
+add-ons; until then they're not catalogued.

@@ -27,6 +27,8 @@ export const dynamic = "force-dynamic";
 
 const CONTENT_SELECT =
   "id, business_id, channel, status, scheduled_at, hook, caption, " +
+  "hashtags, views, likes, comments_count, shares, saves, " +
+  "forecast_reach_min, forecast_reach_max, " +
   "created_by, posted_at, created_at, updated_at";
 
 async function requireUser() {
@@ -160,6 +162,17 @@ export async function PATCH(
   if (parsed.hook !== undefined) update.hook = parsed.hook;
   if (parsed.caption !== undefined) update.caption = parsed.caption;
   if (parsed.scheduled_at !== undefined) update.scheduled_at = parsed.scheduled_at;
+  if (parsed.hashtags !== undefined) update.hashtags = parsed.hashtags;
+  if (parsed.views !== undefined) update.views = parsed.views;
+  if (parsed.likes !== undefined) update.likes = parsed.likes;
+  if (parsed.comments_count !== undefined)
+    update.comments_count = parsed.comments_count;
+  if (parsed.shares !== undefined) update.shares = parsed.shares;
+  if (parsed.saves !== undefined) update.saves = parsed.saves;
+  if (parsed.forecast_reach_min !== undefined)
+    update.forecast_reach_min = parsed.forecast_reach_min;
+  if (parsed.forecast_reach_max !== undefined)
+    update.forecast_reach_max = parsed.forecast_reach_max;
 
   if (parsed.status !== undefined) {
     const next = parsed.status as ContentStatus;

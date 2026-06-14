@@ -7,23 +7,45 @@ import {
   Home,
   Wallet,
   Boxes,
+  Lock,
   Users,
   Menu,
   LogOut,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/app/sign-in/actions";
+import type { TierKey } from "@/lib/settings/plans";
+import { hasPillar, type Pillar } from "@/lib/auth/entitlements";
 
-const TABS = [
+interface Tab {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  pillar?: Pillar;
+}
+
+const TABS: readonly Tab[] = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/finance", label: "Money", icon: Wallet },
-  { href: "/operations", label: "Ops", icon: Boxes },
-  { href: "/marketing/customers", label: "People", icon: Users },
+  { href: "/finance", label: "Money", icon: Wallet, pillar: "finance" },
+  { href: "/operations", label: "Ops", icon: Boxes, pillar: "operations" },
+  {
+    href: "/marketing/customers",
+    label: "People",
+    icon: Users,
+    pillar: "marketing",
+  },
   { href: "/more", label: "More", icon: Menu },
-] as const;
+];
 
-export function MobileShell({ children }: { children: ReactNode }) {
+export function MobileShell({
+  tier,
+  children,
+}: {
+  tier: TierKey;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
 
   return (
@@ -60,20 +82,26 @@ export function MobileShell({ children }: { children: ReactNode }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-20 bg-panel-light border-t border-hairline-light dark:bg-panel-dark dark:border-hairline-dark">
         <ul className="grid grid-cols-5">
-          {TABS.map(({ href, label, icon: Icon }) => {
+          {TABS.map(({ href, label, icon: Icon, pillar }) => {
             const active =
               href === "/"
                 ? pathname === "/"
                 : pathname === href || pathname.startsWith(`${href}/`);
+            const locked = pillar ? !hasPillar(tier, pillar) : false;
+            const lockedHref = locked
+              ? `/settings/subscription?locked=${pillar}`
+              : href;
             return (
               <li key={href} className="relative">
                 <Link
-                  href={href}
+                  href={lockedHref}
                   className={cn(
                     "flex flex-col items-center justify-center gap-1 py-2 min-h-tap-min text-xs",
                     active
                       ? "text-brand-700 dark:text-brand-200"
-                      : "text-ink-muted dark:text-cream-400",
+                      : locked
+                        ? "text-ink-subtle dark:text-cream-500"
+                        : "text-ink-muted dark:text-cream-400",
                   )}
                 >
                   {active && (
@@ -82,7 +110,18 @@ export function MobileShell({ children }: { children: ReactNode }) {
                       className="absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-accent-500"
                     />
                   )}
-                  <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+                  <span className="relative">
+                    <Icon
+                      className="h-5 w-5"
+                      strokeWidth={active ? 2.4 : 2}
+                    />
+                    {locked ? (
+                      <Lock
+                        className="absolute -bottom-1 -right-1 h-3 w-3 text-ink-subtle dark:text-cream-500"
+                        strokeWidth={2.5}
+                      />
+                    ) : null}
+                  </span>
                   <span className={cn(active && "font-semibold")}>{label}</span>
                 </Link>
               </li>

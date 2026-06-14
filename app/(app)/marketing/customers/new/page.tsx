@@ -13,7 +13,7 @@ import {
   UnauthorizedError,
 } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
-import { CustomerForm } from "@/components/marketing/CustomerForm";
+import { NewCustomerFormPencil } from "@/components/marketing/NewCustomerFormPencil";
 
 export const metadata = { title: "New customer" };
 export const dynamic = "force-dynamic";
@@ -67,7 +67,7 @@ export default async function NewCustomerPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
         <div className="lg:col-span-2">
-          <CustomerForm mode="create" />
+          <NewCustomerFormPencil />
         </div>
 
         <aside className="space-y-5">

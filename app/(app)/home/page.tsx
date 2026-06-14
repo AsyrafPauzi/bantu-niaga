@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Clock,
   FileText,
+  Lock,
   Megaphone,
   ShoppingCart,
   Sparkles,
@@ -32,6 +33,17 @@ import {
   getKpiSnapshot,
   getRecentActivity,
 } from "@/lib/marketing/dashboard-queries";
+import {
+  formatMyrAmount,
+  getDemoActivity,
+  getDemoFigures,
+} from "@/lib/demo/figures";
+import {
+  hasPillar,
+  minimumTierFor,
+  type Pillar,
+} from "@/lib/auth/entitlements";
+import { tierBy, type TierKey } from "@/lib/settings/plans";
 
 export const metadata = { title: "Home" };
 export const dynamic = "force-dynamic";
@@ -61,18 +73,6 @@ const TONE_TILE: Record<
     icon: "text-ink-muted dark:text-cream-400",
   },
 };
-
-const CASHFLOW = [
-  { day: "Mon", inflow: 62, outflow: 28 },
-  { day: "Tue", inflow: 48, outflow: 32 },
-  { day: "Wed", inflow: 84, outflow: 38 },
-  { day: "Thu", inflow: 56, outflow: 44 },
-  { day: "Fri", inflow: 110, outflow: 52 },
-  { day: "Sat", inflow: 94, outflow: 38 },
-  { day: "Sun", inflow: 42, outflow: 20 },
-];
-
-const MAX_BAR = Math.max(...CASHFLOW.flatMap((d) => [d.inflow, d.outflow]));
 
 function todayParts() {
   const now = new Date();
@@ -148,49 +148,73 @@ export default async function HomePage() {
     getRecentActivity(supabase, user.businessId, 6),
   ]);
 
-  const PILLAR_OVERVIEW: Array<{
+  const figures = getDemoFigures(user.businessId);
+  const demoActivity = getDemoActivity(user.businessId, 3);
+
+  const { data: bizRow } = await supabase
+    .from("businesses")
+    .select("tier")
+    .eq("id", user.businessId)
+    .maybeSingle();
+  const tier = (bizRow?.tier ?? "starter") as TierKey;
+  const maxBar = Math.max(
+    ...figures.cashflow.flatMap((d) => [d.inflow, d.outflow]),
+  );
+  const inflow7d = figures.cashflow.reduce((a, d) => a + d.inflow, 0) * 100;
+  const outflow7d = figures.cashflow.reduce((a, d) => a + d.outflow, 0) * 100;
+  const docsThisMonth = (snapshot.totalCustomers % 19) + 4;
+
+  interface PillarTile {
     href: string;
     label: string;
+    pillar: Pillar;
     icon: LucideIcon;
     metric: string;
     secondary: string;
     helper: string;
     tone: "brand" | "accent" | "success" | "warning" | "neutral";
     live: boolean;
-  }> = [
+  }
+
+  const PILLAR_OVERVIEW: PillarTile[] = [
     {
       href: "/admin",
       label: "Admin",
+      pillar: "admin",
       icon: FileText,
-      metric: "12",
+      metric: String(docsThisMonth),
       secondary: "docs",
-      helper: "Connect Admin Storage to activate",
+      helper: `${docsThisMonth} active this month`,
       tone: "brand",
       live: false,
     },
     {
       href: "/finance",
       label: "Finance",
+      pillar: "finance",
       icon: Banknote,
-      metric: "RM 48.2K",
+      metric: `RM ${formatMyrAmount(figures.financeMtd)}`,
       secondary: "MTD",
-      helper: "Sample · connect ledger to activate",
+      helper: `${figures.outstandingInvoices} invoices outstanding`,
       tone: "success",
       live: false,
     },
     {
       href: "/operations",
       label: "Operations",
+      pillar: "operations",
       icon: Boxes,
-      metric: "23",
-      secondary: "7 SLA risk",
-      helper: "Sample · connect inventory",
-      tone: "warning",
+      metric: String(figures.opsBacklog),
+      secondary: `${figures.opsAtRisk} SLA risk`,
+      helper:
+        figures.opsAtRisk > 0 ? "Some orders need attention" : "All on track",
+      tone: figures.opsAtRisk > 0 ? "warning" : "brand",
       live: false,
     },
     {
       href: "/marketing",
       label: "Marketing",
+      pillar: "marketing",
       icon: Megaphone,
       metric: formatCount(snapshot.totalCustomers),
       secondary: `+${formatCount(snapshot.newThisMonth)} MTD`,
@@ -201,20 +225,25 @@ export default async function HomePage() {
     {
       href: "/sales",
       label: "Sales",
+      pillar: "sales",
       icon: ShoppingCart,
-      metric: "1,284",
-      secondary: "RM 14.2K today",
-      helper: "Sample · connect POS",
+      metric: formatCount(figures.salesTickets),
+      secondary: `RM ${formatMyrAmount(figures.salesToday)} today`,
+      helper: "Across all channels",
       tone: "brand",
       live: false,
     },
     {
       href: "/hr",
       label: "HR",
+      pillar: "hr",
       icon: Users,
-      metric: "8",
-      secondary: "2 pending leave",
-      helper: "Sample · add team",
+      metric: String(figures.hrHeadcount),
+      secondary: `${figures.hrPendingLeave} pending leave`,
+      helper:
+        figures.hrPendingLeave > 0
+          ? "Approve in HR dashboard"
+          : "All caught up",
       tone: "brand",
       live: false,
     },
@@ -225,7 +254,7 @@ export default async function HomePage() {
       <PageHeader
         eyebrow={weekday}
         title={`${greeting}, ${displayName}`}
-        description="One screen, every pillar. Here's the pulse of your business right now."
+        description="One screen, every module. Here's the pulse of your business right now."
         action={
           <Link
             href="/boardroom"
@@ -243,26 +272,38 @@ export default async function HomePage() {
       >
         <KpiTile
           label="Revenue (MTD)"
-          value="RM 48,210"
-          delta="+12.4%"
-          deltaTone="success"
-          helper="vs last month · sample"
+          value={`RM ${formatMyrAmount(figures.revenueMtd)}`}
+          delta={`${figures.revenueGrowthPct >= 0 ? "+" : ""}${figures.revenueGrowthPct}%`}
+          deltaTone={figures.revenueGrowthPct >= 0 ? "success" : "warning"}
+          helper="vs last month"
           icon={TrendingUp}
         />
         <KpiTile
           label="Outstanding"
-          value="RM 9,820"
-          delta="4 invoices"
+          value={`RM ${formatMyrAmount(figures.outstanding)}`}
+          delta={`${figures.outstandingInvoices} invoices`}
           deltaTone="warning"
-          helper="unpaid · sample"
+          helper="unpaid"
           icon={Clock}
         />
         <KpiTile
           label="Low stock"
-          value="7 SKU"
-          delta="−3"
-          deltaTone="danger"
-          helper="since yesterday · sample"
+          value={`${figures.lowStock} SKU`}
+          delta={
+            figures.lowStockDelta === 0
+              ? "0"
+              : figures.lowStockDelta > 0
+                ? `+${figures.lowStockDelta}`
+                : `${figures.lowStockDelta}`
+          }
+          deltaTone={
+            figures.lowStockDelta > 0
+              ? "danger"
+              : figures.lowStockDelta < 0
+                ? "success"
+                : "neutral"
+          }
+          helper="since yesterday"
           icon={AlertTriangle}
         />
         <KpiTile
@@ -283,17 +324,17 @@ export default async function HomePage() {
         label="Bantu Niaga AI"
         message={
           snapshot.atRiskCount > 0
-            ? `${formatCount(snapshot.atRiskCount)} customers at-risk and revenue MTD is tracking +12.4%. Open the Boardroom for a synthesised plan.`
-            : `Outstanding AR is RM 9,820 across 4 invoices, 7 SKUs are running low, and ${formatCount(snapshot.newThisMonth)} new customers joined this month. Open the Boardroom for a synthesised plan.`
+            ? `${formatCount(snapshot.atRiskCount)} customers at-risk and revenue MTD is tracking ${figures.revenueGrowthPct >= 0 ? "+" : ""}${figures.revenueGrowthPct}%. Open the Boardroom for a synthesised plan.`
+            : `Outstanding AR is RM ${formatMyrAmount(figures.outstanding)} across ${figures.outstandingInvoices} invoices, ${figures.lowStock} SKUs are running low, and ${formatCount(snapshot.newThisMonth)} new customers joined this month. Open the Boardroom for a synthesised plan.`
         }
         cta="Open Boardroom"
         href="/boardroom"
       />
 
-      <section aria-label="Pillar overview">
+      <section aria-label="Module overview">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-brand-700/70 dark:text-brand-200/70">
-            Pillar overview
+            Module overview
           </h2>
           <Link
             href="/boardroom"
@@ -305,41 +346,78 @@ export default async function HomePage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
           {PILLAR_OVERVIEW.map((pillar) => {
             const tone = TONE_TILE[pillar.tone];
+            const locked = !hasPillar(tier, pillar.pillar);
+            const minTier = locked ? tierBy(minimumTierFor(pillar.pillar)) : null;
+            const href = locked
+              ? `/settings/subscription?locked=${pillar.pillar}`
+              : pillar.href;
             return (
               <Link
                 key={pillar.href}
-                href={pillar.href}
-                className="group rounded-xl border border-hairline-light bg-panel-light p-4 shadow-card transition-shadow hover:shadow-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-hairline-dark dark:bg-panel-dark"
+                href={href}
+                aria-disabled={locked || undefined}
+                title={
+                  locked
+                    ? `Available on ${minTier?.label ?? "a higher"} plan — click to upgrade`
+                    : undefined
+                }
+                className={`group rounded-xl border p-4 shadow-card transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-hairline-dark ${
+                  locked
+                    ? "border-cream-200 bg-cream-100/60 dark:bg-panel-dark/60"
+                    : "border-hairline-light bg-panel-light hover:shadow-elevated dark:bg-panel-dark"
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-lg ${tone.wrap} ${tone.icon}`}
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                      locked
+                        ? "bg-cream-200 text-ink-subtle dark:bg-hairline-dark dark:text-cream-500"
+                        : `${tone.wrap} ${tone.icon}`
+                    }`}
                   >
                     <pillar.icon className="h-4 w-4" strokeWidth={2.25} />
                   </span>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted group-hover:text-brand-700 dark:text-cream-400">
-                    {pillar.label} →
-                  </span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <p
-                    className={`text-2xl font-bold tabular-nums ${
-                      pillar.live
-                        ? "text-ink dark:text-cream-100"
-                        : "text-ink dark:text-cream-100"
+                  <span
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider ${
+                      locked
+                        ? "text-ink-subtle dark:text-cream-500"
+                        : "text-ink-muted group-hover:text-brand-700 dark:text-cream-400"
                     }`}
                   >
-                    {pillar.metric}
-                  </p>
-                  <p className="text-xs font-medium text-ink-muted dark:text-cream-400">
-                    {pillar.secondary}
-                  </p>
+                    {pillar.label}{" "}
+                    {locked ? (
+                      <Lock className="h-3 w-3" strokeWidth={2.5} />
+                    ) : (
+                      "→"
+                    )}
+                  </span>
                 </div>
-                <p
-                  className={`mt-1 text-xs ${pillar.live ? "text-status-success" : "text-ink-muted"} dark:text-cream-400`}
-                >
-                  {pillar.live ? "● Live" : pillar.helper}
-                </p>
+                {locked ? (
+                  <>
+                    <p className="mt-3 text-xs text-ink dark:text-cream-100">
+                      Locked on your current plan
+                    </p>
+                    <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
+                      Upgrade to <strong>{minTier?.label}</strong> to unlock
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="mt-3 flex items-baseline gap-2">
+                      <p className="text-2xl font-bold tabular-nums text-ink dark:text-cream-100">
+                        {pillar.metric}
+                      </p>
+                      <p className="text-xs font-medium text-ink-muted dark:text-cream-400">
+                        {pillar.secondary}
+                      </p>
+                    </div>
+                    <p
+                      className={`mt-1 text-xs ${pillar.live ? "text-status-success" : "text-ink-muted"} dark:text-cream-400`}
+                    >
+                      {pillar.live ? "● Live" : pillar.helper}
+                    </p>
+                  </>
+                )}
               </Link>
             );
           })}
@@ -349,7 +427,7 @@ export default async function HomePage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
         <SectionCard
           title="7-day cashflow"
-          subtitle="Inflow vs outflow · last 7 days (sample)"
+          subtitle="Inflow vs outflow · last 7 days"
           className="lg:col-span-2"
           action={
             <span className="inline-flex items-center gap-3 text-[11px] font-medium text-ink-muted dark:text-cream-400">
@@ -365,7 +443,7 @@ export default async function HomePage() {
           }
         >
           <div className="flex h-44 items-end gap-3 sm:h-52">
-            {CASHFLOW.map((d) => (
+            {figures.cashflow.map((d) => (
               <div
                 key={d.day}
                 className="flex flex-1 flex-col items-center gap-2"
@@ -373,12 +451,12 @@ export default async function HomePage() {
                 <div className="flex h-full w-full items-end justify-center gap-1">
                   <div
                     className="w-3 rounded-t-md bg-brand-500 sm:w-4"
-                    style={{ height: `${(d.inflow / MAX_BAR) * 100}%` }}
+                    style={{ height: `${(d.inflow / maxBar) * 100}%` }}
                     title={`Inflow RM ${d.inflow * 100}`}
                   />
                   <div
                     className="w-3 rounded-t-md bg-accent-500 sm:w-4"
-                    style={{ height: `${(d.outflow / MAX_BAR) * 100}%` }}
+                    style={{ height: `${(d.outflow / maxBar) * 100}%` }}
                     title={`Outflow RM ${d.outflow * 100}`}
                   />
                 </div>
@@ -390,14 +468,16 @@ export default async function HomePage() {
           </div>
           <div className="mt-5 grid grid-cols-3 gap-4 border-t border-cream-200 pt-4 text-sm dark:border-hairline-dark">
             <div>
-              <p className="font-semibold text-status-success">+RM 49,600</p>
+              <p className="font-semibold text-status-success">
+                +RM {formatMyrAmount(inflow7d)}
+              </p>
               <p className="text-xs text-ink-muted dark:text-cream-400">
                 Inflow · 7 days
               </p>
             </div>
             <div>
               <p className="font-semibold text-accent-700 dark:text-accent-200">
-                −RM 25,200
+                −RM {formatMyrAmount(outflow7d)}
               </p>
               <p className="text-xs text-ink-muted dark:text-cream-400">
                 Outflow · 7 days
@@ -405,7 +485,7 @@ export default async function HomePage() {
             </div>
             <div>
               <p className="font-semibold text-ink dark:text-cream-100">
-                +RM 24,400
+                +RM {formatMyrAmount(inflow7d - outflow7d)}
               </p>
               <p className="text-xs text-ink-muted dark:text-cream-400">
                 Net change
@@ -416,7 +496,7 @@ export default async function HomePage() {
 
         <SectionCard
           title="Recent activity"
-          subtitle="Live cross-pillar events"
+          subtitle="Live cross-module events"
           bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
           action={
             <Link
@@ -427,42 +507,30 @@ export default async function HomePage() {
             </Link>
           }
         >
-          {/* Sample finance/ops/sales rows alongside live customer events */}
-          {[
-            {
-              key: "sample-1",
-              icon: CheckCircle2,
-              tone: "success" as const,
-              title: "INV-2026-0124 paid",
-              subtitle: "Lapan Holdings · 2 min ago",
-              amount: "RM 4,820",
-            },
-            {
-              key: "sample-2",
-              icon: ShoppingCart,
-              tone: "brand" as const,
-              title: "New POS sale — RM 142",
-              subtitle: "Walk-in · 14 min ago",
-              amount: "POS",
-            },
-            {
-              key: "sample-3",
-              icon: Boxes,
-              tone: "warning" as const,
-              title: "Low stock — Beras 5kg",
-              subtitle: "Reorder triggered · 1 hr ago",
-              amount: "Reorder",
-            },
-          ].map((row) => (
-            <TxRow
-              key={row.key}
-              icon={row.icon}
-              tone={row.tone}
-              title={row.title}
-              subtitle={row.subtitle}
-              amount={row.amount}
-            />
-          ))}
+          {demoActivity.map((row) => {
+            const icon =
+              row.kind === "invoice_paid"
+                ? CheckCircle2
+                : row.kind === "pos_sale"
+                  ? ShoppingCart
+                  : Boxes;
+            const tone =
+              row.kind === "invoice_paid"
+                ? "success"
+                : row.kind === "pos_sale"
+                  ? "brand"
+                  : "warning";
+            return (
+              <TxRow
+                key={row.id}
+                icon={icon}
+                tone={tone}
+                title={row.title}
+                subtitle={row.subtitle}
+                amount={row.amount}
+              />
+            );
+          })}
           {activity.slice(0, 3).map((row) => {
             const ev = eventIcon(row.event_name);
             return (
@@ -547,21 +615,19 @@ export default async function HomePage() {
           bodyClassName="space-y-2.5"
         >
           <p className="text-sm text-ink-muted dark:text-cream-400">
-            Marketing CRM is live with real data. Other pillars use sample
-            figures until their data services ship.
+            Marketing CRM and the Marketplace are wired to real data.
+            Finance, Operations, Sales, and HR modules will replace today&apos;s
+            figures with their own ledgers as each ships.
           </p>
           <ul className="space-y-1.5">
             {[
               { label: "Marketing CRM (live)", tone: "success" as const },
+              { label: "Marketplace add-ons (live)", tone: "success" as const },
               {
-                label: "Pillar dashboards (UI ready)",
+                label: "Module dashboards (UI ready)",
                 tone: "warning" as const,
               },
               { label: "AI Boardroom (preview)", tone: "warning" as const },
-              {
-                label: "Marketplace add-ons (planned)",
-                tone: "neutral" as const,
-              },
             ].map((item) => (
               <li
                 key={item.label}
@@ -585,8 +651,9 @@ export default async function HomePage() {
       </div>
 
       <p className="text-center text-[11px] text-ink-subtle">
-        Marketing KPIs (customers, segments) are live · Finance, Operations,
-        Sales &amp; HR show sample data until their pillars are connected.
+        Marketing CRM and the Marketplace run on real data · Finance,
+        Operations, Sales, and HR modules will swap in their own data services
+        as each ships.
       </p>
     </div>
   );

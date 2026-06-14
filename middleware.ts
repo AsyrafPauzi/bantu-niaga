@@ -26,6 +26,19 @@ import {
   warnSupabaseNotConfiguredOnce,
 } from "@/lib/supabase/env";
 
+/**
+ * Generate a short, opaque request id. We avoid `crypto.randomUUID()`
+ * here because middleware runs on the Edge runtime in some deployments
+ * and `node:crypto` is unavailable; the Web Crypto API gives us the same
+ * thing via `crypto.randomUUID` on the global.
+ */
+function newRequestId(): string {
+  // Edge runtime + Node 19+ both expose the Web Crypto API on globalThis.
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  return `req-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
+}
+
 interface CookieToSet {
   name: string;
   value: string;
@@ -33,7 +46,17 @@ interface CookieToSet {
 }
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Stamp a request id on every request so logs + UI errors can be
+  // correlated end-to-end. Re-use the caller's value when present (used
+  // by tracing systems, load-test harnesses, internal probes).
+  const requestId = request.headers.get("x-request-id") ?? newRequestId();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-request-id", requestId);
+
+  let response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  response.headers.set("x-request-id", requestId);
 
   const env = getSupabasePublicEnv();
   if (!env) {
@@ -53,7 +76,10 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          response = NextResponse.next({ request });
+          response = NextResponse.next({
+            request: { headers: requestHeaders },
+          });
+          response.headers.set("x-request-id", requestId);
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           );
@@ -83,15 +109,27 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json(
-      { error: "unauthorized" },
-      { status: 401 },
+      {
+        ok: false,
+        error: { code: "unauthorized", message: "Authentication required." },
+        requestId,
+      },
+      {
+        status: 401,
+        headers: {
+          "x-request-id": requestId,
+          "Cache-Control": "private, no-store",
+        },
+      },
     );
   }
 
   const signInUrl = request.nextUrl.clone();
   signInUrl.pathname = "/sign-in";
   signInUrl.search = "";
-  return NextResponse.redirect(signInUrl);
+  const redirect = NextResponse.redirect(signInUrl);
+  redirect.headers.set("x-request-id", requestId);
+  return redirect;
 }
 
 export const config = {
@@ -108,6 +146,7 @@ export const config = {
    */
   matcher: [
     "/(admin|boardroom|finance|home|hr|marketing|marketplace|more|operations|sales|settings)/:path*",
+    "/super-admin/:path*",
     "/api/((?!health).*)",
   ],
 };

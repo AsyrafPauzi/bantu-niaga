@@ -250,6 +250,24 @@ export type ContentStatus = (typeof CONTENT_STATUSES)[number];
 export const contentChannelSchema = z.enum(CONTENT_CHANNELS);
 export const contentStatusSchema = z.enum(CONTENT_STATUSES);
 
+/**
+ * Hashtag input — accepts either `#tag` or bare `tag`. Normalised at
+ * write time to always carry the leading `#` so the DB constraint
+ * (`content_hashtags_ok`) is satisfied. Spaces are rejected.
+ */
+const hashtagItem = z
+  .string()
+  .trim()
+  .min(1)
+  .max(60)
+  .refine((s) => !/\s/.test(s), "hashtags cannot contain whitespace")
+  .transform((s) => (s.startsWith("#") ? s : `#${s}`));
+
+const hashtagsArray = z.array(hashtagItem).max(30).optional().default([]);
+
+/** Engagement counters (nullable on input, treated as 0 when absent). */
+const engagementCount = z.coerce.number().int().min(0).max(1_000_000_000);
+
 export const contentEntryCreateSchema = z
   .object({
     channel: contentChannelSchema,
@@ -257,6 +275,19 @@ export const contentEntryCreateSchema = z
     scheduled_at: z.string().datetime({ offset: true }).nullable().optional(),
     hook: z.string().trim().max(280).nullable().optional(),
     caption: z.string().trim().max(4000).nullable().optional(),
+    hashtags: hashtagsArray,
+    forecast_reach_min: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .optional(),
+    forecast_reach_max: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .optional(),
     media_file_ids: z
       .array(z.string().uuid())
       .max(10)
@@ -278,10 +309,31 @@ export const contentEntryUpdateSchema = z
       .optional(),
     hook: z.string().trim().max(280).nullable().optional(),
     caption: z.string().trim().max(4000).nullable().optional(),
+    hashtags: hashtagsArray.optional(),
+    views: engagementCount.optional(),
+    likes: engagementCount.optional(),
+    comments_count: engagementCount.optional(),
+    shares: engagementCount.optional(),
+    saves: engagementCount.optional(),
+    forecast_reach_min: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .optional(),
+    forecast_reach_max: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .optional(),
   })
   .strict();
 
 export type ContentEntryUpdateInput = z.infer<typeof contentEntryUpdateSchema>;
+
+/** Empty body — POST /api/marketing/content/[id]/duplicate */
+export const contentDuplicateSchema = z.object({}).strict();
 
 /**
  * Calendar / list query. Two mutually-supportive shapes:

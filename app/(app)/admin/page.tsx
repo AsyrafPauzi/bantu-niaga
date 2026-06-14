@@ -183,7 +183,7 @@ export default function AdminPage() {
 
         <SectionCard
           title="Recent team activity"
-          subtitle="Latest actions across the admin pillar"
+          subtitle="Latest actions across the admin module"
           bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
         >
           <TxRow

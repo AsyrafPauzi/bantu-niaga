@@ -4,13 +4,11 @@ import {
   ArrowLeft,
   Bookmark,
   Camera,
-  Copy,
   Eye,
   Facebook,
   Heart,
   MessageSquare,
   Share2,
-  Sparkles,
   Video,
   Zap,
   type LucideIcon,
@@ -26,12 +24,30 @@ import {
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ContentEntryForm } from "@/components/marketing/ContentEntryForm";
+import { ContentActions } from "@/components/marketing/ContentActions";
+import { PublishPanel } from "@/components/marketing/social/PublishPanel";
+import { InsightsPanel } from "@/components/marketing/social/InsightsPanel";
+import {
+  loadActiveSocialAccounts,
+  loadPublishesForContent,
+} from "@/lib/social/load";
 import type {
   ContentChannel,
   ContentEntryRow,
   ContentMediaRow,
   ContentStatus,
 } from "@/components/marketing/types";
+
+interface ContentEntryRowWithMetrics extends ContentEntryRow {
+  hashtags: string[];
+  views: number;
+  likes: number;
+  comments_count: number;
+  shares: number;
+  saves: number;
+  forecast_reach_min: number | null;
+  forecast_reach_max: number | null;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -90,10 +106,16 @@ function fmtFullDate(iso: string | null): string {
   });
 }
 
-function extractHashtags(caption: string | null): string[] {
+function extractHashtagsFromCaption(caption: string | null): string[] {
   if (!caption) return [];
   const tags = caption.match(/#[\w-]+/g);
   return tags ? Array.from(new Set(tags)) : [];
+}
+
+function fmtNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString("en-MY");
 }
 
 export default async function ContentDetailPage({ params }: PageProps) {
@@ -125,6 +147,8 @@ export default async function ContentDetailPage({ params }: PageProps) {
     .from("content_plan")
     .select(
       "id, business_id, channel, status, scheduled_at, hook, caption, " +
+        "hashtags, views, likes, comments_count, shares, saves, " +
+        "forecast_reach_min, forecast_reach_max, " +
         "created_by, posted_at, created_at, updated_at",
     )
     .eq("business_id", user.businessId)
@@ -150,12 +174,32 @@ export default async function ContentDetailPage({ params }: PageProps) {
     .eq("content_plan_id", id)
     .order("position", { ascending: true });
 
-  const entryRow = entry as unknown as ContentEntryRow;
+  const entryRow = entry as unknown as ContentEntryRowWithMetrics;
   const media = (mediaRaw ?? []) as unknown as ContentMediaRow[];
-  const hashtags = extractHashtags(entryRow.caption);
+
+  const [socialAccounts, publishes] = await Promise.all([
+    loadActiveSocialAccounts(user.businessId),
+    loadPublishesForContent(user.businessId, id),
+  ]);
+
+  const defaultCaption = [entryRow.hook, entryRow.caption]
+    .filter(Boolean)
+    .join("\n\n");
+  // Prefer the explicit hashtags column; fall back to caption-extracted
+  // tags for legacy rows that pre-date the migration.
+  const hashtags =
+    entryRow.hashtags && entryRow.hashtags.length > 0
+      ? entryRow.hashtags
+      : extractHashtagsFromCaption(entryRow.caption);
   const channel = CHANNEL_META[entryRow.channel];
   const ChannelIcon = channel.icon;
   const isPosted = entryRow.status === "posted";
+  const forecastMin = entryRow.forecast_reach_min ?? null;
+  const forecastMax = entryRow.forecast_reach_max ?? null;
+  const forecastLabel =
+    forecastMin !== null && forecastMax !== null
+      ? `${fmtNumber(forecastMin)}–${fmtNumber(forecastMax)}`
+      : "2.4K–4.8K (estimate)";
 
   return (
     <div className="space-y-6">
@@ -181,26 +225,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
               <ChannelIcon className="h-3.5 w-3.5" strokeWidth={2} />
               {channel.label}
             </span>
-            <button
-              type="button"
-              disabled
-              title="Duplicate ships in M7"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink-muted opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
-            >
-              <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-              Duplicate
-            </button>
-            {!isPosted ? (
-              <button
-                type="button"
-                disabled
-                title="Mark as Posted ships in M7"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-status-success/10 px-3 py-1.5 text-xs font-semibold text-status-success opacity-80"
-              >
-                <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
-                Mark as Posted
-              </button>
-            ) : null}
+            <ContentActions contentId={entryRow.id} isPosted={isPosted} />
           </div>
         }
       />
@@ -295,19 +320,15 @@ export default async function ContentDetailPage({ params }: PageProps) {
           >
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {[
-                { icon: Eye, label: "Views", value: isPosted ? "—" : "—" },
-                { icon: Heart, label: "Likes", value: isPosted ? "—" : "—" },
+                { icon: Eye, label: "Views", value: entryRow.views },
+                { icon: Heart, label: "Likes", value: entryRow.likes },
                 {
                   icon: MessageSquare,
                   label: "Comments",
-                  value: isPosted ? "—" : "—",
+                  value: entryRow.comments_count,
                 },
-                { icon: Share2, label: "Shares", value: isPosted ? "—" : "—" },
-                {
-                  icon: Bookmark,
-                  label: "Saves",
-                  value: isPosted ? "—" : "—",
-                },
+                { icon: Share2, label: "Shares", value: entryRow.shares },
+                { icon: Bookmark, label: "Saves", value: entryRow.saves },
               ].map((m) => (
                 <div
                   key={m.label}
@@ -321,7 +342,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
                     {m.label}
                   </p>
                   <p className="text-lg font-bold text-ink dark:text-cream-100">
-                    {m.value}
+                    {isPosted ? fmtNumber(m.value) : m.value > 0 ? fmtNumber(m.value) : "—"}
                   </p>
                 </div>
               ))}
@@ -347,9 +368,9 @@ export default async function ContentDetailPage({ params }: PageProps) {
                   Forecast · Maya
                 </p>
                 <p className="mt-1.5 text-sm text-ink dark:text-cream-100">
-                  Expected reach <strong>2.4K–4.8K</strong> based on your last
-                  10 {channel.label} posts. Best time to post mid-week, 9–11
-                  AM MYT.
+                  Expected reach <strong>{forecastLabel}</strong> based on your
+                  last 10 {channel.label} posts. Best time to post mid-week,
+                  9–11 AM MYT.
                 </p>
                 <p className="mt-2 text-[11px] text-ink-muted dark:text-cream-400">
                   Forecast switches to live data after the post goes live.
@@ -358,6 +379,14 @@ export default async function ContentDetailPage({ params }: PageProps) {
             </div>
           </div>
 
+          <PublishPanel
+            contentPlanId={entryRow.id}
+            contentChannel={entryRow.channel}
+            defaultCaption={defaultCaption}
+            accounts={socialAccounts}
+            alreadyPosted={isPosted}
+          />
+
           <ContentEntryForm
             mode="edit"
             initial={entryRow}
@@ -365,6 +394,8 @@ export default async function ContentDetailPage({ params }: PageProps) {
           />
         </div>
       </div>
+
+      <InsightsPanel publishes={publishes} />
     </div>
   );
 }
