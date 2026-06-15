@@ -106,7 +106,7 @@ async function main(): Promise<void> {
         idcompany: "demo",
         name: "Bantu Niaga Demo SDN BHD",
         state_code: "KUL",
-        tier: "micro",
+        tier: "enterprise",
       },
       { onConflict: "id" },
     );

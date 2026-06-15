@@ -446,9 +446,9 @@ export default async function HomePage() {
             {figures.cashflow.map((d) => (
               <div
                 key={d.day}
-                className="flex flex-1 flex-col items-center gap-2"
+                className="flex h-full flex-1 flex-col items-center gap-2"
               >
-                <div className="flex h-full w-full items-end justify-center gap-1">
+                <div className="flex w-full flex-1 items-end justify-center gap-1 min-h-0">
                   <div
                     className="w-3 rounded-t-md bg-brand-500 sm:w-4"
                     style={{ height: `${(d.inflow / maxBar) * 100}%` }}

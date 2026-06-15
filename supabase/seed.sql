@@ -19,7 +19,7 @@ values (
   'demo',
   'Bantu Niaga Demo SDN BHD',
   'KUL',
-  'micro',
+  'enterprise',
   false, 0,
   'INV', true
 )
