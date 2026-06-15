@@ -21,6 +21,7 @@
     "smoke:m4": "tsx scripts/smoke-m4.ts",
     "smoke:m5": "tsx scripts/smoke-m5.ts",
     "smoke:m6": "tsx scripts/smoke-m6.ts",
+    "smoke:coupons": "tsx scripts/smoke-coupons.ts",
     "backfill:auto-tags": "tsx scripts/backfill-auto-tags.ts",
     "backfill:marketing-events": "tsx scripts/backfill-marketing-events.ts",
     "test": "vitest run",
