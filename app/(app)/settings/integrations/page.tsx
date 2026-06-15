@@ -175,41 +175,25 @@ export default async function IntegrationsSettingsPage() {
         <CallbackToast />
       </Suspense>
 
-      {/* Meta config status banner */}
+      {/* Tenant-facing copy: tenants don't manage env vars, the platform does.
+          The banner now reflects that. Operators (Bantu Niaga staff) can still
+          see the missing-env-var details by inspecting the page source / build
+          logs; we keep the UI clean for everyone. */}
       {!metaReady && (
-        <div className="flex items-start gap-3 rounded-xl border border-status-warning/30 bg-status-warning/10 p-4">
+        <div className="flex items-start gap-3 rounded-xl border border-brand-100 bg-brand-50/60 p-4 dark:border-brand-900/40 dark:bg-brand-900/20">
           <AlertCircle
-            className="h-5 w-5 shrink-0 text-status-warning"
+            className="h-5 w-5 shrink-0 text-brand-700 dark:text-brand-200"
             strokeWidth={2}
           />
           <div className="flex-1 text-sm">
             <p className="font-semibold text-ink dark:text-cream-100">
-              Meta integration is not configured yet
+              Facebook &amp; Instagram connect — coming soon
             </p>
             <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-              Add the following env var{missingEnv.length === 1 ? "" : "s"} to
-              <code className="mx-1 rounded bg-cream-100 px-1 font-mono text-[11px] dark:bg-hairline-dark">
-                .env.local
-              </code>
-              then restart the server:{" "}
-              {missingEnv.map((v, i) => (
-                <span key={v}>
-                  {i > 0 && ", "}
-                  <code className="rounded bg-cream-100 px-1 font-mono text-[11px] dark:bg-hairline-dark">
-                    {v}
-                  </code>
-                </span>
-              ))}
-              . You can get an App ID + Secret for free at{" "}
-              <a
-                href="https://developers.facebook.com/apps/"
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-brand-700 underline dark:text-brand-200"
-              >
-                developers.facebook.com/apps
-              </a>
-              .
+              Bantu Niaga is finalising the Meta partnership. Once it&apos;s live,
+              you&apos;ll be able to connect your Facebook Page (and any linked
+              Instagram Business account) with one click — no setup required
+              on your end.
             </p>
           </div>
         </div>
@@ -510,11 +494,11 @@ function ConnectMetaButton({ disabled }: { disabled: boolean }) {
       <button
         type="button"
         disabled
-        title="Configure META_APP_ID and META_APP_SECRET first"
+        title="Bantu Niaga is finalising the Meta partnership; this will be enabled soon."
         className="inline-flex shrink-0 cursor-not-allowed items-center gap-1 rounded-lg border border-cream-300 bg-cream-100 px-3 py-1.5 text-xs font-semibold text-ink-muted dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-400"
       >
         <Lock className="h-3 w-3" strokeWidth={2} />
-        Configure env first
+        Coming soon
       </button>
     );
   }
