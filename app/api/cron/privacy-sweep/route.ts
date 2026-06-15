@@ -7,8 +7,10 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 /**
  * GET /api/cron/privacy-sweep
  *
- * Hard-deletes accounts whose grace period has elapsed. Invoked hourly
- * by Vercel Cron (configure in `vercel.json`) or any external scheduler.
+ * Hard-deletes accounts whose grace period has elapsed. Invoked once per
+ * day by Vercel Cron (configure in `vercel.json`) at 19:00 UTC = 03:00 MYT,
+ * or by any external scheduler. Hobby plan limits crons to once per day;
+ * upgrade to Pro for per-minute precision.
  *
  * Authentication: requires `Authorization: Bearer <CRON_SECRET>` where
  * `CRON_SECRET` is set as an environment variable. Vercel Cron sends a
