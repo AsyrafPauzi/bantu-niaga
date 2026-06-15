@@ -356,16 +356,18 @@ export function NewCustomerFormPencil() {
 
       {/* Footer */}
       <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
-        <p className="inline-flex items-center gap-1.5 text-xs text-ink-subtle">
-          <Info className="h-3.5 w-3.5" strokeWidth={2} />
-          {savedAgo ?? "Phone or email triggers dedup against your CRM"}
+        <p className="inline-flex min-w-0 items-center gap-1.5 text-xs text-ink-subtle">
+          <Info className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+          <span className="truncate">
+            {savedAgo ?? "Phone or email triggers dedup against your CRM"}
+          </span>
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
           <button
             type="button"
             onClick={() => router.push("/marketing/customers")}
             disabled={busy}
-            className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
           >
             Cancel
           </button>
@@ -373,14 +375,14 @@ export function NewCustomerFormPencil() {
             type="button"
             onClick={handleSaveAndAddAnother}
             disabled={busy || form.name.trim().length === 0}
-            className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
           >
-            Save and add another
+            Save &amp; add another
           </button>
           <button
             type="submit"
             disabled={busy || form.name.trim().length === 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-accent-600 disabled:opacity-60"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-accent-600 disabled:opacity-60"
           >
             {busy ? "Saving…" : "Save & schedule"}
           </button>

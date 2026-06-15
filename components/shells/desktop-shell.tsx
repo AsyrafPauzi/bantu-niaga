@@ -29,12 +29,19 @@ import {
 } from "@/lib/auth/entitlements";
 import { tierBy } from "@/lib/settings/plans";
 
+interface SidebarSubItem {
+  href: string;
+  label: string;
+}
+
 interface SidebarItem {
   href: string;
   label: string;
   icon: LucideIcon;
   /** When set, the sidebar checks the current tier against this pillar. */
   pillar?: Pillar;
+  /** Optional sub-pages, shown indented when the parent is the active section. */
+  subItems?: readonly SidebarSubItem[];
 }
 
 interface SidebarGroup {
@@ -50,22 +57,74 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
   {
     label: "Modules",
     items: [
-      { href: "/admin", label: "Admin", icon: FileText, pillar: "admin" },
-      { href: "/finance", label: "Finance", icon: Banknote, pillar: "finance" },
+      {
+        href: "/admin",
+        label: "Admin",
+        icon: FileText,
+        pillar: "admin",
+        subItems: [
+          { href: "/admin/documents", label: "Documents" },
+          { href: "/admin/storage", label: "Storage" },
+          { href: "/admin/tasks", label: "Tasks" },
+          { href: "/admin/compliance", label: "Compliance" },
+        ],
+      },
+      {
+        href: "/finance",
+        label: "Finance",
+        icon: Banknote,
+        pillar: "finance",
+        subItems: [
+          { href: "/finance/invoices", label: "Invoices" },
+          { href: "/finance/expenses", label: "Expenses" },
+          { href: "/finance/ledger", label: "Ledger" },
+        ],
+      },
       {
         href: "/operations",
         label: "Operations",
         icon: Boxes,
         pillar: "operations",
+        subItems: [
+          { href: "/operations/orders", label: "Orders" },
+          { href: "/operations/products", label: "Products" },
+          { href: "/operations/bookings", label: "Bookings" },
+          { href: "/operations/suppliers", label: "Suppliers" },
+        ],
       },
       {
         href: "/marketing",
         label: "Marketing",
         icon: Megaphone,
         pillar: "marketing",
+        subItems: [
+          { href: "/marketing/customers", label: "Customers" },
+          { href: "/marketing/segments", label: "Segments" },
+          { href: "/marketing/content", label: "Content" },
+          { href: "/marketing/broadcasts", label: "Broadcasts" },
+          { href: "/marketing/coupons", label: "Coupons" },
+        ],
       },
-      { href: "/sales", label: "Sales", icon: ShoppingCart, pillar: "sales" },
-      { href: "/hr", label: "HR", icon: Users, pillar: "hr" },
+      {
+        href: "/sales",
+        label: "Sales",
+        icon: ShoppingCart,
+        pillar: "sales",
+        subItems: [
+          { href: "/sales/pos", label: "POS" },
+          { href: "/sales/leads", label: "Leads" },
+        ],
+      },
+      {
+        href: "/hr",
+        label: "HR",
+        icon: Users,
+        pillar: "hr",
+        subItems: [
+          { href: "/hr/employees", label: "Employees" },
+          { href: "/hr/leave", label: "Leave" },
+        ],
+      },
     ],
   },
   {
@@ -120,51 +179,82 @@ export function DesktopShell({
                   {group.label}
                 </p>
                 <ul>
-                  {group.items.map(({ href, label, icon: Icon, pillar }) => {
-                    const active =
-                      href === "/"
-                        ? pathname === "/"
-                        : pathname === href || pathname.startsWith(`${href}/`);
-                    const locked = pillar ? !hasPillar(tier, pillar) : false;
-                    const minTier = locked
-                      ? tierBy(minimumTierFor(pillar!))
-                      : null;
-                    const lockedHref = locked
-                      ? `/settings/subscription?locked=${pillar}`
-                      : href;
-                    return (
-                      <li key={href}>
-                        <Link
-                          href={lockedHref}
-                          title={
-                            locked
-                              ? `Available on ${minTier?.label ?? "a higher"} plan`
-                              : undefined
-                          }
-                          className={cn(
-                            "flex items-center justify-between gap-3 px-5 py-2.5 text-sm transition-colors border-l-4",
-                            active
-                              ? "bg-brand-50 text-brand-700 font-semibold border-accent-500 dark:bg-brand-900/30 dark:text-brand-200"
-                              : locked
-                                ? "text-ink-subtle hover:bg-cream-100 hover:text-ink-muted border-transparent dark:text-cream-500 dark:hover:bg-hairline-dark/60"
-                                : "text-ink-muted hover:bg-cream-100 hover:text-ink border-transparent dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
-                          )}
-                        >
-                          <span className="flex items-center gap-3 min-w-0">
-                            <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
-                            <span className="truncate">{label}</span>
-                          </span>
-                          {locked ? (
-                            <Lock
-                              className="h-3.5 w-3.5 shrink-0 text-ink-subtle dark:text-cream-500"
-                              strokeWidth={2}
-                              aria-label="Locked on this plan"
-                            />
+                  {group.items.map(
+                    ({ href, label, icon: Icon, pillar, subItems }) => {
+                      const isOverviewActive = pathname === href;
+                      const isSectionActive =
+                        href === "/"
+                          ? pathname === "/"
+                          : pathname === href || pathname.startsWith(`${href}/`);
+                      const locked = pillar ? !hasPillar(tier, pillar) : false;
+                      const minTier = locked
+                        ? tierBy(minimumTierFor(pillar!))
+                        : null;
+                      const lockedHref = locked
+                        ? `/settings/subscription?locked=${pillar}`
+                        : href;
+                      const showSubItems =
+                        !locked && subItems && subItems.length > 0 && isSectionActive;
+                      return (
+                        <li key={href}>
+                          <Link
+                            href={lockedHref}
+                            title={
+                              locked
+                                ? `Available on ${minTier?.label ?? "a higher"} plan`
+                                : undefined
+                            }
+                            className={cn(
+                              "flex items-center justify-between gap-3 px-5 py-2.5 text-sm transition-colors border-l-4",
+                              isOverviewActive
+                                ? "bg-brand-50 text-brand-700 font-semibold border-accent-500 dark:bg-brand-900/30 dark:text-brand-200"
+                                : isSectionActive && !locked
+                                  ? "text-brand-700 font-semibold border-transparent dark:text-brand-200"
+                                  : locked
+                                    ? "text-ink-subtle hover:bg-cream-100 hover:text-ink-muted border-transparent dark:text-cream-500 dark:hover:bg-hairline-dark/60"
+                                    : "text-ink-muted hover:bg-cream-100 hover:text-ink border-transparent dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
+                            )}
+                          >
+                            <span className="flex items-center gap-3 min-w-0">
+                              <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
+                              <span className="truncate">{label}</span>
+                            </span>
+                            {locked ? (
+                              <Lock
+                                className="h-3.5 w-3.5 shrink-0 text-ink-subtle dark:text-cream-500"
+                                strokeWidth={2}
+                                aria-label="Locked on this plan"
+                              />
+                            ) : null}
+                          </Link>
+                          {showSubItems ? (
+                            <ul className="mb-1 mt-0.5 ml-9 mr-3 border-l border-cream-200 dark:border-hairline-dark">
+                              {subItems!.map((sub) => {
+                                const subActive =
+                                  pathname === sub.href ||
+                                  pathname.startsWith(`${sub.href}/`);
+                                return (
+                                  <li key={sub.href}>
+                                    <Link
+                                      href={sub.href}
+                                      className={cn(
+                                        "block py-1.5 pl-3 pr-2 text-[13px] transition-colors -ml-px border-l-2",
+                                        subActive
+                                          ? "text-brand-700 font-semibold border-accent-500 dark:text-brand-200"
+                                          : "text-ink-muted hover:text-ink border-transparent dark:text-cream-400 dark:hover:text-cream-100",
+                                      )}
+                                    >
+                                      {sub.label}
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
                           ) : null}
-                        </Link>
-                      </li>
-                    );
-                  })}
+                        </li>
+                      );
+                    },
+                  )}
                 </ul>
               </div>
             ))}

@@ -57,19 +57,19 @@ const QUICK_ACTIONS = [
     icon: Send,
     title: "Send broadcast",
     subtitle: "WhatsApp · email",
-    href: "/marketing/customers",
+    href: "/marketing/broadcasts",
   },
   {
     icon: Tag,
     title: "Tag customers",
     subtitle: "Bulk auto-tag",
-    href: "/marketing/customers",
+    href: "/marketing/customers?bulk=tag",
   },
   {
     icon: Gift,
     title: "Create coupon",
     subtitle: "% / RM off",
-    href: "/marketing/content/new",
+    href: "/marketing/coupons",
   },
   {
     icon: Calendar,
@@ -201,9 +201,14 @@ export default async function MarketingOverviewPage() {
   const segPct = (n: number): number =>
     totalCustomers > 0 ? Math.min(100, Math.round((n / totalCustomers) * 100)) : 0;
 
+  // Segment slugs map to the `tags` query param accepted by
+  // `app/api/marketing/customers/route.ts` (and the `/marketing/customers`
+  // server page). The auto_tag values are defined in
+  // `lib/marketing/schemas.ts` (AUTO_TAGS).
   const SEGMENT_ROWS = [
     {
       label: "VIP",
+      slug: "vip",
       sublabel: "≥ RM 1,000 lifetime spend",
       value: formatCount(vipCount),
       fill: segPct(vipCount),
@@ -211,6 +216,7 @@ export default async function MarketingOverviewPage() {
     },
     {
       label: "Repeat",
+      slug: "repeat",
       sublabel: "3+ orders in last 90 days",
       value: formatCount(repeatCount),
       fill: segPct(repeatCount),
@@ -218,6 +224,7 @@ export default async function MarketingOverviewPage() {
     },
     {
       label: "New (MTD)",
+      slug: "new",
       sublabel: "Joined this month",
       value: formatCount(newCount),
       fill: segPct(newCount),
@@ -225,6 +232,7 @@ export default async function MarketingOverviewPage() {
     },
     {
       label: "At-risk",
+      slug: "at-risk",
       sublabel: "No purchase in 60+ days",
       value: formatCount(atRiskCount),
       fill: segPct(atRiskCount),
@@ -232,6 +240,7 @@ export default async function MarketingOverviewPage() {
     },
     {
       label: "Dormant",
+      slug: "dormant",
       sublabel: "No purchase in 120+ days",
       value: formatCount(dormantCount),
       fill: segPct(dormantCount),
@@ -266,10 +275,32 @@ export default async function MarketingOverviewPage() {
         description="Customer base, segments, channels, and content — at a glance."
         action={
           <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-sm text-ink-subtle shadow-card md:flex dark:border-hairline-dark dark:bg-panel-dark">
-              <Search className="h-4 w-4" strokeWidth={2} />
-              <span>Search customers, content…</span>
-            </div>
+            <form
+              method="get"
+              action="/marketing/customers"
+              role="search"
+              aria-label="Search customers"
+              className="hidden items-center gap-2 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-sm shadow-card md:flex dark:border-hairline-dark dark:bg-panel-dark"
+            >
+              <label htmlFor="marketing-overview-search" className="sr-only">
+                Search customers, content
+              </label>
+              <Search
+                className="h-4 w-4 text-ink-muted"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+              <input
+                id="marketing-overview-search"
+                type="search"
+                name="q"
+                placeholder="Search customers, content…"
+                className="w-56 bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100 dark:placeholder:text-cream-400"
+              />
+              <button type="submit" className="sr-only">
+                Search
+              </button>
+            </form>
             <Link
               href="/marketing/customers/new"
               className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-600 active:bg-accent-700"
@@ -331,7 +362,8 @@ export default async function MarketingOverviewPage() {
         label="Maya · Marketing AI"
         message={aiMessage}
         cta="Draft broadcast"
-        href="/marketing/customers"
+        disabled
+        disabledLabel="Coming soon"
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
@@ -342,7 +374,7 @@ export default async function MarketingOverviewPage() {
           bodyClassName="space-y-4"
           action={
             <Link
-              href="/marketing/customers"
+              href="/marketing/segments"
               className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
               View all
@@ -350,7 +382,20 @@ export default async function MarketingOverviewPage() {
           }
         >
           {SEGMENT_ROWS.map((s) => (
-            <BulletRow key={s.label} {...s} />
+            <Link
+              key={s.label}
+              href={`/marketing/customers?tags=${encodeURIComponent(s.slug)}`}
+              aria-label={`View ${s.label} customers`}
+              className="block rounded-lg -mx-1 px-1 py-1 transition-colors hover:bg-cream-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:hover:bg-hairline-dark/30"
+            >
+              <BulletRow
+                label={s.label}
+                sublabel={s.sublabel}
+                value={s.value}
+                fill={s.fill}
+                tone={s.tone}
+              />
+            </Link>
           ))}
         </SectionCard>
 
@@ -393,7 +438,7 @@ export default async function MarketingOverviewPage() {
           bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
           action={
             <Link
-              href="/marketing/customers"
+              href="/marketing/customers?sort=total_spend_myr&order=desc"
               className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
               All
@@ -438,7 +483,13 @@ export default async function MarketingOverviewPage() {
         >
           {upcoming.length === 0 ? (
             <p className="py-4 text-center text-sm text-ink-muted dark:text-cream-400">
-              Nothing scheduled in the next 7 days. Plan a post →
+              Nothing scheduled in the next 7 days.{" "}
+              <Link
+                href="/marketing/content/new"
+                className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+              >
+                Plan a post →
+              </Link>
             </p>
           ) : (
             upcoming.map((p) => {
@@ -482,7 +533,11 @@ export default async function MarketingOverviewPage() {
         subtitle={`New customers per month · last ${growth.length} months`}
         className="lg:col-span-2"
         action={
-          <span className="inline-flex items-center rounded-full bg-cream-200 px-2.5 py-1 text-[11px] font-semibold text-ink dark:bg-hairline-dark dark:text-cream-100">
+          <span
+            title="Default range"
+            aria-label={`Default range: last ${growth.length} months`}
+            className="inline-flex items-center rounded-full bg-cream-200 px-2.5 py-1 text-[11px] font-semibold text-ink dark:bg-hairline-dark dark:text-cream-100"
+          >
             Last {growth.length} months
           </span>
         }
@@ -565,7 +620,12 @@ export default async function MarketingOverviewPage() {
           const meta = CHANNEL_META[row.channel];
           const Icon = meta.icon;
           return (
-            <div key={row.channel} className="space-y-1.5">
+            <Link
+              key={row.channel}
+              href="/settings/integrations"
+              aria-label={`Connect ${meta.label} in Settings → Integrations`}
+              className="block space-y-1.5 rounded-lg -mx-1 px-1 py-1 transition-colors hover:bg-cream-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:hover:bg-hairline-dark/30"
+            >
               <div className="flex items-center justify-between text-sm">
                 <span className="inline-flex items-center gap-2 font-semibold text-ink dark:text-cream-100">
                   <Icon className={`h-4 w-4 ${meta.color}`} strokeWidth={2} />
@@ -590,12 +650,18 @@ export default async function MarketingOverviewPage() {
               <p className="text-[11px] text-ink-muted dark:text-cream-400">
                 {row.posts} upcoming post{row.posts === 1 ? "" : "s"}
               </p>
-            </div>
+            </Link>
           );
         })}
         <p className="border-t border-cream-200 pt-3 text-[11px] italic text-ink-subtle dark:border-hairline-dark">
-          Activate the TikTok Shop sync or WhatsApp Business add-on in the
-          Marketplace to swap in live metrics.
+          Activate the TikTok Shop sync or WhatsApp Business add-on from{" "}
+          <Link
+            href="/settings/integrations"
+            className="font-semibold not-italic text-brand-700 hover:text-brand-800 dark:text-brand-200"
+          >
+            Settings → Integrations
+          </Link>{" "}
+          to swap in live metrics.
         </p>
       </SectionCard>
       </div>
@@ -617,9 +683,11 @@ export default async function MarketingOverviewPage() {
           const meta = CHANNEL_META[post.channel];
           const Icon = meta.icon;
           return (
-            <div
+            <Link
               key={post.id}
-              className="space-y-2 rounded-xl border border-cream-200 bg-cream-100/60 p-3 dark:border-hairline-dark dark:bg-hairline-dark/30"
+              href="/marketing/content"
+              aria-label={`Open the content calendar — sample ${meta.label} post`}
+              className="block space-y-2 rounded-xl border border-cream-200 bg-cream-100/60 p-3 transition-shadow hover:shadow-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-hairline-dark dark:bg-hairline-dark/30"
             >
               <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-accent-50 dark:bg-accent-700/15">
                 <Icon
@@ -651,7 +719,7 @@ export default async function MarketingOverviewPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Link>
           );
         })}
       </SectionCard>

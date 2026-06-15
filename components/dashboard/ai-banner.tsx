@@ -8,17 +8,44 @@ interface AiBannerProps {
   cta?: string;
   href?: string;
   className?: string;
+  /**
+   * When true, render the CTA as a non-interactive "Coming soon" button with
+   * a tooltip. Use for actions whose backing flow has not shipped yet.
+   */
+  disabled?: boolean;
+  /** Tooltip + aria-label text for the disabled state. */
+  disabledLabel?: string;
 }
 
 /**
  * AI copilot banner — the orange call-to-action strip that appears beneath the
  * KPI row on every pillar overview in the Pencil designs.
  */
-export function AiBanner({ label, message, cta, href, className }: AiBannerProps) {
-  const button = cta ? (
+export function AiBanner({
+  label,
+  message,
+  cta,
+  href,
+  className,
+  disabled = false,
+  disabledLabel = "Coming soon",
+}: AiBannerProps) {
+  const enabledButton = cta ? (
     <span className="inline-flex shrink-0 items-center justify-center rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600 active:bg-accent-700">
       {cta}
     </span>
+  ) : null;
+
+  const disabledButton = cta ? (
+    <button
+      type="button"
+      disabled
+      title={disabledLabel}
+      aria-label={`${cta} — ${disabledLabel}`}
+      className="inline-flex shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-cream-300 bg-cream-100 px-4 py-2 text-sm font-medium text-ink-muted dark:border-hairline-dark dark:bg-hairline-dark/40 dark:text-cream-400"
+    >
+      {disabledLabel}
+    </button>
   ) : null;
 
   return (
@@ -40,13 +67,15 @@ export function AiBanner({ label, message, cta, href, className }: AiBannerProps
           <p className="mt-1 text-sm text-ink dark:text-cream-100">{message}</p>
         </div>
       </div>
-      {button ? (
+      {disabled ? (
+        disabledButton
+      ) : enabledButton ? (
         href ? (
           <Link href={href} className="self-start sm:self-auto">
-            {button}
+            {enabledButton}
           </Link>
         ) : (
-          button
+          enabledButton
         )
       ) : null}
     </div>

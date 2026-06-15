@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard/page-header";
 import {
@@ -58,15 +58,6 @@ export default async function NewContentPage({ searchParams }: PageProps) {
       <PageHeader
         eyebrow="Marketing · Content"
         title="New post"
-        action={
-          <a
-            href="/marketing/content"
-            className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-          >
-            <Download className="h-4 w-4" strokeWidth={2} />
-            Export
-          </a>
-        }
       />
 
       <NewContentFormPencil prefillDateIso={prefillIso} />

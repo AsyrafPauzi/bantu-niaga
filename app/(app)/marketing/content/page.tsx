@@ -309,34 +309,48 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
             <div className="mt-1.5 grid grid-cols-7 gap-1.5">
               {cells.map((cell, idx) => {
                 const dayPosts = entriesByDate.get(cell.dateKey) ?? [];
+                const newPostHref = `/marketing/content/new?date=${cell.dateKey}`;
                 return (
-                  <Link
+                  <div
                     key={`${cell.dateKey}-${idx}`}
-                    href={`/marketing/content/new?date=${cell.dateKey}`}
-                    className={`group min-h-24 rounded-lg border p-1.5 transition-colors ${
+                    className={`group relative min-h-24 rounded-lg border p-1.5 transition-colors ${
                       cell.inMonth
-                        ? "border-cream-200 bg-panel-light hover:border-brand-300 hover:bg-cream-100/60 dark:border-hairline-dark dark:bg-panel-dark dark:hover:border-brand-700"
+                        ? "border-cream-200 bg-panel-light hover:border-brand-300 dark:border-hairline-dark dark:bg-panel-dark dark:hover:border-brand-700"
                         : "border-cream-200/60 bg-cream-50/40 dark:border-hairline-dark/60 dark:bg-panel-dark/40"
                     } ${cell.isToday ? "ring-2 ring-accent-400 ring-offset-1" : ""}`}
                   >
-                    <p
-                      className={`mb-1 text-xs font-semibold ${
-                        cell.inMonth
-                          ? cell.isToday
-                            ? "text-accent-700 dark:text-accent-200"
-                            : "text-ink dark:text-cream-100"
-                          : "text-ink-subtle"
-                      }`}
-                    >
-                      {cell.day}
-                    </p>
+                    <div className="mb-1 flex items-start justify-between gap-1">
+                      <p
+                        className={`text-xs font-semibold ${
+                          cell.inMonth
+                            ? cell.isToday
+                              ? "text-accent-700 dark:text-accent-200"
+                              : "text-ink dark:text-cream-100"
+                            : "text-ink-subtle"
+                        }`}
+                      >
+                        {cell.day}
+                      </p>
+                      {cell.inMonth ? (
+                        <Link
+                          href={newPostHref}
+                          aria-label={`New post on ${cell.dateKey}`}
+                          title="New post for this day"
+                          className="opacity-0 transition-opacity group-hover:opacity-100 rounded text-[10px] font-bold leading-none text-brand-700 hover:underline dark:text-brand-300"
+                        >
+                          + Add
+                        </Link>
+                      ) : null}
+                    </div>
                     <div className="space-y-1">
                       {dayPosts.slice(0, 3).map((p) => {
                         const style = CHANNEL_STYLE[p.channel];
                         return (
-                          <div
+                          <Link
                             key={p.id}
-                            className={`flex items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold ${style.chip}`}
+                            href={`/marketing/content/${p.id}`}
+                            title={p.hook ?? "Untitled post"}
+                            className={`flex items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold transition-shadow hover:shadow-sm hover:ring-1 hover:ring-brand-300 ${style.chip}`}
                           >
                             <span
                               className={`h-1 w-1 shrink-0 rounded-full ${style.dot}`}
@@ -344,16 +358,28 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
                             <span className="truncate">
                               {p.hook ?? "Untitled"}
                             </span>
-                          </div>
+                          </Link>
                         );
                       })}
                       {dayPosts.length > 3 ? (
-                        <p className="text-[10px] font-semibold text-ink-subtle">
+                        <Link
+                          href={`/marketing/content?year=${year}&month=${month}&date=${cell.dateKey}`}
+                          className="block text-[10px] font-semibold text-ink-muted hover:text-brand-700 dark:text-cream-400 dark:hover:text-brand-300"
+                        >
                           +{dayPosts.length - 3} more
-                        </p>
+                        </Link>
+                      ) : null}
+                      {dayPosts.length === 0 && cell.inMonth ? (
+                        <Link
+                          href={newPostHref}
+                          aria-label={`New post on ${cell.dateKey}`}
+                          className="block h-12 w-full rounded opacity-0 transition-opacity group-hover:opacity-100"
+                        >
+                          <span className="sr-only">Add post</span>
+                        </Link>
                       ) : null}
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
