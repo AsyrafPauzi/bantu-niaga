@@ -33,6 +33,63 @@ export const ROLES = [
 export type Role = (typeof ROLES)[number];
 
 /**
+ * Per-pillar surface vocabulary. Single source of truth for surface keys
+ * the API + UI gates pass to `canSurface(role, pillar, surface)`.
+ *
+ * Owner + manager have `marketing: "*"` (full access) so `canSurface`
+ * returns true for any string. The matrix entries below stay explicit
+ * for documentation, ESLint-style guardrails (typos surface as type
+ * errors when callers import the constant), and so future per-surface
+ * tightening (e.g. revoking only `coupons` from manager) is a
+ * one-line change.
+ *
+ * Spec: docs/superpowers/specs/2026-06-15-marketing-segments-broadcasts-coupons-design.md §7.
+ */
+export const MARKETING_SURFACES = [
+  "customers",
+  "content",
+  "segments",
+] as const;
+export type MarketingSurface = (typeof MARKETING_SURFACES)[number];
+
+/**
+ * Per-surface role grants — informational mirror of `permissions` below.
+ * Used by tests and lint-style audits to assert spec §7 alignment.
+ * Owner + manager still resolve via the pillar-wide `*` short-circuit in
+ * `canSurface`; this map declares the intent in the same shape the spec
+ * uses so the two stay in sync.
+ */
+export const MARKETING_SURFACE_GRANTS: Record<
+  MarketingSurface,
+  Record<Role, "rw" | "r" | "-">
+> = {
+  customers: {
+    owner: "rw",
+    manager: "rw",
+    accountant: "-",
+    hr_officer: "-",
+    cashier: "-",
+    staff: "-",
+  },
+  content: {
+    owner: "rw",
+    manager: "rw",
+    accountant: "-",
+    hr_officer: "-",
+    cashier: "-",
+    staff: "-",
+  },
+  segments: {
+    owner: "rw",
+    manager: "rw",
+    accountant: "-",
+    hr_officer: "-",
+    cashier: "-",
+    staff: "-",
+  },
+};
+
+/**
  * Scope syntax:
  *   "*"                         → full read/write on the whole pillar
  *   undefined                   → no access at all

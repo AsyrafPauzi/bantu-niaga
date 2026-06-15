@@ -70,6 +70,7 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
     description: "Reach customers and keep them coming back.",
     surfaces: [
       { href: "/marketing/customers", label: "Customers", primary: "both" },
+      { href: "/marketing/segments", label: "Segments", primary: "desktop" },
       { href: "/marketing/content", label: "Content", primary: "desktop" },
     ],
   },
