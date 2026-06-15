@@ -1,24 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type FormEvent } from "react";
 import {
   Bookmark,
   Camera,
   Facebook,
-  FileVideo,
   Heart,
   Image as ImageIcon,
   Info,
-  LayoutGrid,
   MessageCircle,
   MoreHorizontal,
   Send,
   Sparkles,
-  Upload,
   Video,
   type LucideIcon,
 } from "lucide-react";
+import {
+  ContentMediaUploader,
+  type ContentMediaUploaderHandle,
+} from "@/components/marketing/ContentMediaUploader";
 
 /**
  * Pencil-aligned New Content form. Channel tile picker, Hook + Caption
@@ -142,6 +143,13 @@ export function NewContentFormPencil({
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mediaState, setMediaState] = useState<{
+    uploadingCount: number;
+    uploadedCount: number;
+    firstImagePreviewUrl: string | null;
+  }>({ uploadingCount: 0, uploadedCount: 0, firstImagePreviewUrl: null });
+  const [warning, setWarning] = useState<string | null>(null);
+  const mediaRef = useRef<ContentMediaUploaderHandle | null>(null);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((s) => ({ ...s, [key]: value }));
@@ -151,10 +159,26 @@ export function NewContentFormPencil({
     setHashtags((s) => (s.includes(tag) ? s.filter((t) => t !== tag) : [...s, tag]));
   }
 
+  const handleMediaChange = useCallback(
+    (state: {
+      uploadingCount: number;
+      uploadedCount: number;
+      firstImagePreviewUrl: string | null;
+    }) => {
+      setMediaState(state);
+    },
+    [],
+  );
+
   async function submit(status: Status): Promise<void> {
     if (busy) return;
+    if (mediaRef.current?.isUploading()) {
+      setError("Wait for media uploads to finish before saving.");
+      return;
+    }
     setBusy(true);
     setError(null);
+    setWarning(null);
     const scheduled = mytPartsToUtcIso(form.scheduledDate, form.scheduledTime);
     try {
       const res = await fetch("/api/marketing/content", {
@@ -181,6 +205,42 @@ export function NewContentFormPencil({
         return;
       }
       const id = body?.entry?.id;
+
+      const fileIds = mediaRef.current?.getUploadedFileIds() ?? [];
+      if (id && fileIds.length > 0) {
+        try {
+          const attachRes = await fetch(
+            "/api/marketing/media/attach-to-content",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                content_plan_id: id,
+                file_ids: fileIds,
+                position_start: 0,
+              }),
+            },
+          );
+          if (!attachRes.ok) {
+            const attachBody = (await attachRes
+              .json()
+              .catch(() => null)) as { error?: { message?: string } } | null;
+            // The post itself was saved — surface a soft warning so the
+            // operator knows the link step failed but the row exists.
+            setWarning(
+              attachBody?.error?.message ??
+                "Post saved, but linking media failed. You can re-attach from the post page.",
+            );
+          }
+        } catch (e) {
+          setWarning(
+            e instanceof Error
+              ? `Post saved, but linking media failed: ${e.message}`
+              : "Post saved, but linking media failed.",
+          );
+        }
+      }
+
       if (id) {
         router.push(`/marketing/content/${id}`);
         router.refresh();
@@ -356,47 +416,21 @@ export function NewContentFormPencil({
               <p className="text-[13px] font-semibold text-ink dark:text-cream-100">
                 Media
               </p>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  {
-                    icon: ImageIcon,
-                    label: "Photo",
-                    tone: "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200",
-                  },
-                  {
-                    icon: FileVideo,
-                    label: "Video",
-                    tone: "bg-accent-100 text-accent-700 dark:bg-accent-700/20 dark:text-accent-200",
-                  },
-                  {
-                    icon: LayoutGrid,
-                    label: "Carousel",
-                    tone: "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200",
-                  },
-                  {
-                    icon: Upload,
-                    label: "Upload",
-                    tone: "border border-dashed border-cream-300 text-ink-muted dark:border-hairline-dark dark:text-cream-400",
-                  },
-                ].map((m) => (
-                  <button
-                    key={m.label}
-                    type="button"
-                    disabled
-                    title="Media upload activates when Admin Storage ships (D6)"
-                    className={`flex aspect-square flex-col items-center justify-center gap-1.5 rounded-lg ${m.tone} disabled:cursor-not-allowed disabled:opacity-80`}
-                  >
-                    <m.icon className="h-6 w-6" strokeWidth={1.5} />
-                    <span className="text-[11px] font-semibold">{m.label}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-[11px] italic text-ink-subtle">
-                Media upload activates when Admin Storage (D6) ships.
-              </p>
+              <ContentMediaUploader
+                ref={mediaRef}
+                onChange={handleMediaChange}
+              />
             </div>
           </div>
 
+          {warning ? (
+            <p
+              role="status"
+              className="rounded-md bg-[#FDF2DC] px-3 py-2 text-sm text-[#8C5C0A] dark:bg-[#3A2A0A] dark:text-[#F5C97A]"
+            >
+              {warning}
+            </p>
+          ) : null}
           {error ? (
             <p
               role="alert"
@@ -501,11 +535,20 @@ export function NewContentFormPencil({
                 strokeWidth={2}
               />
             </div>
-            <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-accent-100 dark:bg-accent-700/20">
-              <ImageIcon
-                className="h-10 w-10 text-accent-500 opacity-60"
-                strokeWidth={1.5}
-              />
+            <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-accent-100 dark:bg-accent-700/20">
+              {mediaState.firstImagePreviewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={mediaState.firstImagePreviewUrl}
+                  alt="Post preview"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <ImageIcon
+                  className="h-10 w-10 text-accent-500 opacity-60"
+                  strokeWidth={1.5}
+                />
+              )}
             </div>
             <div className="flex items-center gap-3 text-ink-muted dark:text-cream-400">
               <Heart className="h-5 w-5" strokeWidth={2} />
@@ -552,17 +595,31 @@ export function NewContentFormPencil({
           <button
             type="button"
             onClick={() => submit("drafted")}
-            disabled={busy}
+            disabled={busy || mediaState.uploadingCount > 0}
+            title={
+              mediaState.uploadingCount > 0
+                ? "Wait for media uploads to finish."
+                : undefined
+            }
             className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
           >
             Save as draft
           </button>
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || mediaState.uploadingCount > 0}
+            title={
+              mediaState.uploadingCount > 0
+                ? "Wait for media uploads to finish."
+                : undefined
+            }
             className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-accent-600 disabled:opacity-60"
           >
-            {busy ? "Saving…" : "Schedule"}
+            {busy
+              ? "Saving…"
+              : mediaState.uploadingCount > 0
+                ? "Uploading…"
+                : "Schedule"}
           </button>
         </div>
       </div>
