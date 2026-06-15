@@ -49,6 +49,8 @@ export const MARKETING_SURFACES = [
   "customers",
   "content",
   "segments",
+  "broadcasts",
+  "coupons",
 ] as const;
 export type MarketingSurface = (typeof MARKETING_SURFACES)[number];
 
@@ -80,6 +82,22 @@ export const MARKETING_SURFACE_GRANTS: Record<
     staff: "-",
   },
   segments: {
+    owner: "rw",
+    manager: "rw",
+    accountant: "-",
+    hr_officer: "-",
+    cashier: "-",
+    staff: "-",
+  },
+  broadcasts: {
+    owner: "rw",
+    manager: "rw",
+    accountant: "-",
+    hr_officer: "-",
+    cashier: "-",
+    staff: "-",
+  },
+  coupons: {
     owner: "rw",
     manager: "rw",
     accountant: "-",
