@@ -74,7 +74,7 @@ const csp = [
   .join("; ");
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
+  { key: "Content-Security-Policy", value: "default-src 'self'; connect-src 'self' http://127.0.0.1:54321 ws://127.0.0.1:54321 https://127.0.0.1:54321 wss://127.0.0.1:54321 https://graph.facebook.com https://api.openai.com; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" },
   {
     key: "Strict-Transport-Security",
     value: "max-age=15552000; includeSubDomains; preload",

@@ -1,6 +1,7 @@
 {
   "name": "bantuniaga",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "description": "Bantu Niaga — unified AI Business Operating System for Malaysian micro-SMEs.",
   "scripts": {
@@ -9,10 +10,10 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "supabase:start": "supabase start",
-    "supabase:stop": "supabase stop",
-    "supabase:migrate": "supabase migration up",
-    "supabase:reset": "supabase db reset",
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "npx supabase stop",
+    "supabase:migrate": "npx supabase migration up",
+    "supabase:reset": "npx supabase db reset",
     "seed": "tsx scripts/seed-owner.ts",
     "seed:demo": "tsx scripts/seed-demo-businesses.ts",
     "admin:bootstrap": "tsx scripts/bootstrap-platform-admin.ts",

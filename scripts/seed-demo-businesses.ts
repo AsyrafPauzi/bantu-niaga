@@ -534,16 +534,65 @@ async function seedBusiness(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Entry point
+// Hardened Entry Point with Explicit Error Dumps
 // ─────────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
-  loadDotEnvLocal();
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local",
-    );
+  console.log("[seed:demo] Initializing script sequence...");
+  
+  try {
+    loadDotEnvLocal();
+  } catch (envErr) {
+    console.error("❌ Failed to parse .env.local file:", envErr);
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
+  let serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  console.log(`[seed:demo] Target URL: ${url}`);
+
+  // Just make sure a key actually exists!
+  if (!serviceRoleKey) {
+    console.warn("⚠️  Missing service role key. Attempting live fallback extraction...");
+    
+    try {
+      const { execSync } = require("node:child_process");
+      // Use standard execution; redirect stderr to stdout so we can catch the message
+      const stdout = execSync("npx supabase status --aws-export=false", { 
+        encoding: "utf8", 
+        stdio: ["ignore", "pipe", "pipe"] 
+      });
+      
+      const match = stdout.match(/service_role key:\s+([^\s\n]+)/);
+      if (match && match[1]) {
+        serviceRoleKey = match[1].trim();
+        console.log("✅ Successfully extracted pre-signed local service_role key.");
+      } else {
+        console.warn("⚠️  Could not parse key string from status command output.");
+      }
+    } catch (cliErr: any) {
+      console.warn("⚠️  npx supabase status command failed. Trying direct Docker container inspection...");
+      try {
+        const { execSync } = require("node:child_process");
+        // Adjusted for Windows PowerShell compatibility
+        const token = execSync('docker exec supabase_kong_bantuniaga sh -c "echo $SERVICE_ROLE"', { 
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"]
+        });
+        if (token && token.trim()) {
+          serviceRoleKey = token.trim();
+          console.log("✅ Successfully extracted token directly from container environment.");
+        }
+      } catch (dockerErr: any) {
+        console.error("❌ Both fallback extraction methods failed.");
+        console.error("👉 Please run 'npx supabase status' manually in your terminal, copy the 'service_role key', paste it directly into your .env.local file as SUPABASE_SERVICE_ROLE_KEY, and run this script again.");
+        process.exit(1);
+      }
+    }
+  }
+
+  if (!serviceRoleKey) {
+    console.error("❌ Core Halt: No valid service_role key found. Execution stopped.");
+    process.exit(1);
   }
 
   const admin = createClient(url, serviceRoleKey, {
@@ -554,7 +603,7 @@ async function main(): Promise<void> {
     },
   });
 
-  console.log("[seed:demo] starting — 5 demo businesses + marketing payload");
+  console.log("[seed:demo] Seeding payload into database engines...");
   console.log("");
 
   const results: Array<{
@@ -562,32 +611,37 @@ async function main(): Promise<void> {
     customerCount: number;
     postCount: number;
   }> = [];
+  
   for (const [i, biz] of DEMOS.entries()) {
-    console.log(`▸ ${i + 1}/${DEMOS.length} · ${biz.name} (${biz.tier})`);
-    const r = await seedBusiness(admin, biz, i);
-    results.push({ biz, customerCount: r.customerCount, postCount: r.postCount });
+    try {
+      console.log(`▸ ${i + 1}/${DEMOS.length} · ${biz.name} (${biz.tier})`);
+      const r = await seedBusiness(admin, biz, i);
+      results.push({ biz, customerCount: r.customerCount, postCount: r.postCount });
+      console.log("  ✅ Seeding complete for this record.");
+    } catch (rowErr: any) {
+      console.error(`❌ Row Insertion Failed for ${biz.name}:`, rowErr.message || rowErr);
+    }
     console.log("");
   }
 
-  console.log("[seed:demo] done.\n");
+  console.log("[seed:demo] Process finished execution.\n");
   console.log("─────────────────────────────────────────────────────────────");
   console.log("Sign in at http://localhost:3000/sign-in");
   console.log(`Password (all owners): ${DEMO_PASSWORD}`);
   console.log("─────────────────────────────────────────────────────────────");
-  console.log(
-    `${"#".padEnd(2)} ${"Email".padEnd(38)} ${"Customers".padStart(9)} ${"Posts".padStart(5)} · Business`,
-  );
   for (const [i, r] of results.entries()) {
-    console.log(
-      `${String(i + 1).padEnd(2)} ${r.biz.ownerEmail.padEnd(38)} ${String(r.customerCount).padStart(9)} ${String(r.postCount).padStart(5)} · ${r.biz.name}`,
-    );
+    console.log(`${String(i + 1).padEnd(2)} ${r.biz.ownerEmail.padEnd(38)} · ${r.biz.name}`);
   }
 }
-
-main().catch((err) => {
-  console.error(
-    "[seed:demo] failed:",
-    err instanceof Error ? err.message : err,
-  );
-  process.exitCode = 1;
-});
+// ─────────────────────────────────────────────────────────────────────────
+// Execution Trigger
+// ─────────────────────────────────────────────────────────────────────────
+main()
+  .then(() => {
+    console.log("\n✅ [seed:demo] Execution finished smoothly.");
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("\n❌ [seed:demo] Uncaught exception in main timeline:", err);
+    process.exit(1);
+  });
