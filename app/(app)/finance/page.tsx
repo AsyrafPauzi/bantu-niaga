@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { redirect } from "next/navigation";
 import { AiBanner } from "@/components/dashboard/ai-banner";
 import { BulletRow } from "@/components/dashboard/bullet-row";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
@@ -18,6 +19,8 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import { TxRow } from "@/components/dashboard/tx-row";
+import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { loadBusiness } from "@/lib/settings/business";
 
 export const metadata = { title: "Finance" };
 
@@ -67,7 +70,30 @@ const TOP_CUSTOMERS = [
   { initials: "SA", title: "Sri Aman Catering", subtitle: "3 invoices · 1 overdue", value: "RM 5,340" },
 ];
 
-export default function FinancePage() {
+export default async function FinancePage() {
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) redirect("/sign-in");
+    throw error;
+  }
+
+  const business = await loadBusiness(user.businessId);
+  if (!business) redirect("/home");
+  const isFree = business.tier === "starter";
+  const visibleTransactions = isFree
+    ? TRANSACTIONS.filter((row) => row.tone === "success")
+    : TRANSACTIONS;
+  const quickActions = [
+    { icon: FileText, label: "New invoice", helper: "Send via secure URL" },
+    { icon: DollarSign, label: "Record payment", helper: "FPX · DuitNow · Cash" },
+    { icon: AlertTriangle, label: "Late reminders", helper: "WA · email script" },
+    ...(isFree
+      ? []
+      : [{ icon: CreditCard, label: "Log expense", helper: "Attach receipt photo" }]),
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -107,14 +133,25 @@ export default function FinancePage() {
           helper="this week"
           icon={Wallet}
         />
-        <KpiTile
-          label="Expenses (MTD)"
-          value="RM 22,140"
-          delta="+9%"
-          deltaTone="danger"
-          helper="vs last month"
-          icon={CreditCard}
-        />
+        {isFree ? (
+          <KpiTile
+            label="Payments tracked"
+            value="18"
+            delta="Free"
+            deltaTone="success"
+            helper="expense tracking unlocks on Starter"
+            icon={DollarSign}
+          />
+        ) : (
+          <KpiTile
+            label="Expenses (MTD)"
+            value="RM 22,140"
+            delta="+9%"
+            deltaTone="danger"
+            helper="vs last month"
+            icon={CreditCard}
+          />
+        )}
       </section>
 
       <AiBanner
@@ -141,7 +178,7 @@ export default function FinancePage() {
         </SectionCard>
 
         <SectionCard
-          title="Recent transactions"
+          title={isFree ? "Recent payments" : "Recent transactions"}
           subtitle="Last 24 hours"
           bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
           action={
@@ -150,35 +187,46 @@ export default function FinancePage() {
             </button>
           }
         >
-          {TRANSACTIONS.map((row) => (
+          {visibleTransactions.map((row) => (
             <TxRow key={row.title} {...row} />
           ))}
         </SectionCard>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-        <SectionCard
-          title="Top customers (MTD)"
-          subtitle="By revenue this month"
-          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
-          action={<StatusPill tone="success">+22%</StatusPill>}
-        >
-          {TOP_CUSTOMERS.map((row) => (
-            <ListRow key={row.title} {...row} />
-          ))}
-        </SectionCard>
+        {isFree ? (
+          <SectionCard
+            title="Upgrade unlock"
+            subtitle="Starter adds saved customers and expense tracking"
+            bodyClassName="space-y-3"
+            action={<StatusPill tone="warning">Starter</StatusPill>}
+          >
+            <ListRow
+              initials="ST"
+              title="Starter plan"
+              subtitle="Save customer records, track expenses, and activate Finance add-ons."
+              value="RM 69/mo"
+            />
+          </SectionCard>
+        ) : (
+          <SectionCard
+            title="Top customers (MTD)"
+            subtitle="By revenue this month"
+            bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
+            action={<StatusPill tone="success">+22%</StatusPill>}
+          >
+            {TOP_CUSTOMERS.map((row) => (
+              <ListRow key={row.title} {...row} />
+            ))}
+          </SectionCard>
+        )}
 
         <SectionCard
           title="Quick actions"
           subtitle="Most common finance flows"
           bodyClassName="grid gap-2 sm:grid-cols-2"
         >
-          {[
-            { icon: FileText, label: "New invoice", helper: "Send via secure URL" },
-            { icon: DollarSign, label: "Record payment", helper: "FPX · DuitNow · Cash" },
-            { icon: AlertTriangle, label: "Late reminders", helper: "WA · email script" },
-            { icon: CreditCard, label: "Log expense", helper: "Attach receipt photo" },
-          ].map((action) => (
+          {quickActions.map((action) => (
             <button
               key={action.label}
               className="flex items-start gap-3 rounded-lg border border-cream-200 p-3 text-left transition-colors hover:border-brand-200 hover:bg-brand-50/40 dark:border-hairline-dark dark:hover:border-brand-700 dark:hover:bg-brand-900/20"

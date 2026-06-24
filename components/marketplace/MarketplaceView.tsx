@@ -47,6 +47,31 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 type FilterKey = "all" | "active" | AddonPillar;
+type TierKey = "starter" | "micro" | "sme" | "enterprise";
+type ModuleAddonPillar = Exclude<AddonPillar, "ai" | "cross">;
+
+const TIER_LABEL: Record<TierKey, string> = {
+  starter: "Free",
+  micro: "Starter",
+  sme: "Growth",
+  enterprise: "Pro",
+};
+
+const TIER_MODULES: Record<TierKey, readonly ModuleAddonPillar[]> = {
+  starter: ["finance"],
+  micro: ["finance", "admin", "operations"],
+  sme: ["finance", "admin", "operations", "sales", "hr"],
+  enterprise: ["finance", "admin", "operations", "sales", "hr", "marketing"],
+};
+
+const MODULE_ADDON_PILLARS: readonly ModuleAddonPillar[] = [
+  "admin",
+  "finance",
+  "operations",
+  "sales",
+  "marketing",
+  "hr",
+];
 
 /**
  * Tab order requested by the product owner — pillars first (in the same
@@ -67,6 +92,36 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All add-ons" },
   { key: "active", label: "Active" },
 ];
+
+function isTierKey(value: string): value is TierKey {
+  return (
+    value === "starter" ||
+    value === "micro" ||
+    value === "sme" ||
+    value === "enterprise"
+  );
+}
+
+function isModuleAddonPillar(value: AddonPillar): value is ModuleAddonPillar {
+  return (MODULE_ADDON_PILLARS as readonly string[]).includes(value);
+}
+
+function addonEligibility(addon: CatalogEntry["addon"], tier: string) {
+  if (!isTierKey(tier)) return { canActivate: false, reason: "Unknown plan." };
+  if (tier === "starter") {
+    return {
+      canActivate: false,
+      reason: "Free plan cannot activate add-ons. Upgrade to Starter or higher.",
+    };
+  }
+  if (isModuleAddonPillar(addon.pillar) && !TIER_MODULES[tier].includes(addon.pillar)) {
+    return {
+      canActivate: false,
+      reason: `${PILLAR_LABEL[addon.pillar]} add-ons require a plan with ${PILLAR_LABEL[addon.pillar]} unlocked.`,
+    };
+  }
+  return { canActivate: true, reason: null };
+}
 
 export function MarketplaceView({ initial, canEdit, tier }: Props) {
   const router = useRouter();
@@ -140,6 +195,14 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
     if (!canEdit) {
       setToast({ kind: "err", msg: "Only the owner can activate add-ons." });
       return;
+    }
+    const entry = entries.find((e) => e.addon.slug === slug);
+    if (entry) {
+      const eligibility = addonEligibility(entry.addon, tier);
+      if (!eligibility.canActivate) {
+        setToast({ kind: "err", msg: eligibility.reason ?? "Upgrade required." });
+        return;
+      }
     }
     setBusySlug(slug);
     try {
@@ -284,6 +347,7 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
           }
           busy={busySlug === featured.addon.slug}
           canEdit={canEdit}
+          tier={tier}
         />
       ) : null}
 
@@ -464,6 +528,7 @@ function AddonCard({
   const isActive = activation?.status === "active";
   const isCancelling = !!activation?.cancel_at;
   const isIncluded = addon.included_in_tier.includes(tier);
+  const eligibility = addonEligibility(addon, tier);
   const priceLabel = isIncluded ? "Included" : formatMyr(addon.price_cents);
   const cadenceLabel = isIncluded
     ? `in your ${tierLabel(tier)} plan`
@@ -538,7 +603,7 @@ function AddonCard({
         ) : isIncluded ? (
           <button
             onClick={onActivate}
-            disabled={!canEdit || busy}
+            disabled={!canEdit || busy || !eligibility.canActivate}
             className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           >
             <Settings2 className="h-3.5 w-3.5" />
@@ -547,7 +612,7 @@ function AddonCard({
         ) : (
           <button
             onClick={onActivate}
-            disabled={!canEdit || busy}
+            disabled={!canEdit || busy || !eligibility.canActivate}
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
@@ -555,10 +620,15 @@ function AddonCard({
             ) : (
               <Plus className="h-3.5 w-3.5" />
             )}
-            Activate
+            {eligibility.canActivate ? "Activate" : "Upgrade"}
           </button>
         )}
       </div>
+      {!isActive && !eligibility.canActivate ? (
+        <p className="rounded-lg bg-status-warning/10 px-3 py-2 text-xs text-ink-muted dark:text-cream-400">
+          {eligibility.reason}
+        </p>
+      ) : null}
     </article>
   );
 }
@@ -567,17 +637,20 @@ function FeaturedBanner({
   entry,
   busy,
   canEdit,
+  tier,
   onActivate,
   onDeactivate,
 }: {
   entry: CatalogEntry;
   busy: boolean;
   canEdit: boolean;
+  tier: string;
   onActivate: () => void;
   onDeactivate: () => void;
 }) {
   const Icon = ICON_MAP[entry.addon.icon] ?? Sparkles;
   const isActive = entry.activation?.status === "active";
+  const eligibility = addonEligibility(entry.addon, tier);
 
   return (
     <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500 px-6 py-6 text-white shadow-card sm:px-8 sm:py-8">
@@ -606,7 +679,7 @@ function FeaturedBanner({
             ) : (
               <button
                 onClick={onActivate}
-                disabled={!canEdit || busy}
+                disabled={!canEdit || busy || !eligibility.canActivate}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 px-3.5 py-2 text-sm font-bold text-white hover:bg-accent-600 disabled:opacity-50"
               >
                 {busy ? (
@@ -614,8 +687,9 @@ function FeaturedBanner({
                 ) : (
                   <Plus className="h-4 w-4" />
                 )}
-                Activate · {formatMyr(entry.addon.price_cents)}
-                {CADENCE_LABEL[entry.addon.cadence]}
+                {eligibility.canActivate
+                  ? `Activate · ${formatMyr(entry.addon.price_cents)}${CADENCE_LABEL[entry.addon.cadence]}`
+                  : "Upgrade required"}
               </button>
             )}
             <a
@@ -627,6 +701,9 @@ function FeaturedBanner({
               Read setup guide →
             </a>
           </div>
+          {!isActive && !eligibility.canActivate ? (
+            <p className="text-xs text-brand-100">{eligibility.reason}</p>
+          ) : null}
         </div>
         <div className="hidden flex-col items-end gap-3 sm:flex">
           <div className="grid h-24 w-24 place-items-center rounded-3xl bg-white/10 backdrop-blur">
@@ -671,7 +748,7 @@ function labelFor(key: FilterKey): string {
 }
 
 function tierLabel(t: string): string {
-  return t.slice(0, 1).toUpperCase() + t.slice(1);
+  return isTierKey(t) ? TIER_LABEL[t] : t.slice(0, 1).toUpperCase() + t.slice(1);
 }
 
 function formatDate(iso: string): string {

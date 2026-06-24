@@ -125,19 +125,21 @@ supabase/
 | Doc | What it covers |
 |---|---|
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Running log of shipped UI + backend changes (read this first) |
-| [`docs/v1-core-scope.md`](docs/v1-core-scope.md) | Finalized v1 Base Package across all 6 pillars |
-| [`docs/pillars/0X-*.md`](docs/pillars/) | Per-pillar specs |
+| [`docs/target-market.md`](docs/target-market.md) | Target customer groups, plan fit, and business examples |
+| [`docs/pricing-plan.md`](docs/pricing-plan.md) | Free/Starter/Growth/Pro packaging, add-on pricing guidance, discounts, and trials |
+| [`docs/v1-core-scope.md`](docs/v1-core-scope.md) | Core features across all 6 modules |
+| [`docs/marketplace-addons.md`](docs/marketplace-addons.md) | Premium add-on catalog across all modules |
+| [`docs/pillars/0X-*.md`](docs/pillars/) | Per-module specs with core/add-on split |
 | [`docs/architecture/tech-stack.md`](docs/architecture/tech-stack.md) | Stack decisions |
 | [`docs/architecture/dual-mode.md`](docs/architecture/dual-mode.md) | Desktop ERP + Mobile PWA architecture |
 | [`docs/architecture/auth-claims.md`](docs/architecture/auth-claims.md) | `role` + `business_id` resolution at every layer |
-| [`docs/architecture/entitlements.md`](docs/architecture/entitlements.md) | Tier → pillar gating (Free/Plus/Growth/Pro) |
+| [`docs/architecture/entitlements.md`](docs/architecture/entitlements.md) | Tier → pillar gating (Free/Starter/Growth/Pro) |
 | [`docs/architecture/super-admin.md`](docs/architecture/super-admin.md) | Platform-admin app — schema, auth, impersonation, AI scope versioning |
 | [`docs/architecture/social-integrations.md`](docs/architecture/social-integrations.md) | Meta (Facebook + Instagram Business) — OAuth, publish, insights |
 | [`docs/architecture/integrations.md`](docs/architecture/integrations.md) | Platform-wide API integrations registry (OpenAI, WhatsApp, Billplz, MyInvois …) |
 | [`docs/architecture/ai-context-isolation.md`](docs/architecture/ai-context-isolation.md) | AI agent tenant isolation + per-pillar briefing packets |
 | [`docs/architecture/pdpa.md`](docs/architecture/pdpa.md) | PDPA compliance — DSRs, consent, retention, deletion grace |
 | [`docs/architecture/cross-pillar-sync.md`](docs/architecture/cross-pillar-sync.md) | Event bus design |
-| [`docs/marketplace-addons.md`](docs/marketplace-addons.md) | Live Marketplace catalog + activation rules |
 | [`docs/plans/`](docs/plans/) | Implementation plans for Marketing, Sales, HR + locked decisions |
 
 ## Design tokens

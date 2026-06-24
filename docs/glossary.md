@@ -11,14 +11,14 @@
 | **Dual-Mode** | The two-interface product architecture: Desktop ERP (control) + Mobile PWA (execution), sharing one backbone. See [architecture/dual-mode.md](./architecture/dual-mode.md). |
 | **Desktop ERP** | The control & analytics interface. Used for deep management, reporting, configuration, and the AI Boardroom Console. |
 | **Mobile PWA** | The execution engine. Installable Progressive Web App optimized for sub-10-second on-the-go actions. |
-| **Pillar** | One of the six functional areas of the product: Admin, Finance, Operations, Marketing, Sales, HR. |
-| **Base Package** | The always-included feature set within a single pillar. |
-| **Tier** | One of the three base packages: **Starter (RM50)**, **Micro (RM80)**, **SME (RM120)**. Determines which pillars are active and how many staff seats are allowed. |
-| **Active Pillar** | A pillar enabled in the user's current tier. Only active pillars surface UI, accept events, and allow add-on / AI Agent purchases. |
-| **Locked Pillar** | A pillar gated behind a higher tier. Data is buffered (not deleted) until the user upgrades. |
-| **Marketplace Add-on** | An optional, separately-billed feature pack that an owner enables for an active pillar. |
+| **Module** | One of the six functional areas of the product: Admin, Finance, Operations, Sales, HR, Marketing. Older docs may use "pillar" for the same concept. |
+| **Core Feature** | The always-included daily workflow feature set within an unlocked module. |
+| **Tier / Plan** | One of the four customer-facing plans: **Free (RM0)**, **Starter (RM69)**, **Growth (RM139)**, **Pro (RM249)**. Determines which modules are active and how many seats, customers, and storage quotas apply. |
+| **Active Module** | A module enabled in the user's current plan. Only active modules surface UI, accept events, and allow module-specific add-on / AI Agent purchases. |
+| **Locked Module** | A module gated behind a higher plan. Data may be buffered where useful, but access stays locked until the user upgrades. |
+| **Marketplace Add-on** | An optional, separately-billed feature pack that an owner enables for an active module. |
 | **Storage Tier** | A special add-on category. Mutually exclusive — one tier active at a time. |
-| **AI Agent** | A per-pillar premium intelligence layer (RM15–20/mo). Adds 100 Fast Credits to the pool when subscribed. |
+| **AI Agent** | A per-module premium intelligence layer (target RM15-RM20/mo). Adds Fast Credits to the pool when subscribed. |
 | **Executive Boardroom** | Multi-agent orchestrated interface that activates when ≥ 2 AI Agents are subscribed. Desktop ERP is the primary surface. |
 | **Golden Middle** | The product philosophy — enough workflow value to replace fragmented tools, without the data-entry fatigue of a full ERP. |
 | **Business / Tenant** | A single customer account. Identified by `idcompany`. |

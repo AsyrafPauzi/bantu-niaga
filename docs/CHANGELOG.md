@@ -10,6 +10,24 @@
 
 ---
 
+## 2026-06-21 · Pricing plan rename + add-on eligibility
+
+**Goal:** align customer-facing pricing with the target market and protect
+upgrade paths.
+
+- Renamed the paid entry plan from **Plus** to **Starter** while keeping
+  internal tier keys unchanged (`starter`, `micro`, `sme`, `enterprise`).
+- Updated customer-facing prices to Free RM0, Starter RM69, Growth RM139,
+  and Pro RM249.
+- Made Free a stricter acquisition tier: no expense tracking, no saved
+  customer database, and no Marketplace add-on activation.
+- Added Marketplace activation guards so paid businesses can activate
+  add-ons only for modules unlocked by their current plan.
+- Updated subscription and marketplace copy so AI is positioned as an
+  optional add-on layer rather than bundled base-plan credits.
+
+---
+
 ## 2026-06-14 · AI agent tenant isolation + briefing packets
 
 **Goal:** make it structurally impossible for an AI agent to see another

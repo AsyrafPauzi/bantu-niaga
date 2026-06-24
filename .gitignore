@@ -38,6 +38,7 @@ supabase/.env
 .idea/
 *.swp
 .DS_Store
+.cursorrules
 
 # Generated types
 lib/types/database.generated.ts

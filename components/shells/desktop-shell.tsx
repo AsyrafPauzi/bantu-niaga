@@ -193,8 +193,15 @@ export function DesktopShell({
                       const lockedHref = locked
                         ? `/settings/subscription?locked=${pillar}`
                         : href;
+                      const visibleSubItems = subItems?.filter(
+                        (sub) =>
+                          !(tier === "starter" && sub.href === "/finance/expenses"),
+                      );
                       const showSubItems =
-                        !locked && subItems && subItems.length > 0 && isSectionActive;
+                        !locked &&
+                        visibleSubItems &&
+                        visibleSubItems.length > 0 &&
+                        isSectionActive;
                       return (
                         <li key={href}>
                           <Link
@@ -229,7 +236,7 @@ export function DesktopShell({
                           </Link>
                           {showSubItems ? (
                             <ul className="mb-1 mt-0.5 ml-9 mr-3 border-l border-cream-200 dark:border-hairline-dark">
-                              {subItems!.map((sub) => {
+                              {visibleSubItems!.map((sub) => {
                                 const subActive =
                                   pathname === sub.href ||
                                   pathname.startsWith(`${sub.href}/`);

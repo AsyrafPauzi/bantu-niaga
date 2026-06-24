@@ -63,7 +63,7 @@ export default async function SuperAdminInvestorMetrics() {
 
         <Section
           title="Plan mix"
-          description="The conversion ladder. Free → Plus → Growth → Pro reflects how SMEs scale on the platform."
+          description="The conversion ladder. Free → Starter → Growth → Pro reflects how SMEs scale on the platform."
         >
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             {planMix.map((p) => {

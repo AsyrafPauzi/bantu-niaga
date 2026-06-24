@@ -1,6 +1,6 @@
-# AI Agents — Per-Pillar Intelligence Layer
+# AI Agents — Per-Module Intelligence Layer
 
-> An opt-in premium layer on top of the base tiers. One AI Agent per pillar. Structured triggers only — no open chat. Predictable cost, abuse-proof, never blocks workflow.
+> An opt-in premium layer on top of unlocked modules. One AI Agent per module. Structured triggers only — no open chat. Predictable cost, abuse-proof, never blocks workflow.
 
 ---
 
@@ -10,7 +10,7 @@ The base tiers cover the **operational** workflow. The AI layer covers the **ana
 
 - Watching for things the owner should know about (overdue invoices, stale leads, low stock).
 - Drafting outputs the owner would otherwise write themselves (follow-up messages, restock notes).
-- Cross-examining multi-pillar decisions in the Executive Boardroom.
+- Cross-examining multi-module decisions in the Executive Boardroom.
 
 This separation keeps the base tiers cheap (no AI cost baked into RM50) and lets margin scale through the AI upsell.
 
@@ -18,16 +18,16 @@ This separation keeps the base tiers cheap (no AI cost baked into RM50) and lets
 
 ## 2. The Six Agents
 
-| Agent | Available from tier | Watches | Generates |
+| Agent | Available when module is unlocked | Watches | Generates |
 |-------|---------------------|---------|-----------|
-| **Admin AI** | Starter | Tasks, document expiries, storage limits | Daily task summary, reminders |
-| **Finance AI** | Starter | Cashflow, overdue invoices, expense trends | Overdue follow-up drafts, P&L anomaly notes |
-| **Operations AI** | Starter | Stock levels, supplier costs, pipeline aging | Reorder nudges, cost-trend summaries |
-| **Marketing AI** | Micro | Customer cohorts, content calendar gaps | Post hooks, customer re-engagement scripts |
-| **HR AI** | Micro | Leave balances, shift coverage gaps | Leave decision drafts, rota suggestions |
-| **Sales AI** | SME | Lead aging, POS trends, conversion funnel | Lead follow-up drafts, deal-stage nudges |
+| **Finance AI** | Free and above | Cashflow, overdue invoices, expense trends | Overdue follow-up drafts, finance health notes |
+| **Admin AI** | Starter and above | Tasks, document expiries, storage limits | Daily task summary, reminders |
+| **Operations AI** | Starter and above | Stock warnings, supplier costs, pipeline aging | Reorder nudges, cost-trend summaries |
+| **Sales AI** | Growth and above | Lead aging, POS trends, conversion funnel | Lead follow-up drafts, deal-stage nudges |
+| **HR AI** | Growth and above | Leave balances, staff records, coverage gaps | Leave decision drafts, HR checklist suggestions |
+| **Marketing AI** | Pro | Customer cohorts, content calendar gaps | Post hooks, customer re-engagement scripts |
 
-Each Agent is priced **RM 15–20/month** (exact per-pillar pricing TBD).
+Each Agent is priced **RM 15–20/month** (exact per-module pricing TBD).
 
 ---
 
@@ -41,7 +41,7 @@ Instead, every Agent interaction is one of a small number of **structured trigge
 |---------|-------------|---------------:|
 | Daily System Summary | System (every morning at owner's local time) | **1** |
 | Contextual Text Generation (e.g. "Draft follow-up for invoice INV-X") | User click on a structured suggestion | **2** |
-| Pillar Data Aggregation (e.g. "Summarize this quarter's supplier costs") | User click on a report tile | **3** |
+| Module Data Aggregation (e.g. "Summarize this quarter's supplier costs") | User click on a report tile | **3** |
 | Executive Boardroom query | User submits one prompt to the Boardroom | **1 per turn** |
 
 Each trigger has a fixed prompt template and a strict JSON Schema output. The user never types tokens that go directly into an LLM prompt — they pick from structured options.
@@ -55,7 +55,7 @@ Each trigger has a fixed prompt template and a strict JSON Schema output. The us
 
 ## 4. The Proactive Morning Dashboard
 
-Every morning at the business's local "open" hour (configurable; defaults to 8 AM Asia/Kuala_Lumpur), each subscribed Agent evaluates its pillar's structured updates and writes **exactly three** scannable instructions onto the dashboard.
+Every morning at the business's local "open" hour (configurable; defaults to 8 AM Asia/Kuala_Lumpur), each subscribed Agent evaluates its module's structured updates and writes **exactly three** scannable instructions onto the dashboard.
 
 ### Example — Finance AI morning briefing
 
@@ -63,7 +63,7 @@ Every morning at the business's local "open" hour (configurable; defaults to 8 A
 > 2. **Your inventory spending rose 20% against income trends this week.** _Click for breakdown._
 > 3. **3 expenses last week are uncategorized.** _Click to auto-suggest categories._
 
-Each card has a **one-tap action** that triggers a Contextual Text Generation (2 credits) or a Pillar Data Aggregation (3 credits). Users decide what's worth spending on.
+Each card has a **one-tap action** that triggers a Contextual Text Generation (2 credits) or a Module Data Aggregation (3 credits). Users decide what's worth spending on.
 
 ### Cost of the briefing itself
 - 1 credit per Agent per day = ~30 credits/month of the 100-credit pool.
@@ -92,7 +92,7 @@ The pool is **shared across all subscribed Agents and the Boardroom** — it's n
 |--------|--------:|-------|
 | Daily System Summary | 1 | Fixed; runs per subscribed Agent automatically. |
 | Contextual Text Generation | 2 | Per user click (e.g. draft a follow-up message). |
-| Pillar Data Aggregation | 3 | Per user click (e.g. quarterly supplier analysis). |
+| Module Data Aggregation | 3 | Per user click (e.g. quarterly supplier analysis). |
 | Executive Boardroom turn | 1 | Flat — each turn in the orchestrator chain. |
 
 ### 5.3 The Anti-Abuse Speed Brake — Slow Mode
