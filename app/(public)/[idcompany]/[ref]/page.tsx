@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PayFieldCopy } from "@/components/finance/PayFieldCopy";
+import { loadPublicFinanceInvoice } from "@/lib/finance/public-invoice";
+import { formatMyr } from "@/lib/finance/schemas";
 
 /**
  * Single dispatcher for all unauthenticated secure-hash URLs:
@@ -45,52 +48,97 @@ export default async function PublicRefPage({ params }: Props) {
 
   const { surface, hash } = parsed;
 
-  if (surface === "invoice") return <InvoiceView idcompany={idcompany} hash={hash} />;
+  if (surface === "invoice") {
+    return <InvoiceView idcompany={idcompany} hash={hash} />;
+  }
   if (surface === "booking") return <BookingView idcompany={idcompany} hash={hash} />;
   return <LeaveView idcompany={idcompany} hash={hash} />;
 }
 
 // ─── Invoice ───────────────────────────────────────────────────────────────
 
-function InvoiceView({
+async function InvoiceView({
   idcompany,
   hash,
 }: {
   idcompany: string;
   hash: string;
 }) {
+  const invoice = await loadPublicFinanceInvoice(idcompany, hash);
+  if (!invoice) notFound();
+
+  const { business } = invoice;
+  const duitnowId = business.duitnow_id ?? "—";
+  const total = formatMyr(Number(invoice.total_myr));
+  const isPaid = invoice.status === "paid";
+
   return (
     <div className="space-y-4">
       <header>
-        <p className="text-sm font-medium text-ink-muted">Invoice</p>
-        <h1 className="mt-1 text-2xl font-semibold text-ink">
-          {idcompany} · INV-{hash.toUpperCase()}
+        <p className="text-sm font-medium text-ink-muted dark:text-cream-400">
+          Invoice from {business.name}
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold text-ink dark:text-cream-100">
+          {invoice.number}
         </h1>
+        <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
+          Bill to: {invoice.customer_name}
+        </p>
       </header>
 
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Pay Now</CardTitle>
-            <Badge tone="brand">DuitNow</Badge>
+            <CardTitle>Amount due</CardTitle>
+            <Badge tone={isPaid ? "success" : "brand"}>
+              {isPaid ? "Paid" : invoice.status}
+            </Badge>
           </div>
         </CardHeader>
-        <CardBody className="space-y-3 text-sm">
-          <p className="text-ink-muted">
-            Tap to copy each field, paste into your banking app's DuitNow
-            Transfer.
+        <CardBody className="space-y-2 text-sm">
+          {invoice.description ? (
+            <p className="text-ink-muted dark:text-cream-400">
+              {invoice.description}
+            </p>
+          ) : null}
+          <p className="text-2xl font-semibold text-ink dark:text-cream-100">
+            {total}
           </p>
-          <div className="space-y-2">
-            <PayField label="DuitNow ID" value="—" />
-            <PayField label="Amount (MYR)" value="—" />
-            <PayField label="Reference" value={`INV-${hash.toUpperCase()}`} />
-          </div>
+          {invoice.due_date ? (
+            <p className="text-xs text-ink-muted dark:text-cream-400">
+              Due: {invoice.due_date}
+            </p>
+          ) : null}
         </CardBody>
       </Card>
 
-      <ScaffoldNote>
-        Real invoice rendering, line items, and Pay Now logic land in Phase 1.
-      </ScaffoldNote>
+      {!isPaid ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Pay Now</CardTitle>
+              <Badge tone="brand">DuitNow</Badge>
+            </div>
+          </CardHeader>
+          <CardBody className="space-y-3 text-sm">
+            <p className="text-ink-muted dark:text-cream-400">
+              Tap to copy each field, paste into your banking app&apos;s DuitNow
+              Transfer.
+            </p>
+            <div className="space-y-2">
+              <PayFieldCopy label="DuitNow ID" value={duitnowId} />
+              <PayFieldCopy label="Amount (MYR)" value={Number(invoice.total_myr).toFixed(2)} />
+              <PayFieldCopy label="Reference" value={invoice.number} />
+            </div>
+          </CardBody>
+        </Card>
+      ) : (
+        <Card>
+          <CardBody className="text-sm text-status-success">
+            This invoice has been marked as paid. Thank you!
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }
@@ -183,25 +231,6 @@ function LeaveView({
 }
 
 // ─── Shared bits ───────────────────────────────────────────────────────────
-
-function PayField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-cream-100 border border-cream-300 rounded-lg">
-      <div className="min-w-0">
-        <p className="text-xs text-ink-muted">{label}</p>
-        <p className="font-medium text-ink truncate">{value}</p>
-      </div>
-      <button
-        type="button"
-        className="text-sm text-brand-600 font-medium px-3 py-1.5 rounded-md hover:bg-brand-50 active:bg-brand-100 transition-colors"
-        aria-label={`Copy ${label}`}
-        disabled
-      >
-        Copy
-      </button>
-    </div>
-  );
-}
 
 function ScaffoldNote({ children }: { children: React.ReactNode }) {
   return (

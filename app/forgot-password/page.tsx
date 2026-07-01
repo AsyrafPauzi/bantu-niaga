@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { apiErrorMessage } from "@/lib/api/client-error";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -23,9 +24,7 @@ export default function ForgotPasswordPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(
-          json?.issues?.[0]?.message ?? json?.message ?? "Could not send reset link",
-        );
+        setError(apiErrorMessage(json, "Could not send reset link"));
         return;
       }
       setSent(true);

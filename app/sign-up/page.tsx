@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { apiErrorMessage } from "@/lib/api/client-error";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const STATES = [
@@ -71,12 +72,7 @@ export default function SignUpPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(
-          json?.issues?.[0]?.message ??
-            json?.message ??
-            json?.error ??
-            "Could not create account",
-        );
+        setError(apiErrorMessage(json, "Could not create account"));
         setPending(false);
         return;
       }

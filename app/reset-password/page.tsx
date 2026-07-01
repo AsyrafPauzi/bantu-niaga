@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { apiErrorMessage } from "@/lib/api/client-error";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
@@ -49,9 +50,7 @@ export default function ResetPasswordPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(
-          json?.issues?.[0]?.message ?? json?.message ?? "Reset failed",
-        );
+        setError(apiErrorMessage(json, "Reset failed"));
         return;
       }
       setDone(true);

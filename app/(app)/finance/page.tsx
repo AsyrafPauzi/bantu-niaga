@@ -1,74 +1,27 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
-  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
-  Clock,
-  CreditCard,
-  DollarSign,
   FileText,
   Plus,
+  TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { redirect } from "next/navigation";
-import { AiBanner } from "@/components/dashboard/ai-banner";
-import { BulletRow } from "@/components/dashboard/bullet-row";
-import { KpiTile } from "@/components/dashboard/kpi-tile";
-import { ListRow } from "@/components/dashboard/list-row";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { StatusPill } from "@/components/dashboard/status-pill";
+import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { TxRow } from "@/components/dashboard/tx-row";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { can } from "@/lib/permissions";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { computeFinanceMonthSummary } from "@/lib/finance/helpers";
+import { formatMyr } from "@/lib/finance/schemas";
 import { loadBusiness } from "@/lib/settings/business";
 
 export const metadata = { title: "Finance" };
-
-const AR_BUCKETS = [
-  { label: "Current", sublabel: "Not yet due", value: "3", fill: 100, tone: "success" as const },
-  { label: "1–30 days", sublabel: "Within terms", value: "2", fill: 66, tone: "brand" as const },
-  { label: "31–60 days", sublabel: "Late — escalate", value: "1", fill: 33, tone: "warning" as const },
-  { label: "61–90 days", sublabel: "Seriously overdue", value: "0", fill: 0, tone: "danger" as const },
-  { label: "90+", sublabel: "Write-off candidates", value: "0", fill: 0, tone: "muted" as const },
-];
-
-const TRANSACTIONS = [
-  {
-    icon: ArrowDownRight,
-    tone: "success" as const,
-    title: "INV-2026-0124 — Lapan Holdings",
-    subtitle: "Paid · FPX · 12 min ago",
-    amount: "+RM 2,840",
-  },
-  {
-    icon: ArrowUpRight,
-    tone: "danger" as const,
-    title: "Supplier payout — Sri Aman",
-    subtitle: "Outgoing · DuitNow · 1 hr ago",
-    amount: "−RM 1,620",
-  },
-  {
-    icon: ArrowDownRight,
-    tone: "success" as const,
-    title: "INV-2026-0123 — Cyber-1 Distribution",
-    subtitle: "Paid · FPX · 3 hr ago",
-    amount: "+RM 3,510",
-  },
-  {
-    icon: ArrowUpRight,
-    tone: "danger" as const,
-    title: "Domain renewal — bantuniaga.com",
-    subtitle: "Card · yesterday",
-    amount: "−RM 218",
-  },
-];
-
-const TOP_CUSTOMERS = [
-  { initials: "LH", title: "Lapan Holdings", subtitle: "7 invoices · paid on time", value: "RM 18.4K" },
-  { initials: "CD", title: "Cyber-1 Distribution", subtitle: "4 invoices · 1 due soon", value: "RM 9,820" },
-  { initials: "BC", title: "Bumi Cafe", subtitle: "6 invoices", value: "RM 7,150" },
-  { initials: "SA", title: "Sri Aman Catering", subtitle: "3 invoices · 1 overdue", value: "RM 5,340" },
-];
+export const dynamic = "force-dynamic";
 
 export default async function FinancePage() {
   let user;
@@ -79,171 +32,190 @@ export default async function FinancePage() {
     throw error;
   }
 
+  if (!can(user.role, "finance")) {
+    redirect("/home");
+  }
+
   const business = await loadBusiness(user.businessId);
   if (!business) redirect("/home");
-  const isFree = business.tier === "starter";
-  const visibleTransactions = isFree
-    ? TRANSACTIONS.filter((row) => row.tone === "success")
-    : TRANSACTIONS;
-  const quickActions = [
-    { icon: FileText, label: "New invoice", helper: "Send via secure URL" },
-    { icon: DollarSign, label: "Record payment", helper: "FPX · DuitNow · Cash" },
-    { icon: AlertTriangle, label: "Late reminders", helper: "WA · email script" },
-    ...(isFree
-      ? []
-      : [{ icon: CreditCard, label: "Log expense", helper: "Attach receipt photo" }]),
-  ];
+
+  const admin = createServiceRoleClient();
+  const summary = await computeFinanceMonthSummary(admin, user.businessId);
+
+  const { data: recentTxns } = await admin
+    .from("finance_transactions")
+    .select("id, kind, description, amount_myr, txn_date, counterparty")
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .order("txn_date", { ascending: false })
+    .limit(5);
+
+  const { count: openInvoices } = await admin
+    .from("finance_invoices")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", user.businessId)
+    .eq("status", "sent")
+    .is("deleted_at", null);
+
+  const makingMoney = summary.net_myr >= 0;
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Finance"
         title="Overview"
-        description="Cashflow, receivables, and ledger health at a glance."
+        description="Am I making money this month? Simple cash flow — no accounting jargon."
         action={
-          <button className="inline-flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600">
+          <Link
+            href="/finance/invoices"
+            className="inline-flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+          >
             <Plus className="h-4 w-4" strokeWidth={2} />
             New invoice
-          </button>
+          </Link>
         }
       />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <KpiTile
-          label="Revenue (MTD)"
-          value="RM 48,210"
-          delta="+18%"
+          label="Income (this month)"
+          value={formatMyr(summary.income_myr)}
           deltaTone="success"
-          helper="vs last month"
+          helper="money in"
           icon={TrendingUp}
         />
         <KpiTile
-          label="Outstanding AR"
-          value="RM 12,840"
-          delta="6 invoices"
-          deltaTone="warning"
-          helper="awaiting payment"
-          icon={Clock}
+          label="Expenses (this month)"
+          value={formatMyr(summary.expense_myr)}
+          deltaTone="danger"
+          helper="money out"
+          icon={TrendingDown}
         />
         <KpiTile
-          label="Cash on hand"
-          value="RM 84,500"
-          delta="+RM 6.2K"
-          deltaTone="success"
-          helper="this week"
+          label="Net profit (P&L)"
+          value={formatMyr(summary.net_myr)}
+          delta={makingMoney ? "Making money" : "Spending more than earning"}
+          deltaTone={makingMoney ? "success" : "danger"}
+          helper={summary.month}
           icon={Wallet}
         />
-        {isFree ? (
-          <KpiTile
-            label="Payments tracked"
-            value="18"
-            delta="Free"
-            deltaTone="success"
-            helper="expense tracking unlocks on Starter"
-            icon={DollarSign}
-          />
-        ) : (
-          <KpiTile
-            label="Expenses (MTD)"
-            value="RM 22,140"
-            delta="+9%"
-            deltaTone="danger"
-            helper="vs last month"
-            icon={CreditCard}
-          />
-        )}
+        <KpiTile
+          label="Unpaid invoices"
+          value={formatMyr(summary.invoice_outstanding_myr)}
+          delta={`${openInvoices ?? 0} sent`}
+          deltaTone="warning"
+          helper="awaiting payment"
+          icon={FileText}
+        />
       </section>
 
-      <AiBanner
-        label="Fayza · Finance AI"
-        message="3 overdue invoices totalling RM 4,820 from Sri Aman Catering and Hijau Hortikultur. Draft reminder emails or schedule auto follow-ups."
-        cta="Chase invoices"
-      />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
-        <SectionCard
-          title="AR aging buckets"
-          subtitle="RM 12,840 outstanding across 6 customers"
-          className="lg:col-span-2"
-          bodyClassName="space-y-4"
-          action={
-            <button className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200">
-              View all
-            </button>
-          }
-        >
-          {AR_BUCKETS.map((row) => (
-            <BulletRow key={row.label} {...row} />
-          ))}
-        </SectionCard>
-
-        <SectionCard
-          title={isFree ? "Recent payments" : "Recent transactions"}
-          subtitle="Last 24 hours"
-          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
-          action={
-            <button className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200">
-              All
-            </button>
-          }
-        >
-          {visibleTransactions.map((row) => (
-            <TxRow key={row.title} {...row} />
-          ))}
-        </SectionCard>
-      </div>
+      <SectionCard
+        title="Profit & loss snapshot"
+        subtitle={`${summary.month} — income minus expenses`}
+        bodyClassName="grid gap-4 sm:grid-cols-3"
+      >
+        <div className="rounded-lg border border-cream-200 p-4 dark:border-hairline-dark">
+          <p className="text-xs uppercase tracking-wide text-ink-muted dark:text-cream-400">
+            Total in
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-status-success">
+            {formatMyr(summary.income_myr)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-cream-200 p-4 dark:border-hairline-dark">
+          <p className="text-xs uppercase tracking-wide text-ink-muted dark:text-cream-400">
+            Total out
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-status-danger">
+            {formatMyr(summary.expense_myr)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-cream-200 p-4 dark:border-hairline-dark">
+          <p className="text-xs uppercase tracking-wide text-ink-muted dark:text-cream-400">
+            You keep
+          </p>
+          <p
+            className={`mt-1 text-2xl font-semibold ${makingMoney ? "text-status-success" : "text-status-danger"}`}
+          >
+            {formatMyr(summary.net_myr)}
+          </p>
+        </div>
+      </SectionCard>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-        {isFree ? (
-          <SectionCard
-            title="Upgrade unlock"
-            subtitle="Starter adds saved customers and expense tracking"
-            bodyClassName="space-y-3"
-            action={<StatusPill tone="warning">Starter</StatusPill>}
-          >
-            <ListRow
-              initials="ST"
-              title="Starter plan"
-              subtitle="Save customer records, track expenses, and activate Finance add-ons."
-              value="RM 69/mo"
-            />
-          </SectionCard>
-        ) : (
-          <SectionCard
-            title="Top customers (MTD)"
-            subtitle="By revenue this month"
-            bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
-            action={<StatusPill tone="success">+22%</StatusPill>}
-          >
-            {TOP_CUSTOMERS.map((row) => (
-              <ListRow key={row.title} {...row} />
-            ))}
-          </SectionCard>
-        )}
+        <SectionCard
+          title="Recent cash flow"
+          subtitle="Latest income & expenses"
+          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
+          action={
+            <Link
+              href="/finance/ledger"
+              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            >
+              Full ledger
+            </Link>
+          }
+        >
+          {(recentTxns ?? []).length === 0 ? (
+            <p className="py-6 text-center text-sm text-ink-muted dark:text-cream-400">
+              No entries yet —{" "}
+              <Link href="/finance/ledger" className="text-brand-600 underline">
+                log income or expense
+              </Link>
+            </p>
+          ) : (
+            (recentTxns ?? []).map(
+              (row: {
+                id: string;
+                kind: string;
+                description: string;
+                amount_myr: number;
+                txn_date: string;
+                counterparty: string | null;
+              }) => (
+                <TxRow
+                  key={row.id}
+                  icon={row.kind === "income" ? ArrowDownRight : ArrowUpRight}
+                  tone={row.kind === "income" ? "success" : "danger"}
+                  title={row.description}
+                  subtitle={
+                    row.counterparty
+                      ? `${row.txn_date} · ${row.counterparty}`
+                      : row.txn_date
+                  }
+                  amount={
+                    (row.kind === "income" ? "+" : "−") +
+                    formatMyr(Number(row.amount_myr))
+                  }
+                />
+              ),
+            )
+          )}
+        </SectionCard>
 
         <SectionCard
-          title="Quick actions"
-          subtitle="Most common finance flows"
-          bodyClassName="grid gap-2 sm:grid-cols-2"
+          title="Quick links"
+          subtitle="Most common finance tasks"
+          bodyClassName="grid gap-2"
         >
-          {quickActions.map((action) => (
-            <button
-              key={action.label}
-              className="flex items-start gap-3 rounded-lg border border-cream-200 p-3 text-left transition-colors hover:border-brand-200 hover:bg-brand-50/40 dark:border-hairline-dark dark:hover:border-brand-700 dark:hover:bg-brand-900/20"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                <action.icon className="h-4 w-4" strokeWidth={2} />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-ink dark:text-cream-100">
-                  {action.label}
-                </span>
-                <span className="block text-xs text-ink-muted dark:text-cream-400">
-                  {action.helper}
-                </span>
-              </span>
-            </button>
-          ))}
+          <Link
+            href="/finance/ledger"
+            className="rounded-lg border border-cream-200 p-3 text-sm font-medium hover:border-brand-200 dark:border-hairline-dark dark:hover:border-brand-700"
+          >
+            Cash flow ledger
+          </Link>
+          <Link
+            href="/finance/invoices"
+            className="rounded-lg border border-cream-200 p-3 text-sm font-medium hover:border-brand-200 dark:border-hairline-dark dark:hover:border-brand-700"
+          >
+            Invoices & share links
+          </Link>
+          <Link
+            href="/finance/expenses"
+            className="rounded-lg border border-cream-200 p-3 text-sm font-medium hover:border-brand-200 dark:border-hairline-dark dark:hover:border-brand-700"
+          >
+            Quick expense log
+          </Link>
         </SectionCard>
       </div>
     </div>

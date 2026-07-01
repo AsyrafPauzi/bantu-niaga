@@ -328,6 +328,63 @@ function loadDotEnvLocal(): void {
   }
 }
 
+/** sb_secret_* keys lack table grants for seed scripts — need JWT service_role. */
+function isPlaceholderServiceRoleKey(key: string | undefined): boolean {
+  if (!key) return true;
+  const trimmed = key.trim();
+  if (!trimmed || trimmed === "your-service-role-key") return true;
+  if (trimmed.startsWith("sb_secret_")) return true;
+  return false;
+}
+
+function extractServiceRoleFromSupabaseStatus(stdout: string): string | null {
+  try {
+    const jsonStart = stdout.indexOf("{");
+    if (jsonStart !== -1) {
+      const parsed = JSON.parse(stdout.slice(jsonStart)) as {
+        SERVICE_ROLE_KEY?: string;
+      };
+      if (parsed.SERVICE_ROLE_KEY?.startsWith("eyJ")) {
+        return parsed.SERVICE_ROLE_KEY;
+      }
+    }
+  } catch {
+    // fall through to legacy text parsing
+  }
+  const match = stdout.match(/SERVICE_ROLE_KEY[^"]*"([^"]+)"/);
+  if (match?.[1]?.startsWith("eyJ")) return match[1];
+  const legacy = stdout.match(/service_role key:\s+([^\s\n]+)/i);
+  if (legacy?.[1]?.startsWith("eyJ")) return legacy[1].trim();
+  return null;
+}
+
+function resolveServiceRoleKey(initial: string | undefined): string | null {
+  if (!isPlaceholderServiceRoleKey(initial)) return initial!.trim();
+
+  if (initial?.startsWith("sb_secret_")) {
+    console.warn(
+      "⚠️  SUPABASE_SERVICE_ROLE_KEY is sb_secret_* — seed scripts need the JWT service_role key from `npx supabase status`.",
+    );
+  }
+
+  try {
+    const { execSync } = require("node:child_process") as typeof import("node:child_process");
+    const stdout = execSync("npx supabase status", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const extracted = extractServiceRoleFromSupabaseStatus(stdout);
+    if (extracted) {
+      console.log("✅ Using JWT service_role key from `npx supabase status`.");
+      return extracted;
+    }
+  } catch {
+    // handled below
+  }
+
+  return null;
+}
+
 async function findUserByEmail(
   admin: SupabaseClient,
   email: string,
@@ -545,53 +602,15 @@ async function main(): Promise<void> {
     console.error("❌ Failed to parse .env.local file:", envErr);
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
-  let serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
+  let serviceRoleKey = resolveServiceRoleKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
   console.log(`[seed:demo] Target URL: ${url}`);
 
-  // Just make sure a key actually exists!
   if (!serviceRoleKey) {
-    console.warn("⚠️  Missing service role key. Attempting live fallback extraction...");
-    
-    try {
-      const { execSync } = require("node:child_process");
-      // Use standard execution; redirect stderr to stdout so we can catch the message
-      const stdout = execSync("npx supabase status --aws-export=false", { 
-        encoding: "utf8", 
-        stdio: ["ignore", "pipe", "pipe"] 
-      });
-      
-      const match = stdout.match(/service_role key:\s+([^\s\n]+)/);
-      if (match && match[1]) {
-        serviceRoleKey = match[1].trim();
-        console.log("✅ Successfully extracted pre-signed local service_role key.");
-      } else {
-        console.warn("⚠️  Could not parse key string from status command output.");
-      }
-    } catch (cliErr: any) {
-      console.warn("⚠️  npx supabase status command failed. Trying direct Docker container inspection...");
-      try {
-        const { execSync } = require("node:child_process");
-        // Adjusted for Windows PowerShell compatibility
-        const token = execSync('docker exec supabase_kong_bantuniaga sh -c "echo $SERVICE_ROLE"', { 
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "pipe"]
-        });
-        if (token && token.trim()) {
-          serviceRoleKey = token.trim();
-          console.log("✅ Successfully extracted token directly from container environment.");
-        }
-      } catch (dockerErr: any) {
-        console.error("❌ Both fallback extraction methods failed.");
-        console.error("👉 Please run 'npx supabase status' manually in your terminal, copy the 'service_role key', paste it directly into your .env.local file as SUPABASE_SERVICE_ROLE_KEY, and run this script again.");
-        process.exit(1);
-      }
-    }
-  }
-
-  if (!serviceRoleKey) {
-    console.error("❌ Core Halt: No valid service_role key found. Execution stopped.");
+    console.error(
+      "❌ No valid JWT service_role key. Run `npx supabase status`, copy SERVICE_ROLE_KEY (starts with eyJ…) into .env.local as SUPABASE_SERVICE_ROLE_KEY, then retry.",
+    );
     process.exit(1);
   }
 
