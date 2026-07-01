@@ -84,7 +84,44 @@ async function InvoiceView({
         <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
           Bill to: {invoice.customer_name}
         </p>
+        {invoice.title ? (
+          <p className="mt-1 text-sm text-ink dark:text-cream-100">{invoice.title}</p>
+        ) : null}
       </header>
+
+      {invoice.items.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Items</CardTitle>
+          </CardHeader>
+          <CardBody className="overflow-x-auto p-0">
+            <table className="min-w-full text-sm">
+              <thead className="border-b border-cream-200 bg-cream-50 text-left text-xs uppercase text-ink-muted dark:border-hairline-dark dark:bg-panel-dark/60 dark:text-cream-400">
+                <tr>
+                  <th className="px-4 py-2">Description</th>
+                  <th className="px-4 py-2 text-right">Qty</th>
+                  <th className="px-4 py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoice.items.map((item, i) => (
+                  <tr key={i} className="border-b border-cream-100 dark:border-hairline-dark">
+                    <td className="px-4 py-3 text-ink dark:text-cream-100">
+                      {item.description}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ink-muted dark:text-cream-400">
+                      {item.quantity} {item.unit ?? ""}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ink dark:text-cream-100">
+                      {formatMyr(Number(item.line_total_myr))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardBody>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -101,6 +138,30 @@ async function InvoiceView({
               {invoice.description}
             </p>
           ) : null}
+          <div className="space-y-1 text-xs text-ink-muted dark:text-cream-400">
+            <p className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatMyr(Number(invoice.amount_myr))}</span>
+            </p>
+            {Number(invoice.discount_myr) > 0 ? (
+              <p className="flex justify-between">
+                <span>Discount</span>
+                <span>-{formatMyr(Number(invoice.discount_myr))}</span>
+              </p>
+            ) : null}
+            {Number(invoice.tax_myr) > 0 ? (
+              <p className="flex justify-between">
+                <span>Tax</span>
+                <span>{formatMyr(Number(invoice.tax_myr))}</span>
+              </p>
+            ) : null}
+            {Number(invoice.shipping_myr) > 0 ? (
+              <p className="flex justify-between">
+                <span>Shipping</span>
+                <span>{formatMyr(Number(invoice.shipping_myr))}</span>
+              </p>
+            ) : null}
+          </div>
           <p className="text-2xl font-semibold text-ink dark:text-cream-100">
             {total}
           </p>

@@ -57,14 +57,51 @@ export const financeTransactionUpdateSchema = financeTransactionCreateSchema
   .partial()
   .strict();
 
+export const financeInvoiceLineItemSchema = z.object({
+  description: z.string().trim().min(1, "Line description is required.").max(2000),
+  unit_price: z.number().min(0),
+  quantity: z.number().positive(),
+  unit: z.string().trim().max(40).optional().nullable(),
+  taxable: z.boolean().optional().default(false),
+});
+
+export const financeCustomerCreateSchema = z
+  .object({
+    name: z.string().trim().min(1, "Customer name is required.").max(200),
+    phone: z.string().trim().max(40).optional().nullable(),
+    email: z
+      .string()
+      .trim()
+      .email("Invalid email.")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
+    address: z.string().trim().max(500).optional().nullable(),
+    notes: z.string().trim().max(2000).optional().nullable(),
+  })
+  .strict();
+
+export const financeCustomerUpdateSchema = financeCustomerCreateSchema.partial().strict();
+
 export const financeInvoiceCreateSchema = z
   .object({
-    customer_name: z.string().trim().min(1, "Customer name is required.").max(200),
+    customer_id: z.string().uuid().optional().nullable(),
+    customer_name: z.string().trim().min(1).max(200).optional(),
     customer_email: z.string().trim().email().optional().nullable().or(z.literal("")),
     customer_phone: z.string().trim().max(30).optional().nullable(),
+    title: z.string().trim().max(300).optional().nullable(),
     description: z.string().trim().max(2000).optional().nullable(),
-    amount_myr: z.number().min(0),
+    invoice_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    items: z.array(financeInvoiceLineItemSchema).optional(),
+    amount_myr: z.number().min(0).optional(),
+    discount_myr: z.number().min(0).optional().default(0),
+    discount_pct: z.number().min(0).max(100).optional().default(0),
     tax_myr: z.number().min(0).optional().default(0),
+    tax_pct: z.number().min(0).max(100).optional().default(0),
+    shipping_myr: z.number().min(0).optional().default(0),
     due_date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -73,16 +110,43 @@ export const financeInvoiceCreateSchema = z
     notes: z.string().trim().max(2000).optional().nullable(),
     status: z.enum(FINANCE_INVOICE_STATUSES).optional().default("draft"),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (!data.customer_id && !data.customer_name?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Select a customer or enter a customer name.",
+        path: ["customer_name"],
+      });
+    }
+    if ((!data.items || data.items.length === 0) && data.amount_myr == null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Add at least one line item.",
+        path: ["items"],
+      });
+    }
+  });
 
 export const financeInvoiceUpdateSchema = z
   .object({
+    customer_id: z.string().uuid().optional().nullable(),
     customer_name: z.string().trim().min(1).max(200).optional(),
     customer_email: z.string().trim().email().optional().nullable().or(z.literal("")),
     customer_phone: z.string().trim().max(30).optional().nullable(),
+    title: z.string().trim().max(300).optional().nullable(),
     description: z.string().trim().max(2000).optional().nullable(),
+    invoice_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    items: z.array(financeInvoiceLineItemSchema).optional(),
     amount_myr: z.number().min(0).optional(),
+    discount_myr: z.number().min(0).optional(),
+    discount_pct: z.number().min(0).max(100).optional(),
     tax_myr: z.number().min(0).optional(),
+    tax_pct: z.number().min(0).max(100).optional(),
+    shipping_myr: z.number().min(0).optional(),
     due_date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -109,17 +173,49 @@ export interface FinanceTransactionRow {
   updated_at: string;
 }
 
+export interface FinanceInvoiceItemRow {
+  id: string;
+  business_id: string;
+  invoice_id: string;
+  description: string;
+  unit_price: number;
+  quantity: number;
+  unit: string | null;
+  taxable: boolean;
+  sort_order: number;
+  line_total_myr: number;
+}
+
+export interface FinanceCustomerRow {
+  id: string;
+  business_id: string;
+  name: string;
+  phone_e164: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FinanceInvoiceRow {
   id: string;
   business_id: string;
   number: string;
   share_hash: string;
+  customer_id: string | null;
   customer_name: string;
   customer_email: string | null;
   customer_phone: string | null;
+  title: string | null;
   description: string | null;
+  invoice_date: string;
   amount_myr: number;
+  discount_myr: number;
+  discount_pct: number;
   tax_myr: number;
+  tax_pct: number;
+  shipping_myr: number;
   total_myr: number;
   status: FinanceInvoiceStatus;
   due_date: string | null;
@@ -128,6 +224,7 @@ export interface FinanceInvoiceRow {
   sent_at: string | null;
   created_at: string;
   updated_at: string;
+  items?: FinanceInvoiceItemRow[];
 }
 
 export interface FinanceMonthSummary {

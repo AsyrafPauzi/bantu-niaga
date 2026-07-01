@@ -44,9 +44,10 @@ export default async function InvoicesPage() {
   const { data, error } = await admin
     .from("finance_invoices")
     .select(
-      "id, business_id, number, share_hash, customer_name, customer_email, " +
-        "customer_phone, description, amount_myr, tax_myr, total_myr, status, " +
-        "due_date, notes, paid_at, sent_at, created_at, updated_at",
+      "id, business_id, number, share_hash, customer_id, customer_name, customer_email, " +
+        "customer_phone, title, description, invoice_date, amount_myr, discount_myr, " +
+        "discount_pct, tax_myr, tax_pct, shipping_myr, total_myr, status, due_date, notes, " +
+        "paid_at, sent_at, created_at, updated_at",
     )
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
@@ -62,7 +63,7 @@ export default async function InvoicesPage() {
       <PageHeader
         eyebrow="Finance"
         title="Invoices"
-        description="Generate invoices, share via WhatsApp or email, mark paid when money arrives."
+        description="Create invoices with line items, pick saved customers, share via WhatsApp or email."
       />
 
       {error ? (

@@ -13,6 +13,13 @@ import {
   nextFinanceInvoiceNumber,
 } from "@/lib/finance/helpers";
 import {
+  INVOICE_SELECT,
+  buildTotalsFromPayload,
+  loadInvoiceWithItems,
+  replaceInvoiceItems,
+  resolveCustomerSnapshot,
+} from "@/lib/finance/invoice-db";
+import {
   financeInvoiceCreateSchema,
   type FinanceInvoiceRow,
 } from "@/lib/finance/schemas";
@@ -93,11 +100,7 @@ export async function GET() {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("finance_invoices")
-    .select(
-      "id, business_id, number, share_hash, customer_name, customer_email, " +
-        "customer_phone, description, amount_myr, tax_myr, total_myr, status, " +
-        "due_date, notes, paid_at, sent_at, created_at, updated_at",
-    )
+    .select(INVOICE_SELECT)
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
@@ -144,28 +147,57 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  const supabase = await createSupabaseServerClient();
+  const customer = await resolveCustomerSnapshot(
+    supabase,
+    user.businessId,
+    parsed.customer_id,
+    {
+      customer_name: parsed.customer_name,
+      customer_email: parsed.customer_email,
+      customer_phone: parsed.customer_phone,
+    },
+  );
+
+  if (!customer.customer_name) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: "validation_failed", message: "Customer is required." },
+      },
+      { status: 400 },
+    );
+  }
+
+  const totals = buildTotalsFromPayload(parsed);
   const admin = createServiceRoleClient();
   const number = await nextFinanceInvoiceNumber(admin, user.businessId);
   const shareHash = generateShareHash();
-  const tax = parsed.tax_myr ?? 0;
-  const total = parsed.amount_myr + tax;
   const now = new Date().toISOString();
   const status = parsed.status ?? "draft";
+  const invoiceDate =
+    parsed.invoice_date ?? new Date().toISOString().slice(0, 10);
 
-  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("finance_invoices")
     .insert({
       business_id: user.businessId,
       number,
       share_hash: shareHash,
-      customer_name: parsed.customer_name,
-      customer_email: parsed.customer_email || null,
-      customer_phone: parsed.customer_phone ?? null,
+      customer_id: customer.customer_id,
+      customer_name: customer.customer_name,
+      customer_email: customer.customer_email,
+      customer_phone: customer.customer_phone,
+      title: parsed.title ?? null,
       description: parsed.description ?? null,
-      amount_myr: parsed.amount_myr,
-      tax_myr: tax,
-      total_myr: total,
+      invoice_date: invoiceDate,
+      amount_myr: totals.amount_myr,
+      discount_myr: totals.discount_myr,
+      discount_pct: parsed.discount_pct ?? 0,
+      tax_myr: totals.tax_myr,
+      tax_pct: parsed.tax_pct ?? 0,
+      shipping_myr: totals.shipping_myr,
+      total_myr: totals.total_myr,
       status,
       due_date: parsed.due_date ?? null,
       notes: parsed.notes ?? null,
@@ -173,11 +205,7 @@ export async function POST(request: Request) {
       paid_at: status === "paid" ? now : null,
       created_by: user.id,
     })
-    .select(
-      "id, business_id, number, share_hash, customer_name, customer_email, " +
-        "customer_phone, description, amount_myr, tax_myr, total_myr, status, " +
-        "due_date, notes, paid_at, sent_at, created_at, updated_at",
-    )
+    .select(INVOICE_SELECT)
     .single();
 
   if (error) {
@@ -188,9 +216,38 @@ export async function POST(request: Request) {
   }
 
   const row = data as unknown as FinanceInvoiceRow;
-  if (row.status === "paid") {
-    await recordInvoiceIncome(admin, user.businessId, user.id, row);
+
+  if (parsed.items && parsed.items.length > 0) {
+    try {
+      await replaceInvoiceItems(
+        supabase,
+        user.businessId,
+        row.id,
+        parsed.items,
+      );
+    } catch (itemErr) {
+      await supabase
+        .from("finance_invoices")
+        .update({ deleted_at: now, status: "void" })
+        .eq("id", row.id);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "items_failed",
+            message:
+              itemErr instanceof Error ? itemErr.message : "Could not save items.",
+          },
+        },
+        { status: 500 },
+      );
+    }
   }
 
-  return NextResponse.json({ ok: true, data: row }, { status: 201 });
+  const full = await loadInvoiceWithItems(supabase, user.businessId, row.id);
+  if (full?.status === "paid") {
+    await recordInvoiceIncome(admin, user.businessId, user.id, full);
+  }
+
+  return NextResponse.json({ ok: true, data: full ?? row }, { status: 201 });
 }

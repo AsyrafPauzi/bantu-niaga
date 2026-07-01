@@ -67,7 +67,7 @@ export default async function FinancePage() {
         description="Am I making money this month? Simple cash flow — no accounting jargon."
         action={
           <Link
-            href="/finance/invoices"
+            href="/finance/invoices/new"
             className="inline-flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
           >
             <Plus className="h-4 w-4" strokeWidth={2} />
