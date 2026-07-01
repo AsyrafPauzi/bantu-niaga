@@ -5,6 +5,7 @@ import { MarketplaceView } from "@/components/marketplace/MarketplaceView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { loadCatalog } from "@/lib/marketplace/load";
 import { loadBusiness } from "@/lib/settings/business";
+import { tierBy } from "@/lib/settings/plans";
 
 export const metadata = { title: "Marketplace" };
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export default async function MarketplacePage() {
 
   if (!business) redirect("/home");
   const canEdit = user.role === "owner";
+  const tier = tierBy(business.tier);
 
   return (
     <div className="space-y-6">
@@ -34,7 +36,7 @@ export default async function MarketplacePage() {
         description="Switch on extra capacity, channels, or AI capability — billed prorated to your next renewal."
         action={
           canEdit ? (
-            <Badge tone="brand">{business.tier.toUpperCase()} plan</Badge>
+            <Badge tone="brand">{tier?.label ?? business.tier} plan</Badge>
           ) : (
             <Badge tone="warning">Read-only — owner role required</Badge>
           )

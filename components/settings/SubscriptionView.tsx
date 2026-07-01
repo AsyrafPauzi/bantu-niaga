@@ -152,7 +152,7 @@ export function SubscriptionView({
             }
           />
           <UsageRow
-            label="Fast credits · this month"
+            label="AI add-on credits"
             used={usage.credits_used_this_month}
             total={monthlyCredits}
             icon={Zap}

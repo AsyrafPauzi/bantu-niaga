@@ -1,8 +1,8 @@
 # Product Requirements Document — BantuNiaga
 
-> **Status:** v0.3 — Draft for engineering kickoff
+> **Status:** v0.7 — Product packaging cleanup
 > **Owner:** Founder (Asyraf)
-> **Last updated:** 2026-06-02
+> **Last updated:** 2026-06-21
 > **Related docs:** [README](./README.md) · [Pillars](./pillars/) · [Architecture](./architecture/) · [AI](./ai/) · [v1 core scope](./v1-core-scope.md) · [Plans](./plans/)
 
 ---
@@ -62,42 +62,55 @@ Pillar feature lists, data models, and detailed user flows live in the pillar do
 ## 3. Target Market
 
 ### 3.1 Primary Users
-- Micro SMEs (1–20 staff)
-- Sole proprietors
-- Enterprise-status SSM-registered businesses
-- Home-based businesses
-- Retail shops
-- F&B stalls and kafes
-- Service-based businesses (salons, homestays, tuition centers)
 
-### 3.2 User Behavior Assumptions
+Bantu Niaga focuses on three customer groups:
+
+- **Solo entrepreneurs** — one-person businesses, freelancers, home sellers, small service providers, and owner-operators who need speed and less mental load.
+- **Micro SMEs** — small teams that need structure for customers, invoices, tasks, documents, products, orders, and basic staff records.
+- **Growing SMEs** — businesses with more staff, sales activity, compliance pressure, and a need for controls, roles, approvals, reports, and add-ons.
+
+Common segments include home-based businesses, retail shops, F&B stalls and cafes, online sellers, salons, homestays, tuition centres, service businesses, and SSM-registered owner-led businesses.
+
+Detailed target-market examples and plan recommendations live in [target-market.md](./target-market.md). Pricing details, add-on price bands, trials, and discount guidance live in [pricing-plan.md](./pricing-plan.md).
+
+### 3.2 Plan Fit by Target
+
+**Free** is for solo entrepreneurs who need invoice and payment discipline first: income tracking, invoices, receipt upload for records, and payment tracking. Free does not include expense tracking, saved customers, or add-on purchases.
+
+**Starter** is for micro SMEs that need operating structure: Finance, Admin, and Operations for expenses, saved customers, documents, tasks, products, suppliers, orders, bookings, and basic stock.
+
+**Growth** is for businesses with staff and sales activity: Sales and HR unlock lead tracking, mobile POS, staff records, and leave tracking.
+
+**Pro** is for growing SMEs that need customer retention: Marketing unlocks CRM, segments, content calendar, coupons, media, and broadcast drafts.
+
+### 3.3 User Behavior Assumptions
 - Business operations run primarily from a **mobile phone**.
 - **WhatsApp is the primary communication tool** — with customers, suppliers, staff.
 - **Low technical literacy** — software UX must be self-explanatory.
 - **Speed beats complexity** — owners abandon any flow that takes too many taps.
-- **Automation beats manual entry** — every saved keystroke is retention.
+- **Automation feels premium** — but should usually live in add-ons unless needed to complete the core workflow.
 
-### 3.3 Personas
+### 3.4 Personas
 
 **Persona A — "Kak Yana the Home-Baker"**
-- Tier: Starter (RM50) · 1 person · WA-driven orders.
+- Segment: Solo entrepreneur · 1 person · WhatsApp-driven orders.
 - Mode: 100% mobile PWA.
 - Job: replace paper notebook + WA threads.
 
 **Persona B — "Encik Hafiz the Kedai Owner"**
-- Tier: Micro (RM80) + Inventory Automation · 2 part-time helpers.
+- Segment: Micro SME · 2 part-time helpers.
 - Mode: ~80% mobile (counter), ~20% desktop (Sunday review).
-- Job: stop running out of best-sellers; track helper hours.
+- Job: organize products, documents, simple stock, invoices, and helper work.
 
 **Persona C — "Cik Aida the Salon Operator"**
-- Tier: SME (RM120) + Booking + Self-Service Leave + HR AI · 8 staff.
+- Segment: Growing SME · 8 staff.
 - Mode: ~60% mobile (daily), ~40% desktop (Monday admin).
-- Job: scale staff without scaling her own hours.
+- Job: manage bookings, staff records, leave, repeat customers, and service operations.
 
 **Persona D — "Tuan Ridzuan the Online Seller"**
-- Tier: SME (RM120) + UTM + Promo + LHDN + Marketing AI + Sales AI → Boardroom.
+- Segment: Growing SME · online seller with campaign and compliance needs.
 - Mode: ~50/50 — desktop for analytics + Boardroom, mobile for shipping.
-- Job: graduate from "owner with TikTok" to "compliant business".
+- Job: graduate from "owner with TikTok" to structured, compliant, repeatable business.
 
 ---
 
@@ -160,16 +173,16 @@ Detail: [architecture/dual-mode.md](./architecture/dual-mode.md) · [architectur
 
 ## 6. User Roles (RBAC) — 6 Roles in v1
 
-The full 6-role model ships in v1. Reason: a salon with 8 staff or a kedai with 5 staff genuinely needs the granularity — keeping the cashier out of payroll and the HR officer out of the bank reconciliation isn't a "nice to have," it's a **product requirement** for the Micro and SME tiers.
+The full 6-role model ships in v1. Reason: a salon with 8 staff or a kedai with 5 staff genuinely needs the granularity — keeping the cashier out of payroll and the HR officer out of finance controls is not a "nice to have", it is a product requirement for growing SMEs.
 
 | Role | Access | Primary Mode | Tier where it matters |
 |------|--------|--------------|------|
 | **Owner** | Full system access (incl. billing + role assignment) | Both | All tiers |
-| **Manager** | Operational control across active pillars; no billing / role assignment | Both | Micro, SME |
+| **Manager** | Operational control across active modules; no billing / role assignment | Both | Starter, Growth, Pro |
 | **Accountant** | Finance module only (read/write) | Desktop | All tiers |
-| **HR Officer** | HR module only + Admin storage for HR docs | Both | Micro, SME |
-| **Cashier** | POS surface only | Mobile | SME (Sales pillar) |
-| **Staff** | Assigned task board + Self-Service Leave only | Mobile | Micro, SME |
+| **HR Officer** | HR module only + Admin storage for HR docs | Both | Growth, Pro |
+| **Cashier** | POS surface only | Mobile | Growth, Pro |
+| **Staff** | Assigned task board + HR self-service surfaces when enabled | Mobile | Starter, Growth, Pro |
 
 Role × Mode matrix and per-pillar permissions: [architecture/dual-mode.md §5](./architecture/dual-mode.md).
 
@@ -218,10 +231,10 @@ All three layers (DB / API / UI) read from **one matrix file**. Add a new featur
 
 | # | Goal | Measurable Target |
 |---|------|-------------------|
-| G1 | A Starter user can run a full week of business on the phone with no other tool. | ≥ 80% of Starter accounts log ≥ 5 transactions/week in month 2 |
-| G2 | Invoice → payment → ledger entry → stock decrement loop works end-to-end. | < 5s from "Mark Paid" tap to all downstream effects committed |
+| G1 | A solo entrepreneur can run a full week of invoice and payment tracking on the phone with no other tool. | ≥ 80% of active Free accounts log ≥ 5 invoice/payment actions/week in month 2 |
+| G2 | Invoice → payment tracking → ledger summary works end-to-end. | < 5s from "Mark Paid" tap to finance state update |
 | G3 | Mobile execution actions complete in under 10 seconds. | p95 of mobile hot-path events ≤ 10s end-to-end |
-| G4 | An owner can send an LHDN-compliant invoice XML by month 1 of subscribing. | ≥ 60% of SME-tier users with LHDN add-on generate ≥ 1 XML/month |
+| G4 | A growing SME can activate at least one useful add-on without confusing the core workflow. | ≥ 25% of paying customers activate ≥ 1 add-on within 90 days |
 | G5 | At least 30% of paying users subscribe to ≥ 1 AI Agent within 90 days. | Cohort analysis |
 | G6 | Boardroom users perform ≥ 4 multi-agent runs/month on average. | Engagement metric |
 | G7 | Slow Mode preserves operational continuity. | 0 support tickets citing "AI blocked my work" |
@@ -241,18 +254,17 @@ All three layers (DB / API / UI) read from **one matrix file**. Add a new featur
 
 ---
 
-## 8. User Stories (v1 Scope)
+## 8. User Stories (Core Scope)
 
-Prioritized **MoSCoW** — see [v1-core-scope.md](./v1-core-scope.md) and the pillar docs for full detail. Each story carries a US-ID for traceability.
+Prioritized **MoSCoW** — see [v1-core-scope.md](./v1-core-scope.md) and the module docs for full detail. Add-on stories live in [marketplace-addons.md](./marketplace-addons.md). Each story carries a US-ID for traceability.
 
 ### 8.1 Admin
 | ID | Story | Priority |
 |----|-------|---------|
 | US-A1 | Upload a receipt photo and tag it (mobile camera-first; desktop drag-drop). | M |
 | US-A2 | Manage daily tasks on TODO → DOING → DONE kanban (mobile swipe; desktop drag). | M |
-| US-A3 | Generate a Quotation by filling fields in a locked template, in < 60s. | M |
-| US-A4 | Fully customize a template (Custom Document Builder add-on, **desktop only**). | S |
-| US-A5 | Expand storage to 5 GB or 20 GB if needed. | M |
+| US-A3 | Add a compliance reminder for SSM, licence, tenancy, insurance, or permit dates. | M |
+| US-A4 | Generate a basic document from a fill-in template. | S |
 
 ### 8.2 Finance
 | ID | Story | Priority |
@@ -260,51 +272,49 @@ Prioritized **MoSCoW** — see [v1-core-scope.md](./v1-core-scope.md) and the pi
 | US-F1 | Log a revenue or expense entry in under 5s (mobile primary). | M |
 | US-F2 | Generate a secure invoice URL and share via WhatsApp (mobile primary). | M |
 | US-F3 | Marking an invoice "Paid" auto-creates the ledger entry (cross-pillar). | M |
-| US-F4 | Export LHDN-compliant XML (LHDN add-on, **desktop only**). | M |
-| US-F5 | See real P&L and Balance Sheet (Analytics add-on, **desktop only**). | S |
+| US-F4 | Show DuitNow payment information and invoice reference on the invoice page. | M |
+| US-F5 | Produce a WhatsApp-ready overdue payment reminder text. | S |
 
 ### 8.3 Operations
 | ID | Story | Priority |
 |----|-------|---------|
 | US-O1 | Move an order through New → In Progress → Ready → Delivered. | M |
-| US-O2 | Add a supplier with payment terms and material cost log (desktop primary). | M |
-| US-O3 | Build a product catalog (mobile basics, desktop variants/groups/images). | M |
-| US-O4 | Take bookings against multiple resources on a calendar. | M |
-| US-O5 | Paid invoice decrements stock; alert when below safety line (Stock Tracker add-on). | M |
+| US-O2 | Add a supplier with contact details and payment terms. | M |
+| US-O3 | Build a product or service catalog with SKU, category, price, and image. | M |
+| US-O4 | Add a booking or appointment on a calendar. | M |
+| US-O5 | Record basic stock quantity and show a low-stock warning. | S |
 
 ### 8.4 Marketing
 | ID | Story | Priority |
 |----|-------|---------|
-| US-M1 | Phone-deduped customer record showing total spend + last visit. | M |
+| US-M1 | Create and update customer records with tags and notes. | M |
 | US-M2 | Plan TikTok / IG / FB posts on a calendar. | M |
-| US-M3 | UTM-tracked link with per-source click counts (UTM add-on). | S |
-| US-M4 | Generate a WhatsApp script with baked-in discount (Promo Engine add-on). | S |
+| US-M3 | Import or export a customer list. | S |
+| US-M4 | Create a basic coupon and track redemption. | S |
 
-### 8.5 Sales (SME tier only)
+### 8.5 Sales
 | ID | Story | Priority |
 |----|-------|---------|
-| US-S1 | Track leads through New → Contacted → Negotiating → Won/Lost. | M |
-| US-S2 | Ring up a sale in under 5s via product grid + Cash or DuitNow QR (static or dynamic-per-amount). | M |
-| US-S3 | Alert when premium leads stay uncontacted > 48h (Stale Deal add-on). | S |
-| US-S4 | Pair a Bluetooth thermal printer + scan barcodes (Hardware add-on). | C |
+| US-S1 | Track leads through New → Contacted → Interested → Won/Lost. | M |
+| US-S2 | Convert a won lead into a customer. | M |
+| US-S3 | Ring up a simple sale through mobile POS with cash or static DuitNow QR. | M |
+| US-S4 | Show a basic receipt and daily sales summary. | S |
 
 ### 8.6 HR
 | ID | Story | Priority |
 |----|-------|---------|
 | US-H1 | Store employee data (IC, emergency, bank) securely (desktop primary). | M |
-| US-H2 | Record leave (AL/EL/MC) + see who's out on a calendar. | M |
-| US-H3 | Staff submits leave from mobile PWA using their Staff role login. | M |
-| US-H4 | Approving leave fires an automated email + in-app notification to staff. | M |
-| US-H5 | Drag staff onto a weekly shift grid (Rota add-on, **desktop primary**). | S |
+| US-H2 | Record AL, EL, and MC leave and approve or reject it. | M |
+| US-H3 | View public holidays as a reference calendar. | S |
+| US-H4 | Track onboarding checklist items for new staff. | S |
 
 ### 8.7 AI
 | ID | Story | Priority |
 |----|-------|---------|
-| US-AI1 | See a 3-item morning brief per subscribed Agent. | M |
-| US-AI2 | One-tap draft of a structured action (e.g. follow-up text). | M |
-| US-AI3 | Open the Executive Boardroom and ask a multi-pillar question (≥ 2 Agents subscribed, **desktop primary**). | M |
-| US-AI4 | Queries continue in Slow Mode when credits run out — never blocked. | M |
-| US-AI5 | Top up credits (RM10 → 50 Fast Credits) and return to Fast Mode immediately. | M |
+| US-AI1 | Subscribe to an optional AI agent for an unlocked module. | S |
+| US-AI2 | Use one-tap structured AI actions such as reminder drafts or summaries. | S |
+| US-AI3 | Open the Executive Boardroom when two or more AI agents are active. | C |
+| US-AI4 | Top up credits and return to Fast Mode. | C |
 
 ### 8.8 Onboarding & Platform Basics (Phase 1 must-haves, added in v0.4)
 | ID | Story | Priority |
@@ -320,39 +330,43 @@ Prioritized **MoSCoW** — see [v1-core-scope.md](./v1-core-scope.md) and the pi
 
 ### 9.1 Tier Gating
 
-| Tier | Price (RM/mo) | Active Pillars | Staff Seats |
+| Tier | Price (RM/mo) | Active Modules | Staff Seats |
 |------|--------------:|----------------|------------:|
-| Starter | 50 | Admin · Finance · Operations | 1 (owner only) |
-| Micro | 80 | + Marketing + HR | 3 |
-| SME | 120 | + Sales (all 6) | 10 |
+| Free | 0 | Finance Lite: income, invoices, receipt upload, payment tracking. No expenses, saved customers, or add-ons. | 1 owner |
+| Starter | 69 | Finance · Admin · Operations | 3 staff seats |
+| Growth | 139 | Finance · Admin · Operations · Sales · HR | 5 staff seats |
+| Pro | 249 | All six modules, including Marketing | Unlimited |
 
 **Acceptance criteria:**
-- Locked pillars do not appear in navigation (mobile or desktop).
-- API endpoints for locked pillars return `403 PILLAR_LOCKED` with an upgrade CTA payload.
-- Buffered events targeting locked pillars are stored and resurfaced on upgrade.
+- Locked modules do not appear in navigation (mobile or desktop), or appear only as upgrade prompts where product wants upsell education.
+- Free businesses cannot activate Marketplace add-ons.
+- Paid businesses can activate add-ons only for modules unlocked by their current plan.
+- API endpoints for locked modules return `403 PILLAR_LOCKED` or the current equivalent entitlement error with an upgrade CTA payload.
+- Buffered events targeting locked modules are stored and resurfaced on upgrade where the receiving module needs historical context.
 - Seat overage prevents new staff invites until either staff are deactivated or seats are added.
 
 ### 9.2 Cross-Pillar Sync
 
 Full event map: [architecture/cross-pillar-sync.md](./architecture/cross-pillar-sync.md).
 
-**Acceptance criteria for v1:**
-- `invoice.paid` triggers Finance ledger + Operations stock decrement + Marketing customer-stats update + Admin notification — all in one DB transaction.
-- `payroll.approved` triggers Finance expense entry tagged `Staff Remuneration`.
-- `leave.approved` / `leave.rejected` triggers an automated email + in-app notification to the staff role user.
-- `lead.captured` from a Marketing surface lands in Sales Prospect CRM (or buffers if Sales locked).
-- All async handlers idempotent; retried with exponential backoff (max 5).
+**Acceptance criteria for core:**
+- `invoice.paid` updates Finance ledger state and can notify Admin.
+- POS sales can update Finance summaries and Marketing customer history when those modules are active.
+- Operations stock decrement only runs when the relevant inventory add-on is active.
+- HR leave decisions update HR leave state; automated employee messaging is an add-on.
+- Marketing leads or campaigns can connect to Sales when Sales is active; otherwise the event is buffered or ignored according to entitlement rules.
+- All async handlers are idempotent and tenant-scoped.
 
 ### 9.3 AI Layer
 
 Full spec: [ai/agents.md](./ai/agents.md), [ai/executive-boardroom.md](./ai/executive-boardroom.md).
 
-**Acceptance criteria for v1:**
-- Each subscribed Agent emits a daily 3-item briefing on the dashboard (mobile + desktop).
-- Credit deduction logged to `ai_usage`; balance derivable from the sum.
-- When balance hits 0, requests route to Slow Mode (15–20s deterministic delay), never fail.
-- Top-up purchase (RM10 / 50 credits) returns the business to Fast Mode within 1s.
-- Boardroom activates when ≥ 2 Agents are subscribed; relevance filter silences non-applicable Agents at zero credit cost.
+**Acceptance criteria for AI add-ons:**
+- Each subscribed Agent uses structured triggers rather than open-ended module chat.
+- Credit deduction is logged to `ai_usage`; balance is derivable from the ledger.
+- When balance hits 0, requests route to Slow Mode rather than breaking the workflow.
+- Top-up purchase restores Fast Mode.
+- Boardroom activates when two or more Agents are subscribed.
 - Every AI output validates against a strict JSON Schema.
 
 ### 9.4 Secure URL System
@@ -463,11 +477,11 @@ Engineered for **micro-SME-friendly margins from day one** with the Vercel + Sup
 
 ### 12.3 Margin at Each Stage
 
-| Stage | Users | Total cost (RM) | MRR @ blended RM 80 | Gross margin |
+| Stage | Users | Total cost (RM) | MRR @ blended RM 100 | Gross margin |
 |-------|------:|------:|-----:|----:|
-| MVP | 50 | ~23 | 4,000 | **~99.4%** |
-| Growth | 500 | ~350 | 40,000 | **~99.1%** |
-| Scale | 5,000 | ~2,000 | 400,000 | **~99.5%** |
+| MVP | 50 | ~23 | 5,000 | **~99.5%** |
+| Growth | 500 | ~350 | 50,000 | **~99.3%** |
+| Scale | 5,000 | ~2,000 | 500,000 | **~99.6%** |
 
 **Break-even on infrastructure: 1 paying customer at MVP stage.**
 
@@ -519,9 +533,9 @@ Full pattern reference: [architecture/dual-mode.md §8–9](./architecture/dual-
 
 ---
 
-## 15. MVP Roadmap — Slimmed for Earlier Customer Validation
+## 15. Product Roadmap
 
-The optimized roadmap ships **paying customers at Week 10 instead of Week 24** by cutting non-essential scope from Phase 1.
+The roadmap should validate the simple core loops first, then add premium capabilities where customers show real demand.
 
 ### Phase 0 — Foundations (Weeks 1–4)
 The RBAC foundation is built **once** and amortized across all later features.
@@ -532,54 +546,50 @@ The RBAC foundation is built **once** and amortized across all later features.
 - `can(user, action, resource)` helper + `<RequirePermission>` component + middleware wrapper.
 - All 6 roles defined and tested at the schema layer (even if some surfaces don't exist yet).
 - Audit log table + write helpers.
-- Billplz integration (Starter plan only at first).
+- Billing foundation for Free, Starter, Growth, and Pro.
 
-### Phase 1 — Starter MVP (Weeks 5–12) — **FIRST 10 PAYING CUSTOMERS**
-- **Tier:** Starter only (RM 50).
-- **Pillars:** Admin · Finance · Operations.
-- **Roles wired up so far:** Owner + Accountant (Accountant gets Finance-pillar access).
-- **Mode:** Responsive web (no Service Worker / PWA polish yet).
-- **Cross-pillar sync:** one event — `invoice.paid → ledger entry`.
+### Phase 1 — Free Finance Lite Loop (Weeks 5–12)
+- **Tier:** Free.
+- **Module:** Finance.
+- **Goal:** solo entrepreneurs can record income, invoices, payment status, and receipt uploads. Expenses, saved customers, and add-ons require Starter or higher.
+- **Roles wired up so far:** Owner + Accountant.
+- **Mode:** Responsive web with mobile-first finance actions.
+- **Sync:** invoice paid updates finance ledger state.
 - **Onboarding wizard:** 5-step guided setup.
 - **BM language support** from day 1.
 - **In-app WhatsApp support button** to founder's number.
 - No AI · No add-ons · No Boardroom.
 
-### Phase 2 — Micro Expansion (Weeks 13–20)
-- + Marketing + HR pillars (= Micro tier RM 80).
-- **Roles wired up:** + Manager + HR Officer + Staff.
-- + PWA polish (Service Worker, install prompt, Web Push notifications).
-- + Top 3 add-ons by validated demand (e.g. Micro Stock Tracker, Storage 5 GB, Self-Service Leave).
-- + Cross-pillar sync: `payroll.approved`, `leave.approved`.
+### Phase 2 — Starter Operating Core (Weeks 13–20)
+- **Tier:** Starter.
+- **Modules:** Finance · Admin · Operations.
+- **Goal:** small teams can manage documents, tasks, products, suppliers, orders, bookings, and basic stock alongside finance.
+- **Roles wired up:** Manager + Staff where relevant.
+- + PWA polish where it improves daily actions.
+- + First add-ons by validated demand, likely Extra Storage Pack and Operations inventory expansion.
+- **Sync:** Sales is not required yet; Operations and Finance can link through invoices and customer records where available.
 
-### Phase 3 — Sales + POS + LHDN (Weeks 21–28)
-- + Sales pillar (Lead CRM + Mobile POS) = SME tier (RM 120).
-- **Roles wired up:** + Cashier (all 6 roles fully active now).
-- + LHDN E-Invoicing Exporter add-on (with LHDN advisor on retainer).
-- + Sales-related add-ons (Hardware POS, Stale Deal Alarms).
-- + Cross-pillar sync: full event map.
+### Phase 3 — Growth Team and Sales Core (Weeks 21–28)
+- **Tier:** Growth.
+- **Modules:** Finance · Admin · Operations · Sales · HR.
+- **Goal:** businesses with staff and counter activity can track leads, take simple POS sales, record staff data, and manage leave.
+- **Roles wired up:** Cashier + HR Officer.
+- + Sales-related add-ons by demand: Dynamic DuitNow QR, refund/void approval, close-out reconciliation, hardware POS.
+- + HR add-ons by demand: Self-Service Leave Forms, Shift Roster, HR Reminder Pack.
 
-### Phase 4 — AI Agents (Weeks 29–36)
-- 3 AI Agents first: **Finance · Operations · Sales** (the most validated demand).
-- Proactive Morning Dashboard.
+### Phase 4 — Pro Marketing and Premium Add-ons (Weeks 29–36)
+- **Tier:** Pro.
+- **Modules:** all six, including Marketing.
+- **Goal:** established SMEs can bring customers back through CRM, segments, content, coupons, and campaign workflows.
+- + Marketing add-ons by demand: WhatsApp Business API, campaign analytics, smart segments, dormant customer reactivation.
+- + Finance compliance add-ons: LHDN E-Invoice Connector, SST Advanced Reporting, Accountant Export Pack.
+
+### Phase 5 — AI Agents and Boardroom (Weeks 37–44)
+- Per-module AI Agents, starting with the highest-demand modules.
 - Credit pool + Slow Mode + Top-ups.
 - AI usage metering via `ai_usage`.
-
-### Phase 5 — Boardroom + Remaining AI (Weeks 37–44)
-- Remaining 3 AI Agents: Admin · Marketing · HR.
-- Executive Boardroom orchestrator + Relevance Safeguard Filter.
-- Boardroom Console (desktop primary).
-- Saved Boardroom history + WhatsApp share.
-
-### Why this is better than the original 36-week plan
-| Outcome | Original (36 wk) | Optimized (44 wk total, but 12 wk to first revenue) |
-|---------|------------------|------|
-| First paying customer | Week 24 | **Week 12** |
-| Learning loop with real users | Late | **From Week 12** |
-| RBAC built once vs. distributed | distributed across phases | **One Phase 0 investment** |
-| RBAC tests | ~3,000 action-level | **~30 role × pillar × negative tests** |
-| Stack decisions remaining | 7 open | **0 open** |
-| Infra cost at MVP | ~RM 80/mo | **~RM 10/mo** |
+- Executive Boardroom when two or more AI agents are active.
+- Boardroom Console and weekly digest.
 
 ---
 
@@ -598,7 +608,7 @@ The RBAC foundation is built **once** and amortized across all later features.
 
 ---
 
-## 17. Explicit Out of Scope (v1 / Phase 1 Starter MVP)
+## 17. Explicit Out of Scope for Core
 
 **Out of scope forever for v1:**
 - Sdn Bhd corporate accounting.
@@ -608,28 +618,28 @@ The RBAC foundation is built **once** and amortized across all later features.
 - Auto-posting to social platforms.
 - WhatsApp Business API send/receive.
 - Multi-business consolidation.
-- Statutory deductions as base feature (available as add-on in Phase 3+).
+- Statutory deductions as a base feature.
 - Offline-first base operation.
 
 **Deferred to later phases:**
-- Marketing pillar → Phase 2.
-- HR pillar → Phase 2.
-- Sales pillar + Mobile POS → Phase 3.
-- LHDN E-Invoicing Exporter → Phase 3.
-- Custom Document Builder (drag-drop editor) → Phase 3+.
-- Hardware & Advanced POS Extensions → Phase 3+.
-- Multi-resource bookings (Operations) → Phase 3+.
-- All 6 AI Agents → Phase 4 (3 most-demanded first).
-- Executive Boardroom → Phase 5.
+- Marketing module → Pro tier.
+- HR module → Growth tier.
+- Sales module + Mobile POS → Growth tier.
+- LHDN E-Invoice Connector → Finance add-on.
+- Custom Document Builder → Admin add-on.
+- Hardware POS Extensions → Sales add-on.
+- Multi-resource booking and resource scheduling → Operations add-on.
+- All AI agents → add-on layer.
+- Executive Boardroom → AI add-on layer.
 
-**Built in Phase 0 / Phase 1 (not deferred):**
-- Full 6-role RBAC permission matrix + RLS policies (schema-level all roles; UI surfaces them as their pillars come online).
+**Built early, not deferred:**
+- Full 6-role RBAC permission matrix + RLS policies (schema-level all roles; UI surfaces them as their modules come online).
 
 ---
 
 ## 18. Open Questions
 
-> Items resolved by the v1 core/add-on review on 2026-06-12 (SST handling, per-business invoice numbering, pipeline column customizability, product variants, refunds/voids in POS, public-holiday calendar, customer dedup rule, CSV import, dynamic DuitNow QR, buffer time between bookings, AL carry-forward) have moved to [v1-core-scope.md](./v1-core-scope.md) §"Resolved Open Questions".
+The current core/add-on split is defined in [v1-core-scope.md](./v1-core-scope.md) and [marketplace-addons.md](./marketplace-addons.md). Older decisions that placed premium features into core should not override the current packaging rule.
 
 ### Product / Pricing
 - [ ] Exact per-Agent pricing within RM15–20.
@@ -638,13 +648,15 @@ The RBAC foundation is built **once** and amortized across all later features.
 - [ ] Multi-business discount.
 - [ ] Staff seat overage pricing.
 - [ ] Top-up bundle ladder beyond RM10/50.
-- [ ] Reconciling the abbreviated 5-add-on summary in the latest founder PRD with the canonical detailed catalog in [marketplace-addons.md](./marketplace-addons.md) — which add-on names ship to customers?
+- [ ] Which planned add-ons should be seeded into the live Marketplace first.
+- [ ] Final customer-facing names and prices for each add-on.
 
 ### Pillar / Feature
 - [ ] Final v1 list of bundled document templates.
 - [ ] Storage downgrade retention policy.
-- [ ] UTM redirect: self-host vs platform analytics.
 - [ ] Encryption scheme details for IC + bank.
+- [ ] Which low-stock behavior belongs in core warning vs Operations inventory add-on.
+- [ ] Which public booking behaviors ship first when the Operations booking add-on is built.
 
 ### Architecture (most resolved)
 - [x] ~~ORM choice~~ — Supabase JS client at v1; add Drizzle if needed.
@@ -700,5 +712,6 @@ Every PR closing a US-* story must:
 | v0.2 | 2026-06-02 | AI scaffold | Added SME-OS project proposal: tiers, sync, AI layer, infrastructure. |
 | v0.3 | 2026-06-02 | AI scaffold | Absorbed dual-mode (Desktop ERP + Mobile PWA), 6-role RBAC, infrastructure cost model, NOT positioning, updated success metrics, 5-phase MVP roadmap. |
 | v0.4 | 2026-06-02 | AI scaffold | **Optimized for speed:** locked stack (Vercel + Supabase), simplified RBAC v1 (2 roles instead of 6), slimmed roadmap (first paying customer at Week 10 instead of Week 24), deferred non-essential features to later phases. |
-| v0.5 | 2026-06-02 | AI scaffold | **RBAC restored to full 6 roles in v1** (product requirement for Micro + SME tiers). Built once in Phase 0 via permissions matrix + RLS, then UI surfaced as pillars come online. First paying customer now Week 12. |
-| v0.6 | 2026-06-12 | Docs audit | Architecture diagram updated (removed `Node.js + Express API`; reflects locked Next.js Route Handlers + Supabase Edge Functions stack). Dynamic DuitNow QR removed from Non-Goals / Out-of-Scope — now in v1 core per [v1-core-scope.md](./v1-core-scope.md). Open Questions trimmed; items resolved by the core/add-on review on 2026-06-12 now live in v1-core-scope.md. |
+| v0.5 | 2026-06-02 | AI scaffold | **RBAC restored to full 6 roles in v1** using the earlier Micro/SME tier wording. Built once in Phase 0 via permissions matrix + RLS, then surfaced as modules come online. |
+| v0.6 | 2026-06-12 | Docs audit | Architecture diagram updated (removed `Node.js + Express API`; reflects locked Next.js Route Handlers + Supabase Edge Functions stack). Earlier core/add-on decisions were captured for reference and later superseded by the v0.7 packaging cleanup. |
+| v0.7 | 2026-06-21 | Product packaging cleanup | Reframed target market as solo entrepreneurs, micro SMEs, and growing SMEs. Re-split module scope so core covers daily workflows and add-ons carry automation, analytics, integrations, approvals, AI, and scale. |

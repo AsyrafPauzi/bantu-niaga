@@ -42,7 +42,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         description:
           "Your tier, included quotas, AI Agent seats, and renewal date.",
         icon: Crown,
-        badge: { label: "SME · RM 120", tone: "accent" },
+        badge: { label: "Growth · RM 139", tone: "accent" },
       },
       {
         href: "/settings/billing",
@@ -147,7 +147,7 @@ export default function SettingsIndexPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone="accent">SME · RM 120/mo</Badge>
+          <Badge tone="accent">Growth · RM 139/mo</Badge>
           <Badge tone="brand">Owner</Badge>
         </div>
       </header>
@@ -156,7 +156,7 @@ export default function SettingsIndexPage() {
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatusTile
           label="Plan"
-          value="SME"
+          value="Growth"
           caption="Renews 14 Jul 2026"
           tone="accent"
         />

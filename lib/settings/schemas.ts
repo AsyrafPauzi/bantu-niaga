@@ -37,6 +37,27 @@ export const businessUpdateSchema = z
 export type BusinessUpdateInput = z.infer<typeof businessUpdateSchema>;
 
 // ─────────────────────────────────────────────────────────────────────────
+// Profile — PATCH /api/settings/profile
+// ─────────────────────────────────────────────────────────────────────────
+
+export const profileUpdateSchema = z
+  .object({
+    display_name: z.string().trim().min(1).max(120).optional(),
+    phone_e164: z
+      .string()
+      .trim()
+      .regex(/^\+\d{8,15}$/, "Must be an E.164 phone number")
+      .nullable()
+      .optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one profile field is required",
+  });
+
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
+
+// ─────────────────────────────────────────────────────────────────────────
 // Subscription — POST /api/settings/subscription/change
 // ─────────────────────────────────────────────────────────────────────────
 

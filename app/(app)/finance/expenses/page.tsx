@@ -1,8 +1,25 @@
+import { redirect } from "next/navigation";
 import { PillarStub } from "@/components/ui/pillar-stub";
+import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { loadBusiness } from "@/lib/settings/business";
 
 export const metadata = { title: "Expenses" };
 
-export default function ExpensesPage() {
+export default async function ExpensesPage() {
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) redirect("/sign-in");
+    throw error;
+  }
+
+  const business = await loadBusiness(user.businessId);
+  if (!business) redirect("/home");
+  if (business.tier === "starter") {
+    redirect("/settings/subscription?locked=finance-expenses");
+  }
+
   return (
     <PillarStub
       pillar="Finance"

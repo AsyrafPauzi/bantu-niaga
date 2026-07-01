@@ -4,7 +4,7 @@
  * One place that answers: "Which pillar modules does this tier unlock?"
  *
  *   - Free (starter):     Finance only.
- *   - Plus (micro):       Finance + Admin + Operations.
+ *   - Starter (micro):    Finance + Admin + Operations.
  *   - Growth (sme):       Finance + Admin + Operations + Sales + HR.
  *   - Pro (enterprise):   Finance + Admin + Operations + Sales + HR + Marketing.
  *
@@ -76,7 +76,7 @@ export function pillarFromPath(pathname: string): Pillar | null {
 
 /**
  * Return the lowest tier that unlocks `pillar`. Used by the upgrade banner
- * and locked tiles ("Upgrade to Plus to unlock Admin").
+ * and locked tiles ("Upgrade to Starter to unlock Admin").
  */
 export function minimumTierFor(pillar: Pillar): TierKey {
   const order: TierKey[] = ["starter", "micro", "sme", "enterprise"];

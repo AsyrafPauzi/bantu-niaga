@@ -22,9 +22,9 @@ in [`lib/settings/plans.ts`](../../lib/settings/plans.ts):
 | `TierKey`   | Label  | Price       | Pillars                                                     |
 |-------------|--------|-------------|-------------------------------------------------------------|
 | `starter`   | Free   | RM 0/month  | Finance                                                     |
-| `micro`     | Plus   | RM 80/month | + Admin · Operations                                        |
-| `sme`       | Growth | RM 120/month| + Sales · HR                                                |
-| `enterprise`| Pro    | RM 220/month| + Marketing                                                 |
+| `micro`     | Starter | RM 69/month | + Admin · Operations                                       |
+| `sme`       | Growth  | RM 139/month| + Sales · HR                                               |
+| `enterprise`| Pro     | RM 249/month| + Marketing                                                |
 
 Subsequent tiers strictly include the previous tier's pillars — upgrades
 never remove access.
@@ -97,8 +97,8 @@ fetching `/api/marketing/customers` would only see *their own*
 reach that on your plan" landing page. The query param drives:
 
 - A yellow banner at the top:
-  *"Admin is not unlocked on your current plan. Switch to Plus
-  (RM 80/month) or higher to access the Admin module."*
+  *"Admin is not unlocked on your current plan. Switch to Starter
+  (RM 69/month) or higher to access the Admin module."*
 - The plan cards below give the owner a one-click switch.
 
 The locked-pillar → minimum-tier mapping is in `SubscriptionView.tsx`:

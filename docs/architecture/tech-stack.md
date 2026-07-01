@@ -278,11 +278,11 @@ Why this is better than the original RM 75–85 estimate:
 
 ### Resulting margin at each stage
 
-| Stage | Paying users | Total fixed (RM) | Total variable (RM) | MRR @ blended RM 80 | Gross margin |
+| Stage | Paying users | Total fixed (RM) | Total variable (RM) | MRR @ blended RM 100 | Gross margin |
 |-------|------:|------:|------:|-----:|----:|
-| MVP | 50 | 10 | 13 | 4,000 | **~99.4%** |
-| Growth | 500 | 220 | 130 | 40,000 | **~99.1%** |
-| Scale | 5,000 | 720 | 1,300 | 400,000 | **~99.5%** |
+| MVP | 50 | 10 | 13 | 5,000 | **~99.5%** |
+| Growth | 500 | 220 | 130 | 50,000 | **~99.3%** |
+| Scale | 5,000 | 720 | 1,300 | 500,000 | **~99.6%** |
 
 **Break-even on infrastructure: 1 paying customer at MVP stage.**
 

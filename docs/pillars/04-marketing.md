@@ -1,101 +1,71 @@
-# Pillar 4 — Marketing
+# Module 4 — Marketing
 
-> Reach customers and keep coming back to them.
+> Know customers, plan campaigns, and bring buyers back.
 
-## 1. Goal & User
+## 1. Purpose
 
-**Primary user:** the owner or a junior marketing helper.
-**Job to be done:** know who the customers are, plan what to post, run promos, and trace which channel actually drives traffic.
+Marketing helps owners turn a plain customer list into repeat business. Core should make customer records, simple segmentation, content planning, and basic campaigns easy. Advanced automation, integrations, and AI strategy belong in add-ons.
 
-## 2. Base Package Features
+## 2. Target Users
 
-### 2.1 Customer Profiles CRM
-A card-index customer log.
+- Solo entrepreneurs who market through WhatsApp, TikTok, Instagram, or Facebook.
+- Micro SMEs that need customer lists, tags, coupons, and campaign planning.
+- Growing SMEs that later need automation, analytics, lifecycle marketing, and integrations.
 
-- Each customer card:
-  - **Essential contact:** name, phone (WhatsApp), email, address.
-  - **Historical purchase metrics:** total spend, last purchase date, order count, avg order value.
-  - Tags (e.g. `vip`, `kedai-runcit`, `online-only`) — both manual tags and auto-tags (see below).
-  - Notes / interaction history.
-- Customers are referenced by Operations (orders, bookings), Sales (POS), Finance (invoices).
-- **Phone-based dedup (canonical rule).** When a `customer.created` event fires from any pillar (POS, booking, lead conversion, CSV import), the system matches by **normalized phone number** (Malaysia format). On exact match → auto-merge into the existing record. On phone match but different name → present a "Looks like the same customer — merge?" prompt to the owner. No phone → no auto-merge; the record is created fresh.
-- **Auto Customer Segmentation Tags.** Computed nightly from the existing CRM fields (zero AI cost — pure threshold rules). Five segments shipped in v1:
-  - `new` — first purchase < 30 days ago.
-  - `repeat` — ≥ 2 orders.
-  - `vip` — total_spend ≥ RM 1,000 OR order_count ≥ 10. Hard-coded in v1; per-business override is a v2 add-on (locked in `docs/plans/marketing-decisions.md` Q1).
-  - `dormant` — last_purchase_at > 90 days ago.
-  - `at-risk` — was `repeat` or `vip` and has now slipped past 60 days without purchase.
-  Auto-tags are visually distinct from manual tags and feed downstream Promo / WA Broadcast targeting.
-- **Customer CSV Import + Export** — bulk onboarding for businesses migrating from Excel / WhatsApp lists. Import maps columns to fields; previews dedup matches before commit; rejects rows with missing phones. Export downloads a CSV of the current customer set including auto-tags.
+## 3. Core Features
 
-### 2.2 Social Media Content Calendar
-A timeline planner for marketing hooks.
+Core Marketing should cover basic customer and campaign organization:
 
-- Channels covered: **TikTok**, **Instagram**, **Facebook**.
-- Plan posts on a calendar view (day / week / month).
-- Each entry: channel, scheduled date+time, caption draft, hook/idea, attached media file (uses Admin Storage).
-- Status: `Idea → Drafted → Scheduled → Posted`.
-- v1 is **planning-only** — does not auto-post to platforms (out of scope until API integrations are confirmed).
+- Customer CRM.
+- Customer tags and notes.
+- Customer import and export.
+- Basic customer segments.
+- Content calendar.
+- Media library.
+- WhatsApp broadcast draft.
+- Basic coupon creation.
+- Coupon redemption tracking.
 
-## 3. Marketplace Add-ons
+## 4. Add-on Features
 
-| Add-on | Price | What it unlocks |
-|--------|------:|-----------------|
-| **Smart Link Tracker (UTM)** | +RM15/mo | Generates custom URL parameters (UTM links) to trace traffic origin. Lets the owner compare e.g. **TikTok bio link** vs **paid Facebook campaign**. |
-| **Promo Engine & WhatsApp Script Templates** | +RM20/mo | Generates campaign discounts and converts them into **high-converting WhatsApp script templates** ready to copy-paste. |
+Marketing add-ons should carry campaign intelligence and automation:
 
-## 4. Data Model Sketch
-
-```
-Business
- ├── customers[]
- │    ├── id, name, phone, email, address
- │    ├── tags[], notes
- │    ├── derived: total_spend, last_purchase_at, order_count, aov
- │    └── created_at
- ├── content_plan[]
- │    ├── id, channel: TIKTOK|INSTAGRAM|FACEBOOK
- │    ├── status: IDEA|DRAFTED|SCHEDULED|POSTED
- │    ├── scheduled_at, caption, hook
- │    └── media_file_ids[]
- ├── utm_links[]                  (add-on)
- │    ├── id, label, base_url, source, medium, campaign
- │    ├── generated_url
- │    └── click_count (if we self-host the redirect)
- └── promos[]                     (add-on)
-      ├── id, name, discount_type: PCT|AMOUNT, value
-      ├── valid_from, valid_to
-      └── wa_template_text
-```
+- Advanced Smart Segments.
+- Dormant Customer Reactivation.
+- Campaign Performance Analytics.
+- WhatsApp Business API.
+- Email Campaign Automation.
+- Meta Integration.
+- TikTok/Shopee Sync.
+- Customer Lifetime Value Report.
+- Loyalty and Review Tools.
+- Marketing AI Strategist.
 
 ## 5. Key User Flows
 
-### 5.1 Add a new customer from a walk-in
-1. POS (Sales) → at checkout, tap **+ Customer** → enter phone.
-2. If new, fill name; if existing, system matches by phone.
-3. After sale, customer's `total_spend` and `last_purchase_at` update automatically.
+### 5.1 Add a customer
 
-### 5.2 Plan a week of TikTok posts
-1. Marketing → Calendar → week view.
-2. Tap a day slot → pick **TikTok** → write hook + caption → attach video file from Storage.
-3. Set status **Scheduled** with a reminder time.
-4. When owner posts manually, mark **Posted**.
+1. Owner adds customer name and phone number.
+2. Owner adds tags and notes.
+3. Customer appears in the CRM.
+4. Customer can later be linked to invoices, sales, bookings, or coupons.
 
-### 5.3 Run a UTM-tagged campaign (add-on)
-1. Marketing → Smart Link Tracker → **+ New Link**.
-2. Pick base URL (e.g. menu page), set source=`tiktok`, medium=`bio`, campaign=`raya2026`.
-3. Copy generated URL into TikTok bio.
-4. Open dashboard later to see click counts per source/campaign.
+### 5.2 Plan content
 
-### 5.4 Launch a WhatsApp promo (add-on)
-1. Marketing → Promo Engine → **+ New Promo** (e.g. `15% OFF`).
-2. System generates a WA script with the discount baked in.
-3. Owner copies it and pastes into WhatsApp broadcast / status.
+1. Owner opens the content calendar.
+2. Owner adds a TikTok, Instagram, Facebook, or WhatsApp content idea.
+3. Owner attaches media from the media library.
+4. Owner marks the post as planned, drafted, posted, or done.
 
-## 6. Open Questions
+### 5.3 Create a simple coupon
 
-- Do we ingest order/invoice events into the CRM in real time, or via a nightly aggregate? _(Real-time for purchase metrics; segmentation tags refreshed nightly.)_
-- Click tracking for UTM — do we self-host a redirect (`bantuniaga.com/r/[hash]`), or rely on the platforms' built-in analytics? _(Smart Link Tracker add-on scope.)_
-- Are WhatsApp Business API integrations in scope later (so promos can be sent without copy-paste)? _(Future add-on: WA Broadcast Manager.)_
-> Resolved (now in core, v2026-06-12): Customer dedup rule (by phone) · Auto customer segmentation tags · Bulk CSV import + export.
-> Resolved (decisions locked, v2026-06-12): Auto-tag thresholds hard-coded in v1, per-business override is v2 add-on. Real-time purchase metrics + nightly tag refresh confirmed. See `docs/plans/marketing-decisions.md` for the full 12 locked decisions.
+1. Owner creates a coupon code.
+2. Owner sets discount type, value, and validity dates.
+3. Owner copies the coupon into WhatsApp or social content.
+4. Coupon use is tracked when redeemed.
+
+## 6. Data Notes
+
+Core tables should cover customers, tags, notes, basic segments, content plans, media references, coupons, and coupon redemptions. Customer dedup should be conservative and phone-based to avoid merging unrelated people.
+
+Premium add-ons can extend the model with segment rules, campaign events, message delivery status, Meta/TikTok/Shopee references, email automations, lifetime value snapshots, loyalty records, review requests, and AI-generated campaign outputs.

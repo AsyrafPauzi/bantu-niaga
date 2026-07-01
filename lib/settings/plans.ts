@@ -2,7 +2,7 @@
  * Bantu Niaga — plan catalog.
  *
  * Single source of truth for tier metadata. Mirrored in the marketing
- * site, the subscription settings page, and the Maya upsell logic.
+ * site, the subscription settings page, and upsell logic.
  *
  * Each tier unlocks a strictly larger bundle of pillar modules — see
  * `lib/auth/entitlements.ts` for the canonical module mapping that the
@@ -33,20 +33,20 @@ export const TIERS: readonly Tier[] = [
     label: "Free",
     priceMyr: 0,
     cadence: "/month",
-    blurb: "Solo founders who need basic bookkeeping.",
+    blurb: "Solo founders who need invoice and payment tracking.",
     features: [
-      "Finance module only (invoices, expenses, ledger)",
+      "Finance Lite (income, invoices, payment tracking)",
       "1 owner seat",
-      "Up to 200 customers",
+      "No saved customer database",
       "5 GB storage",
-      "Maya · 25 fast credits/month",
+      "Upgrade required for add-ons and AI agents",
     ],
-    quotas: { seats: 1, customers: 200, storageGb: 5, fastCreditsMonthly: 25 },
+    quotas: { seats: 1, customers: 0, storageGb: 5, fastCreditsMonthly: 0 },
   },
   {
     key: "micro",
-    label: "Plus",
-    priceMyr: 80,
+    label: "Starter",
+    priceMyr: 69,
     cadence: "/month",
     blurb: "Small teams running shop + admin + ops.",
     features: [
@@ -54,14 +54,14 @@ export const TIERS: readonly Tier[] = [
       "3 staff seats",
       "Up to 2,000 customers",
       "20 GB storage",
-      "Maya + Operations AI · 150 credits",
+      "AI agents available as add-ons",
     ],
-    quotas: { seats: 3, customers: 2_000, storageGb: 20, fastCreditsMonthly: 150 },
+    quotas: { seats: 3, customers: 2_000, storageGb: 20, fastCreditsMonthly: 0 },
   },
   {
     key: "sme",
     label: "Growth",
-    priceMyr: 120,
+    priceMyr: 139,
     cadence: "/month",
     blurb: "Multi-channel SMEs with a sales floor + team.",
     features: [
@@ -69,15 +69,15 @@ export const TIERS: readonly Tier[] = [
       "5 staff seats",
       "Up to 10,000 customers",
       "50 GB storage",
-      "All 3 AI agents · 300 credits",
+      "AI agents available as add-ons",
     ],
-    quotas: { seats: 5, customers: 10_000, storageGb: 50, fastCreditsMonthly: 300 },
+    quotas: { seats: 5, customers: 10_000, storageGb: 50, fastCreditsMonthly: 0 },
     highlighted: true,
   },
   {
     key: "enterprise",
     label: "Pro",
-    priceMyr: 220,
+    priceMyr: 249,
     cadence: "/month",
     blurb: "Established SMEs that also run brand + content.",
     features: [
@@ -85,13 +85,13 @@ export const TIERS: readonly Tier[] = [
       "Unlimited seats",
       "Unlimited customers",
       "Custom storage",
-      "All 4 AI agents · 600 credits",
+      "AI agents available as add-ons",
     ],
     quotas: {
       seats: Number.POSITIVE_INFINITY,
       customers: Number.POSITIVE_INFINITY,
       storageGb: Number.POSITIVE_INFINITY,
-      fastCreditsMonthly: 600,
+      fastCreditsMonthly: 0,
     },
   },
 ];
@@ -100,6 +100,9 @@ export const ADDONS = [
   { label: "Extra staff seat", priceMyr: 15, cadence: "/seat / month" },
   { label: "Extra 10 GB storage", priceMyr: 8, cadence: "/month" },
   { label: "Fast Credits top-up", priceMyr: 10, cadence: "/ 50 credits" },
+  { label: "Per-module AI Agent", priceMyr: 20, cadence: "/agent / month" },
+  { label: "Dynamic DuitNow QR", priceMyr: 20, cadence: "/month" },
+  { label: "Customer Booking Page", priceMyr: 25, cadence: "/month" },
   { label: "WhatsApp Business API", priceMyr: 35, cadence: "/month" },
 ];
 
