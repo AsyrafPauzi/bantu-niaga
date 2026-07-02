@@ -10,6 +10,24 @@
 
 ---
 
+## 2026-06-24 · Core HR module
+
+**Goal:** replace HR stubs with the Growth/Pro core HR workflow while keeping
+payroll, roster, time clock, contract generation, statutory payroll, and AI as
+add-ons.
+
+- Added HR core schema for employee profiles, staff document metadata, leave
+  records, onboarding checklist items, and public holiday references.
+- Added RLS so only owner, manager, and HR officer roles can manage core HR
+  records; staff can only read their own leave rows at the database layer.
+- Added HR API routes for employee create/list/update and leave create/list
+  plus approve/reject status updates.
+- Replaced the HR overview, employee registry, and leave pages with real
+  tenant-scoped data surfaces.
+- Added HR validation, API, and access tests.
+
+---
+
 ## 2026-06-21 · Pricing plan rename + add-on eligibility
 
 **Goal:** align customer-facing pricing with the target market and protect

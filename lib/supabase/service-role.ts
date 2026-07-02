@@ -8,7 +8,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  *
  *   1. `lib/marketing/upsertFromPos.ts` — the only Marketing surface that
  *      runs without a Marketing-permissioned caller (cashier at POS).
- *   2. Admin / Edge-Function workers (e.g. the nightly tag refresh) that
+ *   2. Staff leave-link submission, where an unauthenticated employee can
+ *      create a leave request only through a hashed, one-time HR token.
+ *   3. Admin / Edge-Function workers (e.g. the nightly tag refresh) that
  *      run outside an authenticated session.
  *
  * Every caller MUST tenant-scope every query with `.eq("business_id", …)`

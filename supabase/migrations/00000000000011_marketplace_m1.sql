@@ -315,6 +315,12 @@ declare
   v_storage_id  uuid;
   v_lhdn_id     uuid;
 begin
+  -- Local resets may not seed the deterministic demo business. In that case,
+  -- keep the marketplace catalog but skip demo subscriptions.
+  if not exists (select 1 from public.businesses where id = v_demo_id) then
+    return;
+  end if;
+
   select id into v_storage_id from public.marketplace_addons where slug = 'storage-10gb';
   select id into v_lhdn_id    from public.marketplace_addons where slug = 'lhdn-einvoice';
 
