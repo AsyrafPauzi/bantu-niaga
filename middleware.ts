@@ -107,6 +107,15 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // Registration and password recovery must work while logged out.
+  if (
+    pathname === "/api/auth/sign-up" ||
+    pathname === "/api/auth/forgot-password" ||
+    pathname === "/api/auth/reset-password"
+  ) {
+    return response;
+  }
+
   if (pathname.startsWith("/api/")) {
     return NextResponse.json(
       {

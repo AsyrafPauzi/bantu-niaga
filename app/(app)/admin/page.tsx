@@ -1,246 +1,286 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   AlertTriangle,
-  Building2,
   CheckCircle2,
   Clock,
   FileText,
+  FolderOpen,
   Upload,
 } from "lucide-react";
-import { AiBanner } from "@/components/dashboard/ai-banner";
-import { BulletRow } from "@/components/dashboard/bullet-row";
-import { KpiTile } from "@/components/dashboard/kpi-tile";
-import { ListRow } from "@/components/dashboard/list-row";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import { TxRow } from "@/components/dashboard/tx-row";
+import { KpiTile } from "@/components/dashboard/kpi-tile";
+import {
+  getCurrentUser,
+  UnauthorizedError,
+} from "@/lib/auth/current-user";
+import { canSurface } from "@/lib/permissions";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  categoryLabel,
+  complianceUrgency,
+  daysUntil,
+  type AdminComplianceCategory,
+} from "@/lib/admin/task-compliance-schemas";
 
 export const metadata = { title: "Admin" };
+export const dynamic = "force-dynamic";
 
-const CATEGORIES = [
-  { label: "Operations", sublabel: "SOPs · checklists", value: "42", fill: 100, tone: "success" as const },
-  { label: "Contracts", sublabel: "Vendor & client agreements", value: "38", fill: 90, tone: "brand" as const },
-  { label: "Finance", sublabel: "Receipts · tax forms", value: "28", fill: 67, tone: "warning" as const },
-  { label: "Compliance", sublabel: "SSM · halal · insurance", value: "24", fill: 57, tone: "accent" as const },
-  { label: "Insurance", sublabel: "Policies · claims", value: "15", fill: 36, tone: "muted" as const },
-];
+export default async function AdminPage() {
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch (e) {
+    if (e instanceof UnauthorizedError) redirect("/sign-in");
+    throw e;
+  }
 
-const TASKS = [
-  {
-    title: "Renew signboard licence (DBKL)",
-    subtitle: "Due in 6 days · Admin team",
-    amount: "High",
-    tone: "danger" as const,
-    icon: AlertTriangle,
-  },
-  {
-    title: "Upload Q2 board minutes",
-    subtitle: "Assigned to Daniel · today",
-    amount: "Today",
-    tone: "warning" as const,
-    icon: Clock,
-  },
-  {
-    title: "Re-sign halal cert renewal",
-    subtitle: "Compliance · awaiting signature",
-    amount: "Sign",
-    tone: "brand" as const,
-    icon: FileText,
-  },
-];
+  const supabase = await createSupabaseServerClient();
+  const bizId = user.businessId;
 
-const CONTRACTS = [
-  {
-    initials: "SA",
-    title: "Sri Aman Catering — supply MOU",
-    subtitle: "Expires 24 Jun · 11 days",
-    value: "11d",
-  },
-  {
-    initials: "MC",
-    title: "Mega Courier — logistics",
-    subtitle: "Expires 02 Jul · 19 days",
-    value: "19d",
-  },
-  {
-    initials: "TM",
-    title: "TM Unifi — internet",
-    subtitle: "Expires 18 Jul · 35 days",
-    value: "35d",
-  },
-];
+  const [
+    filesRes,
+    tasksRes,
+    complianceRes,
+    pendingTasksRes,
+  ] = await Promise.all([
+    canSurface(user.role, "admin", "storage")
+      ? supabase
+          .from("admin_files")
+          .select("id", { count: "exact", head: true })
+          .eq("business_id", bizId)
+          .is("deleted_at", null)
+      : Promise.resolve({ count: 0 }),
+    canSurface(user.role, "admin", "tasks")
+      ? supabase
+          .from("admin_tasks")
+          .select("id, title, status, due_date")
+          .eq("business_id", bizId)
+          .is("deleted_at", null)
+          .neq("status", "done")
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .limit(5)
+      : Promise.resolve({ data: [] }),
+    canSurface(user.role, "admin", "compliance")
+      ? supabase
+          .from("admin_compliance_items")
+          .select("id, title, category, expires_on")
+          .eq("business_id", bizId)
+          .is("deleted_at", null)
+          .eq("status", "active")
+          .order("expires_on", { ascending: true })
+          .limit(5)
+      : Promise.resolve({ data: [] }),
+    canSurface(user.role, "admin", "tasks")
+      ? supabase
+          .from("admin_tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("business_id", bizId)
+          .is("deleted_at", null)
+          .neq("status", "done")
+      : Promise.resolve({ count: 0 }),
+  ]);
 
-const VENDORS = [
-  { initials: "LH", title: "Lapan Holdings", subtitle: "Logistics · 7 contracts", value: "Active" },
-  { initials: "CD", title: "Cyber-1 Distribution", subtitle: "Hardware · 4 contracts", value: "Active" },
-  { initials: "BC", title: "Bumi Cafe Supplies", subtitle: "F&B · 6 contracts", value: "Active" },
-  { initials: "SA", title: "Sri Aman Catering", subtitle: "Catering · 3 contracts", value: "Review" },
-];
+  const fileCount = filesRes.count ?? 0;
+  const pendingTaskCount = pendingTasksRes.count ?? 0;
+  const openTasks = (tasksRes.data ?? []) as Array<{
+    id: string;
+    title: string;
+    status: string;
+    due_date: string | null;
+  }>;
+  const complianceItems = (complianceRes.data ?? []) as Array<{
+    id: string;
+    title: string;
+    category: string;
+    expires_on: string;
+  }>;
 
-export default function AdminPage() {
+  const expiringSoon = complianceItems.filter(
+    (c) => complianceUrgency(c.expires_on) !== "ok",
+  ).length;
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Admin"
         title="Overview"
-        description="Daily back-office across documents, tasks, compliance, and vendors."
+        description="Daily back-office — tasks, licence renewals, and document storage."
         action={
-          <button className="inline-flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600">
-            <Upload className="h-4 w-4" strokeWidth={2} />
-            Upload document
-          </button>
+          canSurface(user.role, "admin", "storage") ? (
+            <Link
+              href="/admin/storage"
+              className="inline-flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+            >
+              <Upload className="h-4 w-4" strokeWidth={2} />
+              Upload document
+            </Link>
+          ) : undefined
         }
       />
 
       <section
         aria-label="Headline KPIs"
-        className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4"
       >
-        <KpiTile
-          label="Active documents"
-          value="147"
-          delta="+12"
-          deltaTone="success"
-          helper="this month"
-          icon={FileText}
-        />
-        <KpiTile
-          label="Pending tasks"
-          value="8"
-          delta="3 high priority"
-          deltaTone="warning"
-          helper="across 4 owners"
-          icon={Clock}
-        />
-        <KpiTile
-          label="Contracts expiring"
-          value="5"
-          delta="within 30 days"
-          deltaTone="danger"
-          helper="needs renewal"
-          icon={AlertTriangle}
-        />
-        <KpiTile
-          label="Active vendors"
-          value="32"
-          delta="+2"
-          deltaTone="success"
-          helper="this quarter"
-          icon={Building2}
-        />
+        {canSurface(user.role, "admin", "storage") ? (
+          <KpiTile
+            label="Stored documents"
+            value={String(fileCount)}
+            helper="receipts & contracts"
+            icon={FolderOpen}
+          />
+        ) : null}
+        {canSurface(user.role, "admin", "tasks") ? (
+          <KpiTile
+            label="Open tasks"
+            value={String(pendingTaskCount)}
+            helper="not yet done"
+            icon={Clock}
+          />
+        ) : null}
+        {canSurface(user.role, "admin", "compliance") ? (
+          <KpiTile
+            label="Renewals due"
+            value={String(expiringSoon)}
+            deltaTone={expiringSoon > 0 ? "warning" : "success"}
+            helper="within 30 days or overdue"
+            icon={AlertTriangle}
+          />
+        ) : null}
       </section>
 
-      <AiBanner
-        label="Admin Copilot"
-        message="3 vendor contracts expire within the next 30 days. Draft renewal letters from your Templates Library and notify the finance team in one click."
-        cta="Draft renewals"
-      />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
-        <SectionCard
-          title="Documents by category"
-          subtitle="147 active documents in the storage vault"
-          className="lg:col-span-2"
-          bodyClassName="space-y-4"
-          action={
-            <button className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200">
-              View all
-            </button>
-          }
-        >
-          {CATEGORIES.map((row) => (
-            <BulletRow key={row.label} {...row} />
-          ))}
-        </SectionCard>
-
-        <SectionCard
-          title="Pending tasks"
-          subtitle="Smart task matrix"
-          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
-          action={<StatusPill tone="warning">3 due</StatusPill>}
-        >
-          {TASKS.map((task) => (
-            <TxRow key={task.title} {...task} />
-          ))}
-        </SectionCard>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-        <SectionCard
-          title="Contracts expiring soon"
-          subtitle="Within 60 days"
-          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
-          action={
-            <button className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200">
-              View calendar
-            </button>
-          }
-        >
-          {CONTRACTS.map((row) => (
-            <ListRow key={row.title} {...row} />
-          ))}
-        </SectionCard>
+        {canSurface(user.role, "admin", "tasks") ? (
+          <SectionCard
+            title="Open tasks"
+            subtitle="Tap cards on the tasks page to advance status"
+            bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
+            action={
+              <Link
+                href="/admin/tasks"
+                className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+              >
+                View all
+              </Link>
+            }
+          >
+            {openTasks.length === 0 ? (
+              <p className="py-6 text-center text-sm text-ink-muted dark:text-cream-400">
+                No open tasks —{" "}
+                <Link href="/admin/tasks" className="text-brand-600 underline">
+                  add one
+                </Link>
+              </p>
+            ) : (
+              openTasks.map((task) => (
+                <TxRow
+                  key={task.id}
+                  icon={task.status === "doing" ? Clock : CheckCircle2}
+                  tone={task.status === "doing" ? "brand" : "neutral"}
+                  title={task.title}
+                  subtitle={
+                    task.due_date
+                      ? `Due ${task.due_date} · ${task.status}`
+                      : task.status
+                  }
+                  amount={task.status === "doing" ? "Doing" : "To do"}
+                />
+              ))
+            )}
+          </SectionCard>
+        ) : null}
 
-        <SectionCard
-          title="Recent team activity"
-          subtitle="Latest actions across the admin module"
-          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
-        >
-          <TxRow
-            icon={CheckCircle2}
-            tone="success"
-            title="Aisyah uploaded Halal cert renewal"
-            subtitle="Compliance · 12 min ago"
-            amount="View"
-          />
-          <TxRow
-            icon={FileText}
-            tone="brand"
-            title="Daniel created Q2 board minutes"
-            subtitle="Documents · 1 hr ago"
-            amount="Edit"
-          />
-          <TxRow
-            icon={AlertTriangle}
-            tone="warning"
-            title="Hafiz flagged signboard licence"
-            subtitle="Compliance · 3 hr ago"
-            amount="Open"
-          />
-        </SectionCard>
+        {canSurface(user.role, "admin", "compliance") ? (
+          <SectionCard
+            title="Licences & permits"
+            subtitle="SSM, DBKL, insurance renewals"
+            bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
+            action={
+              <Link
+                href="/admin/compliance"
+                className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+              >
+                View tracker
+              </Link>
+            }
+          >
+            {complianceItems.length === 0 ? (
+              <p className="py-6 text-center text-sm text-ink-muted dark:text-cream-400">
+                Nothing tracked yet —{" "}
+                <Link
+                  href="/admin/compliance"
+                  className="text-brand-600 underline"
+                >
+                  add SSM or DBKL
+                </Link>
+              </p>
+            ) : (
+              complianceItems.map((item) => {
+                const urgency = complianceUrgency(item.expires_on);
+                const days = daysUntil(item.expires_on);
+                return (
+                  <TxRow
+                    key={item.id}
+                    icon={AlertTriangle}
+                    tone={
+                      urgency === "overdue"
+                        ? "danger"
+                        : urgency === "soon"
+                          ? "warning"
+                          : "success"
+                    }
+                    title={item.title}
+                    subtitle={`${categoryLabel(item.category as AdminComplianceCategory)} · expires ${item.expires_on}`}
+                    amount={
+                      days < 0
+                        ? `${Math.abs(days)}d late`
+                        : `${days}d left`
+                    }
+                  />
+                );
+              })
+            )}
+          </SectionCard>
+        ) : null}
       </div>
 
-      <SectionCard
-        title="Active vendors"
-        subtitle="Live supplier relationships"
-        bodyClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        {VENDORS.map((vendor) => (
-          <div
-            key={vendor.title}
-            className="rounded-lg border border-cream-200 p-3 dark:border-hairline-dark"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-xs font-semibold uppercase text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                {vendor.initials}
+      {canSurface(user.role, "admin", "storage") ? (
+        <SectionCard
+          title="Document storage"
+          subtitle="Receipts, contracts, and compliance scans"
+          action={
+            <Link
+              href="/admin/storage"
+              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            >
+              Open storage
+            </Link>
+          }
+        >
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+                <FileText className="h-5 w-5" strokeWidth={2} />
               </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-ink dark:text-cream-100">
-                  {vendor.title}
+              <div>
+                <p className="text-sm font-medium text-ink dark:text-cream-100">
+                  {fileCount} file{fileCount === 1 ? "" : "s"} stored
                 </p>
-                <p className="truncate text-xs text-ink-muted dark:text-cream-400">
-                  {vendor.subtitle}
+                <p className="text-xs text-ink-muted dark:text-cream-400">
+                  Private to your business · up to 100 MB per file
                 </p>
               </div>
             </div>
-            <div className="mt-2.5 flex justify-end">
-              <StatusPill tone={vendor.value === "Active" ? "success" : "warning"}>
-                {vendor.value}
-              </StatusPill>
-            </div>
+            <StatusPill tone={fileCount > 0 ? "success" : "neutral"}>
+              {fileCount > 0 ? "Active" : "Empty"}
+            </StatusPill>
           </div>
-        ))}
-      </SectionCard>
+        </SectionCard>
+      ) : null}
     </div>
   );
 }

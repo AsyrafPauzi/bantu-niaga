@@ -1,203 +1,306 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   AlertTriangle,
-  Box,
-  CheckCircle2,
+  Calendar,
   Package,
   Plus,
-  Truck,
+  ShoppingBag,
+  Users,
 } from "lucide-react";
-import { AiBanner } from "@/components/dashboard/ai-banner";
 import { BulletRow } from "@/components/dashboard/bullet-row";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
-import { ListRow } from "@/components/dashboard/list-row";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusPill } from "@/components/dashboard/status-pill";
-import { TxRow } from "@/components/dashboard/tx-row";
+import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { can } from "@/lib/permissions";
+import { computeOperationsSummary } from "@/lib/operations/helpers";
+import {
+  formatOrderAmount,
+  orderStatusLabel,
+  type OperationsOrderStatus,
+} from "@/lib/operations/schemas";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export const metadata = { title: "Operations" };
+export const dynamic = "force-dynamic";
 
-const PIPELINE = [
-  { label: "New", sublabel: "Awaiting confirmation", value: "7", fill: 47, tone: "muted" as const },
-  { label: "Packing", sublabel: "In warehouse", value: "15", fill: 100, tone: "warning" as const },
-  { label: "Dispatch", sublabel: "With courier", value: "8", fill: 53, tone: "brand" as const },
-  { label: "In transit", sublabel: "On the way", value: "9", fill: 60, tone: "accent" as const },
-  { label: "Delivered", sublabel: "Awaiting POD", value: "3", fill: 20, tone: "success" as const },
-];
+const STATUS_TONE: Record<
+  OperationsOrderStatus,
+  "neutral" | "warning" | "success"
+> = {
+  todo: "neutral",
+  in_progress: "warning",
+  done: "success",
+};
 
-const RECENT_ORDERS = [
-  {
-    icon: Package,
-    tone: "warning" as const,
-    title: "ORD-2026-0418 — Lapan Holdings",
-    subtitle: "Packing · ship by 5pm",
-    amount: "RM 1,240",
-  },
-  {
-    icon: Truck,
-    tone: "brand" as const,
-    title: "ORD-2026-0417 — Cyber-1 Distribution",
-    subtitle: "Dispatch · with courier",
-    amount: "RM 2,860",
-  },
-  {
-    icon: CheckCircle2,
-    tone: "success" as const,
-    title: "ORD-2026-0416 — Bumi Cafe",
-    subtitle: "Delivered · POD received",
-    amount: "RM 640",
-  },
-  {
-    icon: AlertTriangle,
-    tone: "danger" as const,
-    title: "ORD-2026-0415 — Sri Aman Catering",
-    subtitle: "SLA risk · address issue",
-    amount: "RM 980",
-  },
-];
+export default async function OperationsPage() {
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) redirect("/sign-in");
+    throw error;
+  }
 
-const LOW_STOCK = [
-  { initials: "01", title: "Beras 5kg — wangi", subtitle: "4 left · reorder pt 20", value: "Critical" },
-  { initials: "02", title: "Gula halus 1kg", subtitle: "9 left · reorder pt 30", value: "Low" },
-  { initials: "03", title: "Minyak masak 5L", subtitle: "12 left · fast mover", value: "Low" },
-  { initials: "04", title: "Tepung gandum 1kg", subtitle: "15 left · stable", value: "Watch" },
-];
+  if (!can(user.role, "operations")) {
+    redirect("/home");
+  }
 
-export default function OperationsPage() {
+  const admin = createServiceRoleClient();
+  const summary = await computeOperationsSummary(admin, user.businessId);
+
+  const { data: recentOrders } = await admin
+    .from("operations_orders")
+    .select("id, number, customer_name, title, status, due_date, amount_myr")
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(5);
+
+  const pipelineTotal =
+    summary.todo_count + summary.in_progress_count + summary.done_this_month ||
+    1;
+
+  const pipeline = [
+    {
+      label: "To do",
+      sublabel: "New orders waiting",
+      value: String(summary.todo_count),
+      fill: Math.round((summary.todo_count / pipelineTotal) * 100),
+      tone: "muted" as const,
+    },
+    {
+      label: "In progress",
+      sublabel: "Being worked on",
+      value: String(summary.in_progress_count),
+      fill: Math.round((summary.in_progress_count / pipelineTotal) * 100),
+      tone: "warning" as const,
+    },
+    {
+      label: "Done this month",
+      sublabel: "Completed jobs",
+      value: String(summary.done_this_month),
+      fill: Math.round((summary.done_this_month / pipelineTotal) * 100),
+      tone: "success" as const,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Operations"
         title="Overview"
-        description="From order taken to delivery confirmed — every step of the pipeline."
+        description="Track customer orders without the WhatsApp chaos — see what's waiting, in progress, and done."
         action={
-          <button className="inline-flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600">
+          <Link
+            href="/operations/orders"
+            className="inline-flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+          >
             <Plus className="h-4 w-4" strokeWidth={2} />
             New order
-          </button>
+          </Link>
         }
       />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <KpiTile
           label="Open orders"
-          value="42"
-          delta="+6 today"
-          deltaTone="brand"
-          helper="vs yesterday"
+          value={String(summary.open_orders)}
+          delta={
+            summary.overdue_count > 0
+              ? `${summary.overdue_count} overdue`
+              : "On track"
+          }
+          deltaTone={summary.overdue_count > 0 ? "danger" : "success"}
+          helper="To do + in progress"
           icon={Package}
         />
         <KpiTile
-          label="Awaiting dispatch"
-          value="8"
-          delta="2 SLA risk"
-          deltaTone="warning"
-          helper="ship before 5pm"
-          icon={Truck}
+          label="Upcoming bookings"
+          value={String(summary.upcoming_bookings)}
+          delta={`${summary.resource_count} resources`}
+          deltaTone="brand"
+          helper="held + confirmed"
+          icon={Calendar}
         />
         <KpiTile
-          label="Low-stock SKUs"
-          value="5"
-          delta="2 critical"
-          deltaTone="danger"
-          helper="reorder needed"
-          icon={Box}
+          label="Active products"
+          value={String(summary.active_product_count)}
+          delta={`${summary.product_count} total`}
+          deltaTone="neutral"
+          helper="catalog items"
+          icon={ShoppingBag}
         />
         <KpiTile
-          label="On-time delivery"
-          value="96%"
-          delta="+2%"
-          deltaTone="success"
-          helper="this week"
-          icon={CheckCircle2}
+          label="Suppliers"
+          value={String(summary.supplier_count)}
+          delta="Vendors saved"
+          deltaTone="neutral"
+          helper="contact list"
+          icon={Users}
         />
       </section>
 
-      <AiBanner
-        label="Ops Copilot"
-        message="2 orders are at risk of breaching today's 5pm dispatch SLA. Reassign to the morning shift or contact the courier early."
-        cta="Reassign now"
-      />
+      {summary.overdue_count > 0 ? (
+        <div className="flex items-start gap-3 rounded-lg border border-status-warning/30 bg-status-warning/5 px-4 py-3 text-sm dark:border-status-warning/20">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
+          <p className="text-ink dark:text-cream-100">
+            <span className="font-semibold">{summary.overdue_count}</span>{" "}
+            open order{summary.overdue_count === 1 ? "" : "s"} past due date.
+            Check the{" "}
+            <Link
+              href="/operations/orders"
+              className="font-medium text-brand-600 hover:underline dark:text-brand-300"
+            >
+              order board
+            </Link>
+            .
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
         <SectionCard
           title="Order pipeline"
-          subtitle="42 active orders across the funnel"
+          subtitle={`${summary.open_orders} open · ${summary.done_this_month} done this month`}
           className="lg:col-span-2"
           bodyClassName="space-y-4"
           action={
-            <button className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200">
+            <Link
+              href="/operations/orders"
+              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            >
               View board
-            </button>
+            </Link>
           }
         >
-          {PIPELINE.map((row) => (
+          {pipeline.map((row) => (
             <BulletRow key={row.label} {...row} />
           ))}
         </SectionCard>
 
         <SectionCard
           title="Recent orders"
-          subtitle="Latest movement"
+          subtitle="Latest updates"
           bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
           action={
-            <button className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200">
-              All
-            </button>
-          }
-        >
-          {RECENT_ORDERS.map((row) => (
-            <TxRow key={row.title} {...row} />
-          ))}
-        </SectionCard>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-        <SectionCard
-          title="Low-stock SKUs"
-          subtitle="Reorder list"
-          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
-          action={
-            <button className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200">
-              Reorder
-            </button>
-          }
-        >
-          {LOW_STOCK.map((row) => (
-            <ListRow key={row.title} {...row} />
-          ))}
-        </SectionCard>
-
-        <SectionCard
-          title="Quick actions"
-          subtitle="Operations shortcuts"
-          bodyClassName="grid gap-2 sm:grid-cols-2"
-        >
-          {[
-            { icon: Package, label: "New order", helper: "Counter or phone-in" },
-            { icon: Truck, label: "Dispatch run", helper: "Generate label · POD" },
-            { icon: Box, label: "Adjust stock", helper: "Count · transfer" },
-            { icon: AlertTriangle, label: "SLA escalations", helper: "Today's risks" },
-          ].map((action) => (
-            <button
-              key={action.label}
-              className="flex items-start gap-3 rounded-lg border border-cream-200 p-3 text-left transition-colors hover:border-brand-200 hover:bg-brand-50/40 dark:border-hairline-dark dark:hover:border-brand-700 dark:hover:bg-brand-900/20"
+            <Link
+              href="/operations/orders"
+              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                <action.icon className="h-4 w-4" strokeWidth={2} />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-ink dark:text-cream-100">
-                  {action.label}
-                </span>
-                <span className="block text-xs text-ink-muted dark:text-cream-400">
-                  {action.helper}
-                </span>
-              </span>
-            </button>
-          ))}
+              All
+            </Link>
+          }
+        >
+          {(recentOrders ?? []).length === 0 ? (
+            <p className="py-6 text-center text-sm text-ink-muted dark:text-cream-400">
+              No orders yet.{" "}
+              <Link
+                href="/operations/orders"
+                className="font-medium text-brand-600 dark:text-brand-300"
+              >
+                Add your first
+              </Link>
+              .
+            </p>
+          ) : (
+            (recentOrders ?? []).map(
+              (row: {
+                id: string;
+                number: string;
+                customer_name: string;
+                title: string;
+                status: OperationsOrderStatus;
+                due_date: string | null;
+                amount_myr: number | null;
+              }) => {
+                const amount = formatOrderAmount(
+                  row.amount_myr != null ? Number(row.amount_myr) : null,
+                );
+                return (
+                  <div
+                    key={row.id}
+                    className="flex items-start justify-between gap-3 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink dark:text-cream-100">
+                        {row.number} — {row.customer_name}
+                      </p>
+                      <p className="truncate text-xs text-ink-muted dark:text-cream-400">
+                        {row.title}
+                        {row.due_date ? ` · due ${row.due_date}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <StatusPill tone={STATUS_TONE[row.status]}>
+                        {orderStatusLabel(row.status)}
+                      </StatusPill>
+                      {amount ? (
+                        <span className="text-xs font-medium text-ink dark:text-cream-100">
+                          {amount}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              },
+            )
+          )}
         </SectionCard>
       </div>
+
+      <SectionCard
+        title="Quick links"
+        subtitle="Operations shortcuts"
+        bodyClassName="grid gap-2 sm:grid-cols-2"
+      >
+        {[
+          {
+            href: "/operations/orders",
+            icon: Package,
+            label: "Order board",
+            helper: "To do → In progress → Done",
+          },
+          {
+            href: "/operations/bookings",
+            icon: Calendar,
+            label: "Bookings",
+            helper: "Appointments & reservations",
+          },
+          {
+            href: "/operations/products",
+            icon: ShoppingBag,
+            label: "Products",
+            helper: "SKU catalog & pricing",
+          },
+          {
+            href: "/operations/suppliers",
+            icon: Users,
+            label: "Supplier list",
+            helper: "Vendor contacts & terms",
+          },
+        ].map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className="flex items-start gap-3 rounded-lg border border-cream-200 p-3 transition-colors hover:border-brand-200 hover:bg-brand-50/40 dark:border-hairline-dark dark:hover:border-brand-700 dark:hover:bg-brand-900/20"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+              <action.icon className="h-4 w-4" strokeWidth={2} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-ink dark:text-cream-100">
+                {action.label}
+              </span>
+              <span className="block text-xs text-ink-muted dark:text-cream-400">
+                {action.helper}
+              </span>
+            </span>
+          </Link>
+        ))}
+      </SectionCard>
     </div>
   );
 }

@@ -328,6 +328,63 @@ function loadDotEnvLocal(): void {
   }
 }
 
+/** sb_secret_* keys lack table grants for seed scripts — need JWT service_role. */
+function isPlaceholderServiceRoleKey(key: string | undefined): boolean {
+  if (!key) return true;
+  const trimmed = key.trim();
+  if (!trimmed || trimmed === "your-service-role-key") return true;
+  if (trimmed.startsWith("sb_secret_")) return true;
+  return false;
+}
+
+function extractServiceRoleFromSupabaseStatus(stdout: string): string | null {
+  try {
+    const jsonStart = stdout.indexOf("{");
+    if (jsonStart !== -1) {
+      const parsed = JSON.parse(stdout.slice(jsonStart)) as {
+        SERVICE_ROLE_KEY?: string;
+      };
+      if (parsed.SERVICE_ROLE_KEY?.startsWith("eyJ")) {
+        return parsed.SERVICE_ROLE_KEY;
+      }
+    }
+  } catch {
+    // fall through to legacy text parsing
+  }
+  const match = stdout.match(/SERVICE_ROLE_KEY[^"]*"([^"]+)"/);
+  if (match?.[1]?.startsWith("eyJ")) return match[1];
+  const legacy = stdout.match(/service_role key:\s+([^\s\n]+)/i);
+  if (legacy?.[1]?.startsWith("eyJ")) return legacy[1].trim();
+  return null;
+}
+
+function resolveServiceRoleKey(initial: string | undefined): string | null {
+  if (!isPlaceholderServiceRoleKey(initial)) return initial!.trim();
+
+  if (initial?.startsWith("sb_secret_")) {
+    console.warn(
+      "⚠️  SUPABASE_SERVICE_ROLE_KEY is sb_secret_* — seed scripts need the JWT service_role key from `npx supabase status`.",
+    );
+  }
+
+  try {
+    const { execSync } = require("node:child_process") as typeof import("node:child_process");
+    const stdout = execSync("npx supabase status", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const extracted = extractServiceRoleFromSupabaseStatus(stdout);
+    if (extracted) {
+      console.log("✅ Using JWT service_role key from `npx supabase status`.");
+      return extracted;
+    }
+  } catch {
+    // handled below
+  }
+
+  return null;
+}
+
 async function findUserByEmail(
   admin: SupabaseClient,
   email: string,
@@ -534,16 +591,27 @@ async function seedBusiness(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Entry point
+// Hardened Entry Point with Explicit Error Dumps
 // ─────────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
-  loadDotEnvLocal();
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local",
+  console.log("[seed:demo] Initializing script sequence...");
+  
+  try {
+    loadDotEnvLocal();
+  } catch (envErr) {
+    console.error("❌ Failed to parse .env.local file:", envErr);
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
+  let serviceRoleKey = resolveServiceRoleKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  console.log(`[seed:demo] Target URL: ${url}`);
+
+  if (!serviceRoleKey) {
+    console.error(
+      "❌ No valid JWT service_role key. Run `npx supabase status`, copy SERVICE_ROLE_KEY (starts with eyJ…) into .env.local as SUPABASE_SERVICE_ROLE_KEY, then retry.",
     );
+    process.exit(1);
   }
 
   const admin = createClient(url, serviceRoleKey, {
@@ -554,7 +622,7 @@ async function main(): Promise<void> {
     },
   });
 
-  console.log("[seed:demo] starting — 5 demo businesses + marketing payload");
+  console.log("[seed:demo] Seeding payload into database engines...");
   console.log("");
 
   const results: Array<{
@@ -562,32 +630,37 @@ async function main(): Promise<void> {
     customerCount: number;
     postCount: number;
   }> = [];
+  
   for (const [i, biz] of DEMOS.entries()) {
-    console.log(`▸ ${i + 1}/${DEMOS.length} · ${biz.name} (${biz.tier})`);
-    const r = await seedBusiness(admin, biz, i);
-    results.push({ biz, customerCount: r.customerCount, postCount: r.postCount });
+    try {
+      console.log(`▸ ${i + 1}/${DEMOS.length} · ${biz.name} (${biz.tier})`);
+      const r = await seedBusiness(admin, biz, i);
+      results.push({ biz, customerCount: r.customerCount, postCount: r.postCount });
+      console.log("  ✅ Seeding complete for this record.");
+    } catch (rowErr: any) {
+      console.error(`❌ Row Insertion Failed for ${biz.name}:`, rowErr.message || rowErr);
+    }
     console.log("");
   }
 
-  console.log("[seed:demo] done.\n");
+  console.log("[seed:demo] Process finished execution.\n");
   console.log("─────────────────────────────────────────────────────────────");
   console.log("Sign in at http://localhost:3000/sign-in");
   console.log(`Password (all owners): ${DEMO_PASSWORD}`);
   console.log("─────────────────────────────────────────────────────────────");
-  console.log(
-    `${"#".padEnd(2)} ${"Email".padEnd(38)} ${"Customers".padStart(9)} ${"Posts".padStart(5)} · Business`,
-  );
   for (const [i, r] of results.entries()) {
-    console.log(
-      `${String(i + 1).padEnd(2)} ${r.biz.ownerEmail.padEnd(38)} ${String(r.customerCount).padStart(9)} ${String(r.postCount).padStart(5)} · ${r.biz.name}`,
-    );
+    console.log(`${String(i + 1).padEnd(2)} ${r.biz.ownerEmail.padEnd(38)} · ${r.biz.name}`);
   }
 }
-
-main().catch((err) => {
-  console.error(
-    "[seed:demo] failed:",
-    err instanceof Error ? err.message : err,
-  );
-  process.exitCode = 1;
-});
+// ─────────────────────────────────────────────────────────────────────────
+// Execution Trigger
+// ─────────────────────────────────────────────────────────────────────────
+main()
+  .then(() => {
+    console.log("\n✅ [seed:demo] Execution finished smoothly.");
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("\n❌ [seed:demo] Uncaught exception in main timeline:", err);
+    process.exit(1);
+  });

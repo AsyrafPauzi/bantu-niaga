@@ -45,6 +45,7 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
     description: "Track money, send invoices, stay LHDN-compliant.",
     surfaces: [
       { href: "/finance/invoices", label: "Invoices", primary: "both" },
+      { href: "/finance/customers", label: "Customers", primary: "desktop" },
       { href: "/finance/expenses", label: "Expenses", primary: "mobile" },
       { href: "/finance/ledger", label: "Ledger", primary: "desktop" },
     ],
