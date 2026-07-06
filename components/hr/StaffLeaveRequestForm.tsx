@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import {
+  MC_DOCUMENT_MAX_BYTES,
+  MC_DOCUMENT_MAX_SIZE_LABEL,
+} from "@/lib/hr/mc-document-shared";
 
 interface StaffLeaveRequestFormProps {
   token: string;
@@ -13,6 +17,12 @@ const inputClass =
 const labelClass =
   "block space-y-1 text-xs font-semibold text-ink-muted dark:text-ink-muted";
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function StaffLeaveRequestForm({
   token,
   employeeName,
@@ -20,19 +30,38 @@ export function StaffLeaveRequestForm({
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [leaveType, setLeaveType] = useState("annual");
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     setBusy(true);
     setMessage(null);
-    const payload = Object.fromEntries(new FormData(form).entries());
+
+    const formData = new FormData(form);
+
+    if (leaveType === "mc") {
+      const file = formData.get("mc_document");
+      if (!(file instanceof File) || file.size <= 0) {
+        setMessage("Please upload your MC document (PNG, JPEG, or PDF).");
+        setBusy(false);
+        return;
+      }
+      if (file.size > MC_DOCUMENT_MAX_BYTES) {
+        setMessage(
+          `File too large (${formatBytes(file.size)}). Maximum file size is ${MC_DOCUMENT_MAX_SIZE_LABEL}.`,
+        );
+        setBusy(false);
+        return;
+      }
+    } else {
+      formData.delete("mc_document");
+    }
 
     try {
       const res = await fetch(`/api/staff/leave/${encodeURIComponent(token)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formData,
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
@@ -40,6 +69,7 @@ export function StaffLeaveRequestForm({
         return;
       }
       form.reset();
+      setLeaveType("annual");
       setSubmitted(true);
       setMessage("Leave request submitted. Your manager will review it.");
     } finally {
@@ -59,7 +89,14 @@ export function StaffLeaveRequestForm({
       </label>
       <label className={labelClass}>
         Leave type
-        <select name="leave_type" required disabled={submitted} className={inputClass}>
+        <select
+          name="leave_type"
+          required
+          disabled={submitted}
+          value={leaveType}
+          onChange={(event) => setLeaveType(event.target.value)}
+          className={inputClass}
+        >
           <option value="annual">Annual leave</option>
           <option value="emergency">Emergency leave</option>
           <option value="mc">MC</option>
@@ -97,6 +134,22 @@ export function StaffLeaveRequestForm({
           className={inputClass}
         />
       </label>
+      {leaveType === "mc" ? (
+        <label className={labelClass}>
+          MC document
+          <span className="block text-[11px] font-normal leading-relaxed text-ink-subtle">
+            PNG, JPEG, or PDF only. Maximum file size: {MC_DOCUMENT_MAX_SIZE_LABEL}.
+          </span>
+          <input
+            name="mc_document"
+            type="file"
+            required
+            disabled={submitted}
+            accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+            className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand-700`}
+          />
+        </label>
+      ) : null}
       {message ? (
         <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-ink-muted dark:bg-brand-50 dark:text-ink-muted">
           {message}

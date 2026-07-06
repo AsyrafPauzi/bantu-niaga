@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AiBanner } from "@/components/dashboard/ai-banner";
+import { AgentNoticeCard } from "@/components/dashboard/agent-notice-card";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -29,6 +30,11 @@ import {
 } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatCount } from "@/lib/marketing/metrics";
+import { loadTodayHrNotice } from "@/lib/hr/load";
+import {
+  hasHrAssistantAddon,
+  loadBusinessAgentSettings,
+} from "@/lib/marketplace/entitlements";
 import {
   getKpiSnapshot,
   getRecentActivity,
@@ -142,10 +148,14 @@ export default async function HomePage() {
 
   const { weekday, greeting } = todayParts();
   const supabase = await createSupabaseServerClient();
-  const [displayName, snapshot, activity] = await Promise.all([
+  const [displayName, snapshot, activity, hrAddon, hrSettings, hrNotice] =
+    await Promise.all([
     fetchDisplayName(),
     getKpiSnapshot(supabase, user.businessId),
     getRecentActivity(supabase, user.businessId, 6),
+    hasHrAssistantAddon(user.businessId),
+    loadBusinessAgentSettings(user.businessId),
+    loadTodayHrNotice(user.businessId),
   ]);
 
   const figures = getDemoFigures(user.businessId);
@@ -330,6 +340,14 @@ export default async function HomePage() {
         cta="Open Boardroom"
         href="/boardroom"
       />
+
+      {hrAddon && hrSettings.dailyNoticeEnabled && hrNotice ? (
+        <AgentNoticeCard
+          title={hrNotice.title}
+          body={hrNotice.body}
+          assistantName={hrSettings.displayName}
+        />
+      ) : null}
 
       <section aria-label="Module overview">
         <div className="mb-3 flex items-baseline justify-between">

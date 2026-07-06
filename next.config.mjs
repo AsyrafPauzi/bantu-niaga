@@ -60,7 +60,11 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   `img-src 'self' data: blob: https://${supabaseHost} https://*.fbcdn.net https://platform-lookaside.fbsbx.com https://scontent.cdninstagram.com https://*.cdninstagram.com`,
-  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://graph.facebook.com https://api.openai.com`,
+  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://graph.facebook.com https://api.openai.com https://api.ilmu.ai${
+    isProd
+      ? ""
+      : " http://127.0.0.1:54321 ws://127.0.0.1:54321 https://127.0.0.1:54321 wss://127.0.0.1:54321"
+  }`,
   "frame-src 'self' https://www.facebook.com",
   "frame-ancestors 'none'",
   "object-src 'none'",
@@ -74,7 +78,7 @@ const csp = [
   .join("; ");
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: "default-src 'self'; connect-src 'self' http://127.0.0.1:54321 ws://127.0.0.1:54321 https://127.0.0.1:54321 wss://127.0.0.1:54321 https://graph.facebook.com https://api.openai.com; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" },
+  { key: "Content-Security-Policy", value: csp },
   {
     key: "Strict-Transport-Security",
     value: "max-age=15552000; includeSubDomains; preload",

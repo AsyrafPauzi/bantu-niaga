@@ -116,6 +116,16 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Cron routes authenticate via CRON_SECRET inside the route handler (no user session).
+  if (pathname.startsWith("/api/cron/")) {
+    return response;
+  }
+
+  // Staff leave links are token-based (no user session).
+  if (pathname.startsWith("/api/staff/")) {
+    return response;
+  }
+
   if (pathname.startsWith("/api/")) {
     return NextResponse.json(
       {

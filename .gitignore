@@ -11,7 +11,7 @@ coverage/
 out/
 build/
 dist/
-
+pencil-new.pen
 # Production
 *.tsbuildinfo
 

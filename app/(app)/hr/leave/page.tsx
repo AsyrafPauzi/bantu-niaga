@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, Stethoscope } from "lucide-react";
+import { CalendarPlus, Link2 } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
-import { HrLeaveCreateForm } from "@/components/hr/HrLeaveCreateForm";
-import { HrLeaveStatusActions } from "@/components/hr/HrLeaveStatusActions";
-import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { HrActionRow } from "@/components/hr/layout/hr-action-row";
+import { HrKpiGrid } from "@/components/hr/layout/hr-kpi-grid";
+import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
+import { HrPageBody } from "@/components/hr/layout/hr-page-body";
+import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
+import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
+import { HrLeaveStatusActions } from "@/components/hr/HrLeaveStatusActions";
 import { KpiTileBig } from "@/components/marketing/dashboard/KpiTileBig";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
-import { loadHrEmployees, loadHrLeaveRecords } from "@/lib/hr/load";
+import { loadHrLeaveRecords } from "@/lib/hr/load";
 
 export const metadata = { title: "Leave" };
 export const dynamic = "force-dynamic";
@@ -20,6 +24,10 @@ function fmtDate(iso: string): string {
     month: "short",
     year: "numeric",
   }).format(new Date(`${iso}T00:00:00`));
+}
+
+function leaveTypeLabel(type: string): string {
+  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default async function LeavePage() {
@@ -41,146 +49,152 @@ export default async function LeavePage() {
     );
   }
 
-  const [employees, leave] = await Promise.all([
-    loadHrEmployees(user.businessId),
-    loadHrLeaveRecords(user.businessId),
-  ]);
-  const pendingCount = leave.filter((row) => row.status === "pending").length;
-  const approvedCount = leave.filter((row) => row.status === "approved").length;
+  const leave = await loadHrLeaveRecords(user.businessId);
+  const today = new Date().toISOString().slice(0, 10);
+  const pending = leave.filter((row) => row.status === "pending");
+  const approvedThisMonth = leave.filter((row) => {
+    if (row.status !== "approved") return false;
+    const month = row.start_date.slice(0, 7);
+    return month === today.slice(0, 7);
+  });
   const mcCount = leave.filter((row) => row.leave_type === "mc").length;
+  const onLeaveToday = leave.filter(
+    (row) =>
+      row.status === "approved" &&
+      row.start_date <= today &&
+      row.end_date >= today,
+  ).length;
+  const recentApproved = leave
+    .filter((row) => row.status === "approved")
+    .slice(0, 5);
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/hr"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to HR
-      </Link>
-
-      <PageHeader
-        eyebrow="HR"
-        title="Leave tracker"
-        description="Record and approve annual leave, emergency leave, and MC records."
-      />
-
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <KpiTileBig
-          label="Pending"
-          value={String(pendingCount)}
-          sublabel="waiting for approval"
-          tone={pendingCount > 0 ? "warning" : "success"}
+    <HrPageShell
+      header={
+        <HrPageHeader
+          title="Leave"
+          subtitle="Record and approve time off for your team"
+          helpHref="/more"
+          action={
+            <Link
+              href="/hr/leave/record"
+              className="inline-flex items-center justify-center rounded-[10px] bg-brand-500 px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-brand-600"
+            >
+              Record leave
+            </Link>
+          }
         />
-        <KpiTileBig
-          label="Approved"
-          value={String(approvedCount)}
-          sublabel="approved leave records"
-          tone="brand"
-        />
-        <KpiTileBig
-          label="MC records"
-          value={String(mcCount)}
-          sublabel="medical certificates"
-          tone="accent"
-        />
-      </section>
+      }
+    >
+      <HrPageBody>
+        <HrMobileSubnav />
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_420px]">
-        <Card className="overflow-hidden">
-          <div className="flex flex-col gap-3 border-b border-cream-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-hairline-dark">
-            <div>
-              <h2 className="text-base font-semibold text-ink dark:text-cream-100">
-                Leave records
-              </h2>
-              <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-                {leave.length} records across annual leave, emergency leave, and MC.
+        <HrKpiGrid>
+          <KpiTileBig
+            label="Pending"
+            value={String(pending.length)}
+            sublabel="needs your decision"
+            tone={pending.length > 0 ? "warning" : "success"}
+          />
+          <KpiTileBig
+            label="Approved"
+            value={String(approvedThisMonth.length)}
+            sublabel="this month"
+            tone="brand"
+          />
+          <KpiTileBig
+            label="Sick notes"
+            value={String(mcCount)}
+            sublabel="on file"
+            tone="accent"
+          />
+          <KpiTileBig
+            label="On leave today"
+            value={String(onLeaveToday)}
+            sublabel="staff away"
+            tone="info"
+          />
+        </HrKpiGrid>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <HrActionRow
+            href="/hr/leave/record"
+            title="Record leave"
+            helper="Annual leave, sick leave, or emergency"
+            icon={CalendarPlus}
+            tone="accent"
+          />
+          <HrActionRow
+            href="/hr/employees"
+            title="Share leave form"
+            helper="Send a private WhatsApp link"
+            icon={Link2}
+            tone="brand"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+          <SectionCard
+            title="Waiting for your approval"
+            subtitle="Say yes or no to these leave requests"
+            bodyClassName="space-y-3"
+          >
+            {pending.length === 0 ? (
+              <p className="text-sm text-ink-muted dark:text-cream-400">
+                No pending leave requests.
               </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-cream-100 px-3 py-1 text-xs font-semibold text-ink-muted dark:bg-hairline-dark dark:text-cream-400">
-                <Clock3 className="h-3.5 w-3.5" />
-                {pendingCount} pending
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                {approvedCount} approved
-              </span>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-cream-100/60 text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:bg-hairline-dark/30 dark:text-cream-400">
-                <tr>
-                  <th className="px-5 py-3 text-left">Employee</th>
-                  <th className="px-3 py-3 text-left">Type</th>
-                  <th className="px-3 py-3 text-left">Dates</th>
-                  <th className="px-3 py-3 text-left">Status</th>
-                  <th className="px-5 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-cream-200 dark:divide-hairline-dark">
-                {leave.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-5 py-10 text-center text-sm text-ink-muted dark:text-cream-400"
-                    >
-                      No leave records yet.
-                    </td>
-                  </tr>
-                ) : (
-                  leave.map((row) => (
-                    <tr key={row.id}>
-                      <td className="px-5 py-3">
-                        <p className="font-medium text-ink dark:text-cream-100">
-                          {row.hr_employees?.full_name ?? "Employee"}
-                        </p>
-                        <p className="text-xs text-ink-muted dark:text-cream-400">
-                          {row.hr_employees?.role_title ?? "HR record"}
-                        </p>
-                      </td>
-                      <td className="px-3 py-3 text-ink-muted dark:text-cream-400">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-cream-100 px-2 py-1 text-xs font-semibold text-ink-muted dark:bg-hairline-dark dark:text-cream-400">
-                          {row.leave_type === "mc" ? (
-                            <Stethoscope className="h-3 w-3" />
-                          ) : (
-                            <CalendarDays className="h-3 w-3" />
-                          )}
-                          {row.leave_type.replace(/_/g, " ")}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-ink-muted dark:text-cream-400">
-                        {fmtDate(row.start_date)} to {fmtDate(row.end_date)}
-                      </td>
-                      <td className="px-3 py-3 text-xs font-semibold uppercase text-ink-muted dark:text-cream-400">
-                        {row.status}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        {row.status === "pending" ? (
-                          <HrLeaveStatusActions leaveId={row.id} />
-                        ) : (
-                          <span className="text-xs text-ink-muted dark:text-cream-400">
-                            Decided
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+            ) : (
+              pending.map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-xl border border-[#E5E0D8] p-4 dark:border-hairline-dark"
+                >
+                  <p className="text-sm font-semibold text-ink dark:text-cream-100">
+                    {row.hr_employees?.full_name ?? "Employee"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                    {leaveTypeLabel(row.leave_type)} · {fmtDate(row.start_date)}
+                    {row.end_date !== row.start_date
+                      ? ` – ${fmtDate(row.end_date)}`
+                      : ""}
+                  </p>
+                  <div className="mt-3">
+                    <HrLeaveStatusActions leaveId={row.id} />
+                  </div>
+                </div>
+              ))
+            )}
+          </SectionCard>
 
-        <SectionCard
-          title="Record leave"
-          subtitle="Manual entry for owner, manager, or HR officer."
-          action={<CalendarDays className="h-4 w-4 text-brand-700 dark:text-brand-200" />}
-        >
-          <HrLeaveCreateForm employees={employees} />
-        </SectionCard>
-      </div>
-    </div>
+          <SectionCard
+            title="Recently approved leave"
+            subtitle="Leave records from the past few weeks"
+            bodyClassName="space-y-1"
+          >
+            {recentApproved.length === 0 ? (
+              <p className="text-sm text-ink-muted dark:text-cream-400">
+                No approved leave yet.
+              </p>
+            ) : (
+              recentApproved.map((row) => (
+                <div key={row.id} className="border-b border-cream-200 py-2.5 last:border-0 dark:border-hairline-dark">
+                  <p className="text-sm font-semibold text-ink dark:text-cream-100">
+                    {row.hr_employees?.full_name ?? "Employee"}
+                  </p>
+                  <p className="text-xs text-ink-muted dark:text-cream-400">
+                    {leaveTypeLabel(row.leave_type)} · {fmtDate(row.start_date)}
+                  </p>
+                </div>
+              ))
+            )}
+            <div className="pt-3 text-center">
+              <span className="text-[13px] font-semibold text-brand-700 dark:text-brand-200">
+                View all leave history →
+              </span>
+            </div>
+          </SectionCard>
+        </div>
+      </HrPageBody>
+    </HrPageShell>
   );
 }

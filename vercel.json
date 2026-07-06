@@ -4,6 +4,14 @@
     {
       "path": "/api/cron/privacy-sweep",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/hr-daily-notice",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/hr-assistant-renewal",
+      "schedule": "0 0 * * *"
     }
   ]
 }

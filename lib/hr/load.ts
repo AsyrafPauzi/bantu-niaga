@@ -76,6 +76,27 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+export async function loadHrEmployee(
+  businessId: string,
+  employeeId: string,
+): Promise<HrEmployeeRow | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("hr_employees")
+    .select(
+      "id, full_name, employment_type, role_title, start_date, status, phone_e164, email, " +
+        "emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, " +
+        "bank_name, bank_account_no, bank_account_holder, notes, created_at",
+    )
+    .eq("business_id", businessId)
+    .eq("id", employeeId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return (data ?? null) as unknown as HrEmployeeRow | null;
+}
+
 export async function loadHrEmployees(
   businessId: string,
 ): Promise<HrEmployeeRow[]> {
@@ -214,4 +235,30 @@ export async function loadHrDashboard(
       incompleteOnboarding: onboarding.length,
     },
   };
+}
+
+export interface HrDailyNoticeRow {
+  id: string;
+  title: string;
+  body: string;
+  notice_date: string;
+}
+
+export async function loadTodayHrNotice(
+  businessId: string,
+): Promise<HrDailyNoticeRow | null> {
+  const supabase = await createSupabaseServerClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("agent_daily_notices")
+    .select("id, title, body, notice_date")
+    .eq("business_id", businessId)
+    .eq("agent_slug", "hr")
+    .eq("notice_date", today)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data as HrDailyNoticeRow | null) ?? null;
 }

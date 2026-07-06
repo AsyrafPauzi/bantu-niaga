@@ -63,6 +63,22 @@ const TESTERS: Record<string, Tester> = {
     };
   },
 
+  ilmu: async ({ secrets, config }) => {
+    const key = secrets.api_key;
+    if (!key) return { ok: false, message: "api_key is missing" };
+    const base =
+      (typeof config.base_url === "string" && config.base_url) ||
+      "https://api.ilmu.ai/v1";
+    const r = await fetchJson(`${base.replace(/\/$/, "")}/models`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (r.ok) return { ok: true, message: "Authenticated; ILMU /v1/models returned 200." };
+    return {
+      ok: false,
+      message: `ILMU rejected the key (HTTP ${r.status}).`,
+    };
+  },
+
   anthropic: async ({ secrets }) => {
     const key = secrets.api_key;
     if (!key) return { ok: false, message: "api_key is missing" };

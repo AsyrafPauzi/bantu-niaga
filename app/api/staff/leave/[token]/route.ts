@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { hashLeaveLinkToken, isLeaveLinkUsable } from "@/lib/hr/leave-links";
-import { publicLeaveCreateSchema } from "@/lib/hr/schemas";
+import {
+  storeMcLeaveDocument,
+  validateMcDocumentFile,
+} from "@/lib/hr/mc-document";
+import { parseStaffLeaveRequest } from "@/lib/hr/parse-staff-leave-request";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export const dynamic = "force-dynamic";
@@ -46,16 +50,9 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
-  }
-
   let parsed;
   try {
-    parsed = publicLeaveCreateSchema.parse(body);
+    parsed = await parseStaffLeaveRequest(request);
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
@@ -63,7 +60,54 @@ export async function POST(request: Request, context: RouteContext) {
         { status: 400 },
       );
     }
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+    }
     throw error;
+  }
+
+  const { fields, mcFile } = parsed;
+  let mcDocument:
+    | {
+        mc_document_path: string;
+        mc_document_name: string;
+        mc_document_mime: string;
+        mc_document_size_bytes: number;
+      }
+    | undefined;
+
+  if (fields.leave_type === "mc") {
+    const mcValidation = validateMcDocumentFile(mcFile, { required: true });
+    if (!mcValidation.ok) {
+      return NextResponse.json(
+        { error: "mc_document_invalid", message: mcValidation.message },
+        { status: 400 },
+      );
+    }
+
+    const supabase = createServiceRoleClient();
+    try {
+      const stored = await storeMcLeaveDocument(
+        supabase,
+        link.business_id,
+        mcValidation.file,
+        mcValidation.mimeType,
+      );
+      mcDocument = {
+        mc_document_path: stored.path,
+        mc_document_name: stored.name,
+        mc_document_mime: stored.mime,
+        mc_document_size_bytes: stored.size,
+      };
+    } catch {
+      return NextResponse.json(
+        {
+          error: "mc_upload_failed",
+          message: "Could not upload your MC document. Please try again.",
+        },
+        { status: 500 },
+      );
+    }
   }
 
   const supabase = createServiceRoleClient();
@@ -85,13 +129,16 @@ export async function POST(request: Request, context: RouteContext) {
   const { data, error } = await supabase
     .from("hr_leave_records")
     .insert({
-      ...parsed,
+      ...fields,
+      ...mcDocument,
       business_id: link.business_id,
       employee_id: link.employee_id,
       status: "pending",
       requested_by: null,
     })
-    .select("id, employee_id, leave_type, start_date, end_date, reason, status, created_at")
+    .select(
+      "id, employee_id, leave_type, start_date, end_date, reason, status, created_at, mc_document_name",
+    )
     .single();
 
   if (error) {

@@ -9,8 +9,16 @@ const inputClass =
 
 export function HrLeaveCreateForm({
   employees,
+  redirectTo,
+  formId = "hr-leave-create",
+  hideSubmit,
+  defaultEmployeeId,
 }: {
   employees: HrEmployeeRow[];
+  redirectTo?: string;
+  formId?: string;
+  hideSubmit?: boolean;
+  defaultEmployeeId?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -36,18 +44,27 @@ export function HrLeaveCreateForm({
       }
       form.reset();
       setMessage("Leave recorded.");
-      router.refresh();
+      if (redirectTo) {
+        router.push(redirectTo);
+      } else {
+        router.refresh();
+      }
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
+    <form id={formId} onSubmit={onSubmit} className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-xs font-semibold text-ink-muted dark:text-cream-400">
           Employee
-          <select name="employee_id" required className={inputClass}>
+          <select
+            name="employee_id"
+            required
+            defaultValue={defaultEmployeeId ?? ""}
+            className={inputClass}
+          >
             <option value="">Choose employee</option>
             {employees.map((employee) => (
               <option key={employee.id} value={employee.id}>
@@ -80,13 +97,15 @@ export function HrLeaveCreateForm({
       {message ? (
         <p className="text-xs text-ink-muted dark:text-cream-400">{message}</p>
       ) : null}
-      <button
-        type="submit"
-        disabled={busy || employees.length === 0}
-        className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-      >
-        {busy ? "Recording..." : "Record leave"}
-      </button>
+      {!hideSubmit ? (
+        <button
+          type="submit"
+          disabled={busy || employees.length === 0}
+          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+        >
+          {busy ? "Recording..." : "Record leave"}
+        </button>
+      ) : null}
     </form>
   );
 }

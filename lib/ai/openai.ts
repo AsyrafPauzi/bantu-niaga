@@ -6,80 +6,135 @@ import { buildBriefing } from "@/lib/ai/context";
 import type { AgentContext } from "@/lib/ai/context/types";
 import type { Pillar } from "@/lib/permissions";
 
-/**
- * Resolve OpenAI credentials for the AI agents.
- *
- * Resolution order:
- *   1. `platform_integrations.openai` row (if enabled, decrypted on the
- *      fly via lib/integrations/load).
- *   2. Process env (`OPENAI_API_KEY`, `OPENAI_ORGANIZATION_ID`,
- *      `OPENAI_DEFAULT_MODEL`).
- *   3. throws — caller must handle.
- *
- * Allowing env fallback keeps existing deployments working unchanged
- * after this migration ships; the super-admin can move to db-managed
- * keys at their leisure.
- */
+const DEFAULT_OPENAI_BASE = "https://api.openai.com/v1";
+const DEFAULT_ILMU_BASE = "https://api.ilmu.ai/v1";
 
+/**
+ * Resolve LLM credentials. Prefers ILMU (YTL AI Labs) when configured,
+ * otherwise falls back to OpenAI.
+ *
+ * Resolution order per provider:
+ *   1. `platform_integrations.<slug>` row (decrypted)
+ *   2. Process env vars
+ */
 export interface OpenAIConfig {
   apiKey: string;
   organizationId: string | null;
   defaultModel: string;
+  baseUrl: string;
+  provider: "ilmu" | "openai";
 }
 
 export async function getOpenAIConfig(): Promise<OpenAIConfig> {
-  const resolved = await resolveIntegration("openai", {
+  const ilmuResolved = await resolveIntegration("ilmu", {
+    api_key: process.env.ILMU_API_KEY,
+  });
+
+  const ilmuKey =
+    ilmuResolved?.secrets.api_key || process.env.ILMU_API_KEY || "";
+  if (ilmuKey) {
+    return {
+      apiKey: ilmuKey,
+      organizationId: null,
+      defaultModel:
+        (ilmuResolved?.config.default_model as string | undefined) ||
+        process.env.ILMU_DEFAULT_MODEL ||
+        "ilmu-mini-v3.3",
+      baseUrl:
+        (ilmuResolved?.config.base_url as string | undefined) ||
+        process.env.ILMU_API_BASE_URL ||
+        DEFAULT_ILMU_BASE,
+      provider: "ilmu",
+    };
+  }
+
+  const openaiResolved = await resolveIntegration("openai", {
     api_key: process.env.OPENAI_API_KEY,
   });
 
   const apiKey =
-    resolved?.secrets.api_key || process.env.OPENAI_API_KEY || "";
+    openaiResolved?.secrets.api_key || process.env.OPENAI_API_KEY || "";
   if (!apiKey) {
     throw new Error(
-      "OpenAI is not configured. Add an API key in /super-admin/integrations/openai or set OPENAI_API_KEY.",
+      "No AI provider configured. Add ILMU in /super-admin/integrations/ilmu " +
+        "(or set ILMU_API_KEY), or configure OpenAI.",
     );
   }
 
   const organizationId =
-    (resolved?.config.organization_id as string | undefined) ||
+    (openaiResolved?.config.organization_id as string | undefined) ||
     process.env.OPENAI_ORGANIZATION_ID ||
     null;
 
   const defaultModel =
-    (resolved?.config.default_model as string | undefined) ||
+    (openaiResolved?.config.default_model as string | undefined) ||
     process.env.OPENAI_DEFAULT_MODEL ||
     "gpt-4o-mini";
 
-  return { apiKey, organizationId, defaultModel };
+  const baseUrl =
+    (openaiResolved?.config.base_url as string | undefined) ||
+    process.env.OPENAI_BASE_URL ||
+    DEFAULT_OPENAI_BASE;
+
+  return {
+    apiKey,
+    organizationId,
+    defaultModel,
+    baseUrl,
+    provider: "openai",
+  };
+}
+
+export interface ChatToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+
+export interface AgentChatMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: ChatToolCall[];
+  tool_call_id?: string;
 }
 
 export interface AgentChatOptions {
   model?: string;
-  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+  messages: AgentChatMessage[];
   temperature?: number;
-  /** Abort after this many ms. */
   timeoutMs?: number;
-  /**
-   * Pillar to fetch a strictly tenant-scoped briefing for, then auto-
-   * prepend its rendered text as a system message so the agent only
-   * sees the caller's own data. Skip this for prompts that don't need
-   * tenant-specific context (e.g. generic prompt-template generation).
-   */
   briefingFor?: Pillar;
-  /** Optional pre-resolved context. If omitted, briefingFor uses resolveAgentContext(). */
   context?: AgentContext;
+  tools?: Array<{
+    type: "function";
+    function: {
+      name: string;
+      description: string;
+      parameters: Record<string, unknown>;
+    };
+  }>;
+  tool_choice?: "auto" | "none" | { type: "function"; function: { name: string } };
+  includeBriefing?: boolean;
+}
+
+export interface ChatCompletionResponse {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+      tool_calls?: ChatToolCall[];
+    };
+  }>;
+}
+
+export function extractChatAssistantText(
+  response: ChatCompletionResponse,
+): string {
+  const text = response.choices?.[0]?.message?.content?.trim();
+  return text || "I could not generate a response. Please try again.";
 }
 
 /**
- * Thin convenience wrapper for chat completions.
- *
- * When `briefingFor` is set, this function:
- *   1. Builds the tenant-scoped pillar snapshot (cached for the request).
- *   2. Prepends the rendered briefing as a system message.
- *   3. Hands the resulting message list to OpenAI.
- *
- * This is the recommended path for every AI agent — direct SDK calls
- * bypass the tenant-isolation guarantee.
+ * OpenAI-compatible chat completions (works with ILMU and OpenAI).
  */
 export async function openaiChat<T = unknown>(
   opts: AgentChatOptions,
@@ -88,8 +143,10 @@ export async function openaiChat<T = unknown>(
   const model = opts.model || cfg.defaultModel;
 
   let messages = opts.messages;
-  if (opts.briefingFor) {
-    const briefing = await buildBriefing(opts.briefingFor, opts.context);
+  const shouldBrief =
+    opts.briefingFor && (opts.includeBriefing ?? true);
+  if (shouldBrief) {
+    const briefing = await buildBriefing(opts.briefingFor!, opts.context);
     messages = [
       {
         role: "system",
@@ -103,13 +160,16 @@ export async function openaiChat<T = unknown>(
     ];
   }
 
+  const base = cfg.baseUrl.replace(/\/$/, "");
+  const isOpenAiHost = base.includes("api.openai.com");
+
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch(`${base}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${cfg.apiKey}`,
         "Content-Type": "application/json",
-        ...(cfg.organizationId
+        ...(isOpenAiHost && cfg.organizationId
           ? { "OpenAI-Organization": cfg.organizationId }
           : {}),
       },
@@ -117,18 +177,22 @@ export async function openaiChat<T = unknown>(
         model,
         messages,
         temperature: opts.temperature ?? 0.2,
+        ...(opts.tools?.length
+          ? { tools: opts.tools, tool_choice: opts.tool_choice ?? "auto" }
+          : {}),
       }),
       signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
     });
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`OpenAI HTTP ${res.status}: ${text.slice(0, 200)}`);
+      throw new Error(`LLM HTTP ${res.status}: ${text.slice(0, 200)}`);
     }
     return (await res.json()) as T;
   } catch (e) {
     logger.error("openai.chat.failed", {
       model,
+      provider: cfg.provider,
       error: e instanceof Error ? e.message : String(e),
     });
     throw e;

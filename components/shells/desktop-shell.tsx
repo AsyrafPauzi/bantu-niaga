@@ -121,8 +121,11 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
         icon: Users,
         pillar: "hr",
         subItems: [
+          { href: "/hr", label: "Overview" },
           { href: "/hr/employees", label: "Employees" },
           { href: "/hr/leave", label: "Leave" },
+          { href: "/hr/holidays", label: "Public holidays" },
+          { href: "/hr/assistant", label: "AI Assistant" },
         ],
       },
     ],
@@ -145,12 +148,14 @@ export function DesktopShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const isHrRoute = pathname === "/hr" || pathname.startsWith("/hr/");
+  const isHrAssistantRoute = pathname === "/hr/assistant";
 
   return (
     <div className="min-h-dvh bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
-      <div className="flex">
-        <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-hairline-light bg-panel-light dark:border-hairline-dark dark:bg-panel-dark sticky top-0 h-dvh">
-          <div className="px-5 py-5 border-b border-cream-200 bg-brand-50 dark:border-hairline-dark dark:bg-brand-900/30">
+      <div className="flex h-dvh min-h-0 overflow-hidden">
+        <aside className="sticky top-0 hidden h-dvh w-[272px] shrink-0 flex-col border-r border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark lg:flex">
+          <div className="border-b border-[#D5E2FB] bg-[#EEF3FE] px-5 py-5 dark:border-hairline-dark dark:bg-brand-900/30">
             <Link href="/" className="flex items-center gap-3">
               <Image
                 src="/icon.png"
@@ -172,10 +177,10 @@ export function DesktopShell({
             </Link>
           </div>
 
-          <nav className="flex-1 overflow-y-auto py-4">
+          <nav className="flex-1 overflow-y-auto px-3 py-4">
             {SIDEBAR_GROUPS.map((group) => (
-              <div key={group.label} className="mb-5">
-                <p className="px-5 mb-2 text-[11px] font-semibold uppercase tracking-wider text-brand-700/70 dark:text-brand-200/70">
+              <div key={group.label} className="mb-4">
+                <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-700/70 dark:text-brand-200/70">
                   {group.label}
                 </p>
                 <ul>
@@ -185,7 +190,9 @@ export function DesktopShell({
                       const isSectionActive =
                         href === "/"
                           ? pathname === "/"
-                          : pathname === href || pathname.startsWith(`${href}/`);
+                          : href === "/hr"
+                            ? pathname === "/hr" || pathname.startsWith("/hr/")
+                            : pathname === href || pathname.startsWith(`${href}/`);
                       const locked = pillar ? !hasPillar(tier, pillar) : false;
                       const minTier = locked
                         ? tierBy(minimumTierFor(pillar!))
@@ -212,14 +219,14 @@ export function DesktopShell({
                                 : undefined
                             }
                             className={cn(
-                              "flex items-center justify-between gap-3 px-5 py-2.5 text-sm transition-colors border-l-4",
+                              "flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                               isOverviewActive
-                                ? "bg-brand-50 text-brand-700 font-semibold border-accent-500 dark:bg-brand-900/30 dark:text-brand-200"
+                                ? "bg-[#EEF3FE] font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
                                 : isSectionActive && !locked
-                                  ? "text-brand-700 font-semibold border-transparent dark:text-brand-200"
+                                  ? "font-semibold text-brand-700 dark:text-brand-200"
                                   : locked
-                                    ? "text-ink-subtle hover:bg-cream-100 hover:text-ink-muted border-transparent dark:text-cream-500 dark:hover:bg-hairline-dark/60"
-                                    : "text-ink-muted hover:bg-cream-100 hover:text-ink border-transparent dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
+                                    ? "text-ink-subtle hover:bg-cream-100 hover:text-ink-muted dark:text-cream-500 dark:hover:bg-hairline-dark/60"
+                                    : "text-ink-muted hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
                             )}
                           >
                             <span className="flex items-center gap-3 min-w-0">
@@ -235,20 +242,22 @@ export function DesktopShell({
                             ) : null}
                           </Link>
                           {showSubItems ? (
-                            <ul className="mb-1 mt-0.5 ml-9 mr-3 border-l border-cream-200 dark:border-hairline-dark">
+                            <ul className="mb-1 ml-3 mt-0.5 space-y-0.5 border-l border-[#E5E0D8] pl-3 dark:border-hairline-dark">
                               {visibleSubItems!.map((sub) => {
                                 const subActive =
-                                  pathname === sub.href ||
-                                  pathname.startsWith(`${sub.href}/`);
+                                  sub.href === "/hr"
+                                    ? pathname === "/hr"
+                                    : pathname === sub.href ||
+                                      pathname.startsWith(`${sub.href}/`);
                                 return (
                                   <li key={sub.href}>
                                     <Link
                                       href={sub.href}
                                       className={cn(
-                                        "block py-1.5 pl-3 pr-2 text-[13px] transition-colors -ml-px border-l-2",
+                                        "block rounded-md py-1.5 pl-2 pr-2 text-[13px] transition-colors",
                                         subActive
-                                          ? "text-brand-700 font-semibold border-accent-500 dark:text-brand-200"
-                                          : "text-ink-muted hover:text-ink border-transparent dark:text-cream-400 dark:hover:text-cream-100",
+                                          ? "bg-[#EEF3FE] font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
+                                          : "text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100",
                                       )}
                                     >
                                       {sub.label}
@@ -267,11 +276,19 @@ export function DesktopShell({
             ))}
           </nav>
 
-          <div className="border-t border-cream-200 px-3 py-3 dark:border-hairline-dark">
+          <div className="space-y-2 border-t border-[#E5E0D8] p-4 dark:border-hairline-dark">
+            <div className="rounded-xl border border-[#FED7AA] bg-[#FFF7ED] p-3.5 dark:border-accent-900/40 dark:bg-accent-900/20">
+              <p className="text-[13px] font-bold text-[#C2410C] dark:text-accent-300">
+                Need help?
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-[#C2410C]/90 dark:text-accent-200/80">
+                Tap the help button on any page for step-by-step guides.
+              </p>
+            </div>
             <form action={signOutAction}>
               <button
                 type="submit"
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100"
               >
                 <LogOut className="h-4 w-4" strokeWidth={2} />
                 <span>Sign out</span>
@@ -280,8 +297,23 @@ export function DesktopShell({
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0">
-          <div className="max-w-6xl mx-auto px-6 py-8 lg:px-10 lg:py-10">
+        <main
+          className={cn(
+            "min-w-0 flex-1",
+            isHrAssistantRoute
+              ? "flex min-h-0 flex-col overflow-hidden"
+              : "overflow-y-auto",
+          )}
+        >
+          <div
+            className={cn(
+              isHrAssistantRoute
+                ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+                : isHrRoute
+                  ? "mx-auto"
+                  : "mx-auto max-w-6xl px-6 py-8 lg:px-10 lg:py-10",
+            )}
+          >
             {children}
           </div>
         </main>

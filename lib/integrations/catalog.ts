@@ -123,6 +123,47 @@ export const INTEGRATION_CATALOG: readonly IntegrationDescriptor[] = [
     importance: "core",
   },
   {
+    slug: "ilmu",
+    name: "ILMU (YTL AI Labs)",
+    category: "ai",
+    tagline: "Malaysian LLM — ILMU Mini v3.3 for HR and agents",
+    description:
+      "Preferred AI provider for Bantu Niaga. OpenAI-compatible API at api.ilmu.ai. When configured, all chat agents (including the HR Assistant) use ILMU instead of OpenAI.",
+    docsUrl: "https://docs.ilmu.ai",
+    capabilities: [
+      "Chat completions (OpenAI-compatible)",
+      "ILMU Mini v3.3 — cost-efficient SME workloads",
+      "Tenant-scoped HR Assistant",
+    ],
+    fields: [
+      {
+        key: "api_key",
+        label: "API key",
+        type: "secret",
+        required: true,
+        helper: "Generate in the ILMU Console (starts with sk-…).",
+      },
+      {
+        key: "default_model",
+        label: "Default chat model",
+        type: "text",
+        required: false,
+        placeholder: "ilmu-mini-v3.3",
+        helper: "Recommended: ilmu-mini-v3.3 for HR Q&A.",
+      },
+      {
+        key: "base_url",
+        label: "API base URL",
+        type: "text",
+        required: false,
+        placeholder: "https://api.ilmu.ai/v1",
+        helper: "Leave blank to use the default ILMU endpoint.",
+      },
+    ],
+    wired: true,
+    importance: "core",
+  },
+  {
     slug: "anthropic",
     name: "Anthropic Claude",
     category: "ai",

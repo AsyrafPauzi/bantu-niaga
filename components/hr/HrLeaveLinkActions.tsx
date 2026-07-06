@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { cn } from "@/lib/utils/cn";
 
 interface HrLeaveLinkActionsProps {
   employeeId: string;
   employeeName: string;
+  align?: "start" | "end";
 }
 
 export function HrLeaveLinkActions({
   employeeId,
   employeeName,
+  align = "end",
 }: HrLeaveLinkActionsProps) {
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
@@ -50,7 +53,12 @@ export function HrLeaveLinkActions({
     : "#";
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div
+      className={cn(
+        "flex flex-col gap-2",
+        align === "end" ? "items-end" : "items-start",
+      )}
+    >
       <button
         type="button"
         onClick={generateLink}
@@ -60,7 +68,12 @@ export function HrLeaveLinkActions({
         {busy ? "Generating..." : "Generate leave link"}
       </button>
       {url ? (
-        <div className="flex flex-wrap justify-end gap-2 text-xs">
+        <div
+          className={cn(
+            "flex flex-wrap gap-2 text-xs",
+            align === "end" ? "justify-end" : "justify-start",
+          )}
+        >
           <button
             type="button"
             onClick={copyLink}
@@ -79,7 +92,12 @@ export function HrLeaveLinkActions({
         </div>
       ) : null}
       {message ? (
-        <p className="max-w-48 text-right text-[11px] text-ink-muted dark:text-cream-400">
+        <p
+          className={cn(
+            "max-w-md text-[11px] text-ink-muted dark:text-cream-400",
+            align === "end" ? "text-right" : "text-left",
+          )}
+        >
           {message}
         </p>
       ) : null}

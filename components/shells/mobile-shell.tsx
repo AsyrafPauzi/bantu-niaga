@@ -47,9 +47,10 @@ export function MobileShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const isHrAssistantRoute = pathname === "/hr/assistant";
 
   return (
-    <div className="min-h-dvh bg-surface-light text-ink flex flex-col dark:bg-surface-dark dark:text-cream-100">
+    <div className="flex min-h-dvh flex-col bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
       <header className="sticky top-0 z-10 bg-brand-50/95 backdrop-blur border-b border-brand-100 dark:bg-brand-900/40 dark:border-hairline-dark">
         <div className="px-4 py-3 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -78,7 +79,16 @@ export function MobileShell({
         </div>
       </header>
 
-      <main className="flex-1 px-4 py-5 pb-24">{children}</main>
+      <main
+        className={cn(
+          "flex-1",
+          isHrAssistantRoute
+            ? "flex min-h-0 flex-col overflow-hidden pb-20"
+            : "px-4 py-5 pb-24",
+        )}
+      >
+        {children}
+      </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 bg-panel-light border-t border-hairline-light dark:bg-panel-dark dark:border-hairline-dark">
         <ul className="grid grid-cols-5">

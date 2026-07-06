@@ -1,23 +1,149 @@
 import "server-only";
 
-import type { AgentContext, PillarSnapshot } from "./types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { createAgentScopedClient, verifyRows } from "./client";
+import type {
+  AgentContext,
+  PillarSnapshot,
+  SnapshotAttention,
+  SnapshotItem,
+} from "./types";
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 /**
- * HR snapshot — placeholder until employees / leave tables land. See
- * operations.ts for the pattern to follow when the HR migration ships.
+ * HR overview snapshot — employees, leave, holidays, onboarding.
+ * Strictly tenant-scoped via RLS + verifyRows.
  */
 export async function buildHrSnapshot(
   ctx: AgentContext,
+  client?: SupabaseClient,
 ): Promise<PillarSnapshot> {
+  const supabase = client ?? (await createAgentScopedClient(ctx));
+  const today = todayIso();
+
+  const employeesRes = await supabase
+    .from("hr_employees")
+    .select("id, business_id, full_name, role_title, employment_type, status, start_date")
+    .eq("business_id", ctx.businessId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(40);
+  const employees = verifyRows(employeesRes, ctx, "hr_employees");
+
+  const leaveRes = await supabase
+    .from("hr_leave_records")
+    .select(
+      "id, business_id, employee_id, leave_type, start_date, end_date, status, hr_employees(full_name)",
+    )
+    .eq("business_id", ctx.businessId)
+    .order("start_date", { ascending: false })
+    .limit(30);
+  const leave = verifyRows(leaveRes, ctx, "hr_leave_records");
+
+  const holidaysRes = await supabase
+    .from("hr_public_holidays")
+    .select("id, business_id, holiday_date, name, state_code")
+    .or(`business_id.is.null,business_id.eq.${ctx.businessId}`)
+    .gte("holiday_date", today)
+    .order("holiday_date", { ascending: true })
+    .limit(10);
+  const holidays = verifyRows(holidaysRes, ctx, "hr_public_holidays");
+
+  const onboardingRes = await supabase
+    .from("hr_onboarding_items")
+    .select("id, business_id, employee_id, label, is_done, hr_employees(full_name)")
+    .eq("business_id", ctx.businessId)
+    .eq("is_done", false)
+    .limit(15);
+  const onboarding = verifyRows(onboardingRes, ctx, "hr_onboarding_items");
+
+  const activeCount = employees.filter((e) => e.status === "active").length;
+  const pendingLeave = leave.filter((l) => l.status === "pending");
+  const onLeaveToday = leave.filter(
+    (l) =>
+      l.status === "approved" &&
+      String(l.start_date) <= today &&
+      String(l.end_date) >= today,
+  );
+  const recent: SnapshotItem[] = [
+    ...pendingLeave.slice(0, 4).map((row) => ({
+      id: row.id as string,
+      label: `Pending leave: ${(row.hr_employees as { full_name?: string } | null)?.full_name ?? "Employee"}`,
+      meta: `${String(row.leave_type).replace(/_/g, " ")} · ${row.start_date} to ${row.end_date}`,
+      at: row.start_date as string,
+    })),
+    ...employees.slice(0, 4).map((row) => ({
+      id: row.id as string,
+      label: row.full_name as string,
+      meta: `${row.role_title} · ${String(row.employment_type).replace(/_/g, " ")} · ${row.status}`,
+      at: row.start_date as string,
+    })),
+  ].slice(0, 10);
+
+  const attention: SnapshotAttention[] = [];
+  if (pendingLeave.length > 0) {
+    attention.push({
+      id: "pending_leave",
+      label: `${pendingLeave.length} leave request(s) waiting for approval`,
+      severity: "high",
+    });
+  }
+  if (onboarding.length > 0) {
+    attention.push({
+      id: "onboarding_open",
+      label: `${onboarding.length} open onboarding checklist item(s)`,
+      severity: "medium",
+    });
+  }
+  if (employees.length === 0) {
+    attention.push({
+      id: "no_employees",
+      label: "No employee profiles yet — add staff to start HR records",
+      severity: "medium",
+    });
+  }
+
+  const nextHoliday = holidays[0];
+  const notes = [
+    onLeaveToday.length > 0
+      ? `${onLeaveToday.length} staff on approved leave today.`
+      : null,
+    nextHoliday
+      ? `Next holiday: ${nextHoliday.name} on ${nextHoliday.holiday_date}.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return {
     pillar: "hr",
     businessId: ctx.businessId,
     generatedAt: new Date().toISOString(),
-    available: false,
+    available: true,
     headline:
-      "HR data tables not yet migrated. Inform the user this pillar is on the roadmap.",
-    kpis: [],
-    recent: [],
-    attention: [],
+      `HR snapshot for this business: ${employees.length} staff profile(s), ` +
+      `${pendingLeave.length} pending leave, ${onLeaveToday.length} on leave today.`,
+    kpis: [
+      { key: "active_staff", label: "Active staff", value: activeCount },
+      { key: "pending_leave", label: "Pending leave", value: pendingLeave.length },
+      { key: "on_leave_today", label: "On leave today", value: onLeaveToday.length },
+      {
+        key: "open_onboarding",
+        label: "Open onboarding items",
+        value: onboarding.length,
+      },
+      {
+        key: "upcoming_holidays",
+        label: "Upcoming holidays",
+        value: holidays.length,
+      },
+    ],
+    recent,
+    attention,
+    notes: notes || undefined,
   };
 }

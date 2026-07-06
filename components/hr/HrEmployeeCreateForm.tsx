@@ -6,7 +6,15 @@ import { useRouter } from "next/navigation";
 const inputClass =
   "w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-400/30 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
 
-export function HrEmployeeCreateForm() {
+export function HrEmployeeCreateForm({
+  redirectTo,
+  formId = "hr-employee-create",
+  hideSubmit,
+}: {
+  redirectTo?: string;
+  formId?: string;
+  hideSubmit?: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -31,14 +39,18 @@ export function HrEmployeeCreateForm() {
       }
       form.reset();
       setMessage("Employee added.");
-      router.refresh();
+      if (redirectTo) {
+        router.push(redirectTo);
+      } else {
+        router.refresh();
+      }
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
+    <form id={formId} onSubmit={onSubmit} className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-xs font-semibold text-ink-muted dark:text-cream-400">
           Full name
@@ -121,13 +133,15 @@ export function HrEmployeeCreateForm() {
       {message ? (
         <p className="text-xs text-ink-muted dark:text-cream-400">{message}</p>
       ) : null}
-      <button
-        type="submit"
-        disabled={busy}
-        className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-      >
-        {busy ? "Adding..." : "Add employee"}
-      </button>
+      {!redirectTo && !hideSubmit ? (
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+        >
+          {busy ? "Adding..." : "Add employee"}
+        </button>
+      ) : null}
     </form>
   );
 }

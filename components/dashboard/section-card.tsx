@@ -9,6 +9,7 @@ interface SectionCardProps {
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  id?: string;
 }
 
 /**
@@ -22,10 +23,17 @@ export function SectionCard({
   children,
   className,
   bodyClassName,
+  id,
 }: SectionCardProps) {
   return (
-    <Card className={cn("flex h-full flex-col", className)}>
-      <div className="flex items-start justify-between gap-3 border-b border-cream-200 p-4 sm:p-5 dark:border-hairline-dark">
+    <Card
+      id={id}
+      className={cn(
+        "flex h-full flex-col rounded-[14px] border-[#E5E0D8] dark:border-hairline-dark",
+        className,
+      )}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-[#E5E0D8] px-5 py-4 pt-5 dark:border-hairline-dark sm:px-6">
         <div className="min-w-0">
           <h3 className="text-base font-semibold text-ink dark:text-cream-100">
             {title}

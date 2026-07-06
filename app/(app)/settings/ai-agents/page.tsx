@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { HrAgentSettingsCard } from "@/components/settings/HrAgentSettingsCard";
 
 type AgentStatus = "active" | "paused" | "unconfigured";
 
@@ -163,6 +164,8 @@ export default function AiAgentSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <HrAgentSettingsCard />
+
       <Link
         href="/settings"
         className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"

@@ -95,8 +95,11 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
     href: "/hr",
     description: "Employees, leave, public holidays, contracts.",
     surfaces: [
+      { href: "/hr", label: "Overview", primary: "both" },
       { href: "/hr/employees", label: "Employees", primary: "desktop" },
       { href: "/hr/leave", label: "Leave", primary: "both" },
+      { href: "/hr/holidays", label: "Public holidays", primary: "desktop" },
+      { href: "/hr/assistant", label: "AI Assistant", primary: "both" },
     ],
   },
 };
