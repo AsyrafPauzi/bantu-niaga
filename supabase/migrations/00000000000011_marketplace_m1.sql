@@ -308,3 +308,30 @@ on conflict (slug) do update set
   is_featured      = excluded.is_featured,
   sort_order       = excluded.sort_order;
 
+-- Seed demo business: pre-activate Storage 10 GB and LHDN e-Invoice.
+do $$
+declare
+  v_demo_id     uuid := '11111111-1111-1111-1111-111111111111';
+  v_storage_id  uuid;
+  v_lhdn_id     uuid;
+begin
+  -- Local resets may not seed the deterministic demo business. In that case,
+  -- keep the marketplace catalog but skip demo subscriptions.
+  if not exists (select 1 from public.businesses where id = v_demo_id) then
+    return;
+  end if;
+
+  select id into v_storage_id from public.marketplace_addons where slug = 'storage-10gb';
+  select id into v_lhdn_id    from public.marketplace_addons where slug = 'lhdn-einvoice';
+
+  if v_storage_id is not null then
+    insert into public.business_addons (business_id, addon_id, status, activated_at, next_charge_at)
+    values (v_demo_id, v_storage_id, 'active', now() - interval '60 days', now() + interval '30 days')
+    on conflict do nothing;
+  end if;
+  if v_lhdn_id is not null then
+    insert into public.business_addons (business_id, addon_id, status, activated_at, next_charge_at)
+    values (v_demo_id, v_lhdn_id, 'active', now() - interval '90 days', null)
+    on conflict do nothing;
+  end if;
+end$$;

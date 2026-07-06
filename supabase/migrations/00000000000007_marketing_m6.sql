@@ -697,7 +697,8 @@ comment on function public.marketing_apply_metric_events_batch(integer) is
 -- future Marketing AI agent. The /marketing page reads it via a single
 -- SELECT scoped to the caller's business_id.
 -- ─────────────────────────────────────────────────────────────────────────
-create or replace view public.customer_analytics_v1 as
+create or replace view public.customer_analytics_v1
+with (security_invoker = true) as
 select
   c.business_id,
   count(*)                                                       as total_customers,
