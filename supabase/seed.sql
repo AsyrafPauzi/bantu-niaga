@@ -37,7 +37,8 @@ on conflict (id) do update set
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
   email_confirmed_at, created_at, updated_at, raw_app_meta_data,
-  raw_user_meta_data, is_super_admin
+  raw_user_meta_data, is_super_admin,
+  confirmation_token, recovery_token, email_change_token_new, email_change
 )
 values
   (
@@ -50,7 +51,8 @@ values
     now(), now(), now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     '{"display_name":"Demo Owner"}'::jsonb,
-    false
+    false,
+    '', '', '', ''
   ),
   (
     '00000000-0000-0000-0000-000000000000',
@@ -62,7 +64,8 @@ values
     now(), now(), now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     '{"display_name":"Demo Super Admin"}'::jsonb,
-    false
+    false,
+    '', '', '', ''
   )
 on conflict (id) do update set
   email = excluded.email,
@@ -70,7 +73,30 @@ on conflict (id) do update set
   email_confirmed_at = excluded.email_confirmed_at,
   updated_at = now(),
   raw_app_meta_data = excluded.raw_app_meta_data,
-  raw_user_meta_data = excluded.raw_user_meta_data;
+  raw_user_meta_data = excluded.raw_user_meta_data,
+  confirmation_token = excluded.confirmation_token,
+  recovery_token = excluded.recovery_token,
+  email_change_token_new = excluded.email_change_token_new,
+  email_change = excluded.email_change;
+
+-- GoTrue requires auth.identities rows for email/password sign-in.
+insert into auth.identities (provider_id, user_id, identity_data, provider, created_at, updated_at)
+values
+  (
+    '99999999-9999-4999-8999-999999999901',
+    '99999999-9999-4999-8999-999999999901',
+    '{"sub":"99999999-9999-4999-8999-999999999901","email":"owner@demo.bantuniaga.local","email_verified":true,"phone_verified":false}'::jsonb,
+    'email', now(), now()
+  ),
+  (
+    '99999999-9999-4999-8999-999999999902',
+    '99999999-9999-4999-8999-999999999902',
+    '{"sub":"99999999-9999-4999-8999-999999999902","email":"admin@demo.bantuniaga.local","email_verified":true,"phone_verified":false}'::jsonb,
+    'email', now(), now()
+  )
+on conflict (provider_id, provider) do update set
+  identity_data = excluded.identity_data,
+  updated_at = now();
 
 insert into public.users (id, business_id, role, display_name, email)
 values (

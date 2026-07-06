@@ -2,10 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   AlertTriangle,
-  CheckCircle2,
+  Calendar,
   Package,
   Plus,
-  Truck,
+  ShoppingBag,
   Users,
 } from "lucide-react";
 import { BulletRow } from "@/components/dashboard/bullet-row";
@@ -118,20 +118,20 @@ export default async function OperationsPage() {
           icon={Package}
         />
         <KpiTile
-          label="In progress"
-          value={String(summary.in_progress_count)}
-          delta={`${summary.todo_count} waiting`}
+          label="Upcoming bookings"
+          value={String(summary.upcoming_bookings)}
+          delta={`${summary.resource_count} resources`}
           deltaTone="brand"
-          helper="active jobs"
-          icon={Truck}
+          helper="held + confirmed"
+          icon={Calendar}
         />
         <KpiTile
-          label="Done this month"
-          value={String(summary.done_this_month)}
-          delta="Completed"
-          deltaTone="success"
-          helper="jobs finished"
-          icon={CheckCircle2}
+          label="Active products"
+          value={String(summary.active_product_count)}
+          delta={`${summary.product_count} total`}
+          deltaTone="neutral"
+          helper="catalog items"
+          icon={ShoppingBag}
         />
         <KpiTile
           label="Suppliers"
@@ -262,6 +262,18 @@ export default async function OperationsPage() {
             icon: Package,
             label: "Order board",
             helper: "To do → In progress → Done",
+          },
+          {
+            href: "/operations/bookings",
+            icon: Calendar,
+            label: "Bookings",
+            helper: "Appointments & reservations",
+          },
+          {
+            href: "/operations/products",
+            icon: ShoppingBag,
+            label: "Products",
+            helper: "SKU catalog & pricing",
           },
           {
             href: "/operations/suppliers",

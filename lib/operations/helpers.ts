@@ -25,6 +25,30 @@ export async function nextOperationsOrderNumber(
   return `${pattern}${String(seq).padStart(4, "0")}`;
 }
 
+export async function nextOperationsBookingNumber(
+  admin: SupabaseClient,
+  businessId: string,
+  prefix = "BKG",
+): Promise<string> {
+  const year = new Date().getFullYear();
+  const pattern = `${prefix}-${year}-`;
+  const { data } = await admin
+    .from("operations_bookings")
+    .select("number")
+    .eq("business_id", businessId)
+    .like("number", `${pattern}%`)
+    .order("number", { ascending: false })
+    .limit(1);
+
+  const last = (data?.[0] as { number: string } | undefined)?.number;
+  let seq = 1;
+  if (last?.startsWith(pattern)) {
+    const tail = parseInt(last.slice(pattern.length), 10);
+    if (Number.isFinite(tail)) seq = tail + 1;
+  }
+  return `${pattern}${String(seq).padStart(4, "0")}`;
+}
+
 function monthStart(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -71,6 +95,34 @@ export async function computeOperationsSummary(
     .eq("business_id", businessId)
     .is("deleted_at", null);
 
+  const { count: product_count } = await admin
+    .from("operations_products")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .is("deleted_at", null);
+
+  const { count: active_product_count } = await admin
+    .from("operations_products")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .eq("is_active", true)
+    .is("deleted_at", null);
+
+  const { count: resource_count } = await admin
+    .from("operations_booking_resources")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .is("deleted_at", null);
+
+  const nowIso = new Date().toISOString();
+  const { count: upcoming_bookings } = await admin
+    .from("operations_bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .is("deleted_at", null)
+    .in("status", ["held", "confirmed"])
+    .gte("starts_at", nowIso);
+
   return {
     open_orders: todo_count + in_progress_count,
     todo_count,
@@ -78,5 +130,9 @@ export async function computeOperationsSummary(
     done_this_month,
     supplier_count: supplier_count ?? 0,
     overdue_count,
+    product_count: product_count ?? 0,
+    active_product_count: active_product_count ?? 0,
+    upcoming_bookings: upcoming_bookings ?? 0,
+    resource_count: resource_count ?? 0,
   };
 }
