@@ -59,6 +59,8 @@ export const employeeCreateSchema = z
     bank_account_no: optionalText(80),
     bank_account_holder: optionalText(160),
     notes: optionalText(1000),
+    annual_leave_entitlement_days: z.coerce.number().min(0).max(365).optional(),
+    apply_default_onboarding: z.boolean().optional(),
   })
   .strict();
 
@@ -125,6 +127,27 @@ export const onboardingStatusUpdateSchema = z
   })
   .strict();
 
+export const appraisalCreateSchema = z
+  .object({
+    employee_id: z.string().uuid(),
+    period_label: z.string().trim().min(1).max(80),
+    due_date: isoDate,
+    notes: optionalText(1000),
+  })
+  .strict();
+
+export const appraisalUpdateSchema = z
+  .object({
+    status: z.enum(["pending", "completed"]).optional(),
+    rating: z.coerce.number().int().min(1).max(5).nullable().optional(),
+    notes: optionalText(1000),
+    due_date: isoDate.optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field is required",
+  });
+
 export const holidayCreateSchema = z
   .object({
     state_code: optionalText(12),
@@ -145,4 +168,6 @@ export type OnboardingCreateInput = z.infer<typeof onboardingCreateSchema>;
 export type OnboardingStatusUpdateInput = z.infer<
   typeof onboardingStatusUpdateSchema
 >;
+export type AppraisalCreateInput = z.infer<typeof appraisalCreateSchema>;
+export type AppraisalUpdateInput = z.infer<typeof appraisalUpdateSchema>;
 export type HolidayCreateInput = z.infer<typeof holidayCreateSchema>;

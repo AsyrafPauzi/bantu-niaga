@@ -4,14 +4,20 @@ import { Card, CardBody } from "@/components/ui/card";
 import { FinanceInvoicePanel } from "@/components/finance/FinanceInvoicePanel";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { parsePagination } from "@/lib/pagination";
 import { loadBusiness } from "@/lib/settings/business";
 import type { FinanceInvoiceRow } from "@/lib/finance/schemas";
 
 export const metadata = { title: "Invoices" };
 export const dynamic = "force-dynamic";
 
-export default async function InvoicesPage() {
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   let user;
   try {
     user = await getCurrentUser();
@@ -40,19 +46,23 @@ export default async function InvoicesPage() {
   const business = await loadBusiness(user.businessId);
   if (!business) redirect("/home");
 
-  const admin = createServiceRoleClient();
-  const { data, error } = await admin
+  const params = await searchParams;
+  const pagination = parsePagination(params, { defaultPageSize: 20 });
+  const supabase = await createSupabaseServerClient();
+  const { data, error, count } = await supabase
     .from("finance_invoices")
     .select(
       "id, business_id, number, share_hash, customer_id, customer_name, customer_email, " +
         "customer_phone, title, description, invoice_date, amount_myr, discount_myr, " +
         "discount_pct, tax_myr, tax_pct, shipping_myr, total_myr, status, due_date, notes, " +
         "paid_at, sent_at, created_at, updated_at",
+      { count: "exact" },
     )
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .range(pagination.from, pagination.to);
+  const total = count ?? data?.length ?? 0;
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
@@ -73,12 +83,21 @@ export default async function InvoicesPage() {
           </CardBody>
         </Card>
       ) : (
-        <FinanceInvoicePanel
-          initialInvoices={(data ?? []) as unknown as FinanceInvoiceRow[]}
-          idcompany={business.idcompany}
-          businessName={business.name}
-          appUrl={appUrl}
-        />
+        <>
+          <FinanceInvoicePanel
+            initialInvoices={(data ?? []) as unknown as FinanceInvoiceRow[]}
+            idcompany={business.idcompany}
+            businessName={business.name}
+            appUrl={appUrl}
+          />
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={total}
+            basePath="/finance/invoices"
+            className="rounded-xl border border-cream-300 bg-white shadow-card"
+          />
+        </>
       )}
     </div>
   );

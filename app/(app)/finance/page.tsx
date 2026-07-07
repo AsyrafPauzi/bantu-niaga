@@ -15,7 +15,7 @@ import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { TxRow } from "@/components/dashboard/tx-row";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { computeFinanceMonthSummary } from "@/lib/finance/helpers";
 import { formatMyr } from "@/lib/finance/schemas";
 import { loadBusiness } from "@/lib/settings/business";
@@ -39,10 +39,10 @@ export default async function FinancePage() {
   const business = await loadBusiness(user.businessId);
   if (!business) redirect("/home");
 
-  const admin = createServiceRoleClient();
-  const summary = await computeFinanceMonthSummary(admin, user.businessId);
+  const supabase = await createSupabaseServerClient();
+  const summary = await computeFinanceMonthSummary(supabase, user.businessId);
 
-  const { data: recentTxns } = await admin
+  const { data: recentTxns } = await supabase
     .from("finance_transactions")
     .select("id, kind, description, amount_myr, txn_date, counterparty")
     .eq("business_id", user.businessId)
@@ -50,7 +50,7 @@ export default async function FinancePage() {
     .order("txn_date", { ascending: false })
     .limit(5);
 
-  const { count: openInvoices } = await admin
+  const { count: openInvoices } = await supabase
     .from("finance_invoices")
     .select("id", { count: "exact", head: true })
     .eq("business_id", user.businessId)

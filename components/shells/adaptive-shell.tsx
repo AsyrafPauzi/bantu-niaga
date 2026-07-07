@@ -5,6 +5,7 @@ import { MobileShell } from "./mobile-shell";
 import { DesktopShell } from "./desktop-shell";
 import type { ReactNode } from "react";
 import type { TierKey } from "@/lib/settings/plans";
+import type { BusinessMembership } from "@/lib/auth/memberships";
 
 /**
  * Renders the right shell (Mobile PWA vs Desktop ERP) based on viewport.
@@ -18,15 +19,21 @@ import type { TierKey } from "@/lib/settings/plans";
  */
 export function AdaptiveShell({
   tier,
+  memberships,
   children,
 }: {
   tier: TierKey;
+  memberships: BusinessMembership[];
   children: ReactNode;
 }) {
   const mode = useMode();
   return mode === "mobile" ? (
-    <MobileShell tier={tier}>{children}</MobileShell>
+    <MobileShell tier={tier} memberships={memberships}>
+      {children}
+    </MobileShell>
   ) : (
-    <DesktopShell tier={tier}>{children}</DesktopShell>
+    <DesktopShell tier={tier} memberships={memberships}>
+      {children}
+    </DesktopShell>
   );
 }

@@ -1,14 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, MessageSquarePlus, Send, Sparkles } from "lucide-react";
+import { Loader2, MessageSquarePlus, PauseCircle, Send, Sparkles } from "lucide-react";
 import { HR_ASSISTANT_SUGGESTIONS } from "@/lib/ai/hr-assistant-prompt";
 import { HrAssistantGate } from "@/components/hr/HrAssistantGate";
 import { HrAssistantMessage } from "@/components/hr/HrAssistantMessage";
+import { HR_CREDIT_COST_CHAT } from "@/lib/marketplace/agent-types";
 import { cn } from "@/lib/utils/cn";
 
-const STORAGE_KEY = "bn-hr-assistant-chat-v1";
 const MAX_MESSAGES = 20;
+
+function storageKey(businessId: string): string {
+  return `bn-hr-assistant-chat-v1-${businessId}`;
+}
 
 type ChatRole = "user" | "assistant";
 
@@ -22,16 +27,20 @@ interface AssistantStatus {
   assistant_enabled: boolean;
   display_name: string;
   credit_balance: number;
+  credits_paused?: boolean;
+  business_id?: string;
+  recent_turns?: ChatTurn[];
 }
 
 interface HrAssistantChatProps {
+  businessId: string;
   initialStatus?: AssistantStatus | null;
 }
 
-function loadSession(): ChatTurn[] {
+function loadSession(businessId: string): ChatTurn[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(storageKey(businessId));
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ChatTurn[];
     return Array.isArray(parsed) ? parsed.slice(-MAX_MESSAGES) : [];
@@ -40,16 +49,22 @@ function loadSession(): ChatTurn[] {
   }
 }
 
-function saveSession(turns: ChatTurn[]) {
+function saveSession(businessId: string, turns: ChatTurn[]) {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(turns.slice(-MAX_MESSAGES)));
+    sessionStorage.setItem(
+      storageKey(businessId),
+      JSON.stringify(turns.slice(-MAX_MESSAGES)),
+    );
   } catch {
     // ignore quota errors
   }
 }
 
-export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
+export function HrAssistantChat({
+  businessId,
+  initialStatus,
+}: HrAssistantChatProps) {
   const [status, setStatus] = useState<AssistantStatus | null>(
     initialStatus ?? null,
   );
@@ -61,22 +76,26 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
   const [creditBalance, setCreditBalance] = useState<number | null>(
     initialStatus?.credit_balance ?? null,
   );
-  const [slowMode, setSlowMode] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const hydrated = useRef(false);
 
   useEffect(() => {
     if (!hydrated.current) {
-      setTurns(loadSession());
+      const local = loadSession(businessId);
+      if (local.length > 0) {
+        setTurns(local);
+      } else if (initialStatus?.recent_turns?.length) {
+        setTurns(initialStatus.recent_turns);
+      }
       hydrated.current = true;
     }
-  }, []);
+  }, [businessId, initialStatus?.recent_turns]);
 
   useEffect(() => {
     if (hydrated.current) {
-      saveSession(turns);
+      saveSession(businessId, turns);
     }
-  }, [turns]);
+  }, [businessId, turns]);
 
   const refreshStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -88,6 +107,13 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
       if (res.ok) {
         setStatus(json);
         setCreditBalance(json.credit_balance);
+        if (
+          turns.length === 0 &&
+          json.recent_turns &&
+          json.recent_turns.length > 0
+        ) {
+          setTurns(json.recent_turns);
+        }
       }
     } finally {
       setStatusLoading(false);
@@ -104,12 +130,19 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
     setTurns([]);
     setError(null);
     setInput("");
-    sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(storageKey(businessId));
+    void fetch("/api/hr/assistant", { method: "DELETE" }).catch(() => undefined);
   }
 
   async function sendMessage(text: string) {
     const message = text.trim();
     if (!message || loading) return;
+    if (creditBalance !== null && creditBalance < HR_CREDIT_COST_CHAT) {
+      setError(
+        "No credits left. Top up in Billing or wait for your monthly refill.",
+      );
+      return;
+    }
 
     setError(null);
     setLoading(true);
@@ -124,7 +157,6 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
-          history: turns.slice(-6),
         }),
       });
 
@@ -132,6 +164,8 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
         reply?: string;
         message?: string;
         error?: string;
+        credit_balance?: number;
+        billing_href?: string;
         credits?: { balance: number; mode: string; charged: number };
       };
 
@@ -139,6 +173,29 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
         setStatus((s) => (s ? { ...s, addon_active: false } : s));
         setTurns((prev) => prev.slice(0, -1));
         setInput(message);
+        return;
+      }
+
+      if (
+        res.status === 402 &&
+        data.error === "insufficient_credits"
+      ) {
+        if (typeof data.credit_balance === "number") {
+          setCreditBalance(data.credit_balance);
+        }
+        setTurns((prev) => prev.slice(0, -1));
+        setInput(message);
+        setError(
+          data.message ??
+            "No credits left. Top up in Billing or wait for your monthly refill.",
+        );
+        return;
+      }
+
+      if (res.status === 429 && data.error === "daily_budget_exceeded") {
+        setTurns((prev) => prev.slice(0, -1));
+        setInput(message);
+        setError(data.message ?? "Daily budget reached for this agent.");
         return;
       }
 
@@ -153,7 +210,6 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
 
       if (data.credits) {
         setCreditBalance(data.credits.balance);
-        setSlowMode(data.credits.mode === "slow");
       }
     } catch (e) {
       const msg =
@@ -203,6 +259,8 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
   }
 
   const displayName = status.display_name || "Hana";
+  const creditsPaused =
+    creditBalance !== null && creditBalance < HR_CREDIT_COST_CHAT;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark">
@@ -216,13 +274,19 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
             <span
               className={cn(
                 "text-xs font-medium",
-                slowMode
+                creditsPaused
                   ? "text-amber-600 dark:text-amber-400"
                   : "text-ink-muted dark:text-cream-400",
               )}
             >
-              {slowMode ? "Slow mode · " : "⚡ "}
-              {creditBalance} left
+              {creditsPaused ? (
+                <>
+                  <PauseCircle className="mr-1 inline h-3.5 w-3.5" />
+                  Paused · 0 credits
+                </>
+              ) : (
+                <>⚡ {creditBalance} shared credits left</>
+              )}
             </span>
           ) : null}
           <button
@@ -235,6 +299,19 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
           </button>
         </div>
       </div>
+
+      {creditsPaused ? (
+        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+          AI chat is paused — no credits left in your shared pool.{" "}
+          <Link
+            href="/settings/billing"
+            className="font-semibold underline hover:text-amber-950 dark:hover:text-amber-50"
+          >
+            Top up in Billing
+          </Link>{" "}
+          or wait for your monthly refill.
+        </div>
+      ) : null}
 
       <div
         ref={listRef}
@@ -254,7 +331,7 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
                 <button
                   key={prompt}
                   type="button"
-                  disabled={loading}
+                  disabled={loading || creditsPaused}
                   onClick={() => void sendMessage(prompt)}
                   className="rounded-full border border-[#E5E0D8] bg-[#FFFEFB] px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 dark:border-hairline-dark dark:bg-surface-dark dark:text-cream-400"
                 >
@@ -287,9 +364,7 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
         {loading ? (
           <div className="flex items-center gap-2 text-xs text-ink-muted dark:text-cream-400">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {slowMode
-              ? `${displayName} is thinking a bit longer…`
-              : `Checking your HR records…`}
+            Checking your HR records…
           </div>
         ) : null}
       </div>
@@ -311,12 +386,12 @@ export function HrAssistantChat({ initialStatus }: HrAssistantChatProps) {
             onChange={(e) => setInput(e.target.value)}
             placeholder={`Message ${displayName}…`}
             maxLength={2000}
-            disabled={loading}
+            disabled={loading || creditsPaused}
             className="flex-1 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
           <button
             type="submit"
-            disabled={loading || !input.trim()}
+            disabled={loading || creditsPaused || !input.trim()}
             className="inline-flex items-center justify-center rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
           >
             {loading ? (

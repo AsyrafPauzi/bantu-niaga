@@ -51,12 +51,11 @@ describe("<HrLeaveCreateForm>", () => {
 
     render(<HrLeaveCreateForm employees={employees} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Employee"), "employee-1");
-    await userEvent.selectOptions(screen.getByLabelText("Leave type"), "annual");
-    await userEvent.type(screen.getByLabelText("Start date"), "2026-07-01");
-    await userEvent.type(screen.getByLabelText("End date"), "2026-07-02");
-    await userEvent.type(screen.getByLabelText("Reason"), "Family trip");
-    await userEvent.click(screen.getByRole("button", { name: "Record leave" }));
+    await userEvent.selectOptions(screen.getByLabelText(/Employee/i), "employee-1");
+    await userEvent.type(screen.getByLabelText(/Start date/i), "2026-07-01");
+    await userEvent.type(screen.getByLabelText(/End date/i), "2026-07-02");
+    await userEvent.type(screen.getByLabelText(/Reason/i), "Family trip");
+    await userEvent.click(screen.getByRole("button", { name: /Record AL leave/i }));
 
     expect(await screen.findByText("Leave recorded.")).toBeTruthy();
     expect(refresh).toHaveBeenCalledOnce();
@@ -167,6 +166,7 @@ describe("<HrLeaveLinkActions>", () => {
       <HrLeaveLinkActions
         employeeId="00000000-0000-0000-0000-000000000123"
         employeeName="Aisyah Rahman"
+        employeePhone="+60123456701"
       />,
     );
 
@@ -175,6 +175,6 @@ describe("<HrLeaveLinkActions>", () => {
     expect(await screen.findByText(/Expires in 24 hours/)).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "Send WhatsApp" }).getAttribute("href"),
-    ).toContain("https://wa.me/?text=");
+    ).toContain("https://wa.me/60123456701?text=");
   });
 });

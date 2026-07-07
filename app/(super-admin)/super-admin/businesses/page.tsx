@@ -1,5 +1,10 @@
+import Link from "next/link";
 import { Download, Plus, Search } from "lucide-react";
-import { loadBusinesses } from "@/lib/super-admin/load";
+import { HealthBandPill } from "@/components/super-admin/HealthBandPill";
+import {
+  loadBusinessesPage,
+  loadBusinessesSummary,
+} from "@/lib/super-admin/load";
 import { PageTopbar } from "@/components/super-admin/PageTopbar";
 import {
   KpiCard,
@@ -7,6 +12,8 @@ import {
   StatusPill,
   formatMyr,
 } from "@/components/super-admin/primitives";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { parsePagination } from "@/lib/pagination";
 import { tierBy, type TierKey } from "@/lib/settings/plans";
 
 export const dynamic = "force-dynamic";
@@ -51,30 +58,23 @@ function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export default async function SuperAdminBusinesses() {
-  const businesses = await loadBusinesses();
-
-  const paying = businesses.filter(
-    (b) => b.tier !== "starter" && b.subscription_status !== "cancelled",
-  );
-  const trial = businesses.filter(
-    (b) => b.tier === "starter" || b.subscription_status === "trial",
-  );
-  const cancelled = businesses.filter(
-    (b) => b.subscription_status === "cancelled",
-  );
-
-  const mrr = paying.reduce(
-    (s, b) => s + (tierBy(b.tier)?.priceMyr ?? 0),
-    0,
-  );
-  const arpu = paying.length > 0 ? Math.round(mrr / paying.length) : 0;
+export default async function SuperAdminBusinesses({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const pagination = parsePagination(params, { defaultPageSize: 25 });
+  const [summary, { rows: businesses, total }] = await Promise.all([
+    loadBusinessesSummary(),
+    loadBusinessesPage({ from: pagination.from, to: pagination.to }),
+  ]);
 
   return (
     <>
       <PageTopbar
         title="Businesses (tenants)"
-        subtitle={`${paying.length} paying · ${trial.length} trial · ${cancelled.length} cancelled`}
+        subtitle={`${summary.paying} paying · ${summary.trial} trial · ${summary.cancelled} cancelled`}
         right={
           <>
             <button className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100">
@@ -93,24 +93,24 @@ export default async function SuperAdminBusinesses() {
         <div className="flex gap-4 flex-wrap">
           <KpiCard
             label="Total tenants"
-            value={businesses.length}
+            value={summary.total}
             delta="Live count"
           />
           <KpiCard
             label="Monthly recurring"
-            value={formatMyr(mrr)}
+            value={formatMyr(summary.mrrMyr)}
             delta="From paying tenants"
           />
           <KpiCard
             label="Avg revenue / tenant"
-            value={formatMyr(arpu)}
+            value={formatMyr(summary.arpuMyr)}
             delta="ARPU"
           />
           <KpiCard
             label="Cancellations"
-            value={cancelled.length}
+            value={summary.cancelled}
             delta="lifetime"
-            trend={cancelled.length > 0 ? "down" : "flat"}
+            trend={summary.cancelled > 0 ? "down" : "flat"}
           />
         </div>
 
@@ -126,8 +126,9 @@ export default async function SuperAdminBusinesses() {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-cream-300 bg-white shadow-card">
-          <div className="grid grid-cols-[280px_220px_100px_80px_110px_140px_120px] gap-3 border-b border-cream-300 bg-cream-100 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          <div className="grid grid-cols-[280px_90px_100px_80px_110px_120px_100px_120px] gap-3 border-b border-cream-300 bg-cream-100 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
             <span>Business</span>
+            <span>Health</span>
             <span>State</span>
             <span>Plan</span>
             <span>Users</span>
@@ -144,21 +145,25 @@ export default async function SuperAdminBusinesses() {
             {businesses.map((b) => (
               <li
                 key={b.id}
-                className="grid grid-cols-[280px_220px_100px_80px_110px_140px_120px] items-center gap-3 border-b border-cream-300 px-5 py-3 last:border-b-0 hover:bg-cream-100/50"
+                className="grid grid-cols-[280px_90px_100px_80px_110px_120px_100px_120px] items-center gap-3 border-b border-cream-300 px-5 py-3 last:border-b-0 hover:bg-cream-100/50"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                <Link
+                  href={`/super-admin/businesses/${b.id}`}
+                  className="flex items-center gap-2.5 min-w-0"
+                >
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-brand-100 text-xs font-bold text-brand-700">
                     {initials(b.name)}
                   </div>
                   <div className="min-w-0 leading-tight">
-                    <p className="truncate text-sm font-semibold text-ink">
+                    <p className="truncate text-sm font-semibold text-ink hover:text-brand-700">
                       {b.name}
                     </p>
                     <p className="truncate text-[11px] text-ink-muted">
                       {b.idcompany}.bantuniaga.app
                     </p>
                   </div>
-                </div>
+                </Link>
+                <HealthBandPill band={b.health_band} score={b.health_score} />
                 <span className="truncate text-sm text-ink">
                   {b.state_code ?? "—"}
                 </span>
@@ -176,6 +181,12 @@ export default async function SuperAdminBusinesses() {
               </li>
             ))}
           </ul>
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={total}
+            basePath="/super-admin/businesses"
+          />
         </div>
       </PageBody>
     </>

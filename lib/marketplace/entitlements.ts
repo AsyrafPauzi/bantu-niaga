@@ -1,18 +1,31 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import {
   DEFAULT_HR_AGENT_SETTINGS,
   HR_AGENT_SLUG,
   HR_ASSISTANT_ADDON_SLUG,
+  HR_PUBLIC_HOLIDAYS_ADDON_SLUG,
+  HR_STAFF_APPRAISAL_ADDON_SLUG,
+  HR_STAFF_PORTAL_ADDON_SLUG,
+  HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG,
   type BusinessAgentSettings,
 } from "@/lib/marketplace/agent-types";
+import { normalizeReasoningMode } from "@/lib/settings/ai-agents-catalog";
+import {
+  clampDailyBudgetCredits,
+  creditsToMyr,
+  DAILY_BUDGET_DEFAULT_CREDITS,
+  myrToCredits,
+} from "@/lib/settings/credit-pricing";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function hasActiveAddon(
+export async function hasActiveAddonWithClient(
+  supabase: SupabaseClient,
   businessId: string,
   addonSlug: string,
 ): Promise<boolean> {
-  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("business_addons")
     .select("id, status, marketplace_addons!inner(slug)")
@@ -27,8 +40,34 @@ export async function hasActiveAddon(
   return !!data;
 }
 
+export async function hasActiveAddon(
+  businessId: string,
+  addonSlug: string,
+): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+  return hasActiveAddonWithClient(supabase, businessId, addonSlug);
+}
+
 export async function hasHrAssistantAddon(businessId: string): Promise<boolean> {
   return hasActiveAddon(businessId, HR_ASSISTANT_ADDON_SLUG);
+}
+
+export async function hasPublicHolidaysAddon(businessId: string): Promise<boolean> {
+  return hasActiveAddon(businessId, HR_PUBLIC_HOLIDAYS_ADDON_SLUG);
+}
+
+export async function hasStaffAppraisalAddon(businessId: string): Promise<boolean> {
+  return hasActiveAddon(businessId, HR_STAFF_APPRAISAL_ADDON_SLUG);
+}
+
+export async function hasStaffPortalAddon(businessId: string): Promise<boolean> {
+  return hasActiveAddon(businessId, HR_STAFF_PORTAL_ADDON_SLUG);
+}
+
+export async function hasAdvancedLeavePolicyAddon(
+  businessId: string,
+): Promise<boolean> {
+  return hasActiveAddon(businessId, HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG);
 }
 
 export async function loadBusinessAgentSettings(
@@ -39,7 +78,7 @@ export async function loadBusinessAgentSettings(
   const { data, error } = await supabase
     .from("business_agent_settings")
     .select(
-      "business_id, agent_slug, display_name, assistant_enabled, daily_notice_enabled, daily_notice_hour",
+      "business_id, agent_slug, display_name, assistant_enabled, daily_notice_enabled, daily_notice_hour, reasoning_mode, daily_budget_myr, model_override",
     )
     .eq("business_id", businessId)
     .eq("agent_slug", agentSlug)
@@ -64,6 +103,13 @@ export async function loadBusinessAgentSettings(
     assistantEnabled: data.assistant_enabled,
     dailyNoticeEnabled: data.daily_notice_enabled,
     dailyNoticeHour: data.daily_notice_hour,
+    reasoningMode: normalizeReasoningMode(data.reasoning_mode),
+    dailyBudgetCredits: clampDailyBudgetCredits(
+      myrToCredits(
+        Number(data.daily_budget_myr ?? creditsToMyr(DAILY_BUDGET_DEFAULT_CREDITS)),
+      ),
+    ),
+    modelOverride: data.model_override ?? null,
   };
 }
 

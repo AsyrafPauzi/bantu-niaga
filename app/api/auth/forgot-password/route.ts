@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { forgotPasswordSchema } from "@/lib/auth/schemas";
+import { authCallbackUrl } from "@/lib/auth/site-url";
+import { enforceAuthRateLimit } from "@/lib/api/auth-rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,6 +21,14 @@ export const runtime = "nodejs";
  * user to /reset-password with the session ready.
  */
 export async function POST(request: Request) {
+  const rl = enforceAuthRateLimit(
+    request,
+    "auth.forgot-password",
+    5,
+    60 * 60 * 1000,
+  );
+  if (!rl.ok) return rl.response;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -39,14 +49,14 @@ export async function POST(request: Request) {
     throw e;
   }
 
-  const origin =
-    request.headers.get("origin") ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "http://localhost:3000";
+  const redirectTo = authCallbackUrl(
+    "/reset-password",
+    request.headers.get("origin"),
+  );
 
   const supabase = await createSupabaseServerClient();
   await supabase.auth.resetPasswordForEmail(parsed.email, {
-    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+    redirectTo,
   });
 
   // Always 200 — no leak about whether the email exists.

@@ -1,7 +1,7 @@
 /**
  * Bantu Niaga — Permissions Matrix.
  *
- * Single source of truth for the 6-role × 6-pillar RBAC model.
+ * Single source of truth for the 9-role × 6-pillar RBAC model.
  * Read by all three enforcement layers:
  *   1. Postgres RLS policies (last line of defense)
  *   2. Next.js API middleware (fast-fail)
@@ -29,6 +29,9 @@ export const ROLES = [
   "hr_officer",
   "cashier",
   "staff",
+  "marketing_officer",
+  "operations_officer",
+  "sales_rep",
 ] as const;
 export type Role = (typeof ROLES)[number];
 
@@ -72,6 +75,9 @@ export const MARKETING_SURFACE_GRANTS: Record<
     hr_officer: "-",
     cashier: "-",
     staff: "-",
+    marketing_officer: "rw",
+    operations_officer: "-",
+    sales_rep: "-",
   },
   content: {
     owner: "rw",
@@ -80,6 +86,9 @@ export const MARKETING_SURFACE_GRANTS: Record<
     hr_officer: "-",
     cashier: "-",
     staff: "-",
+    marketing_officer: "rw",
+    operations_officer: "-",
+    sales_rep: "-",
   },
   segments: {
     owner: "rw",
@@ -88,6 +97,9 @@ export const MARKETING_SURFACE_GRANTS: Record<
     hr_officer: "-",
     cashier: "-",
     staff: "-",
+    marketing_officer: "rw",
+    operations_officer: "-",
+    sales_rep: "-",
   },
   broadcasts: {
     owner: "rw",
@@ -96,6 +108,9 @@ export const MARKETING_SURFACE_GRANTS: Record<
     hr_officer: "-",
     cashier: "-",
     staff: "-",
+    marketing_officer: "rw",
+    operations_officer: "-",
+    sales_rep: "-",
   },
   coupons: {
     owner: "rw",
@@ -104,6 +119,9 @@ export const MARKETING_SURFACE_GRANTS: Record<
     hr_officer: "-",
     cashier: "-",
     staff: "-",
+    marketing_officer: "rw",
+    operations_officer: "-",
+    sales_rep: "-",
   },
 };
 
@@ -206,6 +224,42 @@ export const permissions: Record<Role, RolePermissions> = {
     marketing: undefined,
     sales: undefined,
     hr: { leave: "self_only" },
+    billing: undefined,
+    team: undefined,
+    marketplace: undefined,
+    boardroom: undefined,
+  },
+  marketing_officer: {
+    admin: undefined,
+    finance: undefined,
+    operations: undefined,
+    marketing: "*",
+    sales: undefined,
+    hr: undefined,
+    billing: undefined,
+    team: undefined,
+    marketplace: "r",
+    boardroom: undefined,
+  },
+  operations_officer: {
+    admin: undefined,
+    finance: undefined,
+    operations: "*",
+    marketing: undefined,
+    sales: undefined,
+    hr: undefined,
+    billing: undefined,
+    team: undefined,
+    marketplace: "r",
+    boardroom: undefined,
+  },
+  sales_rep: {
+    admin: undefined,
+    finance: undefined,
+    operations: undefined,
+    marketing: undefined,
+    sales: { leads: "rw", pos: "r" },
+    hr: undefined,
     billing: undefined,
     team: undefined,
     marketplace: undefined,

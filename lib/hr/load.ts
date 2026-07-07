@@ -1,4 +1,14 @@
+import { EMPLOYEE_DETAIL_SELECT, EMPLOYEE_LIST_SELECT } from "@/lib/hr/employee-fields";
+import { mapEmployeeDetailRow, mapEmployeeListRow } from "@/lib/hr/employee-api";
+import { loadEmployeeLeaveBalance } from "@/lib/hr/leave-balance";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export interface HrEmployeeLeaveBalance {
+  leaveYear: number;
+  entitlementDays: number;
+  takenDays: number;
+  availableDays: number;
+}
 
 export interface HrEmployeeRow {
   id: string;
@@ -14,8 +24,10 @@ export interface HrEmployeeRow {
   emergency_contact_phone: string | null;
   bank_name: string | null;
   bank_account_no: string | null;
+  bank_account_no_sealed?: unknown | null;
   bank_account_holder: string | null;
   notes: string | null;
+  annual_leave_entitlement_days?: number;
   created_at: string;
 }
 
@@ -29,6 +41,9 @@ export interface HrLeaveRow {
   status: string;
   decision_note: string | null;
   created_at: string;
+  mc_document_path?: string | null;
+  mc_document_name?: string | null;
+  mc_document_mime?: string | null;
   hr_employees?: { full_name: string; role_title: string } | null;
 }
 
@@ -38,6 +53,18 @@ export interface HrOnboardingRow {
   label: string;
   is_done: boolean;
   hr_employees?: { full_name: string } | null;
+}
+
+export interface HrStaffAppraisalRow {
+  id: string;
+  employee_id: string;
+  period_label: string;
+  due_date: string;
+  status: string;
+  rating: number | null;
+  notes: string | null;
+  completed_at: string | null;
+  hr_employees?: { full_name: string; role_title: string } | null;
 }
 
 export interface HrDocumentRow {
@@ -69,6 +96,8 @@ export interface HrDashboardData {
     leaveToday: number;
     pendingLeave: number;
     incompleteOnboarding: number;
+    onboardingTotal: number;
+    onboardingDone: number;
   };
 }
 
@@ -79,22 +108,38 @@ function todayIso(): string {
 export async function loadHrEmployee(
   businessId: string,
   employeeId: string,
-): Promise<HrEmployeeRow | null> {
+): Promise<(HrEmployeeRow & {
+  identity_type?: string | null;
+  identity_number?: string | null;
+  identity_number_masked?: string | null;
+  bank_account_no_masked?: string | null;
+}) | null> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("hr_employees")
-    .select(
-      "id, full_name, employment_type, role_title, start_date, status, phone_e164, email, " +
-        "emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, " +
-        "bank_name, bank_account_no, bank_account_holder, notes, created_at",
-    )
+    .select(EMPLOYEE_DETAIL_SELECT)
     .eq("business_id", businessId)
     .eq("id", employeeId)
     .is("deleted_at", null)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  return (data ?? null) as unknown as HrEmployeeRow | null;
+  if (!data) return null;
+  return mapEmployeeDetailRow(data as unknown as Record<string, unknown>);
+}
+
+export async function loadHrEmployeeLeaveBalanceSummary(
+  businessId: string,
+  employeeId: string,
+  entitlementDays: number,
+): Promise<HrEmployeeLeaveBalance> {
+  const supabase = await createSupabaseServerClient();
+  return loadEmployeeLeaveBalance(
+    supabase,
+    businessId,
+    employeeId,
+    entitlementDays,
+  );
 }
 
 export async function loadHrEmployees(
@@ -103,18 +148,16 @@ export async function loadHrEmployees(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("hr_employees")
-    .select(
-      "id, full_name, employment_type, role_title, start_date, status, phone_e164, email, " +
-        "emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, " +
-        "bank_name, bank_account_no, bank_account_holder, notes, created_at",
-    )
+    .select(EMPLOYEE_LIST_SELECT)
     .eq("business_id", businessId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(100);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as HrEmployeeRow[];
+  return (data ?? []).map((row) =>
+    mapEmployeeListRow(row as unknown as Record<string, unknown>),
+  );
 }
 
 export async function loadHrLeaveRecords(
@@ -125,11 +168,12 @@ export async function loadHrLeaveRecords(
     .from("hr_leave_records")
     .select(
       "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
+        "mc_document_path, mc_document_name, mc_document_mime, " +
         "hr_employees(full_name, role_title)",
     )
     .eq("business_id", businessId)
     .order("start_date", { ascending: false })
-    .limit(100);
+    .limit(200);
 
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as HrLeaveRow[];
@@ -169,6 +213,24 @@ export async function loadHrOnboardingItems(
   return (data ?? []) as unknown as HrOnboardingRow[];
 }
 
+export async function loadHrStaffAppraisals(
+  businessId: string,
+): Promise<HrStaffAppraisalRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("hr_staff_appraisals")
+    .select(
+      "id, employee_id, period_label, due_date, status, rating, notes, completed_at, " +
+        "hr_employees(full_name, role_title)",
+    )
+    .eq("business_id", businessId)
+    .order("due_date", { ascending: true })
+    .limit(200);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as HrStaffAppraisalRow[];
+}
+
 export async function loadHrPublicHolidays(
   businessId: string,
 ): Promise<HrHolidayRow[]> {
@@ -195,6 +257,7 @@ export async function loadHrDashboard(
       .from("hr_leave_records")
       .select(
         "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
+          "mc_document_path, mc_document_name, mc_document_mime, " +
           "hr_employees(full_name, role_title)",
       )
       .eq("business_id", businessId)
@@ -204,8 +267,8 @@ export async function loadHrDashboard(
       .from("hr_onboarding_items")
       .select("id, employee_id, label, is_done, hr_employees(full_name)")
       .eq("business_id", businessId)
-      .eq("is_done", false)
-      .limit(10),
+      .order("created_at", { ascending: false })
+      .limit(100),
     loadHrDocuments(businessId),
     loadHrPublicHolidays(businessId),
   ]);
@@ -216,11 +279,13 @@ export async function loadHrDashboard(
   const today = todayIso();
   const leave = (leaveResult.data ?? []) as unknown as HrLeaveRow[];
   const onboarding = (onboardingResult.data ?? []) as unknown as HrOnboardingRow[];
+  const onboardingDone = onboarding.filter((row) => row.is_done).length;
+  const onboardingOpen = onboarding.length - onboardingDone;
 
   return {
     employees,
     leave,
-    onboarding,
+    onboarding: onboarding.filter((row) => !row.is_done).slice(0, 10),
     documents,
     holidays,
     counts: {
@@ -232,7 +297,9 @@ export async function loadHrDashboard(
           row.end_date >= today,
       ).length,
       pendingLeave: leave.filter((row) => row.status === "pending").length,
-      incompleteOnboarding: onboarding.length,
+      incompleteOnboarding: onboardingOpen,
+      onboardingTotal: onboarding.length,
+      onboardingDone,
     },
   };
 }

@@ -4,12 +4,13 @@ import { CalendarPlus, Link2 } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { HrActionRow } from "@/components/hr/layout/hr-action-row";
+import { HrLeaveRecordRow } from "@/components/hr/HrLeaveRecordRow";
+import { HrPendingLeaveCard } from "@/components/hr/HrPendingLeaveCard";
 import { HrKpiGrid } from "@/components/hr/layout/hr-kpi-grid";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrPageBody } from "@/components/hr/layout/hr-page-body";
 import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
 import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
-import { HrLeaveStatusActions } from "@/components/hr/HrLeaveStatusActions";
 import { KpiTileBig } from "@/components/marketing/dashboard/KpiTileBig";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
@@ -17,18 +18,6 @@ import { loadHrLeaveRecords } from "@/lib/hr/load";
 
 export const metadata = { title: "Leave" };
 export const dynamic = "force-dynamic";
-
-function fmtDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-MY", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(`${iso}T00:00:00`));
-}
-
-function leaveTypeLabel(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export default async function LeavePage() {
   let user;
@@ -131,6 +120,20 @@ export default async function LeavePage() {
             icon={Link2}
             tone="brand"
           />
+          <HrActionRow
+            href="/hr/leave/policy"
+            title="Advanced leave policy"
+            helper="Carry-forward and rules (add-on · coming soon)"
+            icon={CalendarPlus}
+            tone="neutral"
+          />
+          <HrActionRow
+            href="/hr/staff-portal"
+            title="Staff portal"
+            helper="Staff login for leave (add-on · coming soon)"
+            icon={Link2}
+            tone="neutral"
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -144,25 +147,7 @@ export default async function LeavePage() {
                 No pending leave requests.
               </p>
             ) : (
-              pending.map((row) => (
-                <div
-                  key={row.id}
-                  className="rounded-xl border border-[#E5E0D8] p-4 dark:border-hairline-dark"
-                >
-                  <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                    {row.hr_employees?.full_name ?? "Employee"}
-                  </p>
-                  <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-                    {leaveTypeLabel(row.leave_type)} · {fmtDate(row.start_date)}
-                    {row.end_date !== row.start_date
-                      ? ` – ${fmtDate(row.end_date)}`
-                      : ""}
-                  </p>
-                  <div className="mt-3">
-                    <HrLeaveStatusActions leaveId={row.id} />
-                  </div>
-                </div>
-              ))
+              pending.map((row) => <HrPendingLeaveCard key={row.id} row={row} />)
             )}
           </SectionCard>
 
@@ -177,20 +162,16 @@ export default async function LeavePage() {
               </p>
             ) : (
               recentApproved.map((row) => (
-                <div key={row.id} className="border-b border-cream-200 py-2.5 last:border-0 dark:border-hairline-dark">
-                  <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                    {row.hr_employees?.full_name ?? "Employee"}
-                  </p>
-                  <p className="text-xs text-ink-muted dark:text-cream-400">
-                    {leaveTypeLabel(row.leave_type)} · {fmtDate(row.start_date)}
-                  </p>
-                </div>
+                <HrLeaveRecordRow key={row.id} row={row} />
               ))
             )}
             <div className="pt-3 text-center">
-              <span className="text-[13px] font-semibold text-brand-700 dark:text-brand-200">
+              <Link
+                href="/hr/leave/history"
+                className="text-[13px] font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+              >
                 View all leave history →
-              </span>
+              </Link>
             </div>
           </SectionCard>
         </div>

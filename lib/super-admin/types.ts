@@ -18,6 +18,8 @@ export interface BusinessRowAdmin {
   created_at: string;
   /** Number of users in this business. Filled by loadBusinessSnapshots. */
   user_count?: number;
+  health_score?: number;
+  health_band?: "healthy" | "watch" | "at_risk" | "critical";
 }
 
 export interface UserRowAdmin {
@@ -31,7 +33,10 @@ export interface UserRowAdmin {
     | "accountant"
     | "hr_officer"
     | "cashier"
-    | "staff";
+    | "staff"
+    | "marketing_officer"
+    | "operations_officer"
+    | "sales_rep";
   display_name: string | null;
   email: string | null;
   phone_e164: string | null;
@@ -97,7 +102,7 @@ export interface AgentUsage7d {
   avg_latency_ms: number;
   failure_rate_pct: number;
   spend_myr: number;
-  /** 24 hourly buckets (kept light for the sparkline). */
+  /** Last 7 daily buckets for the sparkline. */
   hourly: number[];
 }
 

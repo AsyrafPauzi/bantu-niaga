@@ -110,8 +110,10 @@ export async function middleware(request: NextRequest) {
   // Registration and password recovery must work while logged out.
   if (
     pathname === "/api/auth/sign-up" ||
+    pathname === "/api/auth/add-business" ||
     pathname === "/api/auth/forgot-password" ||
-    pathname === "/api/auth/reset-password"
+    pathname === "/api/auth/reset-password" ||
+    pathname === "/api/auth/accept-invite"
   ) {
     return response;
   }
@@ -123,6 +125,11 @@ export async function middleware(request: NextRequest) {
 
   // Staff leave links are token-based (no user session).
   if (pathname.startsWith("/api/staff/")) {
+    return response;
+  }
+
+  // Tenant REST API — authenticates via bn_live_ API key in the route handler.
+  if (pathname.startsWith("/api/external/")) {
     return response;
   }
 
@@ -164,7 +171,7 @@ export const config = {
    *   - the `/sign-in` page                      (must be reachable while logged out)
    */
   matcher: [
-    "/(admin|boardroom|finance|home|hr|marketing|marketplace|more|operations|sales|settings)/:path*",
+    "/(add-company|admin|boardroom|finance|home|hr|marketing|marketplace|more|operations|sales|settings)/:path*",
     "/super-admin/:path*",
     "/api/((?!health).*)",
   ],

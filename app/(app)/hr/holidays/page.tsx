@@ -4,6 +4,8 @@ import { Card, CardBody } from "@/components/ui/card";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { HolidaysNoState } from "@/components/hr/HolidaysNoState";
 import { HrHolidayCreateForm } from "@/components/hr/HrHolidayCreateForm";
+import { HrHolidayImportButton } from "@/components/hr/HrHolidayImportButton";
+import { HrPublicHolidaysGate } from "@/components/hr/HrPublicHolidaysGate";
 import { HrInfoBanner } from "@/components/hr/layout/hr-info-banner";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrPageBody } from "@/components/hr/layout/hr-page-body";
@@ -12,6 +14,7 @@ import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
 import { loadHrPublicHolidays } from "@/lib/hr/load";
+import { hasPublicHolidaysAddon } from "@/lib/marketplace/entitlements";
 import { loadBusiness } from "@/lib/settings/business";
 
 export const metadata = { title: "Public holidays" };
@@ -63,10 +66,31 @@ export default async function HolidaysPage() {
     );
   }
 
-  const [business, holidays] = await Promise.all([
+  const [business, holidays, addonActive] = await Promise.all([
     loadBusiness(user.businessId),
     loadHrPublicHolidays(user.businessId),
+    hasPublicHolidaysAddon(user.businessId),
   ]);
+
+  if (!addonActive) {
+    return (
+      <HrPageShell
+        header={
+          <HrPageHeader
+            title="Public holidays"
+            subtitle="Malaysian federal and state holiday calendar"
+            helpHref="/more"
+          />
+        }
+      >
+        <HrPageBody>
+          <HrMobileSubnav />
+          <HrPublicHolidaysGate />
+        </HrPageBody>
+      </HrPageShell>
+    );
+  }
+
   const hasState = Boolean(business?.state_code);
   const upcoming = holidays.filter(
     (h) => h.holiday_date >= new Date().toISOString().slice(0, 10),
@@ -159,9 +183,10 @@ export default async function HolidaysPage() {
                       </Link>
                     </div>
                     <HrInfoBanner
-                      title="Auto-import is ready"
-                      description={`We will fetch federal and ${stateLabel} public holidays for ${new Date().getFullYear()}. You can still add your own company holidays below.`}
+                      title="State-aware calendar"
+                      description={`Import federal + ${stateLabel} public holidays for ${new Date().getFullYear()}. You can still add company-specific days below. Per-business overrides (extra closure days, hide a holiday) are planned for Phase 2 and will also feed Operations booking blocks.`}
                     />
+                    <HrHolidayImportButton />
                     <HrHolidayCreateForm />
                   </div>
                 </SectionCard>

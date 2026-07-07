@@ -2,10 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Check, Crown, Loader2, Sparkles, Users, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { TIERS, ADDONS, tierBy, type TierKey } from "@/lib/settings/plans";
+import { TIERS, tierBy, type TierKey } from "@/lib/settings/plans";
 
 interface SubscriptionViewProps {
   tier: "starter" | "micro" | "sme" | "enterprise";
@@ -234,48 +233,6 @@ export function SubscriptionView({
               </div>
             );
           })}
-        </div>
-      </section>
-
-      {/* Add-ons */}
-      <section className="rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-base font-semibold text-ink dark:text-cream-100">
-              Add-ons
-            </h3>
-            <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
-              Top up only what you need. Prorated immediately.
-            </p>
-          </div>
-          <Badge tone="neutral">{ADDONS.length} available</Badge>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {ADDONS.map((a) => (
-            <div
-              key={a.label}
-              className="flex items-center justify-between gap-3 rounded-lg border border-cream-200 px-4 py-3 dark:border-hairline-dark"
-            >
-              <div>
-                <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                  {a.label}
-                </p>
-                <p className="text-xs text-ink-muted dark:text-cream-400">
-                  RM {a.priceMyr} {a.cadence}
-                </p>
-              </div>
-              <Link
-                href={
-                  a.label.includes("credit")
-                    ? "/settings/billing"
-                    : "/settings/subscription"
-                }
-                className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-cream-100 dark:border-hairline-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-              >
-                Manage
-              </Link>
-            </div>
-          ))}
         </div>
       </section>
 

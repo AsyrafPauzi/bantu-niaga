@@ -4,7 +4,7 @@ import type { ConsentKind } from "./types";
  * Catalog of consent kinds shown to the user in /settings/privacy.
  *
  * Two are *required* (terms_of_service, privacy_notice) — the user cannot
- * withdraw them without closing their account. The remaining five are
+ * withdraw them without closing their account. The remaining four are
  * opt-in/opt-out and can be toggled freely.
  *
  * Keeping the copy here (not in the database) lets us version-control the
@@ -49,15 +49,15 @@ export const CONSENT_CATALOG: readonly ConsentDescriptor[] = [
     kind: "product_updates",
     title: "Product updates",
     description:
-      "Monthly newsletter covering new modules, AI agent improvements, and security advisories.",
+      "Important product news, security advisories, and module releases.",
     required: false,
     defaultGranted: true,
   },
   {
     kind: "ai_training",
-    title: "Improve our AI agents",
+    title: "AI assistant improvements",
     description:
-      "Allow Bantu Niaga to use anonymised samples of your data to fine-tune Maya / Finance / Operations / Boardroom. We never share raw business data.",
+      "Allow anonymised usage samples to improve Hana and other AI assistants. Raw business records are never shared.",
     required: false,
     defaultGranted: false,
   },
@@ -65,15 +65,7 @@ export const CONSENT_CATALOG: readonly ConsentDescriptor[] = [
     kind: "analytics",
     title: "Product analytics",
     description:
-      "Lets us understand which features are useful so we can invest in the right places. Aggregated; no individual session is identifiable.",
-    required: false,
-    defaultGranted: true,
-  },
-  {
-    kind: "third_party_share",
-    title: "Third-party sharing",
-    description:
-      "Share strictly-necessary data with sub-processors (payment gateways, transactional email, AI providers). Withdrawing this disables most of the platform.",
+      "Helps us understand which features are used so we can improve the platform. Aggregated only.",
     required: false,
     defaultGranted: true,
   },
@@ -104,19 +96,9 @@ export const RETENTION_SCHEDULE: readonly {
     legalBasis: "PDPA s.7 — security & integrity",
   },
   {
-    category: "AI conversation history",
-    retention: "12 months unless you opt out of AI training.",
-    legalBasis: "Legitimate interest (PDPA s.6(2))",
-  },
-  {
     category: "Payment & billing data",
     retention: "7 years.",
     legalBasis: "Tax & accounting law",
-  },
-  {
-    category: "Marketing engagement (opens, clicks)",
-    retention: "24 months from last interaction.",
-    legalBasis: "Consent (PDPA s.6(1)(b))",
   },
   {
     category: "Generated export bundles",

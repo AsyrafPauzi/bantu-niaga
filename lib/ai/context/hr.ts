@@ -2,6 +2,10 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { HR_PUBLIC_HOLIDAYS_ADDON_SLUG, HR_STAFF_APPRAISAL_ADDON_SLUG } from "@/lib/marketplace/agent-types";
+import { appraisalDisplayStatus } from "@/lib/hr/appraisal";
+import { hasActiveAddonWithClient } from "@/lib/marketplace/entitlements";
+
 import { createAgentScopedClient, verifyRows } from "./client";
 import type {
   AgentContext,
@@ -9,6 +13,13 @@ import type {
   SnapshotAttention,
   SnapshotItem,
 } from "./types";
+
+export interface HrSnapshotOptions {
+  /** When omitted, checks the Public Holiday Calendar marketplace add-on. */
+  includePublicHolidays?: boolean;
+  /** When omitted, checks the Staff Appraisal Checker marketplace add-on. */
+  includeStaffAppraisals?: boolean;
+}
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -21,9 +32,28 @@ function todayIso(): string {
 export async function buildHrSnapshot(
   ctx: AgentContext,
   client?: SupabaseClient,
+  options?: HrSnapshotOptions,
 ): Promise<PillarSnapshot> {
   const supabase = client ?? (await createAgentScopedClient(ctx));
   const today = todayIso();
+
+  let includePublicHolidays = options?.includePublicHolidays;
+  if (includePublicHolidays === undefined) {
+    includePublicHolidays = await hasActiveAddonWithClient(
+      supabase,
+      ctx.businessId,
+      HR_PUBLIC_HOLIDAYS_ADDON_SLUG,
+    );
+  }
+
+  let includeStaffAppraisals = options?.includeStaffAppraisals;
+  if (includeStaffAppraisals === undefined) {
+    includeStaffAppraisals = await hasActiveAddonWithClient(
+      supabase,
+      ctx.businessId,
+      HR_STAFF_APPRAISAL_ADDON_SLUG,
+    );
+  }
 
   const employeesRes = await supabase
     .from("hr_employees")
@@ -44,14 +74,19 @@ export async function buildHrSnapshot(
     .limit(30);
   const leave = verifyRows(leaveRes, ctx, "hr_leave_records");
 
-  const holidaysRes = await supabase
-    .from("hr_public_holidays")
-    .select("id, business_id, holiday_date, name, state_code")
-    .or(`business_id.is.null,business_id.eq.${ctx.businessId}`)
-    .gte("holiday_date", today)
-    .order("holiday_date", { ascending: true })
-    .limit(10);
-  const holidays = verifyRows(holidaysRes, ctx, "hr_public_holidays");
+  const holidays = includePublicHolidays
+    ? verifyRows(
+        await supabase
+          .from("hr_public_holidays")
+          .select("id, business_id, holiday_date, name, state_code")
+          .or(`business_id.is.null,business_id.eq.${ctx.businessId}`)
+          .gte("holiday_date", today)
+          .order("holiday_date", { ascending: true })
+          .limit(10),
+        ctx,
+        "hr_public_holidays",
+      )
+    : [];
 
   const onboardingRes = await supabase
     .from("hr_onboarding_items")
@@ -60,6 +95,22 @@ export async function buildHrSnapshot(
     .eq("is_done", false)
     .limit(15);
   const onboarding = verifyRows(onboardingRes, ctx, "hr_onboarding_items");
+
+  const pendingAppraisals = includeStaffAppraisals
+    ? verifyRows(
+        await supabase
+          .from("hr_staff_appraisals")
+          .select(
+            "id, business_id, employee_id, period_label, due_date, status, hr_employees(full_name)",
+          )
+          .eq("business_id", ctx.businessId)
+          .eq("status", "pending")
+          .order("due_date", { ascending: true })
+          .limit(15),
+        ctx,
+        "hr_staff_appraisals",
+      )
+    : [];
 
   const activeCount = employees.filter((e) => e.status === "active").length;
   const pendingLeave = leave.filter((l) => l.status === "pending");
@@ -96,6 +147,26 @@ export async function buildHrSnapshot(
     attention.push({
       id: "onboarding_open",
       label: `${onboarding.length} open onboarding checklist item(s)`,
+      severity: "medium",
+    });
+  }
+  const overdueAppraisals = pendingAppraisals.filter(
+    (row) =>
+      appraisalDisplayStatus(
+        { status: String(row.status), due_date: String(row.due_date) },
+        today,
+      ) === "overdue",
+  );
+  if (overdueAppraisals.length > 0) {
+    attention.push({
+      id: "appraisals_overdue",
+      label: `${overdueAppraisals.length} staff appraisal(s) overdue`,
+      severity: "high",
+    });
+  } else if (pendingAppraisals.length > 0) {
+    attention.push({
+      id: "appraisals_pending",
+      label: `${pendingAppraisals.length} staff appraisal(s) due`,
       severity: "medium",
     });
   }
@@ -136,11 +207,24 @@ export async function buildHrSnapshot(
         label: "Open onboarding items",
         value: onboarding.length,
       },
-      {
-        key: "upcoming_holidays",
-        label: "Upcoming holidays",
-        value: holidays.length,
-      },
+      ...(includeStaffAppraisals
+        ? [
+            {
+              key: "pending_appraisals",
+              label: "Pending appraisals",
+              value: pendingAppraisals.length,
+            },
+          ]
+        : []),
+      ...(includePublicHolidays
+        ? [
+            {
+              key: "upcoming_holidays",
+              label: "Upcoming holidays",
+              value: holidays.length,
+            },
+          ]
+        : []),
     ],
     recent,
     attention,

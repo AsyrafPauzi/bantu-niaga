@@ -43,8 +43,7 @@ export type ConsentKind =
   | "marketing_email"
   | "product_updates"
   | "ai_training"
-  | "analytics"
-  | "third_party_share";
+  | "analytics";
 
 export interface UserConsent {
   id: string;

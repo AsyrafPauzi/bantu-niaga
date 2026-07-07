@@ -1,19 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ExternalLink, ShieldAlert } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ConsentMatrix } from "@/components/settings/privacy/ConsentMatrix";
 import { DataExportCard } from "@/components/settings/privacy/DataExportCard";
 import { DeleteAccountCard } from "@/components/settings/privacy/DeleteAccountCard";
 import { PrivacyRequestsTable } from "@/components/settings/privacy/PrivacyRequestsTable";
-import { RetentionScheduleCard } from "@/components/settings/privacy/RetentionScheduleCard";
 import {
   getCurrentUser,
   UnauthorizedError,
 } from "@/lib/auth/current-user";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/privacy/catalog";
 import { loadConsents, loadUserDsrs } from "@/lib/privacy/load";
+import type { DataSubjectRequest, UserConsent } from "@/lib/privacy/types";
 
 export const metadata = {
   title: "Privacy & data",
@@ -30,16 +30,30 @@ export default async function PrivacySettingsPage() {
     throw e;
   }
 
-  const [consents, dsrs] = await Promise.all([
-    loadConsents(user.id, user.businessId),
-    loadUserDsrs(user.id, 20),
-  ]);
+  let consents: UserConsent[] = [];
+  let dsrs: DataSubjectRequest[] = [];
+  try {
+    [consents, dsrs] = await Promise.all([
+      loadConsents(user.id, user.businessId),
+      loadUserDsrs(user.id, 20),
+    ]);
+  } catch {
+    consents = [];
+    dsrs = [];
+  }
 
   const pendingDeletion = dsrs.find(
     (r) =>
       (r.kind === "delete_user" || r.kind === "delete_business") &&
       r.status === "awaiting_grace",
   );
+
+  const optionalGranted = consents.filter(
+    (c) =>
+      c.granted &&
+      c.kind !== "terms_of_service" &&
+      c.kind !== "privacy_notice",
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -54,7 +68,7 @@ export default async function PrivacySettingsPage() {
       <PageHeader
         eyebrow="Settings · Privacy & data"
         title="Privacy & data"
-        description={`Exercise your rights under Malaysia's PDPA 2010 — download your data, manage consent, or close your account. Deletions have a ${ACCOUNT_DELETION_GRACE_DAYS}-day grace window during which you can cancel.`}
+        description={`Your PDPA rights — export data, manage consent, or close your account. Deletions have a ${ACCOUNT_DELETION_GRACE_DAYS}-day grace period.`}
       />
 
       {pendingDeletion ? (
@@ -80,11 +94,23 @@ export default async function PrivacySettingsPage() {
                     )
                   : "—"}
               </strong>
-              . You can still cancel below until that date.
+              . Cancel below before that date.
             </p>
           </div>
         </div>
       ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <SummaryTile label="Optional consents on" value={String(optionalGranted)} />
+        <SummaryTile
+          label="Privacy requests"
+          value={String(dsrs.length)}
+        />
+        <SummaryTile
+          label="Deletion grace"
+          value={`${ACCOUNT_DELETION_GRACE_DAYS} days`}
+        />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <DataExportCard />
@@ -96,9 +122,37 @@ export default async function PrivacySettingsPage() {
 
       <ConsentMatrix initialConsents={consents} />
 
-      <RetentionScheduleCard />
-
       <PrivacyRequestsTable initialRequests={dsrs} />
+
+      <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-4 text-sm dark:border-brand-800 dark:bg-brand-900/20">
+        <p className="font-semibold text-ink dark:text-cream-100">
+          Full Privacy Notice
+        </p>
+        <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
+          Retention periods, sub-processors, and your full rights under PDPA
+          2010 are in our public notice.
+        </p>
+        <Link
+          href="/legal/privacy"
+          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+        >
+          Read Privacy Notice
+          <ExternalLink className="h-3 w-3" strokeWidth={2} />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-ink-subtle">
+        {label}
+      </p>
+      <p className="mt-1 text-xl font-bold text-ink dark:text-cream-100">
+        {value}
+      </p>
     </div>
   );
 }

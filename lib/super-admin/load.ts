@@ -247,19 +247,21 @@ function formatAgo(iso: string): string {
 // ────────────────────────────────────────────────────────────────────────
 // Users
 // ────────────────────────────────────────────────────────────────────────
-export async function loadUsers(): Promise<UserRowAdmin[]> {
+export async function loadUsersPage(opts: {
+  from: number;
+  to: number;
+}): Promise<{ rows: UserRowAdmin[]; total: number }> {
   const svc = createServiceRoleClient();
-  const { data, error } = await svc
+  const { data, error, count } = await svc
     .from("users")
     .select(
       "id, business_id, role, display_name, email, phone_e164, last_password_change_at, is_suspended, created_at, businesses(name, tier)",
+      { count: "exact" },
     )
     .order("created_at", { ascending: false })
-    .limit(200);
+    .range(opts.from, opts.to);
   if (error) throw error;
-  return ((data ?? []) as unknown as RawUserJoin[]).map((r) => {
-    // Supabase may return the embedded relation as a single object or as
-    // an array depending on FK shape; normalise both.
+  const rows = ((data ?? []) as unknown as RawUserJoin[]).map((r) => {
     const biz = Array.isArray(r.businesses)
       ? r.businesses[0]
       : (r.businesses ?? null);
@@ -277,6 +279,7 @@ export async function loadUsers(): Promise<UserRowAdmin[]> {
       created_at: r.created_at,
     };
   });
+  return { rows, total: count ?? rows.length };
 }
 
 interface RawUserJoin {
@@ -298,27 +301,95 @@ interface RawUserJoin {
 // ────────────────────────────────────────────────────────────────────────
 // Businesses
 // ────────────────────────────────────────────────────────────────────────
-export async function loadBusinesses(): Promise<BusinessRowAdmin[]> {
+export interface BusinessesSummary {
+  total: number;
+  paying: number;
+  trial: number;
+  cancelled: number;
+  mrrMyr: number;
+  arpuMyr: number;
+}
+
+export async function loadBusinessesSummary(): Promise<BusinessesSummary> {
   const svc = createServiceRoleClient();
-  const [{ data: bizs }, { data: userCounts }] = await Promise.all([
+  const [
+    { count: total },
+    { count: cancelled },
+    { data: payingRows },
+  ] = await Promise.all([
+    svc.from("businesses").select("id", { count: "exact", head: true }),
     svc
       .from("businesses")
-      .select(
-        "id, idcompany, name, tier, subscription_status, subscription_renewal_at, state_code, credit_balance, created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(200),
-    svc.from("users").select("business_id"),
+      .select("id", { count: "exact", head: true })
+      .eq("subscription_status", "cancelled"),
+    svc
+      .from("businesses")
+      .select("tier")
+      .neq("tier", "starter")
+      .neq("subscription_status", "cancelled"),
   ]);
 
+  const paying = payingRows?.length ?? 0;
+  const mrrMyr = (payingRows ?? []).reduce(
+    (sum, row) => sum + (tierBy(row.tier as TierKey)?.priceMyr ?? 0),
+    0,
+  );
+  const trial = Math.max(0, (total ?? 0) - paying - (cancelled ?? 0));
+
+  return {
+    total: total ?? 0,
+    paying,
+    trial,
+    cancelled: cancelled ?? 0,
+    mrrMyr,
+    arpuMyr: paying > 0 ? Math.round(mrrMyr / paying) : 0,
+  };
+}
+
+export async function loadBusinessesPage(opts: {
+  from: number;
+  to: number;
+}): Promise<{ rows: BusinessRowAdmin[]; total: number }> {
+  const svc = createServiceRoleClient();
+  const [{ data: bizs, count }, { data: memberCounts }, { data: health }] =
+    await Promise.all([
+      svc
+        .from("businesses")
+        .select(
+          "id, idcompany, name, tier, subscription_status, subscription_renewal_at, state_code, credit_balance, created_at",
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false })
+        .range(opts.from, opts.to),
+      svc.rpc("super_admin_membership_counts"),
+      svc
+        .from("tenant_health_snapshots")
+        .select("business_id, score, band"),
+    ]);
+
   const counts = new Map<string, number>();
-  for (const u of userCounts ?? []) {
-    counts.set(u.business_id, (counts.get(u.business_id) ?? 0) + 1);
+  for (const row of memberCounts ?? []) {
+    counts.set(row.business_id as string, Number(row.member_count ?? 0));
   }
-  return ((bizs ?? []) as BusinessRowAdmin[]).map((b) => ({
-    ...b,
-    user_count: counts.get(b.id) ?? 0,
-  }));
+  const healthByBiz = new Map(
+    (health ?? []).map((h) => [
+      h.business_id as string,
+      {
+        score: h.score as number,
+        band: h.band as BusinessRowAdmin["health_band"],
+      },
+    ]),
+  );
+  const rows = ((bizs ?? []) as BusinessRowAdmin[]).map((b) => {
+    const h = healthByBiz.get(b.id);
+    return {
+      ...b,
+      user_count: counts.get(b.id) ?? 0,
+      health_score: h?.score,
+      health_band: h?.band,
+    };
+  });
+  return { rows, total: count ?? rows.length };
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -380,7 +451,7 @@ export async function loadAgents(): Promise<
       .order("name", { ascending: true }),
     svc
       .from("ai_agent_usage_daily")
-      .select("agent_slug, invocations, spend_cents, latency_ms_p50, failures")
+      .select("agent_slug, day, invocations, spend_cents, latency_ms_p50, failures")
       .gte(
         "day",
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
@@ -397,6 +468,7 @@ export async function loadAgents(): Promise<
       latency_sum: number;
       latency_n: number;
       failures: number;
+      daily: Array<{ day: string; invocations: number }>;
     }
   >();
   for (const r of usage ?? []) {
@@ -406,6 +478,7 @@ export async function loadAgents(): Promise<
       latency_sum: 0,
       latency_n: 0,
       failures: 0,
+      daily: [],
     };
     e.invocations += r.invocations ?? 0;
     e.spend_cents += r.spend_cents ?? 0;
@@ -414,6 +487,7 @@ export async function loadAgents(): Promise<
       e.latency_n += 1;
     }
     e.failures += r.failures ?? 0;
+    e.daily.push({ day: r.day as string, invocations: r.invocations ?? 0 });
     usageBySlug.set(r.agent_slug, e);
   }
 
@@ -430,26 +504,30 @@ export async function loadAgents(): Promise<
           : 0,
       failure_rate_pct: inv > 0 ? Math.round((failures / inv) * 1000) / 10 : 0,
       spend_myr: Math.round((u?.spend_cents ?? 0) / 100),
-      hourly: buildAgentSparkline(agent.slug, inv),
+      hourly: buildUsageSparkline(u?.daily ?? []),
     };
     return { agent, usage: usage7d };
   });
 }
 
-function buildAgentSparkline(seed: string, total: number): number[] {
-  const out: number[] = [];
-  let h = 0x811c9dc5;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = (h * 0x01000193) >>> 0;
+function buildUsageSparkline(
+  rows: Array<{ day: string; invocations: number }>,
+  days = 7,
+): number[] {
+  const keys: string[] = [];
+  const totals = new Map<string, number>();
+  const now = Date.now();
+  for (let i = days - 1; i >= 0; i--) {
+    const key = new Date(now - i * 86_400_000).toISOString().slice(0, 10);
+    keys.push(key);
+    totals.set(key, 0);
   }
-  for (let i = 0; i < 24; i++) {
-    h = (h * 0x01000193) >>> 0;
-    const r = (h >>> 0) / 0xffffffff;
-    const base = Math.max(1, Math.round(total / 24));
-    out.push(Math.max(1, Math.round(base * (0.4 + r * 1.2))));
+  for (const row of rows) {
+    if (totals.has(row.day)) {
+      totals.set(row.day, (totals.get(row.day) ?? 0) + row.invocations);
+    }
   }
-  return out;
+  return keys.map((key) => totals.get(key) ?? 0);
 }
 
 export async function loadAgentDetail(slug: string): Promise<{
@@ -479,18 +557,17 @@ export async function loadAgentDetail(slug: string): Promise<{
     if (ver) version = ver as unknown as AiAgentVersion;
   }
 
-  const [{ data: usage }] = await Promise.all([
-    svc
-      .from("ai_agent_usage_daily")
-      .select("invocations, spend_cents, latency_ms_p50, failures, day")
-      .eq("agent_slug", slug)
-      .gte(
-        "day",
-        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10),
-      ),
-  ]);
+  const { data: usage } = await svc
+    .from("ai_agent_usage_daily")
+    .select("invocations, spend_cents, latency_ms_p50, failures, day")
+    .eq("agent_slug", slug)
+    .gte(
+      "day",
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
+    );
+
   const u = (usage ?? []).reduce(
     (acc, r) => {
       acc.invocations += r.invocations ?? 0;
@@ -514,7 +591,12 @@ export async function loadAgentDetail(slug: string): Promise<{
         ? Math.round((u.failures / u.invocations) * 1000) / 10
         : 0,
     spend_myr: Math.round(u.spend_cents / 100),
-    hourly: buildAgentSparkline(slug, u.invocations),
+    hourly: buildUsageSparkline(
+      (usage ?? []).map((row) => ({
+        day: row.day as string,
+        invocations: row.invocations ?? 0,
+      })),
+    ),
   };
 
   return { agent: agent as AiAgentRow, version, usage: usage7d };

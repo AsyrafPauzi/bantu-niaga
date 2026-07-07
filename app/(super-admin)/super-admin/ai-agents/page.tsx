@@ -172,9 +172,9 @@ export default async function SuperAdminAgents() {
                 </div>
 
                 <div className="px-4 py-3 text-brand-500">
-                  <Sparkline values={usage.hourly} label="24h activity" />
+                  <Sparkline values={usage.hourly} label="7d activity" />
                   <div className="mt-1 flex items-center justify-between text-[10px] font-semibold text-ink-muted">
-                    <span>24h activity</span>
+                    <span>7d activity</span>
                     <span className="group-hover:text-brand-700">
                       Configure scope →
                     </span>

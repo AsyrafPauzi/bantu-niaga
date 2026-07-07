@@ -3,19 +3,21 @@ import { ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TOPUP_BUNDLES, topupSchema } from "@/lib/settings/schemas";
+import {
+  ensureBillplzPaymentMethod,
+  isBillplzConfigured,
+} from "@/lib/settings/billing";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/settings/billing/topup — owner-only Fast Credits top-up.
  *
- * Stub gateway: we mark the invoice as paid immediately. In production
- * this routes through Billplz / Curlec; their webhook flips the status
- * from 'pending' to 'paid' and triggers the credit_ledger insert via
- * the same RPC.
+ * When Billplz env vars are set, this should create a Billplz bill and
+ * return pending until the webhook marks the invoice paid.
  *
- * The RPC writes invoice + ledger + business balance + audit log in one
- * Postgres transaction.
+ * Until Billplz is wired up, we bypass the gateway and credit immediately
+ * via settings_topup_credits (same RPC the webhook will call later).
  */
 export async function POST(request: Request) {
   let user;
@@ -60,26 +62,38 @@ export async function POST(request: Request) {
 
   const bundle = TOPUP_BUNDLES[parsed.bundle];
   const supabase = await createSupabaseServerClient();
+  const billplzLive = isBillplzConfigured();
 
-  // Resolve a payment method: the one the user picked, or the default.
   let paymentMethodId = parsed.payment_method_id ?? null;
   if (!paymentMethodId) {
-    const { data } = await supabase
-      .from("payment_methods")
-      .select("id")
-      .eq("business_id", user.businessId)
-      .eq("is_default", true)
-      .maybeSingle();
-    paymentMethodId = data?.id ?? null;
+    try {
+      paymentMethodId = await ensureBillplzPaymentMethod(
+        supabase,
+        user.businessId,
+      );
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error: "payment_method_failed",
+          message:
+            e instanceof Error
+              ? e.message
+              : "Could not prepare Billplz payment method.",
+        },
+        { status: 500 },
+      );
+    }
   }
-  if (!paymentMethodId) {
+
+  if (billplzLive) {
+    // TODO: create Billplz bill, return checkout URL, keep invoice pending.
     return NextResponse.json(
       {
-        error: "no_payment_method",
+        error: "billplz_not_implemented",
         message:
-          "Add a payment method before topping up Fast Credits.",
+          "Billplz checkout is not wired yet. Remove BILLPLZ_* env vars to use the development bypass.",
       },
-      { status: 400 },
+      { status: 501 },
     );
   }
 
@@ -99,13 +113,26 @@ export async function POST(request: Request) {
   }
 
   const row = Array.isArray(data) ? data[0] : data;
+  const invoiceId = row?.invoice_id ?? null;
+
+  let invoiceNumber: string | null = null;
+  if (invoiceId) {
+    const { data: inv } = await supabase
+      .from("invoices")
+      .select("number")
+      .eq("id", invoiceId)
+      .maybeSingle();
+    invoiceNumber = inv?.number ?? null;
+  }
 
   return NextResponse.json(
     {
-      invoice_id: row?.invoice_id ?? null,
+      invoice_id: invoiceId,
+      invoice_number: invoiceNumber,
       new_balance: row?.new_balance ?? null,
       credits_added: bundle.credits,
       amount_myr: bundle.amount_myr,
+      bypass: true,
     },
     { status: 201 },
   );

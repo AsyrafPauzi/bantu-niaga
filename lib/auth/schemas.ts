@@ -57,3 +57,39 @@ export const resetPasswordSchema = z
     new_password: passwordRules,
   })
   .strict();
+
+export const addBusinessSchema = z
+  .object({
+    password: z.string().min(1, "Enter your password to continue"),
+    business_name: z.string().trim().min(2, "Business name is too short").max(120),
+    state_code: z
+      .enum([
+        "JHR",
+        "KDH",
+        "KTN",
+        "MLK",
+        "NSN",
+        "PHG",
+        "PNG",
+        "PRK",
+        "PLS",
+        "SBH",
+        "SWK",
+        "SGR",
+        "TRG",
+        "KUL",
+        "LBN",
+        "PJY",
+      ])
+      .optional(),
+    accept_terms: z.literal(true, {
+      message: "Accept the terms to continue",
+    }),
+  })
+  .strict();
+
+export const switchBusinessSchema = z
+  .object({
+    business_id: z.string().uuid("Invalid business"),
+  })
+  .strict();

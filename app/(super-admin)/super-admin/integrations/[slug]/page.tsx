@@ -5,23 +5,48 @@ import { ArrowLeft, BookOpen, ExternalLink } from "lucide-react";
 import { PageTopbar } from "@/components/super-admin/PageTopbar";
 import { PageBody, Section } from "@/components/super-admin/primitives";
 import { IntegrationEditor } from "@/components/super-admin/IntegrationEditor";
+import { IlmuUsageMonitor } from "@/components/super-admin/IlmuUsageMonitor";
 import { CATEGORY_META } from "@/lib/integrations/catalog";
 import { encryptionConfigured } from "@/lib/integrations/crypto";
 import { loadIntegration } from "@/lib/integrations/load";
+import { loadIlmuUsageDashboard } from "@/lib/super-admin/ilmu-usage";
+import { parsePagination } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
 export default async function IntegrationDetail({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  const query = await searchParams;
   const loaded = await loadIntegration(slug);
   if (!loaded) notFound();
 
   const { descriptor, row } = loaded;
   const category = CATEGORY_META[descriptor.category];
+  const tenantPagination = parsePagination(query, {
+    defaultPageSize: 10,
+    pageKey: "tenantPage",
+  });
+  const dailyPagination = parsePagination(query, {
+    defaultPageSize: 14,
+    pageKey: "dailyPage",
+  });
+  const ilmuUsage =
+    slug === "ilmu"
+      ? await loadIlmuUsageDashboard({
+          integrationEnabled: row.enabled,
+          integrationKeyStored: row.secretsConfigured.api_key ?? false,
+          defaultModel:
+            typeof row.config.default_model === "string"
+              ? row.config.default_model
+              : undefined,
+        })
+      : null;
 
   return (
     <>
@@ -79,6 +104,25 @@ export default async function IntegrationDetail({
             </div>
           </div>
         </Section>
+
+        {ilmuUsage ? (
+          <IlmuUsageMonitor
+            dashboard={ilmuUsage}
+            tenantPage={tenantPagination.page}
+            tenantPageSize={tenantPagination.pageSize}
+            dailyPage={dailyPagination.page}
+            dailyPageSize={dailyPagination.pageSize}
+            basePath={`/super-admin/integrations/${slug}`}
+            paginationParams={{
+              ...(tenantPagination.page > 1
+                ? { tenantPage: String(tenantPagination.page) }
+                : {}),
+              ...(dailyPagination.page > 1
+                ? { dailyPage: String(dailyPagination.page) }
+                : {}),
+            }}
+          />
+        ) : null}
 
         <IntegrationEditor
           descriptor={descriptor}

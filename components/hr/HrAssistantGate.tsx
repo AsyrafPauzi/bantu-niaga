@@ -14,7 +14,8 @@ export function HrAssistantGate() {
       </h2>
       <p className="mt-2 max-w-md text-sm text-ink-muted dark:text-cream-400">
         Ask about leave, staff, and holidays in plain language. Record MC or
-        annual leave just by chatting. RM 20/month includes 100 AI credits.
+        annual leave just by chatting. Adds 100 credits/mo to your shared AI
+        pool (all assistants use the same balance).
       </p>
       <Link
         href="/marketplace"

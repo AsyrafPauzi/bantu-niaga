@@ -7,9 +7,11 @@ import { HrInfoBanner } from "@/components/hr/layout/hr-info-banner";
 export function HrShareLeavePanel({
   employeeId,
   employeeName,
+  employeePhone,
 }: {
   employeeId: string;
   employeeName: string;
+  employeePhone?: string | null;
 }) {
   return (
     <div className="space-y-6">
@@ -24,6 +26,7 @@ export function HrShareLeavePanel({
           <HrLeaveLinkActions
             employeeId={employeeId}
             employeeName={employeeName}
+            employeePhone={employeePhone}
             align="start"
           />
         </div>

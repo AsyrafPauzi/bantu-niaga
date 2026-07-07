@@ -32,6 +32,22 @@ describe("permissions — positive (each role can access its primary surface)", 
     expect(canSurface("staff", "admin", "tasks")).toBe(true);
     expect(canSurface("staff", "admin", "settings")).toBe(false);
   });
+
+  it("marketing_officer has marketing access", () => {
+    expect(can("marketing_officer", "marketing")).toBe(true);
+    expect(can("marketing_officer", "finance")).toBe(false);
+  });
+
+  it("operations_officer has operations access", () => {
+    expect(can("operations_officer", "operations")).toBe(true);
+    expect(can("operations_officer", "marketing")).toBe(false);
+  });
+
+  it("sales_rep has sales/leads surface (and read-only pos)", () => {
+    expect(canSurface("sales_rep", "sales", "leads")).toBe(true);
+    expect(canSurface("sales_rep", "sales", "pos")).toBe(true);
+    expect(getSurfaceScope("sales_rep", "sales", "pos")).toBe("r");
+  });
 });
 
 describe("permissions — negative (each role is denied a forbidden area)", () => {

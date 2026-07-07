@@ -36,6 +36,7 @@ export interface MarketplaceAddon {
   included_in_tier: string[];
   is_featured: boolean;
   sort_order: number;
+  is_coming_soon: boolean;
 }
 
 export interface BusinessAddon {
@@ -74,7 +75,7 @@ export const CADENCE_LABEL: Record<AddonCadence, string> = {
 };
 
 export function formatMyr(priceCents: number): string {
-  if (priceCents === 0) return "RM 0";
+  if (priceCents === 0) return "Free";
   return new Intl.NumberFormat("en-MY", {
     style: "currency",
     currency: "MYR",

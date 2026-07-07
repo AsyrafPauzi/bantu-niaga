@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { signUpSchema } from "@/lib/auth/schemas";
+import { ensureMembership } from "@/lib/auth/memberships";
+import { enforceAuthRateLimit } from "@/lib/api/auth-rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,6 +29,9 @@ export const runtime = "nodejs";
  * session cookie, then router.replace('/home').
  */
 export async function POST(request: Request) {
+  const rl = enforceAuthRateLimit(request, "auth.sign-up", 5, 60 * 60 * 1000);
+  if (!rl.ok) return rl.response;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -136,7 +141,28 @@ export async function POST(request: Request) {
     );
   }
 
-  // Step 3: seed a welcome audit entry + 50 starter credits ledger row +
+  try {
+    await ensureMembership(authUser.id, businessRow.id, "owner", {
+      email: parsed.email,
+      display_name: parsed.business_name,
+    });
+  } catch (membershipError) {
+    await admin.from("users").delete().eq("id", authUser.id);
+    await admin.from("businesses").delete().eq("id", businessRow.id);
+    await rollback();
+    return NextResponse.json(
+      {
+        error: "membership_create_failed",
+        message:
+          membershipError instanceof Error
+            ? membershipError.message
+            : "Could not link business membership",
+      },
+      { status: 500 },
+    );
+  }
+
+  // Step 3: seed a welcome audit entry
   // explicit PDPA-aligned consent rows for the two required consents.
   // The remaining (opt-in) consents default to false until the user toggles
   // them in /settings/privacy.

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { writeAuditLog } from "@/lib/audit/log";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
+import { applyAnnualLeaveApproval } from "@/lib/hr/leave-balance";
 import { leaveStatusUpdateSchema } from "@/lib/hr/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -64,6 +66,23 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const supabase = await createSupabaseServerClient();
+
+  const { data: existing } = await supabase
+    .from("hr_leave_records")
+    .select(
+      "id, employee_id, leave_type, start_date, end_date, status, hr_employees(annual_leave_entitlement_days)",
+    )
+    .eq("business_id", user.businessId)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing) {
+    return NextResponse.json(
+      { error: "not_found", message: "Leave record not found." },
+      { status: 404 },
+    );
+  }
+
   const { data, error } = await supabase
     .from("hr_leave_records")
     .update({
@@ -86,5 +105,37 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  return NextResponse.json({ leave: data }, { status: 200 });
+  let balanceWarning = null;
+  if (
+    parsed.status === "approved" &&
+    existing.status === "pending" &&
+    existing.leave_type === "annual"
+  ) {
+    const entitlement = Number(
+      (existing.hr_employees as { annual_leave_entitlement_days?: number } | null)
+        ?.annual_leave_entitlement_days ?? 8,
+    );
+    const result = await applyAnnualLeaveApproval(supabase, {
+      businessId: user.businessId,
+      employeeId: existing.employee_id as string,
+      startDate: String(existing.start_date),
+      endDate: String(existing.end_date),
+      entitlementDays: entitlement,
+    });
+    balanceWarning = result.warning;
+  }
+
+  await writeAuditLog(supabase, {
+    businessId: user.businessId,
+    actorUserId: user.id,
+    action: "hr.leave.status",
+    entityType: "hr_leave_records",
+    entityId: id,
+    diff: { status: parsed.status, balance_warning: balanceWarning?.code ?? null },
+  });
+
+  return NextResponse.json(
+    { leave: data, warning: balanceWarning },
+    { status: 200 },
+  );
 }

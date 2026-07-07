@@ -8,7 +8,10 @@ const HR_LINKS = [
   { href: "/hr", label: "Overview", exact: true },
   { href: "/hr/employees", label: "Employees", exact: false },
   { href: "/hr/leave", label: "Leave", exact: false },
+  { href: "/hr/staff-portal", label: "Staff portal", exact: false },
   { href: "/hr/holidays", label: "Holidays", exact: false },
+  { href: "/hr/appraisals", label: "Appraisals", exact: false },
+  { href: "/hr/documents", label: "Documents", exact: false },
   { href: "/hr/assistant", label: "Assistant", exact: false },
 ] as const;
 

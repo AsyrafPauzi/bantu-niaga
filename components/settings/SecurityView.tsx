@@ -9,9 +9,11 @@ import {
   KeyRound,
   Loader2,
   Lock,
+  LogOut,
   Monitor,
   ShieldCheck,
   ShieldOff,
+  Smartphone,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -32,15 +34,21 @@ interface AuditEntry {
   actor_user_id: string | null;
 }
 
+interface SessionEntry {
+  id: string;
+  device_label: string;
+  location_label: string | null;
+  last_seen_at: string;
+  created_at: string;
+  is_current: boolean;
+}
+
 interface SecurityViewProps {
   email: string;
   lastPasswordChangeAt: string | null;
   initialFactors: Factor[];
   initialAudit: AuditEntry[];
-  currentDevice: {
-    label: string;
-    location: string;
-  };
+  initialSessions: SessionEntry[];
 }
 
 function fmtRelative(iso: string): string {
@@ -75,20 +83,19 @@ export function SecurityView({
   lastPasswordChangeAt,
   initialFactors,
   initialAudit,
-  currentDevice,
+  initialSessions,
 }: SecurityViewProps) {
   const router = useRouter();
   const [factors, setFactors] = useState<Factor[]>(initialFactors);
   const [audit, setAudit] = useState<AuditEntry[]>(initialAudit);
+  const [sessions, setSessions] = useState<SessionEntry[]>(initialSessions);
 
-  // Password form
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [pwdError, setPwdError] = useState<string | null>(null);
   const [pwdSavedAt, setPwdSavedAt] = useState<number | null>(null);
   const [pwdPending, startPwdTransition] = useTransition();
 
-  // 2FA enrol modal
   const [enrolModal, setEnrolModal] = useState<null | {
     factorId: string;
     qr: string;
@@ -98,7 +105,6 @@ export function SecurityView({
   const [twoFaError, setTwoFaError] = useState<string | null>(null);
   const [twoFaPending, startTwoFaTransition] = useTransition();
 
-  // Sessions revoke
   const [sessionsPending, startSessionsTransition] = useTransition();
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [sessionsRevokedAt, setSessionsRevokedAt] = useState<number | null>(
@@ -107,12 +113,21 @@ export function SecurityView({
 
   const verifiedFactor = factors.find((f) => f.status === "verified");
   const twoFaOn = !!verifiedFactor;
+  const otherSessions = sessions.filter((s) => !s.is_current);
 
   async function refreshFactors() {
     const res = await fetch("/api/settings/security/2fa");
     if (res.ok) {
       const json = await res.json();
       setFactors(json.totp ?? []);
+    }
+  }
+
+  async function refreshSessions() {
+    const res = await fetch("/api/settings/security/sessions");
+    if (res.ok) {
+      const json = await res.json();
+      setSessions(json.data ?? []);
     }
   }
 
@@ -220,30 +235,31 @@ export function SecurityView({
   }
 
   function revokeAllSessions() {
+    if (otherSessions.length === 0) return;
     if (
-      !confirm("Sign out everywhere except this device? Other browsers will be signed out.")
+      !confirm(
+        "Sign out all other devices? Other browsers and phones will need to sign in again.",
+      )
     )
       return;
     setSessionsError(null);
     startSessionsTransition(async () => {
-      const res = await fetch(
-        "/api/settings/security/sessions/revoke-all",
-        { method: "POST" },
-      );
+      const res = await fetch("/api/settings/security/sessions/revoke-all", {
+        method: "POST",
+      });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         setSessionsError(json?.message ?? "Could not revoke sessions.");
         return;
       }
       setSessionsRevokedAt(Date.now());
+      await refreshSessions();
       router.refresh();
     });
   }
 
-  // After enrol, refresh audit/factors when the modal closes.
   useEffect(() => {
     if (!enrolModal) {
-      // also pull latest audit
       fetch("/api/settings/security/audit?limit=20")
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => j && setAudit(j.data));
@@ -252,81 +268,115 @@ export function SecurityView({
 
   return (
     <>
-      {/* Risk banner — only show when 2FA off */}
-      {!twoFaOn ? (
-        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-status-warning/30 bg-status-warning/15 p-4">
-          <div className="flex items-start gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-status-warning/30 text-[#8C5C0A] dark:text-[#F5C97A]">
-              <AlertTriangle className="h-5 w-5" strokeWidth={2} />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                Two-factor auth is off.
-              </p>
-              <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-                Enable 2FA to protect customer data, financial records, and
-                integrations.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={startEnrol}
-            disabled={twoFaPending}
-            className="inline-flex items-center gap-2 rounded-lg bg-status-warning px-4 py-2 text-sm font-semibold text-[#5C3A05] shadow-card hover:bg-[#E6B452] disabled:opacity-60"
-          >
-            {twoFaPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
-            ) : (
-              <ShieldCheck className="h-4 w-4" strokeWidth={2} />
-            )}
-            Enable 2FA
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-status-success/30 bg-status-success/10 p-4">
-          <div className="flex items-start gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-status-success/20 text-status-success">
-              <ShieldCheck className="h-5 w-5" strokeWidth={2} />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                Two-factor auth is active.
-              </p>
-              <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-                {verifiedFactor?.name ?? "Authenticator"} · added{" "}
-                {fmtRelative(verifiedFactor?.created_at ?? new Date().toISOString())}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={disable2fa}
-            disabled={twoFaPending}
-            className="inline-flex items-center gap-2 rounded-lg border border-status-danger/30 bg-white px-4 py-2 text-sm font-semibold text-status-danger hover:bg-status-danger/10 disabled:opacity-60 dark:bg-panel-dark"
-          >
-            <ShieldOff className="h-4 w-4" strokeWidth={2} />
-            Disable 2FA
-          </button>
-        </div>
-      )}
+      {/* Summary strip */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <SummaryTile
+          label="Two-factor auth"
+          value={twoFaOn ? "On" : "Off"}
+          tone={twoFaOn ? "success" : "warning"}
+          icon={ShieldCheck}
+        />
+        <SummaryTile
+          label="Active sessions"
+          value={String(sessions.length)}
+          tone="neutral"
+          icon={Monitor}
+        />
+        <SummaryTile
+          label="Other devices"
+          value={String(otherSessions.length)}
+          tone={otherSessions.length > 0 ? "warning" : "success"}
+          icon={Smartphone}
+        />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
         <div className="space-y-5 lg:col-span-2">
-          {/* 2FA detail card */}
-          <div className="space-y-4 rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <div className="flex items-start justify-between">
+          {/* Password */}
+          <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-start gap-3 border-b border-cream-200 p-5 dark:border-hairline-dark">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+                <Lock className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-semibold text-ink dark:text-cream-100">
+                  Password
+                </h3>
+                <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                  {lastPasswordChangeAt
+                    ? `Last changed ${fmtRelative(lastPasswordChangeAt)}.`
+                    : "No password change recorded yet."}{" "}
+                  Min 12 characters with upper, lower, and a number.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3 p-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Current password">
+                  <input
+                    type="password"
+                    value={currentPwd}
+                    onChange={(e) => setCurrentPwd(e.target.value)}
+                    placeholder="••••••••••"
+                    className={inputCx}
+                  />
+                </Field>
+                <Field label="New password">
+                  <input
+                    type="password"
+                    value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)}
+                    placeholder="Min 12 characters"
+                    className={inputCx}
+                  />
+                </Field>
+              </div>
+              {pwdError ? (
+                <Alert tone="danger">{pwdError}</Alert>
+              ) : null}
+              {pwdSavedAt ? (
+                <Alert tone="success">
+                  Password updated. Use &quot;Sign out other devices&quot; if
+                  you want to invalidate old sessions.
+                </Alert>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="inline-flex items-center gap-1.5 text-[11px] text-ink-subtle">
+                  <Eye className="h-3 w-3" strokeWidth={2} />
+                  Signed in as{" "}
+                  <span className="font-mono text-ink-muted">{email}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={changePassword}
+                  disabled={pwdPending || !currentPwd || !newPwd}
+                  className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-accent-600 disabled:opacity-60"
+                >
+                  {pwdPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+                  ) : (
+                    <Check className="h-4 w-4" strokeWidth={2} />
+                  )}
+                  Update password
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Authenticator app only */}
+          <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cream-200 p-5 dark:border-hairline-dark">
               <div className="flex items-start gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
                   <ShieldCheck className="h-5 w-5" strokeWidth={2} />
                 </span>
                 <div>
                   <h3 className="text-base font-semibold text-ink dark:text-cream-100">
-                    Two-factor authentication
+                    Authenticator app
                   </h3>
-                  <p className="text-xs text-ink-muted dark:text-cream-400">
-                    Add a code from your authenticator app after every
-                    password sign-in.
+                  <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                    Google Authenticator, Authy, or 1Password — required after
+                    every password sign-in.
                   </p>
                 </div>
               </div>
@@ -335,246 +385,227 @@ export function SecurityView({
               </Badge>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-3">
-              {[
-                {
-                  label: "Authenticator app",
-                  caption: "Google Authenticator, Authy, 1Password",
-                  active: twoFaOn,
-                },
-                {
-                  label: "SMS code",
-                  caption: "Coming with WhatsApp Business",
-                  active: false,
-                },
-                {
-                  label: "Hardware key",
-                  caption: "YubiKey, Titan",
-                  active: false,
-                },
-              ].map((m) => (
-                <div
-                  key={m.label}
-                  className="rounded-lg border border-cream-200 p-3 dark:border-hairline-dark"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-ink dark:text-cream-100">
-                      {m.label}
+            <div className="p-5">
+              {twoFaOn ? (
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-status-success/30 bg-status-success/10 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-ink dark:text-cream-100">
+                      {verifiedFactor?.name ?? "Authenticator"} is active
                     </p>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-                      {m.active ? "On" : "Off"}
-                    </span>
+                    <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                      Enrolled {fmtRelative(verifiedFactor?.created_at ?? "")}
+                    </p>
                   </div>
-                  <p className="mt-1 text-[11px] text-ink-muted dark:text-cream-400">
-                    {m.caption}
+                  <button
+                    type="button"
+                    onClick={disable2fa}
+                    disabled={twoFaPending}
+                    className="inline-flex items-center gap-2 rounded-lg border border-status-danger/30 bg-white px-3.5 py-2 text-sm font-semibold text-status-danger hover:bg-status-danger/10 disabled:opacity-60 dark:bg-panel-dark"
+                  >
+                    <ShieldOff className="h-4 w-4" strokeWidth={2} />
+                    Turn off
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-status-warning/30 bg-status-warning/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle
+                      className="mt-0.5 h-5 w-5 shrink-0 text-[#8C5C0A] dark:text-[#F5C97A]"
+                      strokeWidth={2}
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-ink dark:text-cream-100">
+                        Protect customer data and financial records
+                      </p>
+                      <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                        Scan a QR code once, then enter a 6-digit code at each
+                        sign-in.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startEnrol}
+                    disabled={twoFaPending}
+                    className="inline-flex items-center gap-2 rounded-lg bg-status-warning px-4 py-2 text-sm font-semibold text-[#5C3A05] shadow-card hover:bg-[#E6B452] disabled:opacity-60"
+                  >
+                    {twoFaPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" strokeWidth={2} />
+                    )}
+                    Set up 2FA
+                  </button>
+                </div>
+              )}
+
+              {twoFaError ? (
+                <div className="mt-3">
+                  <Alert tone="danger">{twoFaError}</Alert>
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          {/* Active sessions */}
+          <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cream-200 p-5 dark:border-hairline-dark">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+                  <Monitor className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-ink dark:text-cream-100">
+                    Active sessions
+                  </h3>
+                  <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                    Devices where you are signed in to Bantu Niaga.
                   </p>
                 </div>
-              ))}
-            </div>
-
-            {twoFaError ? (
-              <p className="rounded-md border border-status-danger/30 bg-status-danger/10 p-2 text-xs text-status-danger">
-                {twoFaError}
-              </p>
-            ) : null}
-          </div>
-
-          {/* Password card */}
-          <div className="space-y-3 rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <div className="flex items-start gap-3">
-              <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                <Lock className="h-5 w-5" strokeWidth={2} />
-              </span>
-              <div>
-                <h3 className="text-base font-semibold text-ink dark:text-cream-100">
-                  Password
-                </h3>
-                <p className="text-xs text-ink-muted dark:text-cream-400">
-                  {lastPasswordChangeAt
-                    ? `Last changed ${fmtRelative(lastPasswordChangeAt)}.`
-                    : "Set a fresh password to enable change tracking."}{" "}
-                  Min 12 characters · upper + lower + number.
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Current password">
-                <input
-                  type="password"
-                  value={currentPwd}
-                  onChange={(e) => setCurrentPwd(e.target.value)}
-                  placeholder="••••••••••"
-                  className={inputCx}
-                />
-              </Field>
-              <Field label="New password">
-                <input
-                  type="password"
-                  value={newPwd}
-                  onChange={(e) => setNewPwd(e.target.value)}
-                  placeholder="Min 12 characters"
-                  className={inputCx}
-                />
-              </Field>
-            </div>
-            {pwdError ? (
-              <p className="rounded-md border border-status-danger/30 bg-status-danger/10 p-2 text-xs text-status-danger">
-                {pwdError}
-              </p>
-            ) : null}
-            {pwdSavedAt ? (
-              <p className="rounded-md border border-status-success/30 bg-status-success/10 p-2 text-xs text-status-success">
-                Password updated. Sign out and back in on other devices.
-              </p>
-            ) : null}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="inline-flex items-center gap-1.5 text-[11px] text-ink-subtle">
-                <Eye className="h-3 w-3" strokeWidth={2} />
-                Other sessions stay valid — use the panel below to revoke
-                them.
-              </p>
-              <button
-                type="button"
-                onClick={changePassword}
-                disabled={pwdPending || !currentPwd || !newPwd}
-                className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-accent-600 disabled:opacity-60"
-              >
-                {pwdPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
-                ) : (
-                  <Check className="h-4 w-4" strokeWidth={2} />
-                )}
-                Update password
-              </button>
-            </div>
-          </div>
-
-          {/* Sessions */}
-          <div className="space-y-3 rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-base font-semibold text-ink dark:text-cream-100">
-                  Active sessions
-                </h3>
-                <p className="text-xs text-ink-muted dark:text-cream-400">
-                  Account: <span className="font-mono">{email}</span>
-                </p>
               </div>
               <button
                 type="button"
                 onClick={revokeAllSessions}
-                disabled={sessionsPending}
-                className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+                disabled={sessionsPending || otherSessions.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink shadow-card hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
               >
                 {sessionsPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
-                ) : null}
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                ) : (
+                  <LogOut className="h-3.5 w-3.5" strokeWidth={2} />
+                )}
                 Sign out other devices
               </button>
             </div>
-            <ul className="rounded-lg border border-cream-200 dark:border-hairline-dark">
-              <li className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="grid h-8 w-8 place-items-center rounded-md bg-cream-100 text-ink-muted dark:bg-hairline-dark dark:text-cream-400">
-                    <Monitor className="h-4 w-4" strokeWidth={2} />
-                  </span>
-                  <div>
-                    <p className="flex items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
-                      {currentDevice.label}
-                      <Badge tone="success">Current</Badge>
-                    </p>
-                    <p className="text-[11px] text-ink-muted dark:text-cream-400">
-                      {currentDevice.location} · Active now
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[11px] font-semibold text-status-success">
-                  Active
-                </span>
-              </li>
-            </ul>
-            {sessionsError ? (
-              <p className="rounded-md border border-status-danger/30 bg-status-danger/10 p-2 text-xs text-status-danger">
-                {sessionsError}
+
+            {sessions.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-ink-muted dark:text-cream-400">
+                No sessions recorded yet. Refresh this page after signing in.
               </p>
+            ) : (
+              <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+                {sessions.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`grid h-9 w-9 place-items-center rounded-lg ${
+                          s.is_current
+                            ? "bg-status-success/15 text-status-success"
+                            : "bg-cream-100 text-ink-muted dark:bg-hairline-dark dark:text-cream-400"
+                        }`}
+                      >
+                        {s.is_current ? (
+                          <Monitor className="h-4 w-4" strokeWidth={2} />
+                        ) : (
+                          <Smartphone className="h-4 w-4" strokeWidth={2} />
+                        )}
+                      </span>
+                      <div>
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
+                          {s.device_label}
+                          {s.is_current ? (
+                            <Badge tone="success">This device</Badge>
+                          ) : null}
+                        </p>
+                        <p className="text-[11px] text-ink-muted dark:text-cream-400">
+                          {s.location_label ?? "Malaysia"} · Last active{" "}
+                          {fmtRelative(s.last_seen_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[11px] font-semibold ${
+                        s.is_current
+                          ? "text-status-success"
+                          : "text-ink-muted dark:text-cream-400"
+                      }`}
+                    >
+                      {s.is_current ? "Active now" : "Signed in"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {sessionsError ? (
+              <div className="px-5 pb-4">
+                <Alert tone="danger">{sessionsError}</Alert>
+              </div>
             ) : null}
             {sessionsRevokedAt ? (
-              <p className="rounded-md border border-status-success/30 bg-status-success/10 p-2 text-xs text-status-success">
-                Other sessions signed out.
-              </p>
+              <div className="px-5 pb-4">
+                <Alert tone="success">
+                  Other devices have been signed out. Only this browser remains
+                  active.
+                </Alert>
+              </div>
             ) : null}
-            <p className="text-[11px] text-ink-muted dark:text-cream-400">
-              Supabase doesn&apos;t expose a per-device session list yet — we
-              rotate all refresh tokens except this browser&apos;s when you
-              click <em>Sign out other devices</em>.
-            </p>
-          </div>
+          </section>
         </div>
 
-        {/* RHS — audit log */}
+        {/* Audit log sidebar */}
         <aside className="space-y-5">
-          <div className="rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <div className="flex items-start justify-between">
+          <section className="rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-semibold text-ink dark:text-cream-100">
                   Audit log
                 </h3>
                 <p className="text-xs text-ink-muted dark:text-cream-400">
-                  Last 20 events · admin-visible
+                  Last 20 security events
                 </p>
               </div>
-              <KeyRound className="h-4 w-4 text-ink-subtle" strokeWidth={2} />
+              <KeyRound className="h-4 w-4 shrink-0 text-ink-subtle" strokeWidth={2} />
             </div>
             {audit.length === 0 ? (
-              <p className="mt-3 text-xs text-ink-muted dark:text-cream-400">
-                No audit events yet. Actions you take in Bantu Niaga will
-                appear here.
+              <p className="mt-4 text-xs text-ink-muted dark:text-cream-400">
+                No events yet. Password changes, 2FA updates, and session
+                revokes appear here.
               </p>
             ) : (
-              <ul className="mt-3 space-y-2.5">
+              <ul className="mt-4 max-h-[28rem] space-y-2.5 overflow-y-auto pr-1">
                 {audit.map((a) => (
-                  <li key={a.id} className="flex items-start gap-2.5">
-                    <span className="mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-status-success/20 text-status-success">
-                      <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-ink dark:text-cream-100">
-                        {actionLabel(a.action)}
-                      </p>
-                      <p className="text-[10px] text-ink-subtle">
-                        {fmtRelative(a.created_at)}
-                      </p>
-                    </div>
+                  <li
+                    key={a.id}
+                    className="rounded-lg border border-cream-200 px-3 py-2.5 dark:border-hairline-dark"
+                  >
+                    <p className="text-xs font-semibold text-ink dark:text-cream-100">
+                      {actionLabel(a.action)}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-ink-subtle">
+                      {fmtRelative(a.created_at)}
+                    </p>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </section>
 
           <div className="rounded-xl border border-brand-200 bg-brand-50 p-5 text-xs dark:border-brand-800 dark:bg-brand-900/30">
             <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:text-brand-200">
               Compliance
             </p>
             <p className="mt-1.5 leading-relaxed text-ink dark:text-cream-100">
-              Bantu Niaga is aligned with PDPA Malaysia 2010 and Bank Negara
-              data-residency guidelines. All data is stored in the Supabase
+              Aligned with PDPA Malaysia 2010. Data is stored in the Supabase
               Singapore region.
             </p>
           </div>
         </aside>
       </div>
 
-      {/* 2FA enrol modal */}
       {enrolModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-cream-200 bg-white p-6 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-lg font-bold text-ink dark:text-cream-100">
-                  Set up 2FA
+                  Set up authenticator
                 </h3>
                 <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-                  Scan the QR with Google Authenticator, Authy, or 1Password.
+                  Scan the QR code, then enter the 6-digit code to confirm.
                 </p>
               </div>
               <button
@@ -597,7 +628,7 @@ export function SecurityView({
                 />
               </div>
               <p className="text-[11px] text-ink-muted dark:text-cream-400">
-                Or enter the code manually:
+                Manual entry key:
               </p>
               <code className="select-all rounded bg-cream-100 px-2 py-1 font-mono text-xs text-ink dark:bg-hairline-dark dark:text-cream-100">
                 {enrolModal.secret}
@@ -605,22 +636,18 @@ export function SecurityView({
             </div>
 
             <div className="mt-4 space-y-2">
-              <Field label="Enter the 6-digit code">
+              <Field label="6-digit code">
                 <input
                   value={twoFaCode}
                   onChange={(e) =>
                     setTwoFaCode(e.target.value.replace(/\D/g, "").slice(0, 6))
                   }
                   inputMode="numeric"
-                  placeholder="123 456"
-                  className={`${inputCx} tracking-[0.5em] text-center font-mono text-lg`}
+                  placeholder="123456"
+                  className={`${inputCx} text-center font-mono text-lg tracking-[0.4em]`}
                 />
               </Field>
-              {twoFaError ? (
-                <p className="rounded-md border border-status-danger/30 bg-status-danger/10 p-2 text-xs text-status-danger">
-                  {twoFaError}
-                </p>
-              ) : null}
+              {twoFaError ? <Alert tone="danger">{twoFaError}</Alert> : null}
             </div>
 
             <div className="mt-5 flex items-center justify-end gap-2">
@@ -628,7 +655,7 @@ export function SecurityView({
                 type="button"
                 onClick={() => setEnrolModal(null)}
                 disabled={twoFaPending}
-                className="rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+                className="rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
               >
                 Cancel
               </button>
@@ -643,13 +670,64 @@ export function SecurityView({
                 ) : (
                   <Check className="h-4 w-4" strokeWidth={2} />
                 )}
-                Verify &amp; turn on
+                Verify &amp; enable
               </button>
             </div>
           </div>
         </div>
       ) : null}
     </>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  tone,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  tone: "success" | "warning" | "neutral";
+  icon: typeof ShieldCheck;
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-status-success/30 bg-status-success/10 text-status-success"
+      : tone === "warning"
+        ? "border-status-warning/30 bg-status-warning/10 text-[#8C5C0A] dark:text-[#F5C97A]"
+        : "border-cream-200 bg-white text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
+
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-xl border p-4 shadow-card ${toneClass}`}
+    >
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-white/60 dark:bg-panel-dark/40">
+        <Icon className="h-4 w-4" strokeWidth={2} />
+      </span>
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">
+          {label}
+        </p>
+        <p className="text-lg font-bold">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function Alert({
+  tone,
+  children,
+}: {
+  tone: "danger" | "success";
+  children: React.ReactNode;
+}) {
+  const cls =
+    tone === "danger"
+      ? "border-status-danger/30 bg-status-danger/10 text-status-danger"
+      : "border-status-success/30 bg-status-success/10 text-status-success";
+  return (
+    <p className={`rounded-md border p-2 text-xs ${cls}`}>{children}</p>
   );
 }
 

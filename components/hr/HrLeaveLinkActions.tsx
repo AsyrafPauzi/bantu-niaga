@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { buildCtcUrl } from "@/lib/marketing/broadcasts-shared";
 import { cn } from "@/lib/utils/cn";
 
 interface HrLeaveLinkActionsProps {
   employeeId: string;
   employeeName: string;
+  employeePhone?: string | null;
   align?: "start" | "end";
 }
 
 export function HrLeaveLinkActions({
   employeeId,
   employeeName,
+  employeePhone,
   align = "end",
 }: HrLeaveLinkActionsProps) {
   const [busy, setBusy] = useState(false);
@@ -48,9 +51,11 @@ export function HrLeaveLinkActions({
   const whatsappText = url
     ? `Hi ${employeeName}, please apply leave using this private link. It expires in 24 hours: ${url}`
     : "";
-  const whatsappHref = url
-    ? `https://wa.me/?text=${encodeURIComponent(whatsappText)}`
-    : "#";
+  const phoneDigits = employeePhone?.replace(/\D/g, "") ?? "";
+  const whatsappHref =
+    url && phoneDigits
+      ? buildCtcUrl(`+${phoneDigits}`, whatsappText)
+      : null;
 
   return (
     <div
@@ -81,14 +86,20 @@ export function HrLeaveLinkActions({
           >
             Copy link
           </button>
-          <a
-            href={whatsappHref}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-          >
-            Send WhatsApp
-          </a>
+          {whatsappHref ? (
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            >
+              Send WhatsApp
+            </a>
+          ) : (
+            <span className="text-ink-muted dark:text-cream-500">
+              Add a phone number on the profile to send WhatsApp
+            </span>
+          )}
         </div>
       ) : null}
       {message ? (

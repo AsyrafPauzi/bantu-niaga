@@ -6,8 +6,10 @@ import {
   PageBody,
   StatusPill,
 } from "@/components/super-admin/primitives";
-import { loadAllDsrs } from "@/lib/privacy/load";
+import { loadAllDsrsPage, loadDsrSummary } from "@/lib/privacy/load";
 import type { DsrStatus } from "@/lib/privacy/types";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { parsePagination } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Privacy queue · Super admin" };
@@ -30,15 +32,17 @@ const KIND_LABEL: Record<string, string> = {
   object: "Objection",
 };
 
-export default async function SuperAdminPrivacy() {
-  const rows = await loadAllDsrs({}, 200);
-
-  const pending = rows.filter(
-    (r) => r.status === "pending" || r.status === "in_progress",
-  ).length;
-  const awaitingGrace = rows.filter((r) => r.status === "awaiting_grace").length;
-  const failed = rows.filter((r) => r.status === "failed").length;
-  const completed = rows.filter((r) => r.status === "completed").length;
+export default async function SuperAdminPrivacy({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const pagination = parsePagination(params, { defaultPageSize: 25 });
+  const [{ rows, total }, summary] = await Promise.all([
+    loadAllDsrsPage({}, { from: pagination.from, to: pagination.to }),
+    loadDsrSummary(),
+  ]);
 
   return (
     <>
@@ -48,18 +52,18 @@ export default async function SuperAdminPrivacy() {
       />
       <PageBody>
         <div className="flex gap-3">
-          <KpiCard label="Pending" value={pending} subtle="need action" />
+          <KpiCard label="Pending" value={summary.pending} subtle="need action" />
           <KpiCard
             label="Awaiting grace"
-            value={awaitingGrace}
+            value={summary.awaitingGrace}
             subtle="scheduled deletions"
           />
-          <KpiCard label="Completed" value={completed} subtle="closed DSRs" />
+          <KpiCard label="Completed" value={summary.completed} subtle="closed DSRs" />
           <KpiCard
             label="Failed"
-            value={failed}
+            value={summary.failed}
             subtle="manual follow-up"
-            trend={failed > 0 ? "down" : "flat"}
+            trend={summary.failed > 0 ? "down" : "flat"}
           />
         </div>
 
@@ -113,6 +117,12 @@ export default async function SuperAdminPrivacy() {
               ))}
             </ul>
           )}
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={total}
+            basePath="/super-admin/privacy"
+          />
         </div>
       </PageBody>
     </>

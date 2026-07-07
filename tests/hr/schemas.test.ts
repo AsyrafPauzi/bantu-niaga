@@ -5,6 +5,8 @@ import {
   holidayCreateSchema,
   leaveCreateSchema,
   leaveStatusUpdateSchema,
+  appraisalCreateSchema,
+  appraisalUpdateSchema,
   onboardingCreateSchema,
   onboardingStatusUpdateSchema,
 } from "@/lib/hr/schemas";
@@ -74,5 +76,17 @@ describe("HR schemas", () => {
         name: "Hari Kebangsaan",
       }).name,
     ).toBe("Hari Kebangsaan");
+
+    expect(
+      appraisalCreateSchema.parse({
+        employee_id: employeeId,
+        period_label: "2026 Annual review",
+        due_date: "2026-12-31",
+      }).period_label,
+    ).toBe("2026 Annual review");
+
+    expect(
+      appraisalUpdateSchema.parse({ status: "completed", rating: 4 }).rating,
+    ).toBe(4);
   });
 });

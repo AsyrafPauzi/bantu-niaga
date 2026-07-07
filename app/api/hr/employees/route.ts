@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { writeAuditLog } from "@/lib/audit/log";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
+import {
+  buildEmployeeWritePayload,
+  EMPLOYEE_DETAIL_SELECT,
+  mapEmployeeDetailRow,
+} from "@/lib/hr/employee-api";
+import { DEFAULT_ONBOARDING_LABELS } from "@/lib/hr/employee-fields";
 import { loadHrEmployees } from "@/lib/hr/load";
 import { employeeCreateSchema } from "@/lib/hr/schemas";
+import { hrEncryptionReady } from "@/lib/hr/sensitive";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -67,19 +75,32 @@ export async function POST(request: Request) {
     throw error;
   }
 
+  const needsSeal =
+    (parsed.identity_number && parsed.identity_number.length > 0) ||
+    (parsed.bank_account_no && parsed.bank_account_no.length > 0);
+  if (needsSeal && !hrEncryptionReady()) {
+    return NextResponse.json(
+      {
+        error: "encryption_not_configured",
+        message: "Sensitive HR fields require INTEGRATION_ENCRYPTION_KEY on the server.",
+      },
+      { status: 503 },
+    );
+  }
+
+  const { apply_default_onboarding, ...fields } = parsed;
+  const insertPayload = buildEmployeeWritePayload(fields as Record<string, unknown>);
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("hr_employees")
     .insert({
-      ...parsed,
+      ...insertPayload,
       business_id: user.businessId,
       created_by: user.id,
+      annual_leave_entitlement_days: parsed.annual_leave_entitlement_days ?? 8,
     })
-    .select(
-      "id, full_name, employment_type, role_title, start_date, status, phone_e164, email, " +
-        "emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, " +
-        "bank_name, bank_account_no, bank_account_holder, notes, created_at",
-    )
+    .select(EMPLOYEE_DETAIL_SELECT)
     .single();
 
   if (error) {
@@ -89,5 +110,29 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ employee: data }, { status: 201 });
+  const created = data as unknown as { id: string };
+
+  if (apply_default_onboarding !== false) {
+    await supabase.from("hr_onboarding_items").insert(
+      DEFAULT_ONBOARDING_LABELS.map((label) => ({
+        business_id: user.businessId,
+        employee_id: created.id,
+        label,
+      })),
+    );
+  }
+
+  await writeAuditLog(supabase, {
+    businessId: user.businessId,
+    actorUserId: user.id,
+    action: "hr.employee.create",
+    entityType: "hr_employees",
+    entityId: created.id,
+    diff: { full_name: parsed.full_name, role_title: parsed.role_title },
+  });
+
+  return NextResponse.json(
+    { employee: mapEmployeeDetailRow(data as unknown as Record<string, unknown>) },
+    { status: 201 },
+  );
 }

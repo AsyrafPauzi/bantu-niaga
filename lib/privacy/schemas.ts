@@ -9,7 +9,6 @@ const CONSENT_KINDS = [
   "product_updates",
   "ai_training",
   "analytics",
-  "third_party_share",
 ] as const satisfies readonly ConsentKind[];
 
 export const consentToggleSchema = z.object({

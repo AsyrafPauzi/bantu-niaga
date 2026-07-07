@@ -62,6 +62,7 @@ export default async function ShareLeavePage({ params }: PageProps) {
             <HrShareLeavePanel
               employeeId={employee.id}
               employeeName={employee.full_name}
+              employeePhone={employee.phone_e164}
             />
           }
           help={

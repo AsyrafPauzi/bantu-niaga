@@ -1,4 +1,13 @@
 import { z } from "zod";
+import {
+  INVITEABLE_ROLES,
+  type InviteableRole,
+} from "@/lib/settings/team-shared";
+
+const inviteableRoleEnum = INVITEABLE_ROLES as unknown as [
+  InviteableRole,
+  ...InviteableRole[],
+];
 
 /**
  * Zod schemas for /api/settings/* routes.
@@ -151,5 +160,60 @@ export const twoFaVerifySchema = z
 export const twoFaDisableSchema = z
   .object({
     factor_id: z.string().min(1),
+  })
+  .strict();
+
+// ─────────────────────────────────────────────────────────────────────────
+// Integrations — API keys & webhooks
+// ─────────────────────────────────────────────────────────────────────────
+
+export const WEBHOOK_EVENT_OPTIONS = [
+  "customer.created",
+  "customer.updated",
+  "order.paid",
+  "invoice.paid",
+  "content.posted",
+  "booking.confirmed",
+] as const;
+
+export const apiKeyCreateSchema = z
+  .object({
+    label: z.string().trim().min(1).max(80),
+    scope: z.enum(["read", "read+write", "admin"]),
+  })
+  .strict();
+
+export const webhookCreateSchema = z
+  .object({
+    url: z.string().trim().url().max(500),
+    events: z
+      .array(z.enum(WEBHOOK_EVENT_OPTIONS))
+      .min(1, "Pick at least one event"),
+  })
+  .strict();
+
+export const webhookUpdateSchema = z
+  .object({
+    url: z.string().trim().url().max(500).optional(),
+    events: z.array(z.enum(WEBHOOK_EVENT_OPTIONS)).min(1).optional(),
+    active: z.boolean().optional(),
+  })
+  .strict();
+
+// ─────────────────────────────────────────────────────────────────────────
+// Team — invites & role changes
+// ─────────────────────────────────────────────────────────────────────────
+
+export const teamInviteSchema = z
+  .object({
+    email: z.string().trim().email().max(200),
+    role: z.enum(inviteableRoleEnum),
+    display_name: z.string().trim().min(1).max(120).optional(),
+  })
+  .strict();
+
+export const teamMemberRoleSchema = z
+  .object({
+    role: z.enum(inviteableRoleEnum),
   })
   .strict();

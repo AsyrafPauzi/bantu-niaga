@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { resolveAgentContext } from "@/lib/ai/context";
-import { slowModeDelay, spendCredits } from "@/lib/ai/credits";
+import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildHrAssistantRules } from "@/lib/ai/hr-assistant-prompt";
 import {
   HR_ASSISTANT_TOOLS,
@@ -16,30 +16,36 @@ import {
   type AgentChatMessage,
   type ChatCompletionResponse,
 } from "@/lib/ai/openai";
+import {
+  resolveAgentModel,
+} from "@/lib/settings/ai-agents-catalog";
 import { recordAiUsage } from "@/lib/ai/usage";
 import { canManageHrCore } from "@/lib/hr/access";
 import {
   HR_CREDIT_COST_ACTION,
   HR_CREDIT_COST_CHAT,
+  HR_AGENT_SLUG,
 } from "@/lib/marketplace/agent-types";
 import {
   getCreditBalance,
   hasHrAssistantAddon,
   loadBusinessAgentSettings,
 } from "@/lib/marketplace/entitlements";
+import { creditsToMyr } from "@/lib/settings/credit-pricing";
+import { getAgentCreditsSpentToday } from "@/lib/settings/ai-agents";
 import { logger } from "@/lib/logger";
+import {
+  clearShortMemory,
+  loadShortMemory,
+  saveShortMemory,
+} from "@/lib/ai/short-memory";
+import { consume, rateLimitHeaders } from "@/lib/api/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const historyMessageSchema = z.object({
-  role: z.enum(["user", "assistant"]),
-  content: z.string().min(1).max(4000),
-});
-
 const hrAssistantSchema = z.object({
   message: z.string().trim().min(1).max(2000),
-  history: z.array(historyMessageSchema).max(8).optional().default([]),
 });
 
 async function requireHrUser() {
@@ -80,7 +86,12 @@ async function runHrAssistantChat(
   history: Array<{ role: "user" | "assistant"; content: string }>,
   displayName: string,
   businessName: string | null,
+  settings: Awaited<ReturnType<typeof loadBusinessAgentSettings>>,
 ): Promise<ChatRunResult> {
+  const model = resolveAgentModel({
+    reasoningMode: settings.reasoningMode,
+    modelOverride: settings.modelOverride,
+  });
   const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
@@ -98,6 +109,7 @@ async function runHrAssistantChat(
   ];
 
   let completion = await openaiChat<ChatCompletionResponse>({
+    model,
     briefingFor: "hr",
     context: ctx,
     temperature: 0.2,
@@ -152,6 +164,7 @@ async function runHrAssistantChat(
   }
 
   completion = await openaiChat<ChatCompletionResponse>({
+    model,
     context: ctx,
     temperature: 0.2,
     messages: followUpMessages,
@@ -169,10 +182,15 @@ export async function GET() {
   const { user, response } = await requireHrUser();
   if (response) return response;
 
-  const [addonActive, settings, balance] = await Promise.all([
+  const [addonActive, settings, balance, recentTurns] = await Promise.all([
     hasHrAssistantAddon(user.businessId),
     loadBusinessAgentSettings(user.businessId),
     getCreditBalance(user.businessId),
+    loadShortMemory({
+      businessId: user.businessId,
+      userId: user.id,
+      agentSlug: HR_AGENT_SLUG,
+    }),
   ]);
 
   return NextResponse.json({
@@ -181,12 +199,45 @@ export async function GET() {
     display_name: settings.displayName,
     daily_notice_enabled: settings.dailyNoticeEnabled,
     credit_balance: balance,
+    credits_paused: balance < HR_CREDIT_COST_CHAT,
+    business_id: user.businessId,
+    recent_turns: recentTurns,
   });
+}
+
+export async function DELETE() {
+  const { user, response } = await requireHrUser();
+  if (response) return response;
+
+  await clearShortMemory({
+    businessId: user.businessId,
+    userId: user.id,
+    agentSlug: HR_AGENT_SLUG,
+  });
+
+  return NextResponse.json({ ok: true }, { status: 200 });
 }
 
 export async function POST(request: Request) {
   const { user, response } = await requireHrUser();
   if (response) return response;
+
+  const rl = consume({
+    bucket: "hr.assistant.chat",
+    identifier: `user:${user.id}`,
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      {
+        error: "rate_limited",
+        message: "Too many messages. Pause a moment and try again.",
+        retry_after_seconds: rl.retryAfterSeconds,
+      },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
 
   let body: unknown;
   try {
@@ -210,7 +261,31 @@ export async function POST(request: Request) {
 
   const ctx = await resolveAgentContext();
 
-  const addonActive = await hasHrAssistantAddon(ctx.businessId);
+  const supabase = await createSupabaseServerClient();
+  const [
+    addonActive,
+    settings,
+    spentTodayCredits,
+    businessRes,
+    creditBalance,
+    historyForModel,
+  ] = await Promise.all([
+    hasHrAssistantAddon(ctx.businessId),
+    loadBusinessAgentSettings(ctx.businessId),
+    getAgentCreditsSpentToday(ctx.businessId, HR_AGENT_SLUG),
+    supabase
+      .from("businesses")
+      .select("name")
+      .eq("id", ctx.businessId)
+      .single(),
+    getCreditBalance(ctx.businessId),
+    loadShortMemory({
+      businessId: ctx.businessId,
+      userId: user.id,
+      agentSlug: HR_AGENT_SLUG,
+    }),
+  ]);
+
   if (!addonActive) {
     return NextResponse.json(
       {
@@ -222,7 +297,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const settings = await loadBusinessAgentSettings(ctx.businessId);
   if (!settings.assistantEnabled) {
     return NextResponse.json(
       {
@@ -233,46 +307,74 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data: business } = await supabase
-    .from("businesses")
-    .select("name")
-    .eq("id", ctx.businessId)
-    .single();
+  if (spentTodayCredits >= settings.dailyBudgetCredits) {
+    return NextResponse.json(
+      {
+        error: "daily_budget_exceeded",
+        message: `Daily budget reached (${settings.dailyBudgetCredits} credits · RM ${creditsToMyr(settings.dailyBudgetCredits).toFixed(2)}). Increase the budget in Settings → AI Agents or try again tomorrow.`,
+      },
+      { status: 429 },
+    );
+  }
+
+  if (creditBalance < HR_CREDIT_COST_CHAT) {
+    return NextResponse.json(
+      {
+        error: "insufficient_credits",
+        message:
+          "No credits left in your shared pool. Top up in Billing or wait for your monthly refill.",
+        credit_balance: creditBalance,
+        billing_href: "/settings/billing",
+      },
+      { status: 402 },
+    );
+  }
+
+  const business = businessRes.data;
 
   let totalCharged = 0;
-  let mode: "fast" | "slow" = "fast";
 
   try {
     const firstSpend = await spendCredits(ctx, {
       amount: HR_CREDIT_COST_CHAT,
       reason: "hr.assistant.chat",
-      allowSlow: true,
     });
     totalCharged += firstSpend.charged;
-    mode = firstSpend.mode;
-
-    if (firstSpend.mode === "slow") {
-      await slowModeDelay();
-    }
 
     const { reply, usedActionTool } = await runHrAssistantChat(
       ctx,
       parsed.message,
-      parsed.history,
+      historyForModel,
       settings.displayName,
       business?.name ?? null,
+      settings,
     );
 
-    if (usedActionTool && firstSpend.mode === "fast") {
-      const actionSpend = await spendCredits(ctx, {
-        amount: HR_CREDIT_COST_ACTION - HR_CREDIT_COST_CHAT,
-        reason: "hr.assistant.action",
-        allowSlow: true,
-      });
-      totalCharged += actionSpend.charged;
-      if (actionSpend.mode === "slow") {
-        mode = "slow";
+    await saveShortMemory({
+      businessId: ctx.businessId,
+      userId: user.id,
+      agentSlug: HR_AGENT_SLUG,
+      turns: [
+        ...historyForModel,
+        { role: "user", content: parsed.message },
+        { role: "assistant", content: reply },
+      ],
+    });
+
+    if (usedActionTool) {
+      try {
+        const actionSpend = await spendCredits(ctx, {
+          amount: HR_CREDIT_COST_ACTION - HR_CREDIT_COST_CHAT,
+          reason: "hr.assistant.action",
+        });
+        totalCharged += actionSpend.charged;
+      } catch (actionError) {
+        if (!isInsufficientCreditsError(actionError)) {
+          throw actionError;
+        }
+        logger.warn("hr.assistant.action_credit_shortfall", {
+          businessId: ctx.businessId,
+        });
       }
     }
 
@@ -282,7 +384,9 @@ export async function POST(request: Request) {
       businessId: ctx.businessId,
       triggerType: usedActionTool ? "ACTION" : "CHAT",
       creditsCharged: totalCharged,
-      mode,
+      mode: "fast",
+      costMyrEstimated: creditsToMyr(totalCharged),
+      agentSlug: HR_AGENT_SLUG,
       metadata: { used_action_tool: usedActionTool },
     });
 
@@ -292,12 +396,26 @@ export async function POST(request: Request) {
         credits: {
           charged: totalCharged,
           balance,
-          mode,
+          mode: "fast" as const,
         },
       },
       { status: 200 },
     );
   } catch (error) {
+    if (isInsufficientCreditsError(error)) {
+      const balance = await getCreditBalance(ctx.businessId);
+      return NextResponse.json(
+        {
+          error: "insufficient_credits",
+          message:
+            "No credits left in your shared pool. Top up in Billing or wait for your monthly refill.",
+          credit_balance: balance,
+          billing_href: "/settings/billing",
+        },
+        { status: 402 },
+      );
+    }
+
     logger.error("hr.assistant.failed", {
       businessId: ctx.businessId,
       error: error instanceof Error ? error.message : String(error),

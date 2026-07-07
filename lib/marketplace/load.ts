@@ -22,15 +22,16 @@ export const loadCatalog = cache(async (): Promise<CatalogEntry[]> => {
       supabase
         .from("marketplace_addons")
         .select(
-          "id, slug, name, short_desc, long_desc, pillar, icon, price_cents, cadence, included_in_tier, is_featured, sort_order",
+          "id, slug, name, short_desc, long_desc, pillar, icon, price_cents, cadence, included_in_tier, is_featured, sort_order, is_coming_soon",
         )
+        .eq("status", "live")
         .order("sort_order", { ascending: true }),
       supabase
         .from("business_addons")
         .select(
           "id, business_id, addon_id, status, activated_at, next_charge_at, cancel_at, qty, meta",
         )
-        .neq("status", "cancelled"),
+        .in("status", ["active", "pending_cancel"]),
     ]);
 
   if (addonsError) throw addonsError;

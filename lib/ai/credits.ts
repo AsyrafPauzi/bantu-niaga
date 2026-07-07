@@ -3,12 +3,31 @@ import "server-only";
 import type { AgentContext } from "@/lib/ai/context/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type CreditMode = "fast" | "slow";
+export type CreditMode = "fast";
 
 export interface SpendCreditsResult {
   charged: number;
   mode: CreditMode;
   balance: number;
+}
+
+export class InsufficientCreditsError extends Error {
+  readonly code = "insufficient_credits" as const;
+
+  constructor(message = "insufficient_credits") {
+    super(message);
+    this.name = "InsufficientCreditsError";
+  }
+}
+
+export function isInsufficientCreditsError(
+  error: unknown,
+): error is InsufficientCreditsError {
+  if (error instanceof InsufficientCreditsError) return true;
+  return (
+    error instanceof Error &&
+    error.message.includes("insufficient_credits")
+  );
 }
 
 export async function spendCredits(
@@ -25,10 +44,13 @@ export async function spendCredits(
     p_credits: opts.amount,
     p_reason: opts.reason,
     p_actor_user_id: ctx.userId,
-    p_allow_slow: opts.allowSlow ?? true,
+    p_allow_slow: opts.allowSlow ?? false,
   });
 
   if (error) {
+    if (error.message.includes("insufficient_credits")) {
+      throw new InsufficientCreditsError();
+    }
     throw new Error(error.message);
   }
 
@@ -40,7 +62,7 @@ export async function spendCredits(
 
   return {
     charged: row.charged,
-    mode: row.mode,
+    mode: "fast",
     balance: row.new_balance,
   };
 }
@@ -63,10 +85,4 @@ export async function grantCredits(
     throw new Error(error.message);
   }
   return data as number;
-}
-
-/** Slow mode delay — 15–20s with light jitter. */
-export async function slowModeDelay(): Promise<void> {
-  const ms = 15_000 + Math.floor(Math.random() * 5_000);
-  await new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -36,10 +36,10 @@ export default async function BrandingSettingsPage() {
       <PageHeader
         eyebrow="Settings · Workspace"
         title="Branding"
-        description="Logo, brand colours, and customer-facing identity for receipts, invoices, the public booking page, and broadcast emails."
+        description="Make Bantu Niaga look like your business — logo, colours, and the details customers see on receipts, invoices, and emails."
         action={
           canEdit ? null : (
-            <Badge tone="warning">Read-only — owner role required</Badge>
+            <Badge tone="warning">View only — owner can edit</Badge>
           )
         }
       />

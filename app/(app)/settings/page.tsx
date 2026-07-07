@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   ChevronRight,
   CreditCard,
@@ -9,11 +10,18 @@ import {
   ShieldCheck,
   Sparkles,
   SunMoon,
-  ToggleLeft,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { loadBusiness } from "@/lib/settings/business";
+import { tierBy } from "@/lib/settings/plans";
+import {
+  loadTeamInvites,
+  loadTeamMembers,
+  seatQuota,
+} from "@/lib/settings/team";
 
 export const metadata = { title: "Settings" };
 
@@ -109,28 +117,48 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   },
   {
     title: "Power features",
-    description: "Toggle modules, beta features, and AI agents per module.",
+    description: "Turn AI agents on or off and manage their daily budget.",
     sections: [
-      {
-        href: "/settings/features",
-        label: "Feature toggles",
-        description:
-          "Enable/disable modules, beta features, and experimental flows business-wide.",
-        icon: ToggleLeft,
-      },
       {
         href: "/settings/ai-agents",
         label: "AI Agent activation",
         description:
-          "Switch Maya, Finance, Operations, and Boardroom agents on or off; set their daily budget.",
+          "Switch Maya, Fayza, Aiman, Sufi, Hana, Amir, and Boardroom agents on or off; set their daily budget.",
         icon: Sparkles,
-        badge: { label: "4 agents", tone: "brand" },
+        badge: { label: "7 agents", tone: "brand" },
       },
     ],
   },
 ];
 
-export default function SettingsIndexPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SettingsIndexPage() {
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch (e) {
+    if (e instanceof UnauthorizedError) redirect("/sign-in");
+    throw e;
+  }
+
+  const business = await loadBusiness(user.businessId);
+  const [members, invites] = await Promise.all([
+    loadTeamMembers(user.businessId),
+    loadTeamInvites(user.businessId),
+  ]);
+
+  const tier = business?.tier ?? "starter";
+  const tierMeta = tierBy(tier);
+  const quota = seatQuota(tier);
+  const seatUsed = members.length + invites.length;
+  const seatsValue =
+    quota >= 999 ? `${members.length}` : `${seatUsed} / ${quota}`;
+  const seatsCaption =
+    invites.length > 0
+      ? `${invites.length} invite${invites.length === 1 ? "" : "s"} pending`
+      : `${members.length} active member${members.length === 1 ? "" : "s"}`;
+
   return (
     <div className="space-y-8">
       <header className="flex items-start justify-between gap-3">
@@ -147,8 +175,11 @@ export default function SettingsIndexPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone="accent">Growth · RM 139/mo</Badge>
-          <Badge tone="brand">Owner</Badge>
+          <Badge tone="accent">
+            {tierMeta?.label ?? tier}
+            {tierMeta?.priceMyr != null ? ` · RM ${tierMeta.priceMyr}/mo` : ""}
+          </Badge>
+          <Badge tone="brand">{user.role === "owner" ? "Owner" : user.role}</Badge>
         </div>
       </header>
 
@@ -156,14 +187,18 @@ export default function SettingsIndexPage() {
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatusTile
           label="Plan"
-          value="Growth"
-          caption="Renews 14 Jul 2026"
+          value={tierMeta?.label ?? tier}
+          caption={
+            business?.subscription_renewal_at
+              ? `Renews ${new Date(business.subscription_renewal_at).toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" })}`
+              : "—"
+          }
           tone="accent"
         />
         <StatusTile
           label="Seats"
-          value="3 / 5"
-          caption="2 invites pending"
+          value={seatsValue}
+          caption={seatsCaption}
           tone="brand"
         />
         <StatusTile

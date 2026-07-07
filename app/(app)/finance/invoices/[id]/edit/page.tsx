@@ -6,7 +6,7 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { loadInvoiceWithItems } from "@/lib/finance/invoice-db";
 import { loadBusiness } from "@/lib/settings/business";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { FinanceCustomerRow } from "@/lib/finance/schemas";
 
 export const metadata = { title: "Edit invoice" };
@@ -29,13 +29,13 @@ export default async function EditInvoicePage({ params }: Props) {
 
   if (!can(user.role, "finance")) redirect("/home");
 
-  const admin = createServiceRoleClient();
+  const supabase = await createSupabaseServerClient();
   const business = await loadBusiness(user.businessId);
   if (!business) redirect("/home");
 
   const [invoice, customersRes] = await Promise.all([
-    loadInvoiceWithItems(admin, user.businessId, id),
-    admin
+    loadInvoiceWithItems(supabase, user.businessId, id),
+    supabase
       .from("customers")
       .select(
         "id, business_id, name, phone_e164, email, address, notes, created_at, updated_at",

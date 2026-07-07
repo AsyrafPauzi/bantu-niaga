@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
 import { loadHrPublicHolidays } from "@/lib/hr/load";
+import { hasPublicHolidaysAddon } from "@/lib/marketplace/entitlements";
 import { holidayCreateSchema } from "@/lib/hr/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -39,6 +40,19 @@ export async function GET() {
   const { user, response } = await requireHrUser();
   if (response) return response;
 
+  const addonActive = await hasPublicHolidaysAddon(user.businessId);
+  if (!addonActive) {
+    return NextResponse.json(
+      {
+        error: "addon_required",
+        message:
+          "Activate Public Holiday Calendar in the Marketplace to view holidays.",
+        marketplace_href: "/marketplace",
+      },
+      { status: 403 },
+    );
+  }
+
   const holidays = await loadHrPublicHolidays(user.businessId);
   return NextResponse.json({ data: holidays }, { status: 200 });
 }
@@ -46,6 +60,19 @@ export async function GET() {
 export async function POST(request: Request) {
   const { user, response } = await requireHrUser();
   if (response) return response;
+
+  const addonActive = await hasPublicHolidaysAddon(user.businessId);
+  if (!addonActive) {
+    return NextResponse.json(
+      {
+        error: "addon_required",
+        message:
+          "Activate Public Holiday Calendar in the Marketplace to add holidays.",
+        marketplace_href: "/marketplace",
+      },
+      { status: 403 },
+    );
+  }
 
   let body: unknown;
   try {

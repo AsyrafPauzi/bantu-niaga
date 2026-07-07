@@ -7,6 +7,10 @@ import { BillingView } from "@/components/settings/BillingView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { tierBy } from "@/lib/settings/plans";
+import {
+  ensureBillplzPaymentMethod,
+  isBillplzConfigured,
+} from "@/lib/settings/billing";
 
 export const metadata = { title: "Billing & payment" };
 export const dynamic = "force-dynamic";
@@ -21,31 +25,32 @@ export default async function BillingSettingsPage() {
   }
 
   const supabase = await createSupabaseServerClient();
-  const [businessRes, methodsRes, invoicesRes] = await Promise.all([
+  const [businessRes, invoicesRes] = await Promise.all([
     supabase
       .from("businesses")
       .select("tier, subscription_renewal_at, credit_balance")
       .eq("id", user.businessId)
       .maybeSingle(),
     supabase
-      .from("payment_methods")
-      .select(
-        "id, kind, label, masked, owner_name, exp_month, exp_year, is_default, provider, created_at",
-      )
-      .eq("business_id", user.businessId)
-      .order("is_default", { ascending: false })
-      .order("created_at", { ascending: false }),
-    supabase
       .from("invoices")
       .select(
         "id, number, kind, period_label, amount_myr, tax_myr, status, paid_at, pdf_url, created_at",
+        { count: "exact" },
       )
       .eq("business_id", user.businessId)
       .order("created_at", { ascending: false })
-      .limit(20),
+      .range(0, 9),
   ]);
 
   if (!businessRes.data) redirect("/settings");
+
+  if (user.role === "owner") {
+    try {
+      await ensureBillplzPaymentMethod(supabase, user.businessId);
+    } catch {
+      // Non-fatal — top-up route will retry.
+    }
+  }
   const tier = tierBy(businessRes.data.tier);
   const nextCharge = tier?.priceMyr ?? 0;
   const monthlyQuota = tier?.quotas.fastCreditsMonthly ?? 0;
@@ -64,7 +69,7 @@ export default async function BillingSettingsPage() {
       <PageHeader
         eyebrow="Settings · Account"
         title="Billing & payment"
-        description="Payment methods, invoices, and Fast Credits top-ups."
+        description="Billplz payments, invoices, and Fast Credits top-ups."
         action={
           canEdit ? (
             <Link
@@ -80,13 +85,14 @@ export default async function BillingSettingsPage() {
       />
 
       <BillingView
-        initialMethods={methodsRes.data ?? []}
         initialInvoices={invoicesRes.data ?? []}
+        initialInvoiceTotal={invoicesRes.count ?? 0}
         creditBalance={businessRes.data.credit_balance}
         monthlyCreditQuota={Number.isFinite(monthlyQuota) ? monthlyQuota : 0}
         nextChargeMyr={nextCharge}
         nextRenewalAt={businessRes.data.subscription_renewal_at}
         canEdit={canEdit}
+        billplzBypass={!isBillplzConfigured()}
       />
     </div>
   );

@@ -1,16 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CreditCard,
   Download,
   Loader2,
-  Plus,
   Receipt,
-  Star,
-  Trash2,
   Wallet,
   X,
   Zap,
@@ -18,18 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { TOPUP_BUNDLES } from "@/lib/settings/schemas";
 
-interface PaymentMethod {
-  id: string;
-  kind: "card" | "fpx" | "wallet";
-  label: string;
-  masked: string;
-  owner_name: string | null;
-  exp_month: number | null;
-  exp_year: number | null;
-  is_default: boolean;
-  provider: string;
-  created_at: string;
-}
+const INVOICE_PAGE_SIZE = 10;
 
 interface Invoice {
   id: string;
@@ -45,13 +30,14 @@ interface Invoice {
 }
 
 interface BillingViewProps {
-  initialMethods: PaymentMethod[];
   initialInvoices: Invoice[];
+  initialInvoiceTotal: number;
   creditBalance: number;
   monthlyCreditQuota: number;
   nextChargeMyr: number;
   nextRenewalAt: string | null;
   canEdit: boolean;
+  billplzBypass: boolean;
 }
 
 function fmtDate(iso: string | null): string {
@@ -64,65 +50,91 @@ function fmtDate(iso: string | null): string {
 }
 
 export function BillingView({
-  initialMethods,
   initialInvoices,
+  initialInvoiceTotal,
   creditBalance,
   monthlyCreditQuota,
   nextChargeMyr,
   nextRenewalAt,
   canEdit,
+  billplzBypass,
 }: BillingViewProps) {
-  const router = useRouter();
-  const [methods, setMethods] = useState<PaymentMethod[]>(initialMethods);
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [invoiceTotal, setInvoiceTotal] = useState(initialInvoiceTotal);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [balance, setBalance] = useState(creditBalance);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  // Modals
-  const [showAdd, setShowAdd] = useState(false);
   const [showTopup, setShowTopup] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  function refresh() {
-    router.refresh();
-  }
+  const invoiceTotalPages = Math.max(
+    1,
+    Math.ceil(invoiceTotal / INVOICE_PAGE_SIZE),
+  );
 
-  async function makeDefault(id: string) {
+  async function loadInvoicePage(nextPage: number, force = false) {
+    if (nextPage < 1) return;
+    if (!force && nextPage === invoicePage) return;
+
     setError(null);
-    const res = await fetch(`/api/settings/billing/payment-methods/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_default: true }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(json?.message ?? "Could not set default");
-      return;
-    }
-    setMethods((s) =>
-      s.map((m) => ({ ...m, is_default: m.id === id })),
-    );
-    refresh();
-  }
+    setLoadingInvoices(true);
+    try {
+      const res = await fetch(
+        `/api/settings/billing/invoices?page=${nextPage}&pageSize=${INVOICE_PAGE_SIZE}`,
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json?.message ?? "Could not load invoices");
+        return;
+      }
+      const total = json.total ?? 0;
+      const totalPages = Math.max(1, Math.ceil(total / INVOICE_PAGE_SIZE));
+      if (nextPage > totalPages) return;
 
-  async function removeMethod(id: string) {
-    setError(null);
-    if (!confirm("Remove this payment method?")) return;
-    const res = await fetch(`/api/settings/billing/payment-methods/${id}`, {
-      method: "DELETE",
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(json?.message ?? "Could not remove");
-      return;
+      setInvoices(json.data ?? []);
+      setInvoicePage(json.page ?? nextPage);
+      setInvoiceTotal(total);
+    } catch {
+      setError("Could not load invoices");
+    } finally {
+      setLoadingInvoices(false);
     }
-    setMethods((s) => s.filter((m) => m.id !== id));
-    refresh();
   }
 
   function bundleLabel(b: keyof typeof TOPUP_BUNDLES) {
     const v = TOPUP_BUNDLES[b];
     return `RM ${v.amount_myr} → ${v.credits} credits`;
+  }
+
+  async function downloadInvoice(id: string) {
+    setError(null);
+    setDownloadingId(id);
+    try {
+      const res = await fetch(`/api/settings/billing/invoices/${id}/download`);
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError(json?.message ?? "Could not download invoice");
+        return;
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match?.[1] ?? `invoice-${id}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Could not download invoice");
+    } finally {
+      setDownloadingId(null);
+    }
   }
 
   async function topup(bundle: keyof typeof TOPUP_BUNDLES) {
@@ -139,25 +151,8 @@ export function BillingView({
         return;
       }
       setBalance(json.new_balance);
-      // Optimistically prepend an invoice row.
-      const v = TOPUP_BUNDLES[bundle];
-      setInvoices((s) => [
-        {
-          id: json.invoice_id,
-          number: "TU-" + json.invoice_id.slice(0, 6),
-          kind: "topup",
-          period_label: "Fast Credits top-up",
-          amount_myr: v.amount_myr,
-          tax_myr: 0,
-          status: "paid",
-          paid_at: new Date().toISOString(),
-          pdf_url: null,
-          created_at: new Date().toISOString(),
-        },
-        ...s,
-      ]);
       setShowTopup(false);
-      refresh();
+      await loadInvoicePage(1, true);
     });
   }
 
@@ -171,6 +166,13 @@ export function BillingView({
       {error ? (
         <div className="rounded-lg border border-status-danger/30 bg-status-danger/10 p-3 text-sm text-status-danger">
           {error}
+        </div>
+      ) : null}
+
+      {billplzBypass ? (
+        <div className="rounded-lg border border-status-warning/30 bg-status-warning/10 p-3 text-sm text-ink dark:text-cream-100">
+          <strong>Development mode:</strong> Billplz is not configured, so
+          Fast Credit top-ups are applied immediately without charging a card.
         </div>
       ) : null}
 
@@ -191,8 +193,7 @@ export function BillingView({
               </span>
             </p>
             <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-              Auto-renew via{" "}
-              {methods.find((m) => m.is_default)?.label ?? "your default method"}
+              Auto-renew via Billplz
             </p>
           </div>
         </div>
@@ -211,102 +212,36 @@ export function BillingView({
 
       <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
         <div className="space-y-5 lg:col-span-2">
-          {/* Payment methods */}
+          {/* Payment method — Billplz only */}
           <div className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <div className="flex items-start justify-between gap-3 border-b border-cream-200 p-5 dark:border-hairline-dark">
-              <div className="flex items-start gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                  <CreditCard className="h-5 w-5" strokeWidth={2} />
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-ink dark:text-cream-100">
-                    Payment methods
-                  </h3>
-                  <p className="text-xs text-ink-muted dark:text-cream-400">
-                    Billplz / Curlec / FPX direct debit.
-                  </p>
-                </div>
+            <div className="flex items-start gap-3 border-b border-cream-200 p-5 dark:border-hairline-dark">
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+                <CreditCard className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold text-ink dark:text-cream-100">
+                  Payment method
+                </h3>
+                <p className="text-xs text-ink-muted dark:text-cream-400">
+                  All payments go through Billplz — FPX, credit card, and debit
+                  card.
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAdd(true)}
-                disabled={!canEdit}
-                className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-              >
-                <Plus className="h-3 w-3" strokeWidth={2} />
-                Add method
-              </button>
             </div>
-            {methods.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-ink-muted dark:text-cream-400">
-                No payment methods yet. Add one to enable auto-renewal and
-                Fast Credit top-ups.
-              </p>
-            ) : (
-              <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
-                {methods.map((m) => (
-                  <li
-                    key={m.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`grid h-9 w-12 place-items-center rounded-md text-[10px] font-bold tracking-wider text-white ${
-                          m.kind === "card"
-                            ? "bg-gradient-to-br from-blue-700 to-blue-500"
-                            : m.kind === "fpx"
-                              ? "bg-gradient-to-br from-emerald-700 to-emerald-500"
-                              : "bg-gradient-to-br from-purple-700 to-purple-500"
-                        }`}
-                      >
-                        {m.kind === "card"
-                          ? "VISA"
-                          : m.kind === "fpx"
-                            ? "FPX"
-                            : "EWAL"}
-                      </span>
-                      <div>
-                        <p className="flex items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
-                          {m.label}
-                          {m.is_default ? (
-                            <Badge tone="accent">Default</Badge>
-                          ) : null}
-                        </p>
-                        <p className="text-[11px] text-ink-muted dark:text-cream-400">
-                          {m.masked}
-                          {m.exp_month && m.exp_year
-                            ? ` · Exp ${String(m.exp_month).padStart(2, "0")}/${String(m.exp_year).slice(-2)}`
-                            : ""}
-                          {m.owner_name ? ` · ${m.owner_name}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {!m.is_default && canEdit ? (
-                        <button
-                          type="button"
-                          onClick={() => makeDefault(m.id)}
-                          className="inline-flex items-center gap-1 rounded-md border border-cream-300 px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-cream-100 dark:border-hairline-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-                        >
-                          <Star className="h-3 w-3" strokeWidth={2} />
-                          Make default
-                        </button>
-                      ) : null}
-                      {canEdit ? (
-                        <button
-                          type="button"
-                          onClick={() => removeMethod(m.id)}
-                          aria-label="Remove"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-cream-300 text-status-danger hover:bg-status-danger/10 dark:border-hairline-dark"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                        </button>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="flex items-center gap-3 px-5 py-4">
+              <span className="grid h-9 w-12 place-items-center rounded-md bg-gradient-to-br from-sky-700 to-sky-500 text-[9px] font-bold tracking-wider text-white">
+                BILLPLZ
+              </span>
+              <div>
+                <p className="flex items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
+                  Billplz
+                  <Badge tone="accent">Default</Badge>
+                </p>
+                <p className="text-[11px] text-ink-muted dark:text-cream-400">
+                  FPX · Credit card · Debit card
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Invoices */}
@@ -326,24 +261,33 @@ export function BillingView({
                 </div>
               </div>
             </div>
-            {invoices.length === 0 ? (
+            {invoiceTotal === 0 ? (
               <p className="px-5 py-6 text-sm text-ink-muted dark:text-cream-400">
                 No invoices yet.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-cream-100/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted dark:bg-hairline-dark/30 dark:text-cream-400">
-                    <tr>
-                      <th className="px-5 py-2.5 text-left">Period</th>
-                      <th className="px-5 py-2.5 text-left">Invoice no.</th>
-                      <th className="px-5 py-2.5 text-right">Amount</th>
-                      <th className="px-5 py-2.5 text-left">Status</th>
-                      <th className="px-5 py-2.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-cream-200 dark:divide-hairline-dark">
-                    {invoices.map((inv) => (
+              <div className="relative">
+                {loadingInvoices ? (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-panel-dark/70">
+                    <Loader2
+                      className="h-5 w-5 animate-spin text-brand-600"
+                      strokeWidth={2}
+                    />
+                  </div>
+                ) : null}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-cream-100/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted dark:bg-hairline-dark/30 dark:text-cream-400">
+                      <tr>
+                        <th className="px-5 py-2.5 text-left">Period</th>
+                        <th className="px-5 py-2.5 text-left">Invoice no.</th>
+                        <th className="px-5 py-2.5 text-right">Amount</th>
+                        <th className="px-5 py-2.5 text-left">Status</th>
+                        <th className="px-5 py-2.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-cream-200 dark:divide-hairline-dark">
+                      {invoices.map((inv) => (
                       <tr key={inv.id}>
                         <td className="px-5 py-3 text-sm font-semibold text-ink dark:text-cream-100">
                           {inv.period_label ?? inv.kind}
@@ -375,32 +319,85 @@ export function BillingView({
                           </Badge>
                         </td>
                         <td className="px-5 py-3 text-right">
-                          <a
-                            href={inv.pdf_url ?? "#"}
-                            onClick={(e) => {
-                              if (!inv.pdf_url) e.preventDefault();
-                            }}
+                          <button
+                            type="button"
+                            onClick={() => downloadInvoice(inv.id)}
+                            disabled={downloadingId === inv.id}
                             aria-label="Download invoice"
-                            title={
-                              inv.pdf_url
-                                ? "Download PDF"
-                                : "PDF available after billing run"
-                            }
-                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-cream-300 bg-white text-ink-muted hover:bg-cream-100 hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:bg-hairline-dark/60 ${
-                              inv.pdf_url ? "" : "opacity-50"
-                            }`}
+                            title="Download invoice / receipt"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-cream-300 bg-white text-ink-muted hover:bg-cream-100 hover:text-ink disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:bg-hairline-dark/60"
                           >
-                            <Download
-                              className="h-3.5 w-3.5"
-                              strokeWidth={2}
-                            />
-                          </a>
+                            {downloadingId === inv.id ? (
+                              <Loader2
+                                className="h-3.5 w-3.5 animate-spin"
+                                strokeWidth={2}
+                              />
+                            ) : (
+                              <Download
+                                className="h-3.5 w-3.5"
+                                strokeWidth={2}
+                              />
+                            )}
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              {invoiceTotalPages > 1 ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-cream-200 px-5 py-3 text-sm text-ink-muted dark:border-hairline-dark dark:text-cream-400">
+                  <span>
+                    Showing{" "}
+                    {invoices.length === 0
+                      ? 0
+                      : (invoicePage - 1) * INVOICE_PAGE_SIZE + 1}
+                    –
+                    {(invoicePage - 1) * INVOICE_PAGE_SIZE + invoices.length} of{" "}
+                    {invoiceTotal}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => loadInvoicePage(invoicePage - 1)}
+                      disabled={loadingInvoices || invoicePage <= 1}
+                      className="rounded-md border border-cream-200 px-3 py-1 text-xs text-ink hover:bg-cream-200 disabled:opacity-50 dark:border-hairline-dark dark:text-cream-100 dark:hover:bg-panel-dark"
+                    >
+                      Previous
+                    </button>
+                    {Array.from(
+                      { length: invoiceTotalPages },
+                      (_, i) => i + 1,
+                    ).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => loadInvoicePage(p)}
+                        disabled={loadingInvoices || p === invoicePage}
+                        aria-current={p === invoicePage ? "page" : undefined}
+                        className={`min-w-[2rem] rounded-md border px-2.5 py-1 text-xs font-medium disabled:opacity-60 ${
+                          p === invoicePage
+                            ? "border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-900/40 dark:text-brand-200"
+                            : "border-cream-200 text-ink hover:bg-cream-200 dark:border-hairline-dark dark:text-cream-100 dark:hover:bg-panel-dark"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => loadInvoicePage(invoicePage + 1)}
+                      disabled={
+                        loadingInvoices || invoicePage >= invoiceTotalPages
+                      }
+                      className="rounded-md border border-cream-200 px-3 py-1 text-xs text-ink hover:bg-cream-200 disabled:opacity-50 dark:border-hairline-dark dark:text-cream-100 dark:hover:bg-panel-dark"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
             )}
           </div>
         </div>
@@ -461,23 +458,6 @@ export function BillingView({
         </aside>
       </div>
 
-      {/* Add payment method modal */}
-      {showAdd ? (
-        <AddPaymentMethodModal
-          onClose={() => setShowAdd(false)}
-          onSaved={(pm) => {
-            setMethods((s) => {
-              if (pm.is_default) {
-                return [pm, ...s.map((m) => ({ ...m, is_default: false }))];
-              }
-              return [pm, ...s];
-            });
-            setShowAdd(false);
-            refresh();
-          }}
-        />
-      ) : null}
-
       {/* Top-up modal */}
       {showTopup ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">
@@ -488,9 +468,9 @@ export function BillingView({
                   Top up Fast Credits
                 </h3>
                 <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-                  Charged to{" "}
-                  {methods.find((m) => m.is_default)?.label ?? "your default method"}
-                  .
+                  {billplzBypass
+                    ? "Credits are added immediately (Billplz bypass)."
+                    : "You will be redirected to Billplz to complete payment."}
                 </p>
               </div>
               <button
@@ -544,237 +524,12 @@ export function BillingView({
             {pending ? (
               <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-ink-muted">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                Processing payment…
+                Processing…
               </p>
             ) : null}
           </div>
         </div>
       ) : null}
     </>
-  );
-}
-
-function AddPaymentMethodModal({
-  onClose,
-  onSaved,
-}: {
-  onClose: () => void;
-  onSaved: (pm: PaymentMethod) => void;
-}) {
-  const [kind, setKind] = useState<"card" | "fpx" | "wallet">("card");
-  const [label, setLabel] = useState("");
-  const [last4, setLast4] = useState("");
-  const [ownerName, setOwnerName] = useState("");
-  const [expMonth, setExpMonth] = useState("");
-  const [expYear, setExpYear] = useState("");
-  const [makeDefault, setMakeDefault] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function save() {
-    setError(null);
-    if (!label.trim()) {
-      setError("Give this method a label");
-      return;
-    }
-    if (kind === "card" && !/^\d{4}$/.test(last4)) {
-      setError("Enter the last 4 digits");
-      return;
-    }
-    startTransition(async () => {
-      const masked = kind === "card" ? `•••• ${last4}` : `•••• ${last4 || "0000"}`;
-      const res = await fetch("/api/settings/billing/payment-methods", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind,
-          label: label.trim(),
-          masked,
-          owner_name: ownerName.trim() || null,
-          exp_month: kind === "card" && expMonth ? Number(expMonth) : null,
-          exp_year: kind === "card" && expYear ? Number(expYear) : null,
-          provider: kind === "fpx" ? "curlec" : "billplz",
-          make_default: makeDefault,
-        }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(json?.message ?? json?.error ?? "Could not add method");
-        return;
-      }
-      onSaved(json.payment_method);
-    });
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-cream-200 bg-white p-6 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-ink dark:text-cream-100">
-              Add payment method
-            </h3>
-            <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-              We never store full card numbers. Tokenisation handled by the
-              gateway in production.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/40"
-          >
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <div className="grid grid-cols-3 gap-2">
-            {(["card", "fpx", "wallet"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setKind(k)}
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
-                  kind === k
-                    ? "border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-700/15 dark:text-accent-200"
-                    : "border-cream-300 bg-white text-ink hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-                }`}
-              >
-                {k === "card"
-                  ? "Card"
-                  : k === "fpx"
-                    ? "FPX direct debit"
-                    : "E-wallet"}
-              </button>
-            ))}
-          </div>
-
-          <Field label="Label">
-            <input
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder={
-                kind === "card"
-                  ? "Visa ending 4242"
-                  : kind === "fpx"
-                    ? "Maybank FPX"
-                    : "Touch n Go eWallet"
-              }
-              className={inputCx}
-            />
-          </Field>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field
-              label={kind === "card" ? "Last 4 digits" : "Reference (last 4)"}
-            >
-              <input
-                value={last4}
-                onChange={(e) =>
-                  setLast4(e.target.value.replace(/\D/g, "").slice(0, 4))
-                }
-                placeholder="4242"
-                inputMode="numeric"
-                className={inputCx}
-              />
-            </Field>
-            <Field label="Cardholder / Owner name">
-              <input
-                value={ownerName}
-                onChange={(e) => setOwnerName(e.target.value)}
-                className={inputCx}
-              />
-            </Field>
-          </div>
-
-          {kind === "card" ? (
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Exp month">
-                <input
-                  value={expMonth}
-                  onChange={(e) =>
-                    setExpMonth(e.target.value.replace(/\D/g, "").slice(0, 2))
-                  }
-                  placeholder="08"
-                  className={inputCx}
-                />
-              </Field>
-              <Field label="Exp year">
-                <input
-                  value={expYear}
-                  onChange={(e) =>
-                    setExpYear(e.target.value.replace(/\D/g, "").slice(0, 4))
-                  }
-                  placeholder="2029"
-                  className={inputCx}
-                />
-              </Field>
-            </div>
-          ) : null}
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={makeDefault}
-              onChange={(e) => setMakeDefault(e.target.checked)}
-              className="h-4 w-4 accent-accent-500"
-            />
-            <span className="text-ink dark:text-cream-100">
-              Use as default for renewals &amp; top-ups
-            </span>
-          </label>
-
-          {error ? (
-            <p className="rounded-md border border-status-danger/30 bg-status-danger/10 p-2 text-xs text-status-danger">
-              {error}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={pending}
-            className="rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={pending}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-accent-600 disabled:opacity-60"
-          >
-            {pending ? (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
-            ) : null}
-            Save method
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const inputCx =
-  "w-full rounded-lg border border-cream-300 bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:placeholder:text-cream-400";
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block space-y-1.5">
-      <span className="block text-[13px] font-semibold text-ink dark:text-cream-100">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }

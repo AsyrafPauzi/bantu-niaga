@@ -1,0 +1,29 @@
+{
+  "year": 2026,
+  "holidays": [
+    { "holiday_date": "2026-01-01", "name": "New Year's Day", "state_code": null, "external_id": "2026-ny" },
+    { "holiday_date": "2026-01-29", "name": "Chinese New Year", "state_code": null, "external_id": "2026-cny-1" },
+    { "holiday_date": "2026-01-30", "name": "Chinese New Year (Day 2)", "state_code": null, "external_id": "2026-cny-2" },
+    { "holiday_date": "2026-02-01", "name": "Federal Territory Day", "state_code": "KUL", "external_id": "2026-ft-kul" },
+    { "holiday_date": "2026-02-01", "name": "Federal Territory Day", "state_code": "LBN", "external_id": "2026-ft-lbn" },
+    { "holiday_date": "2026-02-01", "name": "Federal Territory Day", "state_code": "PJY", "external_id": "2026-ft-pjy" },
+    { "holiday_date": "2026-02-17", "name": "Thaipusam", "state_code": "KUL", "external_id": "2026-thaipusam-kul" },
+    { "holiday_date": "2026-02-17", "name": "Thaipusam", "state_code": "PNG", "external_id": "2026-thaipusam-png" },
+    { "holiday_date": "2026-02-17", "name": "Thaipusam", "state_code": "JHR", "external_id": "2026-thaipusam-jhr" },
+    { "holiday_date": "2026-02-17", "name": "Thaipusam", "state_code": "NSN", "external_id": "2026-thaipusam-nsn" },
+    { "holiday_date": "2026-02-17", "name": "Thaipusam", "state_code": "PRK", "external_id": "2026-thaipusam-prk" },
+    { "holiday_date": "2026-02-17", "name": "Thaipusam", "state_code": "SGR", "external_id": "2026-thaipusam-sgr" },
+    { "holiday_date": "2026-03-20", "name": "Hari Raya Aidilfitri", "state_code": null, "external_id": "2026-raya-1" },
+    { "holiday_date": "2026-03-21", "name": "Hari Raya Aidilfitri (Day 2)", "state_code": null, "external_id": "2026-raya-2" },
+    { "holiday_date": "2026-05-01", "name": "Labour Day", "state_code": null, "external_id": "2026-labour" },
+    { "holiday_date": "2026-05-27", "name": "Wesak Day", "state_code": null, "external_id": "2026-wesak" },
+    { "holiday_date": "2026-06-01", "name": "Yang di-Pertuan Agong's Birthday", "state_code": null, "external_id": "2026-agong" },
+    { "holiday_date": "2026-06-27", "name": "Hari Raya Haji", "state_code": null, "external_id": "2026-haji" },
+    { "holiday_date": "2026-08-31", "name": "National Day", "state_code": null, "external_id": "2026-merdeka" },
+    { "holiday_date": "2026-09-05", "name": "Prophet Muhammad's Birthday", "state_code": null, "external_id": "2026-maulidur-rasul" },
+    { "holiday_date": "2026-09-16", "name": "Malaysia Day", "state_code": null, "external_id": "2026-malaysia-day" },
+    { "holiday_date": "2026-10-10", "name": "Sultan of Selangor's Birthday", "state_code": "SGR", "external_id": "2026-sgr-sultan" },
+    { "holiday_date": "2026-11-08", "name": "Deepavali", "state_code": null, "external_id": "2026-deepavali" },
+    { "holiday_date": "2026-12-25", "name": "Christmas Day", "state_code": null, "external_id": "2026-christmas" }
+  ]
+}

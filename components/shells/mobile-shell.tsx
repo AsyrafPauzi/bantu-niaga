@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils/cn";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/app/sign-in/actions";
 import type { TierKey } from "@/lib/settings/plans";
+import type { BusinessMembership } from "@/lib/auth/memberships";
+import { CompanySwitcher } from "@/components/shells/CompanySwitcher";
 import { hasPillar, type Pillar } from "@/lib/auth/entitlements";
 
 interface Tab {
@@ -41,9 +43,11 @@ const TABS: readonly Tab[] = [
 
 export function MobileShell({
   tier,
+  memberships,
   children,
 }: {
   tier: TierKey;
+  memberships: BusinessMembership[];
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -76,6 +80,9 @@ export function MobileShell({
               <LogOut className="h-5 w-5" strokeWidth={2} />
             </button>
           </form>
+        </div>
+        <div className="border-t border-brand-100 px-4 pb-3 pt-2 dark:border-hairline-dark">
+          <CompanySwitcher memberships={memberships} compact />
         </div>
       </header>
 

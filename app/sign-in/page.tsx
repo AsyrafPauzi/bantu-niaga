@@ -27,6 +27,10 @@ function SignInInner() {
 
   useEffect(() => {
     const flash = params.get("auth_error");
+    const reason = params.get("reason");
+    if (reason === "switch_account") {
+      setError(null);
+    }
     if (flash) {
       setError(
         flash === "missing_code"
@@ -54,7 +58,14 @@ function SignInInner() {
         return;
       }
 
-      router.replace("/home");
+      await fetch("/api/settings/security/sessions/register", {
+        method: "POST",
+        credentials: "same-origin",
+      }).catch(() => {
+        // Session tracking is best-effort; sign-in still succeeds.
+      });
+
+      router.replace(params.get("next") || "/home");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-in failed.");
@@ -72,7 +83,9 @@ function SignInInner() {
           Welcome back
         </h2>
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-          Sign in to keep managing your business.
+          {params.get("reason") === "switch_account"
+            ? "Sign in with the account for the company you want to open."
+            : "Sign in to keep managing your business."}
         </p>
       </div>
 

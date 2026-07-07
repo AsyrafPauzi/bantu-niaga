@@ -24,6 +24,15 @@ describe("buildHrDailyNotice", () => {
     expect(notice.body).toContain("Merdeka");
   });
 
+  it("omits holiday notes when snapshot has no holiday data", () => {
+    const notice = buildHrDailyNotice(
+      { ...baseSnapshot, notes: "2 staff on approved leave today." },
+      "Hana",
+    );
+    expect(notice.body).not.toContain("Merdeka");
+    expect(notice.body).toContain("2 staff on approved leave");
+  });
+
   it("handles empty HR data", () => {
     const notice = buildHrDailyNotice(
       { ...baseSnapshot, available: false, attention: [] },

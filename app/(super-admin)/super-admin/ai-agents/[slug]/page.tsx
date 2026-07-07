@@ -117,7 +117,7 @@ export default async function AgentDetail({
             <div>
               <h2 className="text-base font-bold text-ink">Activity</h2>
               <p className="text-xs text-ink-muted">
-                Hourly invocations across all tenants. Live data from
+                Daily invocations across all tenants. Live data from
                 ai_agent_usage_daily.
               </p>
             </div>

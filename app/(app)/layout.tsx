@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { AdaptiveShell } from "@/components/shells/adaptive-shell";
+import { SessionRegistrar } from "@/components/auth/SessionRegistrar";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { loadUserMemberships } from "@/lib/auth/memberships";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TierKey } from "@/lib/settings/plans";
 import { ImpersonationBanner } from "@/components/super-admin/ImpersonationBanner";
@@ -26,21 +28,27 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   let tier: TierKey = "starter";
+  let memberships: Awaited<ReturnType<typeof loadUserMemberships>> = [];
   try {
     const user = await getCurrentUser();
     const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("businesses")
-      .select("tier")
-      .eq("id", user.businessId)
-      .maybeSingle();
+    const [{ data }, loadedMemberships] = await Promise.all([
+      supabase
+        .from("businesses")
+        .select("tier")
+        .eq("id", user.businessId)
+        .maybeSingle(),
+      loadUserMemberships(user.id, user.businessId),
+    ]);
     if (data?.tier) tier = data.tier as TierKey;
+    memberships = loadedMemberships;
   } catch (e) {
     if (!(e instanceof UnauthorizedError)) throw e;
   }
 
   return (
-    <AdaptiveShell tier={tier}>
+    <AdaptiveShell tier={tier} memberships={memberships}>
+      <SessionRegistrar />
       <ImpersonationBanner />
       {children}
     </AdaptiveShell>

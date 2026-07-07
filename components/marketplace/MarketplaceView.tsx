@@ -5,21 +5,13 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Clock3,
-  Database,
-  FileCheck,
   Loader2,
-  MessageCircle,
-  Music,
   Plus,
   Search,
   Settings2,
-  ShoppingBag,
   Sparkles,
   Star,
-  UserPlus,
   X,
-  Zap,
-  type LucideIcon,
 } from "lucide-react";
 import {
   CADENCE_LABEL,
@@ -28,23 +20,22 @@ import {
   type AddonPillar,
   type CatalogEntry,
 } from "@/lib/marketplace/types";
+import {
+  addonIcon,
+  addonStatusLine,
+  formatAddonDate,
+  isAddonActive,
+  isPurchasedActivation,
+  resolveNextChargeDate,
+  sortActiveEntries,
+} from "@/lib/marketplace/active-addons";
 
 interface Props {
   initial: CatalogEntry[];
   canEdit: boolean;
   tier: string;
+  subscriptionRenewalAt: string | null;
 }
-
-const ICON_MAP: Record<string, LucideIcon> = {
-  "message-circle": MessageCircle,
-  "user-plus": UserPlus,
-  database: Database,
-  zap: Zap,
-  music: Music,
-  "file-check": FileCheck,
-  sparkles: Sparkles,
-  "shopping-bag": ShoppingBag,
-};
 
 type FilterKey = "all" | "active" | AddonPillar;
 type TierKey = "starter" | "micro" | "sme" | "enterprise";
@@ -123,7 +114,12 @@ function addonEligibility(addon: CatalogEntry["addon"], tier: string) {
   return { canActivate: true, reason: null };
 }
 
-export function MarketplaceView({ initial, canEdit, tier }: Props) {
+export function MarketplaceView({
+  initial,
+  canEdit,
+  tier,
+  subscriptionRenewalAt,
+}: Props) {
   const router = useRouter();
   const [entries, setEntries] = useState<CatalogEntry[]>(initial);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -153,7 +149,7 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
     };
     for (const e of entries) {
       c[e.addon.pillar] = (c[e.addon.pillar] ?? 0) + 1;
-      if (e.activation && e.activation.status === "active") c.active += 1;
+      if (isAddonActive(e, tier)) c.active += 1;
     }
     return c;
   }, [entries]);
@@ -165,7 +161,7 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
     return entries
       .filter((e) => {
         if (filter === "all") return true;
-        if (filter === "active") return e.activation?.status === "active";
+        if (filter === "active") return isAddonActive(e, tier);
         return e.addon.pillar === filter;
       })
       .filter((e) => {
@@ -178,11 +174,11 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
       });
   }, [entries, filter, query]);
 
-  const active = entries.filter((e) => e.activation?.status === "active");
-  const nextCharge = active
-    .map((e) => e.activation?.next_charge_at)
-    .filter((d): d is string => !!d)
-    .sort()[0];
+  const active = sortActiveEntries(
+    entries.filter((e) => isAddonActive(e, tier)),
+  );
+  const nextCharge = resolveNextChargeDate(subscriptionRenewalAt, active);
+  const tierName = tierLabel(tier);
 
   async function refresh() {
     const res = await fetch("/api/marketplace", { cache: "no-store" });
@@ -297,7 +293,7 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
           </span>{" "}
           active ·{" "}
           {nextCharge
-            ? `Next charge ${formatDate(nextCharge)}`
+            ? `Next charge · ${formatAddonDate(nextCharge)}`
             : "No upcoming charges"}
         </div>
       </div>
@@ -416,13 +412,14 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
             </h2>
             <span className="text-xs text-ink-muted dark:text-cream-400">
               {nextCharge
-                ? `Next charge · ${formatDate(nextCharge)}`
+                ? `Next charge · ${formatAddonDate(nextCharge)}`
                 : "No upcoming charges"}
             </span>
           </header>
           <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
             {active.map((e) => {
-              const Icon = ICON_MAP[e.addon.icon] ?? Settings2;
+              const Icon = addonIcon(e.addon.icon);
+              const purchased = isPurchasedActivation(e);
               return (
                 <li
                   key={e.addon.id}
@@ -437,11 +434,7 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
                         {e.addon.name}
                       </p>
                       <p className="text-xs text-ink-muted dark:text-cream-400">
-                        {e.activation?.cancel_at
-                          ? `Cancels on ${formatDate(e.activation.cancel_at)}`
-                          : e.activation?.next_charge_at
-                            ? `Active since ${formatDate(e.activation.activated_at)} · renews ${formatDate(e.activation.next_charge_at)}`
-                            : `Included in your ${tierLabel(tier)} plan`}
+                        {addonStatusLine(e, tier, tierName)}
                       </p>
                     </div>
                   </div>
@@ -451,7 +444,7 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
                         <Clock3 className="h-3 w-3" /> Pending cancel
                       </span>
                     ) : null}
-                    {canEdit && !e.activation?.cancel_at ? (
+                    {canEdit && purchased && !e.activation?.cancel_at ? (
                       <button
                         onClick={() =>
                           setConfirm({
@@ -481,7 +474,7 @@ export function MarketplaceView({ initial, canEdit, tier }: Props) {
           </h3>
           <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
             {confirm.next_charge_at
-              ? `It stays usable until ${formatDate(confirm.next_charge_at)}. You won't be charged again.`
+              ? `It stays usable until ${formatAddonDate(confirm.next_charge_at)}. You won't be charged again.`
               : "It will be cancelled immediately. You can re-activate any time."}
           </p>
           <div className="mt-5 flex items-center justify-end gap-2">
@@ -524,10 +517,11 @@ function AddonCard({
   onDeactivate: () => void;
 }) {
   const { addon, activation } = entry;
-  const Icon = ICON_MAP[addon.icon] ?? Settings2;
-  const isActive = activation?.status === "active";
+  const Icon = addonIcon(addon.icon);
+  const isActive = isAddonActive(entry, tier);
   const isCancelling = !!activation?.cancel_at;
   const isIncluded = addon.included_in_tier.includes(tier);
+  const isComingSoon = addon.is_coming_soon;
   const eligibility = addonEligibility(addon, tier);
   const priceLabel = isIncluded ? "Included" : formatMyr(addon.price_cents);
   const cadenceLabel = isIncluded
@@ -600,6 +594,10 @@ function AddonCard({
           >
             {isCancelling ? "Cancelling…" : "Manage"}
           </button>
+        ) : isComingSoon ? (
+          <span className="rounded-lg bg-cream-100 px-3 py-1.5 text-xs font-semibold text-ink-muted dark:bg-panel-dark dark:text-cream-400">
+            Coming soon
+          </span>
         ) : isIncluded ? (
           <button
             onClick={onActivate}
@@ -648,8 +646,8 @@ function FeaturedBanner({
   onActivate: () => void;
   onDeactivate: () => void;
 }) {
-  const Icon = ICON_MAP[entry.addon.icon] ?? Sparkles;
-  const isActive = entry.activation?.status === "active";
+  const Icon = addonIcon(entry.addon.icon);
+  const isActive = isAddonActive(entry, tier);
   const eligibility = addonEligibility(entry.addon, tier);
 
   return (
@@ -749,16 +747,4 @@ function labelFor(key: FilterKey): string {
 
 function tierLabel(t: string): string {
   return isTierKey(t) ? TIER_LABEL[t] : t.slice(0, 1).toUpperCase() + t.slice(1);
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("en-MY", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso.slice(0, 10);
-  }
 }

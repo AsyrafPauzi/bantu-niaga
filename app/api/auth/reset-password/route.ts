@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resetPasswordSchema } from "@/lib/auth/schemas";
+import { enforceAuthRateLimit } from "@/lib/api/auth-rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,6 +19,14 @@ export const runtime = "nodejs";
  * user navigated directly to /reset-password.
  */
 export async function POST(request: Request) {
+  const rl = enforceAuthRateLimit(
+    request,
+    "auth.reset-password",
+    10,
+    60 * 60 * 1000,
+  );
+  if (!rl.ok) return rl.response;
+
   let body: unknown;
   try {
     body = await request.json();

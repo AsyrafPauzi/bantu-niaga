@@ -128,7 +128,7 @@ export const INTEGRATION_CATALOG: readonly IntegrationDescriptor[] = [
     category: "ai",
     tagline: "Malaysian LLM — ILMU Mini v3.3 for HR and agents",
     description:
-      "Preferred AI provider for Bantu Niaga. OpenAI-compatible API at api.ilmu.ai. When configured, all chat agents (including the HR Assistant) use ILMU instead of OpenAI.",
+      "Platform-wide AI provider (super-admin only). One ILMU key powers all tenants; each business chat is isolated by business_id and only sees that tenant HR data. Short memory: last 4 turns per user per company.",
     docsUrl: "https://docs.ilmu.ai",
     capabilities: [
       "Chat completions (OpenAI-compatible)",

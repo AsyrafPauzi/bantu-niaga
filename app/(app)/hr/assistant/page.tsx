@@ -10,6 +10,8 @@ import {
   hasHrAssistantAddon,
   loadBusinessAgentSettings,
 } from "@/lib/marketplace/entitlements";
+import { HR_CREDIT_COST_CHAT, HR_AGENT_SLUG } from "@/lib/marketplace/agent-types";
+import { loadShortMemory } from "@/lib/ai/short-memory";
 
 export const metadata = { title: "HR AI Assistant" };
 export const dynamic = "force-dynamic";
@@ -27,10 +29,15 @@ export default async function HrAssistantPage() {
     redirect("/hr");
   }
 
-  const [addonActive, settings, balance] = await Promise.all([
+  const [addonActive, settings, balance, recentTurns] = await Promise.all([
     hasHrAssistantAddon(user.businessId),
     loadBusinessAgentSettings(user.businessId),
     getCreditBalance(user.businessId),
+    loadShortMemory({
+      businessId: user.businessId,
+      userId: user.id,
+      agentSlug: HR_AGENT_SLUG,
+    }),
   ]);
 
   return (
@@ -47,11 +54,15 @@ export default async function HrAssistantPage() {
       <HrMobileSubnav className="shrink-0 border-b border-[#E5E0D8] px-4 dark:border-hairline-dark lg:px-8" />
       <div className="flex min-h-0 flex-1 flex-col px-4 py-3 lg:px-8 lg:py-4">
         <HrAssistantChat
+          businessId={user.businessId}
           initialStatus={{
             addon_active: addonActive,
             assistant_enabled: settings.assistantEnabled,
             display_name: settings.displayName,
             credit_balance: balance,
+            credits_paused: balance < HR_CREDIT_COST_CHAT,
+            business_id: user.businessId,
+            recent_turns: recentTurns,
           }}
         />
       </div>

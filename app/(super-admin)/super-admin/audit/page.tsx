@@ -1,6 +1,8 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { PageTopbar } from "@/components/super-admin/PageTopbar";
 import { PageBody } from "@/components/super-admin/primitives";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { parsePagination } from "@/lib/pagination";
 import { FileClock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -15,23 +17,31 @@ interface AuditRow {
   created_at: string;
 }
 
-export default async function SuperAdminAudit() {
+export default async function SuperAdminAudit({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const pagination = parsePagination(params, { defaultPageSize: 25 });
   const svc = createServiceRoleClient();
-  const { data } = await svc
+  const { data, count } = await svc
     .from("super_admin_audit")
     .select(
       "id, admin_email, action, target_type, target_id, diff, created_at",
+      { count: "exact" },
     )
     .order("created_at", { ascending: false })
-    .limit(200);
+    .range(pagination.from, pagination.to);
 
   const rows = (data ?? []) as AuditRow[];
+  const total = count ?? rows.length;
 
   return (
     <>
       <PageTopbar
         title="Audit log"
-        subtitle={`Last ${rows.length} platform-admin actions, cross-tenant`}
+        subtitle={`${total} platform-admin actions, cross-tenant`}
       />
       <PageBody>
         <div className="overflow-hidden rounded-xl border border-cream-300 bg-white shadow-card">
@@ -75,6 +85,12 @@ export default async function SuperAdminAudit() {
               ))}
             </ul>
           )}
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={total}
+            basePath="/super-admin/audit"
+          />
         </div>
       </PageBody>
     </>

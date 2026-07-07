@@ -7,7 +7,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** GET /api/cron/hr-assistant-renewal — monthly credit grants for HR Assistant. */
+/** GET /api/cron/hr-assistant-renewal — monthly credit grants for all AI assistants (shared pool). */
 export async function GET(request: Request) {
   const requestId =
     request.headers.get("x-request-id") ?? crypto.randomUUID();

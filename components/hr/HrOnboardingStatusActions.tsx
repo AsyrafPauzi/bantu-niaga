@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 export function HrOnboardingStatusActions({
   itemId,
   isDone,
+  onUpdated,
 }: {
   itemId: string;
   isDone: boolean;
+  onUpdated?: () => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -22,6 +24,7 @@ export function HrOnboardingStatusActions({
         body: JSON.stringify({ is_done: nextDone }),
       });
       router.refresh();
+      onUpdated?.();
     } finally {
       setBusy(false);
     }

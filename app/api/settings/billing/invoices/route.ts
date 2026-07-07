@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  *
  * Query:
  *   - page (default 1)
- *   - pageSize (default 20, max 100)
+ *   - pageSize (default 10, max 100)
  */
 export async function GET(request: Request) {
   let user;
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(url.searchParams.get("page") ?? 1));
   const pageSize = Math.min(
     100,
-    Math.max(1, Number(url.searchParams.get("pageSize") ?? 20)),
+    Math.max(1, Number(url.searchParams.get("pageSize") ?? 10)),
   );
 
   const supabase = await createSupabaseServerClient();

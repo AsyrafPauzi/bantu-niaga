@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils/cn";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/app/sign-in/actions";
 import type { TierKey } from "@/lib/settings/plans";
+import type { BusinessMembership } from "@/lib/auth/memberships";
+import { CompanySwitcher } from "@/components/shells/CompanySwitcher";
 import {
   hasPillar,
   minimumTierFor,
@@ -142,9 +144,11 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
 
 export function DesktopShell({
   tier,
+  memberships,
   children,
 }: {
   tier: TierKey;
+  memberships: BusinessMembership[];
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -175,6 +179,10 @@ export function DesktopShell({
                 </p>
               </div>
             </Link>
+          </div>
+
+          <div className="border-b border-[#D5E2FB] bg-[#EEF3FE] px-4 py-3 dark:border-hairline-dark dark:bg-brand-900/30">
+            <CompanySwitcher memberships={memberships} />
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">

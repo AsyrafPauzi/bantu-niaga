@@ -1,11 +1,13 @@
 import { Mail, UserPlus, Search } from "lucide-react";
-import { loadUsers } from "@/lib/super-admin/load";
+import { loadUsersPage } from "@/lib/super-admin/load";
 import { PageTopbar } from "@/components/super-admin/PageTopbar";
 import { PageBody, StatusPill } from "@/components/super-admin/primitives";
 import {
   ImpersonateButton,
   UserRowMenu,
 } from "@/components/super-admin/UserRowActions";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { parsePagination } from "@/lib/pagination";
 import { tierBy } from "@/lib/settings/plans";
 
 export const dynamic = "force-dynamic";
@@ -65,16 +67,23 @@ function formatAgo(iso: string | null): string {
   return `${days}d ago`;
 }
 
-export default async function SuperAdminUsers() {
-  const users = await loadUsers();
+export default async function SuperAdminUsers({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const pagination = parsePagination(params, { defaultPageSize: 25 });
+  const { rows: users, total } = await loadUsersPage({
+    from: pagination.from,
+    to: pagination.to,
+  });
 
   return (
     <>
       <PageTopbar
         title="Users"
-        subtitle={`${users.length} loaded · across ${
-          new Set(users.map((u) => u.business_id)).size
-        } tenants`}
+        subtitle={`${total} users · page ${pagination.page}`}
         right={
           <>
             <button className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100">
@@ -167,6 +176,12 @@ export default async function SuperAdminUsers() {
               </li>
             ))}
           </ul>
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={total}
+            basePath="/super-admin/users"
+          />
         </div>
       </PageBody>
     </>

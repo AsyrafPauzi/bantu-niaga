@@ -11,13 +11,21 @@ import { HrPageBody } from "@/components/hr/layout/hr-page-body";
 import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
 import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
 import { AgentNoticeCard } from "@/components/dashboard/agent-notice-card";
-import { HrLeaveStatusActions } from "@/components/hr/HrLeaveStatusActions";
+import { HrPendingLeaveCard } from "@/components/hr/HrPendingLeaveCard";
+import { OnboardingProgressBar } from "@/components/hr/HrOnboardingProgress";
 import { KpiTileBig } from "@/components/marketing/dashboard/KpiTileBig";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
 import { loadHrDashboard, loadTodayHrNotice } from "@/lib/hr/load";
+import { formatOnboardingProgress, onboardingProgressFromCounts } from "@/lib/hr/onboarding-progress";
+import {
+  describeProfileGaps,
+  getProfileCompletionGaps,
+  isEmployeeProfileIncomplete,
+} from "@/lib/hr/profile-completion";
 import {
   hasHrAssistantAddon,
+  hasPublicHolidaysAddon,
   loadBusinessAgentSettings,
 } from "@/lib/marketplace/entitlements";
 
@@ -55,8 +63,9 @@ export default async function HrPage() {
   }
 
   const dashboard = await loadHrDashboard(user.businessId);
-  const [addonActive, agentSettings, hrNotice] = await Promise.all([
+  const [addonActive, holidaysAddonActive, agentSettings, hrNotice] = await Promise.all([
     hasHrAssistantAddon(user.businessId),
+    hasPublicHolidaysAddon(user.businessId),
     loadBusinessAgentSettings(user.businessId),
     loadTodayHrNotice(user.businessId),
   ]);
@@ -65,12 +74,14 @@ export default async function HrPage() {
   const nextHolidays = dashboard.holidays
     .filter((holiday) => holiday.holiday_date >= new Date().toISOString().slice(0, 10))
     .slice(0, 3);
-  const profilesToFinish = dashboard.employees.filter(
-    (e) =>
-      !e.emergency_contact_name ||
-      !e.bank_name ||
-      !e.phone_e164,
-  ).length;
+  const profilesToFinish = dashboard.employees.filter((employee) =>
+    isEmployeeProfileIncomplete(employee, dashboard.documents),
+  );
+  const incompleteProfiles = profilesToFinish.slice(0, 5);
+  const teamOnboarding = onboardingProgressFromCounts(
+    dashboard.counts.onboardingDone,
+    dashboard.counts.onboardingTotal,
+  );
 
   return (
     <HrPageShell
@@ -124,11 +135,117 @@ export default async function HrPage() {
           />
           <KpiTileBig
             label="Profiles to finish"
-            value={String(profilesToFinish)}
-            sublabel="missing contact or bank info"
-            tone={profilesToFinish > 0 ? "info" : "success"}
+            value={String(profilesToFinish.length)}
+            sublabel="missing contact, bank, or compulsory docs"
+            tone={profilesToFinish.length > 0 ? "info" : "success"}
+          />
+          <KpiTileBig
+            label="Onboarding"
+            value={
+              dashboard.counts.onboardingTotal === 0
+                ? "—"
+                : dashboard.counts.incompleteOnboarding === 0
+                  ? "Done"
+                  : `${dashboard.counts.onboardingDone}/${dashboard.counts.onboardingTotal}`
+            }
+            sublabel={
+              dashboard.counts.onboardingTotal === 0
+                ? "no checklist items yet"
+                : formatOnboardingProgress(teamOnboarding)
+            }
+            tone={
+              dashboard.counts.onboardingTotal > 0 &&
+              dashboard.counts.incompleteOnboarding === 0
+                ? "success"
+                : dashboard.counts.incompleteOnboarding > 0
+                  ? "info"
+                  : "brand"
+            }
           />
         </HrKpiGrid>
+
+        {profilesToFinish.length > 0 ? (
+          <SectionCard
+            title="Profiles to finish"
+            subtitle="Active staff missing contact details or compulsory documents (IC, bank, contract)"
+            bodyClassName="space-y-3"
+          >
+            {incompleteProfiles.map((employee) => {
+              const gaps = getProfileCompletionGaps(employee, dashboard.documents);
+              return (
+                <div
+                  key={employee.id}
+                  className="flex flex-col gap-2 rounded-xl border border-[#E5E0D8] p-4 dark:border-hairline-dark sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-ink dark:text-cream-100">
+                      {employee.full_name}
+                    </p>
+                    <p className="text-xs text-ink-muted dark:text-cream-400">
+                      {describeProfileGaps(gaps)}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/hr/employees/${employee.id}`}
+                    className="shrink-0 text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+                  >
+                    Complete profile →
+                  </Link>
+                </div>
+              );
+            })}
+            {profilesToFinish.length > incompleteProfiles.length ? (
+              <p className="text-center text-xs text-ink-muted dark:text-cream-400">
+                +{profilesToFinish.length - incompleteProfiles.length} more on{" "}
+                <Link href="/hr/employees" className="font-semibold text-brand-700">
+                  Employees
+                </Link>
+              </p>
+            ) : null}
+          </SectionCard>
+        ) : null}
+
+        {dashboard.counts.onboardingTotal > 0 ? (
+          <SectionCard
+            title="Onboarding checklist"
+            subtitle={formatOnboardingProgress(teamOnboarding)}
+            bodyClassName="space-y-4"
+          >
+            <OnboardingProgressBar progress={teamOnboarding} />
+            {dashboard.onboarding.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">
+                  Still to do
+                </p>
+                {dashboard.onboarding.slice(0, 5).map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-[#E5E0D8] px-3 py-2 dark:border-hairline-dark"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-ink dark:text-cream-100">
+                        {item.label}
+                      </p>
+                      <p className="text-xs text-ink-muted dark:text-cream-400">
+                        {item.hr_employees?.full_name ?? "Employee"}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/hr/employees/${item.employee_id}`}
+                      className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+                    >
+                      Open →
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-ink-muted dark:text-cream-400">
+                Every checklist item is marked done.
+              </p>
+            )}
+          </SectionCard>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
           <SectionCard
@@ -142,23 +259,7 @@ export default async function HrPage() {
               </p>
             ) : (
               pendingLeave.slice(0, 4).map((row) => (
-                <div
-                  key={row.id}
-                  className="flex flex-col gap-2 rounded-xl border border-[#E5E0D8] p-4 dark:border-hairline-dark sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                      {row.hr_employees?.full_name ?? "Employee"}
-                    </p>
-                    <p className="text-xs text-ink-muted dark:text-cream-400">
-                      {row.leave_type.replace(/_/g, " ")} · {fmtDate(row.start_date)}
-                      {row.end_date !== row.start_date
-                        ? ` – ${fmtDate(row.end_date)}`
-                        : ""}
-                    </p>
-                  </div>
-                  <HrLeaveStatusActions leaveId={row.id} />
-                </div>
+                <HrPendingLeaveCard key={row.id} row={row} />
               ))
             )}
           </SectionCard>
@@ -194,34 +295,53 @@ export default async function HrPage() {
               </div>
             </SectionCard>
 
-            <SectionCard
-              title="Upcoming public holidays"
-              subtitle="Plan leave around these dates"
-              bodyClassName="space-y-1"
-            >
-              {nextHolidays.length === 0 ? (
+            {holidaysAddonActive ? (
+              <SectionCard
+                title="Upcoming public holidays"
+                subtitle="Plan leave around these dates"
+                bodyClassName="space-y-1"
+              >
+                {nextHolidays.length === 0 ? (
+                  <p className="text-sm text-ink-muted dark:text-cream-400">
+                    No upcoming holidays.{" "}
+                    <Link href="/hr/holidays" className="font-semibold text-brand-700">
+                      Add holidays
+                    </Link>
+                  </p>
+                ) : (
+                  nextHolidays.map((holiday) => (
+                    <div
+                      key={holiday.id}
+                      className="flex items-center justify-between py-1.5 text-sm"
+                    >
+                      <span className="font-medium text-ink dark:text-cream-100">
+                        {holiday.name}
+                      </span>
+                      <span className="text-xs text-ink-muted dark:text-cream-400">
+                        {fmtDate(holiday.holiday_date)}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </SectionCard>
+            ) : (
+              <SectionCard
+                title="Public holidays"
+                subtitle="Free add-on — Malaysian holiday calendar"
+                bodyClassName="space-y-2"
+              >
                 <p className="text-sm text-ink-muted dark:text-cream-400">
-                  No upcoming holidays.{" "}
-                  <Link href="/hr/holidays" className="font-semibold text-brand-700">
-                    Add holidays
-                  </Link>
+                  Activate the Public Holiday Calendar to track federal and state
+                  holidays. Hana will include upcoming holidays in daily notices.
                 </p>
-              ) : (
-                nextHolidays.map((holiday) => (
-                  <div
-                    key={holiday.id}
-                    className="flex items-center justify-between py-1.5 text-sm"
-                  >
-                    <span className="font-medium text-ink dark:text-cream-100">
-                      {holiday.name}
-                    </span>
-                    <span className="text-xs text-ink-muted dark:text-cream-400">
-                      {fmtDate(holiday.holiday_date)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </SectionCard>
+                <Link
+                  href="/marketplace"
+                  className="inline-flex text-[13px] font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+                >
+                  Activate in Marketplace →
+                </Link>
+              </SectionCard>
+            )}
           </div>
         </div>
 

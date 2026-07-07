@@ -6,7 +6,7 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { nextFinanceInvoiceNumber } from "@/lib/finance/helpers";
 import { loadBusiness } from "@/lib/settings/business";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { FinanceCustomerRow } from "@/lib/finance/schemas";
 
 export const metadata = { title: "New invoice" };
@@ -26,9 +26,9 @@ export default async function NewInvoicePage() {
   const business = await loadBusiness(user.businessId);
   if (!business) redirect("/home");
 
-  const admin = createServiceRoleClient();
+  const supabase = await createSupabaseServerClient();
   const [customersRes, nextNumber] = await Promise.all([
-    admin
+    supabase
       .from("customers")
       .select(
         "id, business_id, name, phone_e164, email, address, notes, created_at, updated_at",
@@ -36,7 +36,7 @@ export default async function NewInvoicePage() {
       .eq("business_id", user.businessId)
       .is("deleted_at", null)
       .order("name", { ascending: true }),
-    nextFinanceInvoiceNumber(admin, user.businessId),
+    nextFinanceInvoiceNumber(supabase, user.businessId),
   ]);
 
   const appUrl =

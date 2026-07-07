@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { FinanceCustomerPanel } from "@/components/finance/FinanceCustomerPanel";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { FinanceCustomerRow } from "@/lib/finance/schemas";
 
 export const metadata = { title: "Customers" };
@@ -22,8 +22,8 @@ export default async function FinanceCustomersPage() {
 
   if (!can(user.role, "finance")) redirect("/home");
 
-  const admin = createServiceRoleClient();
-  const { data } = await admin
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
     .from("customers")
     .select(
       "id, business_id, name, phone_e164, email, address, notes, created_at, updated_at",

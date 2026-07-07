@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Loader2 } from "lucide-react";
 
 import { CONSENT_CATALOG } from "@/lib/privacy/catalog";
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function ConsentMatrix({ initialConsents }: Props) {
+  const router = useRouter();
   const [consents, setConsents] = useState<UserConsent[]>(initialConsents);
   const [dirty, setDirty] = useState<Map<ConsentKind, boolean>>(new Map());
   const [busy, setBusy] = useState(false);
@@ -58,6 +60,7 @@ export function ConsentMatrix({ initialConsents }: Props) {
       setConsents(json.data.consents);
       setDirty(new Map());
       setSavedAt(new Date());
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error.");
     } finally {

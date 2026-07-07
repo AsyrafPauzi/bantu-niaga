@@ -47,6 +47,7 @@ export default async function MarketplacePage() {
         initial={catalog}
         canEdit={canEdit}
         tier={business.tier}
+        subscriptionRenewalAt={business.subscription_renewal_at}
       />
     </div>
   );

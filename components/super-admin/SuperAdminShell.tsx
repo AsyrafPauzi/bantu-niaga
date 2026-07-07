@@ -13,6 +13,7 @@ import {
   LineChart,
   PlugZap,
   TrendingUp,
+  Activity,
   ShieldCheck,
   ShieldAlert,
   ArrowLeftRight,
@@ -55,6 +56,16 @@ const GROUPS: readonly NavGroup[] = [
   {
     caption: "INSIGHTS",
     items: [
+      {
+        href: "/super-admin/revenue",
+        label: "Revenue",
+        icon: TrendingUp,
+      },
+      {
+        href: "/super-admin/tenant-health",
+        label: "Tenant health",
+        icon: Activity,
+      },
       {
         href: "/super-admin/data-monitor",
         label: "Data monitor",

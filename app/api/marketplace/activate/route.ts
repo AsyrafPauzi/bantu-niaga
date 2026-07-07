@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         .maybeSingle(),
       supabase
         .from("marketplace_addons")
-        .select("slug, name, pillar")
+        .select("slug, name, pillar, is_coming_soon")
         .eq("slug", parsed.slug)
         .maybeSingle(),
     ]);
@@ -103,6 +103,16 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "not_found", message: `Add-on not found: ${parsed.slug}` },
       { status: 404 },
+    );
+  }
+
+  if ((addon as { is_coming_soon?: boolean }).is_coming_soon) {
+    return NextResponse.json(
+      {
+        error: "coming_soon",
+        message: `${addon.name} is coming soon. We will notify you when it is available.`,
+      },
+      { status: 403 },
     );
   }
 

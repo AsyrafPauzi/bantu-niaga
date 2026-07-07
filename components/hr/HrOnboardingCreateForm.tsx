@@ -8,9 +8,13 @@ const inputClass =
   "w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-400/30 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
 
 export function HrOnboardingCreateForm({
-  employees,
+  employees = [],
+  employeeId,
+  onCreated,
 }: {
-  employees: HrEmployeeRow[];
+  employees?: HrEmployeeRow[];
+  employeeId?: string;
+  onCreated?: () => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -19,9 +23,12 @@ export function HrOnboardingCreateForm({
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
+    const formData = new FormData(form);
     setBusy(true);
     setMessage(null);
-    const payload = Object.fromEntries(new FormData(form).entries());
+    const payload = employeeId
+      ? { employee_id: employeeId, label: String(formData.get("label") ?? "") }
+      : Object.fromEntries(formData.entries());
 
     try {
       const res = await fetch("/api/hr/onboarding", {
@@ -36,6 +43,7 @@ export function HrOnboardingCreateForm({
       }
       form.reset();
       setMessage("Checklist item added.");
+      onCreated?.();
       router.refresh();
     } finally {
       setBusy(false);
@@ -44,14 +52,16 @@ export function HrOnboardingCreateForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <select name="employee_id" required className={inputClass}>
-        <option value="">Choose employee</option>
-        {employees.map((employee) => (
-          <option key={employee.id} value={employee.id}>
-            {employee.full_name}
-          </option>
-        ))}
-      </select>
+      {!employeeId ? (
+        <select name="employee_id" required className={inputClass}>
+          <option value="">Choose employee</option>
+          {employees.map((employee) => (
+            <option key={employee.id} value={employee.id}>
+              {employee.full_name}
+            </option>
+          ))}
+        </select>
+      ) : null}
       <input
         name="label"
         required
@@ -62,7 +72,7 @@ export function HrOnboardingCreateForm({
       {message ? <p className="text-xs text-ink-muted dark:text-cream-400">{message}</p> : null}
       <button
         type="submit"
-        disabled={busy || employees.length === 0}
+        disabled={busy || (!employeeId && employees.length === 0)}
         className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
       >
         {busy ? "Adding..." : "Add checklist item"}

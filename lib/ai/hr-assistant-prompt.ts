@@ -53,13 +53,11 @@ export function buildHrAssistantRules(opts: {
   );
 }
 
-/** @deprecated Use buildHrAssistantRules — kept for imports during transition */
-export const HR_ASSISTANT_RULES = HR_ASSISTANT_RULES_BASE;
 
 export const HR_ASSISTANT_SUGGESTIONS = [
   "What leave is waiting for my approval?",
   "Who is on leave today?",
-  "Record MC leave for Aisyah today",
-  "Summarise my team",
+  "Approve Staff's MC Leave",
+  "How much annual leave does my team have left?",
   "Any upcoming public holidays?",
 ] as const;

@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { writeAuditLog } from "@/lib/audit/log";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
+import {
+  buildEmployeeWritePayload,
+  EMPLOYEE_DETAIL_SELECT,
+  mapEmployeeDetailRow,
+} from "@/lib/hr/employee-api";
 import { employeeUpdateSchema } from "@/lib/hr/schemas";
+import { hrEncryptionReady } from "@/lib/hr/sensitive";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -63,17 +70,27 @@ export async function PATCH(request: Request, context: RouteContext) {
     throw error;
   }
 
+  const needsSeal =
+    parsed.identity_number !== undefined || parsed.bank_account_no !== undefined;
+  if (needsSeal && !hrEncryptionReady()) {
+    return NextResponse.json(
+      {
+        error: "encryption_not_configured",
+        message: "Sensitive HR fields require INTEGRATION_ENCRYPTION_KEY on the server.",
+      },
+      { status: 503 },
+    );
+  }
+
+  const updatePayload = buildEmployeeWritePayload(parsed as Record<string, unknown>);
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("hr_employees")
-    .update(parsed)
+    .update(updatePayload)
     .eq("business_id", user.businessId)
     .eq("id", id)
-    .select(
-      "id, full_name, employment_type, role_title, start_date, status, phone_e164, email, " +
-        "emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, " +
-        "bank_name, bank_account_no, bank_account_holder, notes, created_at",
-    )
+    .select(EMPLOYEE_DETAIL_SELECT)
     .single();
 
   if (error) {
@@ -83,5 +100,17 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  return NextResponse.json({ employee: data }, { status: 200 });
+  await writeAuditLog(supabase, {
+    businessId: user.businessId,
+    actorUserId: user.id,
+    action: "hr.employee.update",
+    entityType: "hr_employees",
+    entityId: id,
+    diff: parsed as Record<string, unknown>,
+  });
+
+  return NextResponse.json(
+    { employee: mapEmployeeDetailRow(data as unknown as Record<string, unknown>) },
+    { status: 200 },
+  );
 }

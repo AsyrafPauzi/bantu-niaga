@@ -93,27 +93,73 @@ export const loadUserDsrs = cache(
  * Cross-tenant DSR queue used by /super-admin/privacy. Uses the
  * service-role client so we can see all rows regardless of RLS.
  */
-export async function loadAllDsrs(
+export async function loadDsrSummary(): Promise<{
+  pending: number;
+  awaitingGrace: number;
+  completed: number;
+  failed: number;
+}> {
+  const supabase = createServiceRoleClient() as unknown as SupabaseClient;
+  const [
+    { count: pending },
+    { count: inProgress },
+    { count: awaitingGrace },
+    { count: completed },
+    { count: failed },
+  ] = await Promise.all([
+    supabase
+      .from("data_subject_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabase
+      .from("data_subject_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "in_progress"),
+    supabase
+      .from("data_subject_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "awaiting_grace"),
+    supabase
+      .from("data_subject_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "completed"),
+    supabase
+      .from("data_subject_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "failed"),
+  ]);
+
+  return {
+    pending: (pending ?? 0) + (inProgress ?? 0),
+    awaitingGrace: awaitingGrace ?? 0,
+    completed: completed ?? 0,
+    failed: failed ?? 0,
+  };
+}
+
+export async function loadAllDsrsPage(
   filter: { status?: DsrStatus; kind?: DsrKind } = {},
-  limit = 100,
-): Promise<DataSubjectRequest[]> {
+  opts: { from: number; to: number },
+): Promise<{ rows: DataSubjectRequest[]; total: number }> {
   const supabase = createServiceRoleClient() as unknown as SupabaseClient;
   let q = supabase
     .from("data_subject_requests")
     .select(
       "id, business_id, user_id, kind, status, reason, payload, scheduled_for, completed_at, cancelled_at, cancellation_reason, created_at, updated_at",
+      { count: "exact" },
     )
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(opts.from, opts.to);
 
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.kind) q = q.eq("kind", filter.kind);
 
-  const { data, error } = await q;
+  const { data, error, count } = await q;
   if (error) throw error;
-  return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(
+  const rows = ((data ?? []) as unknown as Array<Record<string, unknown>>).map(
     coerceDsr,
   );
+  return { rows, total: count ?? rows.length };
 }
 
 /**
@@ -174,12 +220,16 @@ export async function buildExportBundle(opts: {
       .then((r) => r.data ?? []),
     admin
       .from("social_accounts")
-      .select("id, provider, display_name, external_id, status, connected_at")
+      .select(
+        "id, provider, name, username, external_id, status, connected_at",
+      )
       .eq("connected_by_user_id", userId)
       .then((r) => r.data ?? []),
     admin
       .from("content_plan")
-      .select("*")
+      .select(
+        "id, channel, status, scheduled_at, hook, caption, posted_at, created_at",
+      )
       .eq("created_by", userId)
       .limit(2000)
       .then((r) => r.data ?? []),
@@ -195,12 +245,21 @@ export async function buildExportBundle(opts: {
     schema_version: "1.0",
     generated_at: new Date().toISOString(),
     notice:
-      "This bundle contains every personal-data field Bantu Niaga holds for " +
-      "you within the tenant referenced below. Business-wide records " +
-      "(invoices, payroll, etc.) are owned by the business and require an " +
-      "owner-initiated business export.",
+      "Personal data Bantu Niaga holds for you in this business. " +
+      "Business-wide records (all invoices, payroll, etc.) belong to the " +
+      "tenant and require an owner export if applicable.",
     tenant: business,
-    profile,
+    profile: profile
+      ? {
+          id: profile.id,
+          email: profile.email,
+          display_name: profile.display_name,
+          phone_e164: profile.phone_e164,
+          role: profile.role,
+          created_at: profile.created_at,
+          last_password_change_at: profile.last_password_change_at,
+        }
+      : null,
     consents,
     data_subject_requests: dsrs,
     audit_actions_taken_by_you: auditOwn,

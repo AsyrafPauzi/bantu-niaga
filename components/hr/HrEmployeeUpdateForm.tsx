@@ -134,11 +134,52 @@ export function HrEmployeeUpdateForm({ employee }: { employee: HrEmployeeRow }) 
           />
         </label>
         <label className="space-y-1 text-xs font-semibold text-ink-muted dark:text-cream-400">
+          Annual leave entitlement (days)
+          <input
+            name="annual_leave_entitlement_days"
+            type="number"
+            min={0}
+            max={365}
+            step={0.5}
+            defaultValue={employee.annual_leave_entitlement_days ?? 8}
+            className={inputClass}
+          />
+        </label>
+        <label className="space-y-1 text-xs font-semibold text-ink-muted dark:text-cream-400">
+          Identity type
+          <select
+            name="identity_type"
+            defaultValue={(employee as { identity_type?: string }).identity_type ?? ""}
+            className={inputClass}
+          >
+            <option value="">Not set</option>
+            <option value="ic">IC</option>
+            <option value="passport">Passport</option>
+          </select>
+        </label>
+        <label className="space-y-1 text-xs font-semibold text-ink-muted dark:text-cream-400">
+          Identity number
+          <input
+            name="identity_number"
+            maxLength={80}
+            defaultValue={(employee as { identity_number?: string }).identity_number ?? ""}
+            placeholder={
+              (employee as { identity_number_masked?: string }).identity_number_masked ??
+              "IC or passport number"
+            }
+            className={inputClass}
+          />
+        </label>
+        <label className="space-y-1 text-xs font-semibold text-ink-muted dark:text-cream-400">
           Bank account no.
           <input
             name="bank_account_no"
             maxLength={80}
-            defaultValue={employee.bank_account_no ?? ""}
+            defaultValue={(employee as { bank_account_no?: string }).bank_account_no ?? ""}
+            placeholder={
+              (employee as { bank_account_no_masked?: string }).bank_account_no_masked ??
+              "Account number"
+            }
             className={inputClass}
           />
         </label>

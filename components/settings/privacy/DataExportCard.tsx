@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Download, FileJson, Loader2 } from "lucide-react";
 
 interface ExportResult {
@@ -11,7 +12,9 @@ interface ExportResult {
 }
 
 export function DataExportCard() {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
 
@@ -34,10 +37,39 @@ export function DataExportCard() {
         return;
       }
       setResult(json.data);
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function downloadExport() {
+    if (!result?.downloadUrl) return;
+    setDownloading(true);
+    setError(null);
+    try {
+      const res = await fetch(result.downloadUrl);
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError(
+          (json as { error?: { message?: string } })?.error?.message ??
+            "Download failed.",
+        );
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `bantuniaga-data-export-${result.exportId}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Download failed.");
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -55,16 +87,15 @@ export function DataExportCard() {
             Download my data
           </h2>
           <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
-            We&apos;ll bundle every personal-data field we hold for you — profile,
-            consents, audit log, social connections, content drafts — into a
-            single JSON file. PDPA s.30 (Right to Access).
+            Export your profile, consent history, audit actions, and records you
+            created — as one JSON file (PDPA right of access).
           </p>
         </div>
       </div>
 
       <ul className="mt-4 space-y-1 text-xs text-ink-muted dark:text-cream-400">
-        <li>· Generation typically takes under 5 seconds.</li>
-        <li>· Bundles are available for 7 days, then auto-purged.</li>
+        <li>· Ready in a few seconds.</li>
+        <li>· Download link expires after 7 days.</li>
         <li>· Limit: 3 exports per hour.</li>
       </ul>
 
@@ -86,14 +117,19 @@ export function DataExportCard() {
             {formatBytes(result.byteSize)} · expires{" "}
             {new Date(result.expiresAt).toLocaleString("en-MY")}
           </p>
-          <a
-            href={result.downloadUrl}
-            download
-            className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600"
+          <button
+            type="button"
+            onClick={downloadExport}
+            disabled={downloading}
+            className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
           >
-            <Download className="h-4 w-4" strokeWidth={2} />
+            {downloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+            ) : (
+              <Download className="h-4 w-4" strokeWidth={2} />
+            )}
             Download JSON
-          </a>
+          </button>
         </div>
       ) : (
         <button

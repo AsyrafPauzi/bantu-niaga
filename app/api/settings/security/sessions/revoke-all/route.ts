@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getCurrentSessionId,
+  revokeOtherSessions,
+} from "@/lib/auth/sessions";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -8,10 +12,6 @@ export const runtime = "nodejs";
 /**
  * POST /api/settings/security/sessions/revoke-all — sign out everywhere
  * EXCEPT the current device.
- *
- * Uses Supabase's `signOut({ scope: 'others' })` which invalidates all
- * refresh tokens for the user other than the current one. The browser
- * will then need to sign back in on every other device.
  */
 export async function POST() {
   let user;
@@ -28,11 +28,25 @@ export async function POST() {
   }
 
   const supabase = await createSupabaseServerClient();
+  const currentSessionId = await getCurrentSessionId();
+
   const { error } = await supabase.auth.signOut({ scope: "others" });
 
   if (error) {
     return NextResponse.json(
       { error: "revoke_failed", message: error.message },
+      { status: 500 },
+    );
+  }
+
+  try {
+    await revokeOtherSessions(supabase, user.id, currentSessionId);
+  } catch (e) {
+    return NextResponse.json(
+      {
+        error: "revoke_failed",
+        message: e instanceof Error ? e.message : "Could not revoke sessions",
+      },
       { status: 500 },
     );
   }
@@ -43,7 +57,7 @@ export async function POST() {
     action: "security.sessions.revoke_all",
     entity_type: "user",
     entity_id: user.id,
-    diff: null,
+    diff: { kept_session_id: currentSessionId },
   });
 
   return NextResponse.json({ ok: true }, { status: 200 });

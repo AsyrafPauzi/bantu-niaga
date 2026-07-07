@@ -1,32 +1,21 @@
 import Link from "next/link";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SecurityView } from "@/components/settings/SecurityView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  ensureCurrentSession,
+  getCurrentSessionId,
+  listActiveSessions,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from "@/lib/auth/sessions";
 
 export const metadata = { title: "Security settings" };
 export const dynamic = "force-dynamic";
-
-function parseUserAgent(ua: string | null): string {
-  if (!ua) return "This browser";
-  if (/iPhone|iPad/i.test(ua)) return "iPhone · Safari";
-  if (/Android/i.test(ua)) return "Android phone";
-  if (/Mac OS X/i.test(ua)) {
-    if (/Chrome/i.test(ua)) return "Mac · Chrome";
-    if (/Safari/i.test(ua)) return "Mac · Safari";
-    return "Mac";
-  }
-  if (/Windows/i.test(ua)) {
-    if (/Edg/i.test(ua)) return "Windows · Edge";
-    if (/Chrome/i.test(ua)) return "Windows · Chrome";
-    return "Windows";
-  }
-  if (/Linux/i.test(ua)) return "Linux";
-  return "This browser";
-}
 
 export default async function SecuritySettingsPage() {
   let user;
@@ -36,6 +25,13 @@ export default async function SecuritySettingsPage() {
     if (e instanceof UnauthorizedError) redirect("/sign-in");
     throw e;
   }
+
+  const h = await headers();
+  const meta = {
+    userAgent: h.get("user-agent"),
+    forwardedFor: h.get("x-forwarded-for"),
+    realIp: h.get("x-real-ip"),
+  };
 
   const supabase = await createSupabaseServerClient();
   const [{ data: authUser }, profileRes, factorsRes, auditRes] =
@@ -55,6 +51,37 @@ export default async function SecuritySettingsPage() {
         .limit(20),
     ]);
 
+  let currentSessionId = await getCurrentSessionId();
+  try {
+    const ensured = await ensureCurrentSession(supabase, user.id, meta);
+    currentSessionId = ensured.sessionId;
+    if (ensured.created) {
+      const jar = await cookies();
+      jar.set(SESSION_COOKIE_NAME, ensured.sessionId, sessionCookieOptions());
+    }
+  } catch {
+    // Table may not exist until migration is applied.
+  }
+
+  let sessions: Array<{
+    id: string;
+    device_label: string;
+    location_label: string | null;
+    last_seen_at: string;
+    created_at: string;
+    is_current: boolean;
+  }> = [];
+
+  try {
+    const rows = await listActiveSessions(supabase, user.id);
+    sessions = rows.map((s) => ({
+      ...s,
+      is_current: s.id === currentSessionId,
+    }));
+  } catch {
+    sessions = [];
+  }
+
   const email = authUser.user?.email ?? profileRes.data?.email ?? "—";
   const lastPwdChange = profileRes.data?.last_password_change_at ?? null;
   const factors = (factorsRes.data?.totp ?? []).map((f) => ({
@@ -63,12 +90,6 @@ export default async function SecuritySettingsPage() {
     status: f.status as "verified" | "unverified",
     created_at: f.created_at,
   }));
-
-  const h = await headers();
-  const currentDevice = {
-    label: parseUserAgent(h.get("user-agent")),
-    location: "Singapore region",
-  };
 
   return (
     <div className="space-y-6">
@@ -83,7 +104,7 @@ export default async function SecuritySettingsPage() {
       <PageHeader
         eyebrow="Settings · Security"
         title="Security settings"
-        description="Two-factor auth, password rotation, active sessions, and the audit log."
+        description="Authenticator 2FA, password, active sessions, and audit log."
       />
 
       <SecurityView
@@ -91,7 +112,7 @@ export default async function SecuritySettingsPage() {
         lastPasswordChangeAt={lastPwdChange}
         initialFactors={factors}
         initialAudit={auditRes.data ?? []}
-        currentDevice={currentDevice}
+        initialSessions={sessions}
       />
     </div>
   );
