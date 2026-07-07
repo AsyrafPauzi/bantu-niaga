@@ -44,10 +44,12 @@ const TABS: readonly Tab[] = [
 export function MobileShell({
   tier,
   memberships,
+  canCreateCompany,
   children,
 }: {
   tier: TierKey;
   memberships: BusinessMembership[];
+  canCreateCompany: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -82,7 +84,11 @@ export function MobileShell({
           </form>
         </div>
         <div className="border-t border-brand-100 px-4 pb-3 pt-2 dark:border-hairline-dark">
-          <CompanySwitcher memberships={memberships} compact />
+          <CompanySwitcher
+            memberships={memberships}
+            compact
+            canCreateCompany={canCreateCompany}
+          />
         </div>
       </header>
 

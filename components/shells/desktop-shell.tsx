@@ -145,10 +145,12 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
 export function DesktopShell({
   tier,
   memberships,
+  canCreateCompany,
   children,
 }: {
   tier: TierKey;
   memberships: BusinessMembership[];
+  canCreateCompany: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -182,7 +184,10 @@ export function DesktopShell({
           </div>
 
           <div className="border-b border-[#D5E2FB] bg-[#EEF3FE] px-4 py-3 dark:border-hairline-dark dark:bg-brand-900/30">
-            <CompanySwitcher memberships={memberships} />
+            <CompanySwitcher
+              memberships={memberships}
+              canCreateCompany={canCreateCompany}
+            />
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">

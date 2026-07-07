@@ -12,7 +12,7 @@ describe("business bundles", () => {
     expect(bundle?.recommendedTier).toBe("sme");
   });
 
-  it("computes 15% savings on add-on subtotal", () => {
+  it("computes 10% savings on add-on subtotal", () => {
     const bundle = bundleForBusinessType("fnb");
     expect(bundle).not.toBeNull();
 

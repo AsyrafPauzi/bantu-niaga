@@ -6,16 +6,19 @@ import { useRouter } from "next/navigation";
 import { Building2, Check, ChevronDown, Loader2, LogIn, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { apiErrorMessage } from "@/lib/api/client-error";
+import { MAX_OWNED_BUSINESSES_PER_USER } from "@/lib/auth/owned-business-limits";
 import type { BusinessMembership } from "@/lib/auth/memberships";
 
 interface CompanySwitcherProps {
   memberships: BusinessMembership[];
   compact?: boolean;
+  canCreateCompany?: boolean;
 }
 
 export function CompanySwitcher({
   memberships,
   compact = false,
+  canCreateCompany = true,
 }: CompanySwitcherProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -129,14 +132,20 @@ export function CompanySwitcher({
             })}
           </div>
           <div className="border-t border-[#E5E0D8] p-1 dark:border-hairline-dark">
-            <Link
-              href="/add-company"
-              onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50 dark:text-brand-200 dark:hover:bg-brand-900/30"
-            >
-              <Plus className="h-4 w-4 shrink-0" strokeWidth={2} />
-              Create new company
-            </Link>
+            {canCreateCompany ? (
+              <Link
+                href="/add-company"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50 dark:text-brand-200 dark:hover:bg-brand-900/30"
+              >
+                <Plus className="h-4 w-4 shrink-0" strokeWidth={2} />
+                Create new company
+              </Link>
+            ) : (
+              <p className="px-3 py-2.5 text-xs text-ink-muted dark:text-cream-400">
+                Company limit reached ({MAX_OWNED_BUSINESSES_PER_USER} owned)
+              </p>
+            )}
             <Link
               href="/sign-in?reason=switch_account"
               onClick={() => setOpen(false)}

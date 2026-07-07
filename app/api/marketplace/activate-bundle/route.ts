@@ -13,7 +13,7 @@ const schema = z
 /**
  * POST /api/marketplace/activate-bundle
  *
- * Phase 2 — one-click bundle activation with ~15% add-on discount.
+ * Phase 2 — one-click bundle activation with ~10% add-on discount.
  * Not implemented yet; Phase 1 uses step-by-step plan + add-on activation.
  */
 export async function POST(request: Request) {

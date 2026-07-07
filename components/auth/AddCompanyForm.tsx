@@ -26,7 +26,13 @@ const STATES = [
   { code: "PJY", label: "Putrajaya" },
 ] as const;
 
-export function AddCompanyForm() {
+export function AddCompanyForm({
+  ownedCount,
+  maxOwned,
+}: {
+  ownedCount: number;
+  maxOwned: number;
+}) {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -80,6 +86,9 @@ export function AddCompanyForm() {
           <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
             Create another business under your login. Confirm your password,
             then switch between companies from the sidebar — no need to sign out.
+          </p>
+          <p className="mt-2 text-xs text-ink-subtle dark:text-cream-500">
+            {ownedCount} of {maxOwned} companies owned on this account.
           </p>
         </div>
       </div>

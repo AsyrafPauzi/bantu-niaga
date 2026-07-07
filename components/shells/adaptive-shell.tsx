@@ -20,19 +20,29 @@ import type { BusinessMembership } from "@/lib/auth/memberships";
 export function AdaptiveShell({
   tier,
   memberships,
+  canCreateCompany,
   children,
 }: {
   tier: TierKey;
   memberships: BusinessMembership[];
+  canCreateCompany: boolean;
   children: ReactNode;
 }) {
   const mode = useMode();
   return mode === "mobile" ? (
-    <MobileShell tier={tier} memberships={memberships}>
+    <MobileShell
+      tier={tier}
+      memberships={memberships}
+      canCreateCompany={canCreateCompany}
+    >
       {children}
     </MobileShell>
   ) : (
-    <DesktopShell tier={tier} memberships={memberships}>
+    <DesktopShell
+      tier={tier}
+      memberships={memberships}
+      canCreateCompany={canCreateCompany}
+    >
       {children}
     </DesktopShell>
   );

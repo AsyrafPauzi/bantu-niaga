@@ -1,8 +1,8 @@
 import type { TierKey } from "@/lib/settings/plans";
 import type { BusinessType, PlanQuizAnswers } from "@/lib/onboarding/plan-quiz";
 
-/** 15% off add-on portion when buying as a business bundle (Phase 1: display only). */
-export const BUNDLE_ADDON_DISCOUNT_RATE = 0.15;
+/** 10% off add-on portion when buying as a business bundle (Phase 1: display only). */
+export const BUNDLE_ADDON_DISCOUNT_RATE = 0.1;
 
 export interface BundleAddonRef {
   slug: string;

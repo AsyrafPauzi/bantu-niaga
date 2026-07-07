@@ -29,6 +29,9 @@ import {
   resolveNextChargeDate,
   sortActiveEntries,
 } from "@/lib/marketplace/active-addons";
+import { buildMarketplaceBundles } from "@/lib/marketplace/bundle-display";
+import { BUSINESS_BUNDLES } from "@/lib/onboarding/business-bundles";
+import { BundleCard } from "@/components/marketplace/BundleCard";
 
 interface Props {
   initial: CatalogEntry[];
@@ -37,7 +40,7 @@ interface Props {
   subscriptionRenewalAt: string | null;
 }
 
-type FilterKey = "all" | "active" | AddonPillar;
+type FilterKey = "all" | "active" | "bundles" | AddonPillar;
 type TierKey = "starter" | "micro" | "sme" | "enterprise";
 type ModuleAddonPillar = Exclude<AddonPillar, "ai" | "cross">;
 
@@ -80,6 +83,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "marketing", label: "Marketing" },
   { key: "sales", label: "Sales" },
   { key: "ai", label: "AI agents" },
+  { key: "bundles", label: "Bundles" },
   { key: "all", label: "All add-ons" },
   { key: "active", label: "Active" },
 ];
@@ -138,6 +142,7 @@ export function MarketplaceView({
     const c: Record<FilterKey, number> = {
       all: entries.length,
       active: 0,
+      bundles: BUSINESS_BUNDLES.length,
       marketing: 0,
       operations: 0,
       finance: 0,
@@ -152,7 +157,27 @@ export function MarketplaceView({
       if (isAddonActive(e, tier)) c.active += 1;
     }
     return c;
-  }, [entries]);
+  }, [entries, tier]);
+
+  const activeSlugs = useMemo(
+    () =>
+      new Set(
+        entries
+          .filter((e) => isAddonActive(e, tier))
+          .map((e) => e.addon.slug),
+      ),
+    [entries, tier],
+  );
+
+  const bundleCards = useMemo(
+    () =>
+      buildMarketplaceBundles({
+        catalog: entries,
+        currentTier: isTierKey(tier) ? tier : "starter",
+        activeSlugs,
+      }),
+    [entries, tier, activeSlugs],
+  );
 
   const featured = entries.find((e) => e.addon.is_featured) ?? null;
 
@@ -160,7 +185,7 @@ export function MarketplaceView({
     const q = query.trim().toLowerCase();
     return entries
       .filter((e) => {
-        if (filter === "all") return true;
+        if (filter === "all" || filter === "bundles") return true;
         if (filter === "active") return isAddonActive(e, tier);
         return e.addon.pillar === filter;
       })
@@ -172,7 +197,7 @@ export function MarketplaceView({
           e.addon.slug.includes(q)
         );
       });
-  }, [entries, filter, query]);
+  }, [entries, filter, query, tier]);
 
   const active = sortActiveEntries(
     entries.filter((e) => isAddonActive(e, tier)),
@@ -351,9 +376,15 @@ export function MarketplaceView({
       <div>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-ink dark:text-cream-100">
-            {filter === "all" ? "All add-ons" : `${labelFor(filter)} add-ons`}
+            {filter === "bundles"
+              ? "Business bundles"
+              : filter === "all"
+                ? "All add-ons"
+                : `${labelFor(filter)} add-ons`}
             <span className="ml-2 text-sm font-normal text-ink-muted dark:text-cream-400">
-              {filtered.length} {filtered.length === 1 ? "result" : "results"}
+              {filter === "bundles"
+                ? `${bundleCards.length} ${bundleCards.length === 1 ? "bundle" : "bundles"}`
+                : `${filtered.length} ${filtered.length === 1 ? "result" : "results"}`}
             </span>
           </h2>
           <p className="text-xs text-ink-muted dark:text-cream-400">
@@ -361,7 +392,26 @@ export function MarketplaceView({
           </p>
         </div>
 
-        {filtered.length === 0 ? (
+        {filter === "bundles" ? (
+          bundleCards.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-cream-300 bg-white/60 p-12 text-center dark:border-hairline-dark dark:bg-panel-dark/60">
+              <p className="text-sm font-medium text-ink dark:text-cream-100">
+                No bundles available yet.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              {bundleCards.map((card) => (
+                <BundleCard
+                  key={card.bundle.id}
+                  card={card}
+                  canEdit={canEdit}
+                  tier={tier}
+                />
+              ))}
+            </div>
+          )
+        ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-cream-300 bg-white/60 p-12 text-center dark:border-hairline-dark dark:bg-panel-dark/60">
             <p className="text-sm font-medium text-ink dark:text-cream-100">
               {query
@@ -742,6 +792,7 @@ function Modal({
 
 function labelFor(key: FilterKey): string {
   if (key === "all" || key === "active") return key === "all" ? "All" : "Active";
+  if (key === "bundles") return "Bundles";
   return PILLAR_LABEL[key];
 }
 

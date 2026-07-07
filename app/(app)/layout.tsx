@@ -3,6 +3,10 @@ import { AdaptiveShell } from "@/components/shells/adaptive-shell";
 import { SessionRegistrar } from "@/components/auth/SessionRegistrar";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { loadUserMemberships } from "@/lib/auth/memberships";
+import {
+  canCreateOwnedBusiness,
+} from "@/lib/auth/owned-business-limits";
+import { countOwnedBusinesses } from "@/lib/auth/count-owned-businesses";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TierKey } from "@/lib/settings/plans";
 import { ImpersonationBanner } from "@/components/super-admin/ImpersonationBanner";
@@ -29,25 +33,32 @@ export default async function AppLayout({
 }) {
   let tier: TierKey = "starter";
   let memberships: Awaited<ReturnType<typeof loadUserMemberships>> = [];
+  let canCreateCompany = true;
   try {
     const user = await getCurrentUser();
     const supabase = await createSupabaseServerClient();
-    const [{ data }, loadedMemberships] = await Promise.all([
+    const [{ data }, loadedMemberships, ownedCount] = await Promise.all([
       supabase
         .from("businesses")
         .select("tier")
         .eq("id", user.businessId)
         .maybeSingle(),
       loadUserMemberships(user.id, user.businessId),
+      countOwnedBusinesses(user.id),
     ]);
     if (data?.tier) tier = data.tier as TierKey;
     memberships = loadedMemberships;
+    canCreateCompany = canCreateOwnedBusiness(ownedCount);
   } catch (e) {
     if (!(e instanceof UnauthorizedError)) throw e;
   }
 
   return (
-    <AdaptiveShell tier={tier} memberships={memberships}>
+    <AdaptiveShell
+      tier={tier}
+      memberships={memberships}
+      canCreateCompany={canCreateCompany}
+    >
       <SessionRegistrar />
       <ImpersonationBanner />
       {children}

@@ -3,6 +3,11 @@ import { ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { ensureMembership, switchActiveBusiness } from "@/lib/auth/memberships";
 import { addBusinessSchema } from "@/lib/auth/schemas";
+import {
+  canCreateOwnedBusiness,
+  ownedBusinessLimitMessage,
+} from "@/lib/auth/owned-business-limits";
+import { countOwnedBusinesses } from "@/lib/auth/count-owned-businesses";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -27,6 +32,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
     throw e;
+  }
+
+  const ownedCount = await countOwnedBusinesses(user.id);
+  if (!canCreateOwnedBusiness(ownedCount)) {
+    return NextResponse.json(
+      {
+        error: "owned_business_limit",
+        message: ownedBusinessLimitMessage(),
+        limit: ownedCount,
+      },
+      { status: 403 },
+    );
   }
 
   let body: unknown;
