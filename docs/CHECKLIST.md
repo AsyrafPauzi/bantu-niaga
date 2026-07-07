@@ -47,7 +47,7 @@
 | ✅ | Organisation multi-company switching — sidebar dropdown, `/add-company`, `user_business_memberships` |
 | ✅ | Auth rate limiting — sign-up, forgot password, reset password (IP-based) |
 | ✅ | Free-first sign-up — default Free path + optional Starter trial |
-| ✅ | Onboarding quiz (`/sign-up/guide`) — skippable, can recommend Free |
+| ✅ | Onboarding quiz (`/sign-up/guide`) — pre-sign-up only; skippable; can recommend Free |
 | ✅ | Post-sign-up recommendation page (`/onboarding/recommendation`) — Phase 1 |
 | 🟡 | Business bundle one-click activate — Phase 2 (`/api/marketplace/activate-bundle` returns 501) |
 
@@ -78,6 +78,7 @@
 | ✅ | Business profile (name, state, branding) |
 | ✅ | Subscription tiers: Free, Starter, Growth, Pro, Enterprise |
 | ✅ | Plan change UI + proration logic |
+| ✅ | Subscription RM0 invoices — Free plan + 14-day trial on sign-up; monthly renewal cron |
 | ✅ | Team members list |
 | ✅ | Team invite (owner) + roles |
 | ✅ | Billing: invoices list with pagination (10/page) |
@@ -387,7 +388,7 @@
 | ✅ | `CRON_SECRET` set in Vercel production |
 | 🟡 | Set production env: `INTEGRATION_ENCRYPTION_KEY`, `ILMU_API_KEY` (or configure ILMU in super-admin integrations) — `ILMU_API_KEY` ✅ if set in Vercel |
 | 🟡 | Configure Supabase Auth email templates / SMTP for team invites |
-| ✅ | Vercel crons configured: `privacy-sweep`, `hr-daily-notice`, `hr-assistant-renewal`, `tenant-health` |
+| ✅ | Vercel crons configured: `privacy-sweep`, `hr-daily-notice`, `hr-assistant-renewal`, `subscription-renewal`, `tenant-health` |
 | ⬜ | Billplz production keys + webhook URL |
 | ⬜ | E2E test suite in CI |
 | ⬜ | Staging environment parity |
@@ -406,6 +407,7 @@
 | `20260708110000_ai_chat_short_memory.sql` | Per-business short AI chat memory (4 turns) |
 | `20260708120000_perf_security_indexes.sql` | Paid-invoice index + super-admin aggregation RPCs |
 | `20260708140000_onboarding_fields.sql` | Quiz answers + `onboarding_completed_at` on businesses |
+| `20260708150000_subscription_billing.sql` | RM0 subscription invoices, renewal cron, tier-change invoices |
 
 ---
 

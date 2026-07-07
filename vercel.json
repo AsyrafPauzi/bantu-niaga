@@ -14,6 +14,10 @@
       "schedule": "0 0 * * *"
     },
     {
+      "path": "/api/cron/subscription-renewal",
+      "schedule": "15 0 * * *"
+    },
+    {
       "path": "/api/cron/tenant-health",
       "schedule": "30 1 * * *"
     }

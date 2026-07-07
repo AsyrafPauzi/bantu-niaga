@@ -125,7 +125,7 @@ Then show **one recommendation card**, not a price matrix:
 | Moment | Action |
 |--------|--------|
 | Locked module | Existing lock → subscription page |
-| Settings → Subscription | Quiz link available |
+| Settings → Subscription | Compare plans manually (quiz is pre-sign-up only) |
 | After usage milestone | Soft tip (future): expenses on Starter |
 
 ### 3.3 Business-type bundles (discount vs à la carte)

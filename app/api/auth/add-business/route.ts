@@ -5,6 +5,11 @@ import { ensureMembership, switchActiveBusiness } from "@/lib/auth/memberships";
 import { addBusinessSchema } from "@/lib/auth/schemas";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  freePlanRenewalAt,
+  issueSubscriptionInvoice,
+  subscriptionPeriodLabel,
+} from "@/lib/settings/subscription-billing";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -74,13 +79,11 @@ export async function POST(request: Request) {
       name: parsed.business_name,
       state_code: parsed.state_code ?? null,
       tier: "starter",
-      subscription_status: "trial",
-      subscription_renewal_at: new Date(
-        Date.now() + 14 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
+      subscription_status: "active",
+      subscription_renewal_at: freePlanRenewalAt(),
       brand_primary_hex: "#5B8C5A",
       brand_accent_hex: "#F4A340",
-      credit_balance: 50,
+      credit_balance: 0,
     })
     .select("id, idcompany, name")
     .single();
@@ -112,6 +115,27 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get("user-agent") || null;
   const policyVersion = process.env.PRIVACY_POLICY_VERSION || "2026-06-14";
 
+  try {
+    await issueSubscriptionInvoice(admin, {
+      businessId: businessRow.id,
+      userId: user.id,
+      periodLabel: `${subscriptionPeriodLabel()} — Free plan`,
+      amountMyr: 0,
+    });
+  } catch (invoiceError) {
+    await admin.from("businesses").delete().eq("id", businessRow.id);
+    return NextResponse.json(
+      {
+        error: "invoice_create_failed",
+        message:
+          invoiceError instanceof Error
+            ? invoiceError.message
+            : "Could not create subscription invoice",
+      },
+      { status: 500 },
+    );
+  }
+
   await Promise.all([
     admin.from("audit_log").insert({
       business_id: businessRow.id,
@@ -119,13 +143,7 @@ export async function POST(request: Request) {
       action: "auth.add_business",
       entity_type: "business",
       entity_id: businessRow.id,
-      diff: { name: parsed.business_name, trial_days: 14 },
-    }),
-    admin.from("credit_ledger").insert({
-      business_id: businessRow.id,
-      delta: 50,
-      reason: "welcome_bonus",
-      actor_user_id: user.id,
+      diff: { name: parsed.business_name, plan: "free" },
     }),
     admin.from("user_consents").insert([
       {

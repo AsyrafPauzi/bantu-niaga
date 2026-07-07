@@ -90,19 +90,15 @@ export default async function SubscriptionPlanPage({
         }
       />
 
-      <p className="text-sm text-ink-muted dark:text-cream-400">
-        Not sure which plan fits?{" "}
-        <Link
-          href="/sign-up/guide"
-          className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-        >
-          Take the 30-second business quiz
-        </Link>
-        .
-      </p>
-
       <SubscriptionView
         tier={tier}
+        subscriptionStatus={
+          business.subscription_status as
+            | "active"
+            | "past_due"
+            | "cancelled"
+            | "trial"
+        }
         subscriptionRenewalAt={business.subscription_renewal_at}
         usage={{
           seats: seatsRes.count ?? 0,

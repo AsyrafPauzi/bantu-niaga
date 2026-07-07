@@ -8,6 +8,7 @@ import { TIERS, tierBy, type TierKey } from "@/lib/settings/plans";
 
 interface SubscriptionViewProps {
   tier: "starter" | "micro" | "sme" | "enterprise";
+  subscriptionStatus: "active" | "past_due" | "cancelled" | "trial";
   subscriptionRenewalAt: string | null;
   usage: {
     seats: number;
@@ -48,6 +49,7 @@ const PILLAR_MIN_TIER: Record<string, TierKey> = {
 
 export function SubscriptionView({
   tier,
+  subscriptionStatus,
   subscriptionRenewalAt,
   usage,
   canEdit,
@@ -126,7 +128,21 @@ export function SubscriptionView({
                 {current?.priceMyr != null
                   ? `RM ${current.priceMyr.toFixed(0)}${current.cadence}`
                   : "Custom pricing"}
-                {" · "}Renews <strong>{fmtDate(subscriptionRenewalAt)}</strong>
+                {" · "}
+                {subscriptionStatus === "trial" ? (
+                  <>
+                    Trial ends <strong>{fmtDate(subscriptionRenewalAt)}</strong>
+                  </>
+                ) : tier === "starter" ? (
+                  <>
+                    Free plan renews{" "}
+                    <strong>{fmtDate(subscriptionRenewalAt)}</strong>
+                  </>
+                ) : (
+                  <>
+                    Renews <strong>{fmtDate(subscriptionRenewalAt)}</strong>
+                  </>
+                )}
               </p>
             </div>
           </div>

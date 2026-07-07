@@ -4,6 +4,12 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { signUpSchema } from "@/lib/auth/schemas";
 import { ensureMembership } from "@/lib/auth/memberships";
 import { enforceAuthRateLimit } from "@/lib/api/auth-rate-limit";
+import {
+  freePlanRenewalAt,
+  issueSubscriptionInvoice,
+  subscriptionPeriodLabel,
+  trialRenewalAt,
+} from "@/lib/settings/subscription-billing";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -103,9 +109,7 @@ export async function POST(request: Request) {
       state_code: parsed.state_code ?? null,
       tier: isFreePath ? "starter" : "micro",
       subscription_status: isFreePath ? "active" : "trial",
-      subscription_renewal_at: isFreePath
-        ? null
-        : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      subscription_renewal_at: isFreePath ? freePlanRenewalAt() : trialRenewalAt(),
       brand_primary_hex: "#5B8C5A",
       brand_accent_hex: "#F4A340",
       credit_balance: isFreePath ? 0 : 50,
@@ -173,6 +177,31 @@ export async function POST(request: Request) {
     null;
   const userAgent = request.headers.get("user-agent") || null;
   const policyVersion = process.env.PRIVACY_POLICY_VERSION || "2026-06-14";
+
+  try {
+    await issueSubscriptionInvoice(admin, {
+      businessId: businessRow.id,
+      userId: authUser.id,
+      periodLabel: isFreePath
+        ? `${subscriptionPeriodLabel()} — Free plan`
+        : "14-day Starter trial",
+      amountMyr: 0,
+    });
+  } catch (invoiceError) {
+    await admin.from("users").delete().eq("id", authUser.id);
+    await admin.from("businesses").delete().eq("id", businessRow.id);
+    await rollback();
+    return NextResponse.json(
+      {
+        error: "invoice_create_failed",
+        message:
+          invoiceError instanceof Error
+            ? invoiceError.message
+            : "Could not create subscription invoice",
+      },
+      { status: 500 },
+    );
+  }
 
   await Promise.all([
     admin.from("audit_log").insert({
