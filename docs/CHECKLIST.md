@@ -1,6 +1,6 @@
 # Bantu Niaga — Project Checklist
 
-> **Last updated:** 2026-07-08  
+> **Last updated:** 2026-07-08 (onboarding Phase 1)  
 > **Purpose:** Single place to see what is **done**, **pending** (partially shipped or needs deploy/config), and **not done yet** across the system.  
 > **Legend:** ✅ Done · 🟡 Pending · ⬜ Not done
 
@@ -10,7 +10,7 @@
 
 | Area | Done | Pending | Not done |
 |------|------|---------|----------|
-| Platform & auth | 13 | 2 | 3 |
+| Platform & auth | 16 | 2 | 3 |
 | Settings & billing | 14 | 3 | 4 |
 | Marketplace & AI | 21 | 4 | 8 |
 | Admin module | 8 | 1 | 6 |
@@ -46,6 +46,28 @@
 | ⬜ | SSO / social login |
 | ✅ | Organisation multi-company switching — sidebar dropdown, `/add-company`, `user_business_memberships` |
 | ✅ | Auth rate limiting — sign-up, forgot password, reset password (IP-based) |
+| ✅ | Free-first sign-up — default Free path + optional Starter trial |
+| ✅ | Onboarding quiz (`/sign-up/guide`) — skippable, can recommend Free |
+| ✅ | Post-sign-up recommendation page (`/onboarding/recommendation`) — Phase 1 |
+| 🟡 | Business bundle one-click activate — Phase 2 (`/api/marketplace/activate-bundle` returns 501) |
+
+---
+
+## 1b. Onboarding & business bundles
+
+| Status | Item |
+|--------|------|
+| ✅ | Quiz: business type, team size, priorities (max 2) |
+| ✅ | Quiz answers saved on `businesses` (`business_type`, `team_size_band`, `onboarding_priorities`) |
+| ✅ | Bundle catalog in code — Pakej Kedai, Kafe, Online, Servis (`lib/onboarding/business-bundles.ts`) |
+| ✅ | Recommendation UI — plan step + add-on step, bundle total with 15% add-on discount in copy |
+| ✅ | Step-by-step activation — `settings_change_tier` + `marketplace_activate` per add-on |
+| ✅ | Skip / manual choice — `onboarding_completed_at`, links to Subscription + Marketplace |
+| ✅ | Payroll in bundle — optional checkbox only, never default (Pakej Kafe) |
+| ✅ | À la carte pricing unchanged — bundle discount is display-only in Phase 1 |
+| ⬜ | Phase 2: `marketplace_bundles` table + single “Activate Café Pack” RPC |
+| ⬜ | Phase 2: Billplz single checkout for bundle plan + discounted add-ons |
+| ⬜ | Persist quiz for users who skip guide (default generic recommendation) |
 
 ---
 
@@ -383,6 +405,7 @@
 | `20260708100000_super_admin_insights.sql` | Model override, health snapshots, AI usage rollup |
 | `20260708110000_ai_chat_short_memory.sql` | Per-business short AI chat memory (4 turns) |
 | `20260708120000_perf_security_indexes.sql` | Paid-invoice index + super-admin aggregation RPCs |
+| `20260708140000_onboarding_fields.sql` | Quiz answers + `onboarding_completed_at` on businesses |
 
 ---
 
@@ -392,6 +415,7 @@
 - Per-business public holiday overrides
 - Operations ↔ HR holiday blocking
 - Cross-pillar event bus / outbox
+- **Onboarding Phase 2** — one-click bundle activate + discounted billing
 - Paid HR add-ons: advanced leave, payroll, roster, time clock, contracts
 - Module AI chat UIs (Marketing, Finance, Operations, Sales, Admin)
 - Live Billplz checkout for credits and subscription

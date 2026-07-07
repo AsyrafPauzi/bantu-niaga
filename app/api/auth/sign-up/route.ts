@@ -93,6 +93,7 @@ export async function POST(request: Request) {
 
   // Step 2: business + users + first invoice (single transaction via RPC)
   const idcompany = slugifyBusiness(parsed.business_name) + "-" + randomShort();
+  const isFreePath = parsed.signup_path === "free";
 
   const { data: businessRow, error: businessError } = await admin
     .from("businesses")
@@ -100,14 +101,14 @@ export async function POST(request: Request) {
       idcompany,
       name: parsed.business_name,
       state_code: parsed.state_code ?? null,
-      tier: "starter",
-      subscription_status: "trial",
-      subscription_renewal_at: new Date(
-        Date.now() + 14 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
+      tier: isFreePath ? "starter" : "micro",
+      subscription_status: isFreePath ? "active" : "trial",
+      subscription_renewal_at: isFreePath
+        ? null
+        : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       brand_primary_hex: "#5B8C5A",
       brand_accent_hex: "#F4A340",
-      credit_balance: 50,
+      credit_balance: isFreePath ? 0 : 50,
     })
     .select("id, idcompany, name")
     .single();
@@ -180,14 +181,23 @@ export async function POST(request: Request) {
       action: "auth.sign_up",
       entity_type: "business",
       entity_id: businessRow.id,
-      diff: { tier: "starter", trial_days: 14, policy_version: policyVersion },
+      diff: {
+        tier: isFreePath ? "starter" : "micro",
+        signup_path: parsed.signup_path,
+        trial_days: isFreePath ? 0 : 14,
+        policy_version: policyVersion,
+      },
     }),
-    admin.from("credit_ledger").insert({
-      business_id: businessRow.id,
-      delta: 50,
-      reason: "welcome_bonus",
-      actor_user_id: authUser.id,
-    }),
+    ...(isFreePath
+      ? []
+      : [
+          admin.from("credit_ledger").insert({
+            business_id: businessRow.id,
+            delta: 50,
+            reason: "welcome_bonus",
+            actor_user_id: authUser.id,
+          }),
+        ]),
     admin.from("user_consents").insert([
       {
         business_id: businessRow.id,

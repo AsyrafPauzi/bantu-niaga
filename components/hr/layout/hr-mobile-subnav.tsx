@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
+import { HR_ADDON_ROUTES } from "@/lib/hr/addon-nav";
+import { useHrNavAddonStates } from "@/components/hr/layout/hr-nav-addon-context";
 
 const HR_LINKS = [
   { href: "/hr", label: "Overview", exact: true },
@@ -15,8 +17,13 @@ const HR_LINKS = [
   { href: "/hr/assistant", label: "Assistant", exact: false },
 ] as const;
 
+function addonSlugForHref(href: string): string | null {
+  return HR_ADDON_ROUTES.find((row) => row.href === href)?.addonSlug ?? null;
+}
+
 export function HrMobileSubnav({ className }: { className?: string }) {
   const pathname = usePathname();
+  const addonStates = useHrNavAddonStates();
 
   return (
     <nav
@@ -29,6 +36,22 @@ export function HrMobileSubnav({ className }: { className?: string }) {
         const active = exact
           ? pathname === href
           : pathname === href || pathname.startsWith(`${href}/`);
+        const slug = addonSlugForHref(href);
+        const navDisabled = slug ? addonStates[slug]?.navDisabled === true : false;
+
+        if (navDisabled) {
+          return (
+            <span
+              key={href}
+              title="Coming soon in Marketplace"
+              className="shrink-0 cursor-not-allowed rounded-full border border-[#E5E0D8] bg-cream-100 px-3.5 py-1.5 text-xs font-semibold text-ink-subtle dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-500"
+            >
+              {label}
+              <span className="ml-1 text-[10px] uppercase">Soon</span>
+            </span>
+          );
+        }
+
         return (
           <Link
             key={href}

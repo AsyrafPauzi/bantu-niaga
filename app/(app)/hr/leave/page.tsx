@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarPlus, Link2 } from "lucide-react";
+import { CalendarPlus, FileCheck, Link2, UserCircle } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { HrActionRow } from "@/components/hr/layout/hr-action-row";
@@ -15,6 +15,11 @@ import { KpiTileBig } from "@/components/marketing/dashboard/KpiTileBig";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
 import { loadHrLeaveRecords } from "@/lib/hr/load";
+import {
+  HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG,
+  HR_STAFF_PORTAL_ADDON_SLUG,
+} from "@/lib/marketplace/agent-types";
+import { loadAddonFeatureStates } from "@/lib/marketplace/addon-availability";
 
 export const metadata = { title: "Leave" };
 export const dynamic = "force-dynamic";
@@ -39,6 +44,12 @@ export default async function LeavePage() {
   }
 
   const leave = await loadHrLeaveRecords(user.businessId);
+  const addonStates = await loadAddonFeatureStates(user.businessId, [
+    HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG,
+    HR_STAFF_PORTAL_ADDON_SLUG,
+  ]);
+  const leavePolicy = addonStates[HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG];
+  const staffPortal = addonStates[HR_STAFF_PORTAL_ADDON_SLUG];
   const today = new Date().toISOString().slice(0, 10);
   const pending = leave.filter((row) => row.status === "pending");
   const approvedThisMonth = leave.filter((row) => {
@@ -121,17 +132,45 @@ export default async function LeavePage() {
             tone="brand"
           />
           <HrActionRow
-            href="/hr/leave/policy"
+            href={
+              leavePolicy.accessible
+                ? "/hr/leave/policy"
+                : leavePolicy.purchasable
+                  ? "/hr/leave/policy"
+                  : undefined
+            }
+            disabled={leavePolicy.navDisabled}
+            badge={leavePolicy.navDisabled ? "Coming soon" : undefined}
             title="Advanced leave policy"
-            helper="Carry-forward and rules (add-on · coming soon)"
-            icon={CalendarPlus}
+            helper={
+              leavePolicy.navDisabled
+                ? "Carry-forward and rules — launching in Marketplace soon"
+                : leavePolicy.accessible
+                  ? "Carry-forward, caps, and custom rules"
+                  : "Carry-forward and rules (add-on)"
+            }
+            icon={FileCheck}
             tone="neutral"
           />
           <HrActionRow
-            href="/hr/staff-portal"
+            href={
+              staffPortal.accessible
+                ? "/hr/staff-portal"
+                : staffPortal.purchasable
+                  ? "/hr/staff-portal"
+                  : undefined
+            }
+            disabled={staffPortal.navDisabled}
+            badge={staffPortal.navDisabled ? "Coming soon" : undefined}
             title="Staff portal"
-            helper="Staff login for leave (add-on · coming soon)"
-            icon={Link2}
+            helper={
+              staffPortal.navDisabled
+                ? "Staff self-service login — launching in Marketplace soon"
+                : staffPortal.accessible
+                  ? "Staff login for leave balance and requests"
+                  : "Staff login for leave (add-on)"
+            }
+            icon={UserCircle}
             tone="neutral"
           />
         </div>

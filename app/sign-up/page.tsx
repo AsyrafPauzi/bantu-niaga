@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, type FormEvent, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
@@ -27,8 +27,15 @@ const STATES = [
   { code: "PJY", label: "Putrajaya" },
 ] as const;
 
-export default function SignUpPage() {
+type SignupPath = "free" | "starter_trial";
+
+function SignUpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialPath: SignupPath =
+    searchParams.get("path") === "starter_trial" ? "starter_trial" : "free";
+
+  const [signupPath, setSignupPath] = useState<SignupPath>(initialPath);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -68,6 +75,7 @@ export default function SignUpPage() {
           business_name: businessName,
           state_code: stateCode,
           accept_terms: acceptTerms,
+          signup_path: signupPath,
         }),
       });
       const json = await res.json();
@@ -90,7 +98,7 @@ export default function SignUpPage() {
         return;
       }
 
-      router.replace("/home");
+      router.replace("/onboarding/recommendation");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-up failed");
@@ -100,17 +108,72 @@ export default function SignUpPage() {
 
   return (
     <AuthShell
-      brandHeading="Start your 14-day Starter trial."
-      brandSubheading="No card required. Activate WhatsApp Business, Boost Credits, or any add-on later from the Marketplace."
+      brandHeading={
+        signupPath === "free"
+          ? "Start free — invoices and payments."
+          : "Start your 14-day Starter trial."
+      }
+      brandSubheading={
+        signupPath === "free"
+          ? "No card required. Upgrade when you need expenses, stock, or staff."
+          : "No card required. Activate add-ons later from the Marketplace."
+      }
     >
       <div>
         <h2 className="text-3xl font-bold tracking-tight text-ink dark:text-cream-100">
           Create your business
         </h2>
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-          One owner account · 14 days of Starter on us · upgrade any time.
+          {signupPath === "free"
+            ? "Free plan · invoices & payment tracking · upgrade any time."
+            : "14-day Starter trial · Admin + Operations included · upgrade any time."}
         </p>
       </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setSignupPath("free")}
+          className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
+            signupPath === "free"
+              ? "border-brand-500 bg-brand-50 dark:bg-brand-900/30"
+              : "border-cream-300 bg-white hover:bg-cream-50 dark:border-hairline-dark dark:bg-panel-dark"
+          }`}
+        >
+          <span className="block font-semibold text-ink dark:text-cream-100">
+            Start free
+          </span>
+          <span className="mt-0.5 block text-xs text-ink-muted dark:text-cream-400">
+            Invoices & payments — no card
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSignupPath("starter_trial")}
+          className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
+            signupPath === "starter_trial"
+              ? "border-brand-500 bg-brand-50 dark:bg-brand-900/30"
+              : "border-cream-300 bg-white hover:bg-cream-50 dark:border-hairline-dark dark:bg-panel-dark"
+          }`}
+        >
+          <span className="block font-semibold text-ink dark:text-cream-100">
+            14-day Starter trial
+          </span>
+          <span className="mt-0.5 block text-xs text-ink-muted dark:text-cream-400">
+            Admin + Operations modules
+          </span>
+        </button>
+      </div>
+
+      <p className="text-center text-sm text-ink-muted dark:text-cream-400">
+        Not sure?{" "}
+        <Link
+          href="/sign-up/guide"
+          className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+        >
+          Help me choose a plan
+        </Link>
+      </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Business name">
@@ -231,7 +294,7 @@ export default function SignUpPage() {
           ) : (
             <Sparkles className="h-4 w-4" strokeWidth={2} />
           )}
-          Create business &amp; start trial
+          {signupPath === "free" ? "Create business — Free" : "Create business & start trial"}
         </button>
       </form>
 
@@ -245,6 +308,14 @@ export default function SignUpPage() {
         </Link>
       </p>
     </AuthShell>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignUpForm />
+    </Suspense>
   );
 }
 

@@ -163,10 +163,16 @@ export default async function HomePage() {
 
   const { data: bizRow } = await supabase
     .from("businesses")
-    .select("tier")
+    .select("tier, subscription_status, onboarding_completed_at")
     .eq("id", user.businessId)
     .maybeSingle();
+
+  if (user.role === "owner" && bizRow && !bizRow.onboarding_completed_at) {
+    redirect("/onboarding/recommendation");
+  }
   const tier = (bizRow?.tier ?? "starter") as TierKey;
+  const onFreePlan =
+    tier === "starter" && (bizRow?.subscription_status ?? "active") === "active";
   const maxBar = Math.max(
     ...figures.cashflow.flatMap((d) => [d.inflow, d.outflow]),
   );
@@ -275,6 +281,25 @@ export default async function HomePage() {
           </Link>
         }
       />
+
+      {onFreePlan ? (
+        <div className="rounded-2xl border border-brand-200 bg-brand-50/80 px-5 py-4 dark:border-brand-800 dark:bg-brand-900/20">
+          <p className="text-sm font-semibold text-ink dark:text-cream-100">
+            You&apos;re on Free — great for invoicing and getting paid.
+          </p>
+          <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
+            When you need expenses, stock, or staff records, we&apos;ll suggest an
+            upgrade.{" "}
+            <Link
+              href="/settings/subscription"
+              className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            >
+              Compare plans
+            </Link>
+            .
+          </p>
+        </div>
+      ) : null}
 
       <section
         aria-label="Headline KPIs"

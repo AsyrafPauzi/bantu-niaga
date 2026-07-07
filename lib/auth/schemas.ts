@@ -43,6 +43,7 @@ export const signUpSchema = z
     accept_terms: z.literal(true, {
       message: "Accept the terms to continue",
     }),
+    signup_path: z.enum(["free", "starter_trial"]).optional().default("free"),
   })
   .strict();
 

@@ -43,7 +43,123 @@ These are reflected in code and architecture docs today.
 
 ## 3. Strategic direction (proposed — team must confirm)
 
-### 3.1 Product packaging: three layers, not twenty add-ons
+### 3.1 Product packaging — customer language (not IT)
+
+**Do not show customers “CORE / POWER / PREMIUM”.** Use this instead:
+
+| What we say to customer | Meaning | Example |
+|-------------------------|---------|---------|
+| **Asas (dalam plan)** | Everything you need at that plan level | Invois, belanja, stok asas |
+| **Lengkap untuk team kecil** | Included when you pick **Growth** | POS, cuti staff, rekod pekerja |
+| **Tambahan (pilihan)** | Only if your business type needs it | Gaji EPF/SOCSO, stok cawangan, Shopee sync |
+
+**One sentence for customers:**  
+*“Pilih jenis perniagaan — kami cadangkan plan yang sesuai. Tambahan hanya jika anda perlukan.”*
+
+The old CORE / POWER / PREMIUM box is **for the team only** when deciding what to build into each tier vs marketplace.
+
+### 3.2 Onboarding: “Apa jenis perniagaan anda?” (recommended)
+
+**Verdict: Yes — this is the right UX for non-IT owners.**
+
+After sign-up, ask **3–5 simple questions** (not a long form):
+
+1. **Jenis perniagaan** (pick one icon)  
+   Kedai runcit · Kafe/F&B · Salon/servis · Jual online · Freelancer · Lain-lain  
+2. **Berapa orang team?**  
+   Sendiri · 2–5 · 6–15 · 16+  
+3. **Apa yang paling penting sekarang?** (pick up to 2)  
+   Invois & bayaran · Jualan kaunter · Stok · Cuti staff · Marketing pelanggan  
+
+Then show **one recommendation card**, not a price matrix:
+
+```
+┌─────────────────────────────────────────────┐
+│  Cadangan untuk: Kafe kecil (6 staff)        │
+│                                              │
+│  Plan: Growth — RM139/bulan                  │
+│  Termasuk: POS, cuti, stok asas, invois      │
+│                                              │
+│  Pakej tambahan (jimat 15%):                 │
+│  ☑ HR Assistant (Azam)                        │
+│  ☐ Gaji & EPF (bila anda sedia)              │
+│                                              │
+│  [ Mula percuma 14 hari ]  [ Tukar plan ]    │
+└─────────────────────────────────────────────┘
+```
+
+**Rules:**
+
+- User can always **skip** and choose plan manually (“Saya nak pilih sendiri”).  
+- Recommendation is **editable** — never lock them in.  
+- Save answers on `businesses` (e.g. `business_type`, `team_size_band`) for analytics and support.
+
+**Why this works:** Owner thinks *“system faham kedai saya”* — not *“system macam ERP”*.
+
+### 3.2.1 Free-first onboarding (locked)
+
+**Free is the default “try it” path.** The quiz and business bundles are optional helpers for owners who want a paid-plan recommendation.
+
+| Rule | Decision |
+|------|----------|
+| Can you sign up without the quiz? | **Yes, always** |
+| Default CTA on sign-up | **Start free** (invoices & payments, no card) |
+| Secondary CTA | **14-day Starter trial** or **Help me choose** (quiz) |
+| Does quiz force a paid plan? | **No** |
+| Can quiz recommend Free? | **Yes** — solo freelancer / invoicing-only |
+| Do bundles apply to Free? | **No** — add-ons require a paid plan |
+| When to push upgrades? | When they open a locked module or after real usage (e.g. 3–5 invoices), not at registration |
+
+**Sign-up screen (implemented):**
+
+```
+[ Start free — invoices & payments ]     ← primary default
+[ 14-day Starter trial ]
+[ Help me choose a plan ]                ← /sign-up/guide
+```
+
+**First login (Free tier):** Show a short banner — *“You’re on Free — great for invoicing. Upgrade when you need expenses, stock, or staff.”* No marketplace push on day one.
+
+**Upgrade moments (not at sign-up):**
+
+| Moment | Action |
+|--------|--------|
+| Locked module | Existing lock → subscription page |
+| Settings → Subscription | Quiz link available |
+| After usage milestone | Soft tip (future): expenses on Starter |
+
+### 3.3 Business-type bundles (discount vs à la carte)
+
+**Verdict: Yes — bundle by business type, discount ~10–20% vs buying add-ons separately.**
+
+| Bundle name | For who | Plan | Add-ons in bundle | Bundle price (example) | If bought separate |
+|-------------|---------|------|-------------------|------------------------|-------------------|
+| **Pakej Kedai** | Kedai runcit | Growth | Azam HR + Dynamic QR | RM169/mo | RM179 |
+| **Pakej Kafe** | F&B, counter staff | Growth | Azam HR + Daily close-out | RM179/mo | RM194 |
+| **Pakej Online** | Shopee/TikTok seller | Pro | Shopee sync + Marketing AI | RM289/mo | RM314 |
+| **Pakej Servis** | Salon, homestay | Starter or Growth | Booking page + Azam | RM99–159/mo | higher |
+
+**Principles:**
+
+- **Bundle = plan + curated add-ons** — one checkout, one invoice line on Billplz.  
+- **À la carte** in Marketplace stays at **full price** (creates fair reason to take bundle).  
+- Bundles are **presets**, not new code modules — same add-on slugs, `marketplace_activate_bundle` RPC later.  
+- Show: ~~RM194~~ **RM179** — “Jimat RM15 dengan Pakej Kafe”.
+
+**Phase 1 (implemented):** `/onboarding/recommendation` after sign-up — step-by-step plan + add-on activation; bundle total with 15% add-on discount shown in copy.  
+**Phase 2 (planned):** Single “Activate pack” button via `POST /api/marketplace/activate-bundle` + `marketplace_bundles` table.
+
+**Locked recommendations:**
+
+| Principle | Decision |
+|-----------|----------|
+| Onboarding quiz | Yes — good for Malaysian micro-SMEs |
+| Business bundles | Yes — clearer than marketplace grid alone |
+| Bundle discount | ~15% on add-ons only — à la carte stays full price |
+| Manual choice | Always allowed — skip, subscription page, or Marketplace |
+| Payroll in bundles | Optional only — never pre-selected |
+
+### 3.4 Product packaging (team view — CORE / POWER / PREMIUM)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -98,12 +214,14 @@ Mark each **Decide / Defer / Reject** in §6 after the session.
 | D2 | **Growth price** | Keep RM139 · Raise to RM149–169 when payroll-adjacent HR is stable | Defer raise until e-invoice + HR core stable |
 | D3 | **Payroll pack positioning** | Add-on only · Included in Pro · Separate “Compliance” tier | **Add-on RM99–149** when statutory features ship |
 | D4 | **Deep inventory** | Always add-on · Basic stock in Ops for all paid tiers | Basic in Starter+; **Advanced Inventory** add-on |
-| D5 | **Marketplace UX** | Long list · 3 bundles (Essentials / Team / Compliance) | **3 bundles** on marketplace home |
+| D5 | **Marketplace UX** | Long list · 3 bundles · **Onboarding quiz + business bundles** | **Quiz + bundles** (§3.2–3.3) |
 | D6 | **Free tier limits** | Keep no customers · Allow 50 customers on Free | Keep strict — upgrade trigger to Starter |
 | D7 | **Annual discount** | 2 months free · 15% off · None in year one | **2 months free** per [pricing-plan.md](./pricing-plan.md) |
 | D8 | **Archive policy** | When to roll up `ai_usage` rows | >90 days → daily rollup (partially built) |
 | D9 | **Enterprise door** | Pro only · Pro + “Dedicated support” RM500+ | Pro + support pack; no separate DB unless paid |
 | D10 | **First vertical focus** | F&B · Retail kedai · Services · No vertical | Pick **one** for marketing copy + 2 demo tenants |
+| D11 | **Onboarding quiz at sign-up?** | Yes / After first login / Defer | **Yes** — 3 questions, skippable |
+| D12 | **Bundle discount %** | 10% · 15% · 20% | **15%** on add-ons in bundle only |
 
 ---
 

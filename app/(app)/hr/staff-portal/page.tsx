@@ -7,6 +7,8 @@ import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
 import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
+import { HR_STAFF_PORTAL_ADDON_SLUG } from "@/lib/marketplace/agent-types";
+import { loadAddonFeatureState } from "@/lib/marketplace/addon-availability";
 
 export const metadata = { title: "Staff portal" };
 export const dynamic = "force-dynamic";
@@ -28,6 +30,14 @@ export default async function HrStaffPortalPage() {
         </CardBody>
       </Card>
     );
+  }
+
+  const portalState = await loadAddonFeatureState(
+    user.businessId,
+    HR_STAFF_PORTAL_ADDON_SLUG,
+  );
+  if (portalState.navDisabled) {
+    redirect("/hr/leave");
   }
 
   return (
