@@ -12,8 +12,15 @@ export const HR_STAFF_PORTAL_ADDON_SLUG = "hr-staff-portal";
 export const HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG = "hr-advanced-leave-policy";
 export const HR_AGENT_SLUG = "hr";
 export const HR_ASSISTANT_MONTHLY_CREDITS = 100;
+/** Baseline fast-mode costs — prefer `chatCreditsForReasoning` / `actionCreditsForReasoning`. */
 export const HR_CREDIT_COST_CHAT = 1;
 export const HR_CREDIT_COST_ACTION = 2;
+
+export {
+  actionCreditsForReasoning,
+  actionTopUpCreditsForReasoning,
+  chatCreditsForReasoning,
+} from "@/lib/settings/reasoning-credits";
 
 export interface BusinessAgentSettings {
   businessId: string;

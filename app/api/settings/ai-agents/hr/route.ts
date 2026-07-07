@@ -9,6 +9,10 @@ import {
 } from "@/lib/marketplace/entitlements";
 import { HR_AGENT_SLUG } from "@/lib/marketplace/agent-types";
 import { hrAgentSettingsSchema } from "@/lib/settings/agent-settings-schemas";
+import {
+  creditsToMyr,
+  DAILY_BUDGET_DEFAULT_CREDITS,
+} from "@/lib/settings/credit-pricing";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -87,6 +91,16 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+
+  const { data: existing } = await supabase
+    .from("business_agent_settings")
+    .select(
+      "display_name, assistant_enabled, daily_notice_enabled, reasoning_mode, daily_budget_myr",
+    )
+    .eq("business_id", user.businessId)
+    .eq("agent_slug", HR_AGENT_SLUG)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from("business_agent_settings")
     .upsert(
@@ -96,6 +110,10 @@ export async function PATCH(request: Request) {
         display_name: parsed.display_name,
         assistant_enabled: parsed.assistant_enabled,
         daily_notice_enabled: parsed.daily_notice_enabled,
+        reasoning_mode: existing?.reasoning_mode ?? "fast",
+        daily_budget_myr:
+          existing?.daily_budget_myr ??
+          creditsToMyr(DAILY_BUDGET_DEFAULT_CREDITS),
       },
       { onConflict: "business_id,agent_slug" },
     )

@@ -99,7 +99,7 @@ export const TIERS: readonly Tier[] = [
 export const ADDONS = [
   { label: "Extra staff seat", priceMyr: 15, cadence: "/seat / month" },
   { label: "Extra 10 GB storage", priceMyr: 8, cadence: "/month" },
-  { label: "Fast Credits top-up", priceMyr: 10, cadence: "/ 50 credits" },
+  { label: "Fast Credits top-up", priceMyr: 10, cadence: "/ 100 credits" },
   { label: "Per-module AI Agent", priceMyr: 20, cadence: "/agent / month" },
   { label: "Dynamic DuitNow QR", priceMyr: 20, cadence: "/month" },
   { label: "Customer Booking Page", priceMyr: 25, cadence: "/month" },

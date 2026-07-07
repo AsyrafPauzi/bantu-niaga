@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import {
   Cpu,
   ExternalLink,
@@ -29,6 +28,7 @@ import {
   creditsToMyr,
   DAILY_BUDGET_MAX_CREDITS,
   DAILY_BUDGET_MIN_CREDITS,
+  myrToCredits,
 } from "@/lib/settings/credit-pricing";
 
 interface AiAgentsViewProps {
@@ -37,19 +37,10 @@ interface AiAgentsViewProps {
 }
 
 export function AiAgentsView({ initial, canEdit }: AiAgentsViewProps) {
-  const router = useRouter();
   const [overview, setOverview] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  const refresh = useCallback(async () => {
-    const res = await fetch("/api/settings/ai-agents");
-    if (res.ok) {
-      setOverview((await res.json()) as AgentsOverview);
-    }
-    router.refresh();
-  }, [router]);
 
   async function patchAgent(
     slug: string,
@@ -80,12 +71,14 @@ export function AiAgentsView({ initial, canEdit }: AiAgentsViewProps) {
     }
     if (json.settings) {
       const saved = json.settings;
+      const budgetCredits = myrToCredits(Number(saved.daily_budget_myr));
       updateLocal(slug, {
         display_name: saved.display_name,
         assistant_enabled: saved.assistant_enabled,
         daily_notice_enabled: saved.daily_notice_enabled,
         reasoning_mode: saved.reasoning_mode as ReasoningMode,
-        daily_budget_myr: Number(saved.daily_budget_myr),
+        daily_budget_myr: creditsToMyr(budgetCredits),
+        daily_budget_credits: budgetCredits,
       });
     }
     return true;
@@ -107,7 +100,6 @@ export function AiAgentsView({ initial, canEdit }: AiAgentsViewProps) {
       const ok = await patchAgent(slug, { assistant_enabled: enabled });
       if (ok) {
         setSuccess(enabled ? "Agent activated." : "Agent paused.");
-        await refresh();
       }
     });
   }
@@ -121,7 +113,6 @@ export function AiAgentsView({ initial, canEdit }: AiAgentsViewProps) {
       const ok = await patchAgent(slug, fields);
       if (ok) {
         setSuccess("Settings saved.");
-        await refresh();
       }
     });
   }

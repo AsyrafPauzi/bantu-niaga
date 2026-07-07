@@ -10,7 +10,8 @@ import {
   hasHrAssistantAddon,
   loadBusinessAgentSettings,
 } from "@/lib/marketplace/entitlements";
-import { HR_CREDIT_COST_CHAT, HR_AGENT_SLUG } from "@/lib/marketplace/agent-types";
+import { HR_AGENT_SLUG } from "@/lib/marketplace/agent-types";
+import { chatCreditsForReasoning } from "@/lib/settings/reasoning-credits";
 import { loadShortMemory } from "@/lib/ai/short-memory";
 
 export const metadata = { title: "HR AI Assistant" };
@@ -60,7 +61,10 @@ export default async function HrAssistantPage() {
             assistant_enabled: settings.assistantEnabled,
             display_name: settings.displayName,
             credit_balance: balance,
-            credits_paused: balance < HR_CREDIT_COST_CHAT,
+            credits_paused:
+              balance < chatCreditsForReasoning(settings.reasoningMode),
+            reasoning_mode: settings.reasoningMode,
+            credit_cost_chat: chatCreditsForReasoning(settings.reasoningMode),
             business_id: user.businessId,
             recent_turns: recentTurns,
           }}

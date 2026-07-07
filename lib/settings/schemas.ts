@@ -109,13 +109,13 @@ export const paymentMethodUpdateSchema = z
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Demo bundles. RM 10 / 50 credits, RM 20 / 110, RM 50 / 300.
+ * Demo bundles. RM 10 / 100 credits, RM 20 / 220, RM 50 / 600.
  * The /topup route picks credits from the bundle keyed by `bundle`.
  */
 export const TOPUP_BUNDLES = {
-  small: { amount_myr: 10, credits: 50 },
-  medium: { amount_myr: 20, credits: 110 },
-  large: { amount_myr: 50, credits: 300 },
+  small: { amount_myr: 10, credits: 100 },
+  medium: { amount_myr: 20, credits: 220 },
+  large: { amount_myr: 50, credits: 600 },
 } as const;
 
 export const topupSchema = z

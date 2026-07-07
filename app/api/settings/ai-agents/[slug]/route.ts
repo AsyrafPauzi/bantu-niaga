@@ -111,13 +111,23 @@ export async function PATCH(request: Request, context: RouteContext) {
     daily_budget_myr: creditsToMyr(budgetCredits),
   };
 
-  const { data, error } = await supabase
-    .from("business_agent_settings")
-    .upsert(patch, { onConflict: "business_id,agent_slug" })
-    .select(
-      "agent_slug, display_name, assistant_enabled, daily_notice_enabled, reasoning_mode, daily_budget_myr",
-    )
-    .maybeSingle();
+  const { data, error } = existing
+    ? await supabase
+        .from("business_agent_settings")
+        .update(patch)
+        .eq("business_id", user.businessId)
+        .eq("agent_slug", slug)
+        .select(
+          "agent_slug, display_name, assistant_enabled, daily_notice_enabled, reasoning_mode, daily_budget_myr",
+        )
+        .single()
+    : await supabase
+        .from("business_agent_settings")
+        .insert(patch)
+        .select(
+          "agent_slug, display_name, assistant_enabled, daily_notice_enabled, reasoning_mode, daily_budget_myr",
+        )
+        .single();
 
   if (error || !data) {
     return NextResponse.json({ error: "save_failed" }, { status: 500 });

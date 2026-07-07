@@ -22,10 +22,12 @@ import {
 import { recordAiUsage } from "@/lib/ai/usage";
 import { canManageHrCore } from "@/lib/hr/access";
 import {
-  HR_CREDIT_COST_ACTION,
-  HR_CREDIT_COST_CHAT,
   HR_AGENT_SLUG,
 } from "@/lib/marketplace/agent-types";
+import {
+  actionTopUpCreditsForReasoning,
+  chatCreditsForReasoning,
+} from "@/lib/settings/reasoning-credits";
 import {
   getCreditBalance,
   hasHrAssistantAddon,
@@ -198,8 +200,11 @@ export async function GET() {
     assistant_enabled: settings.assistantEnabled,
     display_name: settings.displayName,
     daily_notice_enabled: settings.dailyNoticeEnabled,
+    reasoning_mode: settings.reasoningMode,
+    credit_cost_chat: chatCreditsForReasoning(settings.reasoningMode),
     credit_balance: balance,
-    credits_paused: balance < HR_CREDIT_COST_CHAT,
+    credits_paused:
+      balance < chatCreditsForReasoning(settings.reasoningMode),
     business_id: user.businessId,
     recent_turns: recentTurns,
   });
@@ -317,7 +322,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (creditBalance < HR_CREDIT_COST_CHAT) {
+  if (creditBalance < chatCreditsForReasoning(settings.reasoningMode)) {
     return NextResponse.json(
       {
         error: "insufficient_credits",
@@ -334,9 +339,12 @@ export async function POST(request: Request) {
 
   let totalCharged = 0;
 
+  const chatCost = chatCreditsForReasoning(settings.reasoningMode);
+  const actionTopUp = actionTopUpCreditsForReasoning(settings.reasoningMode);
+
   try {
     const firstSpend = await spendCredits(ctx, {
-      amount: HR_CREDIT_COST_CHAT,
+      amount: chatCost,
       reason: "hr.assistant.chat",
     });
     totalCharged += firstSpend.charged;
@@ -374,7 +382,7 @@ export async function POST(request: Request) {
     if (usedActionTool) {
       try {
         const actionSpend = await spendCredits(ctx, {
-          amount: HR_CREDIT_COST_ACTION - HR_CREDIT_COST_CHAT,
+          amount: actionTopUp,
           reason: "hr.assistant.action",
         });
         totalCharged += actionSpend.charged;
@@ -397,7 +405,10 @@ export async function POST(request: Request) {
       mode: "fast",
       costMyrEstimated: creditsToMyr(totalCharged),
       agentSlug: HR_AGENT_SLUG,
-      metadata: { used_action_tool: usedActionTool },
+      metadata: {
+        used_action_tool: usedActionTool,
+        reasoning_mode: settings.reasoningMode,
+      },
     });
 
     return NextResponse.json(

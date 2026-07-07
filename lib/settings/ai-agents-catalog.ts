@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import { reasoningCreditHint } from "@/lib/settings/reasoning-credits";
 
 export type AgentSlug =
   | "marketing"
@@ -215,8 +216,8 @@ export const REASONING_MODE_LABELS: Record<ReasoningMode, string> = {
 };
 
 export const REASONING_MODE_HINTS: Record<ReasoningMode, string> = {
-  fast: "Uses ilmu-mini-v3.3 — lower cost, quick replies for everyday chat.",
-  deep: "Uses ilmu-v3.1 — stronger reasoning for complex tasks.",
+  fast: `Uses ilmu-mini-v3.3 — quick replies. ${reasoningCreditHint("fast")}.`,
+  deep: `Uses ilmu-v3.1 — stronger reasoning. ${reasoningCreditHint("deep")}.`,
 };
 
 export function agentBySlug(slug: string): TenantAgentDefinition | undefined {

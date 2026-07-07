@@ -70,7 +70,7 @@ function agentLabel(slug: string): string {
 }
 
 function creditsFromSpendCents(spendCents: number): number {
-  return Math.round(spendCents / 20);
+  return Math.round(spendCents / 10);
 }
 
 function spendMyrFromCents(spendCents: number): number {

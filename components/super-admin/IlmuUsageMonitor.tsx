@@ -74,7 +74,7 @@ export function IlmuUsageMonitor({
     <div className="space-y-5">
       <Section
         title="Platform usage monitor"
-        description="Live ILMU consumption across all tenants. Spend reflects tenant credit usage (100 credits = RM 20 retail); compare with your ILMU Console for provider billing."
+        description="Live ILMU consumption across all tenants. Spend reflects tenant credit usage (200 credits = RM 20 retail); compare with your ILMU Console for provider billing."
       >
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <StatusPill tone={source.tone} label={source.label} />

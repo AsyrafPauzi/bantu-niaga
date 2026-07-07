@@ -27,6 +27,8 @@ interface AssistantStatus {
   assistant_enabled: boolean;
   display_name: string;
   credit_balance: number;
+  credit_cost_chat?: number;
+  reasoning_mode?: string;
   credits_paused?: boolean;
   business_id?: string;
   recent_turns?: ChatTurn[];
@@ -137,7 +139,8 @@ export function HrAssistantChat({
   async function sendMessage(text: string) {
     const message = text.trim();
     if (!message || loading) return;
-    if (creditBalance !== null && creditBalance < HR_CREDIT_COST_CHAT) {
+    const chatCost = status?.credit_cost_chat ?? HR_CREDIT_COST_CHAT;
+    if (creditBalance !== null && creditBalance < chatCost) {
       setError(
         "No credits left. Top up in Billing or wait for your monthly refill.",
       );
@@ -259,8 +262,9 @@ export function HrAssistantChat({
   }
 
   const displayName = status.display_name || "Hana";
+  const chatCost = status.credit_cost_chat ?? HR_CREDIT_COST_CHAT;
   const creditsPaused =
-    creditBalance !== null && creditBalance < HR_CREDIT_COST_CHAT;
+    creditBalance !== null && creditBalance < chatCost;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark">
