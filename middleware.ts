@@ -21,6 +21,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { isEmailVerified } from "@/lib/auth/send-verification-email";
 import {
   getSupabasePublicEnv,
   warnSupabaseNotConfiguredOnce,
@@ -103,9 +104,50 @@ export async function middleware(request: NextRequest) {
     user = null;
   }
 
-  if (user) return response;
-
   const pathname = request.nextUrl.pathname;
+
+  if (user) {
+    if (!isEmailVerified(user)) {
+      const allowedWhileUnverified =
+        pathname === "/verify-email" ||
+        pathname === "/api/auth/resend-verification" ||
+        pathname.startsWith("/auth/callback");
+
+      if (!allowedWhileUnverified) {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: {
+                code: "email_not_verified",
+                message: "Verify your email before using Bantu Niaga.",
+              },
+              requestId,
+            },
+            {
+              status: 403,
+              headers: {
+                "x-request-id": requestId,
+                "Cache-Control": "private, no-store",
+              },
+            },
+          );
+        }
+
+        const verifyUrl = request.nextUrl.clone();
+        verifyUrl.pathname = "/verify-email";
+        verifyUrl.search = "";
+        if (user.email) {
+          verifyUrl.searchParams.set("email", user.email);
+        }
+        const redirect = NextResponse.redirect(verifyUrl);
+        redirect.headers.set("x-request-id", requestId);
+        return redirect;
+      }
+    }
+
+    return response;
+  }
 
   // Registration and password recovery must work while logged out.
   if (
@@ -113,6 +155,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/api/auth/add-business" ||
     pathname === "/api/auth/forgot-password" ||
     pathname === "/api/auth/reset-password" ||
+    pathname === "/api/auth/resend-verification" ||
     pathname === "/api/auth/accept-invite"
   ) {
     return response;

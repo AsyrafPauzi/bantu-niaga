@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { signUpSchema } from "@/lib/auth/schemas";
+import { authCallbackUrl } from "@/lib/auth/site-url";
+import { sendSignupVerificationEmail } from "@/lib/auth/send-verification-email";
 import { ensureMembership } from "@/lib/auth/memberships";
 import { enforceAuthRateLimit } from "@/lib/api/auth-rate-limit";
 import {
@@ -19,8 +21,8 @@ export const runtime = "nodejs";
  *
  * Pipeline (all in this single endpoint so partial failures roll back):
  *   1. Validate input with Zod.
- *   2. Create the auth user via the admin API with email_confirm:true
- *      (auto-confirmed — production should send a magic-link instead).
+ *   2. Create the auth user via the admin API with email_confirm:false
+ *      and send a verification email before the account can be used.
  *   3. Create the business row (Starter tier, 30-day renewal window).
  *   4. Create the public.users profile row (role='owner').
  *   5. Seed a single 'starter' invoice marker so the billing page has
@@ -30,9 +32,8 @@ export const runtime = "nodejs";
  * consistent — otherwise the user could sign in but never reach /home
  * (no profile = UnauthorizedError on every request).
  *
- * Client follow-up: after this returns 201, the sign-up page calls
- * supabase.auth.signInWithPassword({email, password}) to set the
- * session cookie, then router.replace('/home').
+ * Client follow-up: after this returns 201, the sign-up page sends the
+ * user to /verify-email — no session until they click the link.
  */
 export async function POST(request: Request) {
   const rl = enforceAuthRateLimit(request, "auth.sign-up", 5, 60 * 60 * 1000);
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email: parsed.email,
     password: parsed.password,
-    email_confirm: true,
+    email_confirm: false,
     user_metadata: {
       business_name: parsed.business_name,
       signup_source: "self_serve",
@@ -251,12 +252,45 @@ export async function POST(request: Request) {
     ]),
   ]);
 
+  const redirectTo = authCallbackUrl(
+    "/onboarding/recommendation",
+    request.headers.get("origin"),
+  );
+
+  let devVerificationLink: string | null = null;
+  try {
+    const verification = await sendSignupVerificationEmail({
+      email: parsed.email,
+      password: parsed.password,
+      redirectTo,
+      admin,
+    });
+    devVerificationLink = verification.devLink;
+  } catch (emailError) {
+    await admin.from("user_consents").delete().eq("user_id", authUser.id);
+    await admin.from("users").delete().eq("id", authUser.id);
+    await admin.from("businesses").delete().eq("id", businessRow.id);
+    await rollback();
+    return NextResponse.json(
+      {
+        error: "verification_email_failed",
+        message:
+          emailError instanceof Error
+            ? emailError.message
+            : "Could not send verification email. Try again shortly.",
+      },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json(
     {
       ok: true,
+      verification_required: true,
       business_id: businessRow.id,
       idcompany: businessRow.idcompany,
       email: parsed.email,
+      dev_verification_link: devVerificationLink,
     },
     { status: 201 },
   );

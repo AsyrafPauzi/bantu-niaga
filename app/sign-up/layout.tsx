@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isEmailVerified } from "@/lib/auth/send-verification-email";
 
 /**
  * Sign-up and the pre-registration business quiz are for logged-out users only.
@@ -16,6 +17,9 @@ export default async function SignUpLayout({
   } = await supabase.auth.getUser();
 
   if (user) {
+    if (!isEmailVerified(user)) {
+      redirect("/verify-email");
+    }
     redirect("/home");
   }
 

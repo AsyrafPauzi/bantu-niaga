@@ -53,7 +53,24 @@ function SignInInner() {
       });
 
       if (signInError) {
+        const msg = signInError.message.toLowerCase();
+        if (msg.includes("confirm") || msg.includes("verified")) {
+          router.replace(`/verify-email?email=${encodeURIComponent(email)}`);
+          setSubmitting(false);
+          return;
+        }
         setError(signInError.message);
+        setSubmitting(false);
+        return;
+      }
+
+      const {
+        data: { user: signedInUser },
+      } = await supabase.auth.getUser();
+
+      if (signedInUser && !signedInUser.email_confirmed_at) {
+        await supabase.auth.signOut();
+        router.replace(`/verify-email?email=${encodeURIComponent(email)}`);
         setSubmitting(false);
         return;
       }
