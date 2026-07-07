@@ -350,16 +350,26 @@ export async function POST(request: Request) {
       settings,
     );
 
-    await saveShortMemory({
-      businessId: ctx.businessId,
-      userId: user.id,
-      agentSlug: HR_AGENT_SLUG,
-      turns: [
-        ...historyForModel,
-        { role: "user", content: parsed.message },
-        { role: "assistant", content: reply },
-      ],
-    });
+    try {
+      await saveShortMemory({
+        businessId: ctx.businessId,
+        userId: user.id,
+        agentSlug: HR_AGENT_SLUG,
+        turns: [
+          ...historyForModel,
+          { role: "user", content: parsed.message },
+          { role: "assistant", content: reply },
+        ],
+      });
+    } catch (memoryError) {
+      logger.warn("hr.assistant.short_memory_failed", {
+        businessId: ctx.businessId,
+        error:
+          memoryError instanceof Error
+            ? memoryError.message
+            : String(memoryError),
+      });
+    }
 
     if (usedActionTool) {
       try {
@@ -416,15 +426,23 @@ export async function POST(request: Request) {
       );
     }
 
+    const detail = error instanceof Error ? error.message : String(error);
     logger.error("hr.assistant.failed", {
       businessId: ctx.businessId,
-      error: error instanceof Error ? error.message : String(error),
+      error: detail,
     });
+
+    const noProvider =
+      detail.includes("No AI provider configured") ||
+      detail.includes("ILMU_API_KEY") ||
+      detail.includes("OPENAI_API_KEY");
+
     return NextResponse.json(
       {
-        error: "assistant_unavailable",
-        message:
-          "The HR assistant is temporarily unavailable. Configure ILMU or OpenAI in Integrations.",
+        error: noProvider ? "ai_provider_missing" : "assistant_unavailable",
+        message: noProvider
+          ? "The HR assistant needs ILMU or OpenAI configured on the platform (Super Admin → Integrations, or ILMU_API_KEY on Vercel)."
+          : "The HR assistant hit a server error. Try again in a moment — your credits and settings are fine.",
       },
       { status: 503 },
     );

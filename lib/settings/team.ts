@@ -21,43 +21,55 @@ export {
 export const loadTeamMembers = cache(
   async (businessId: string): Promise<TeamMemberRow[]> => {
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
+    const { data: memberships, error } = await supabase
       .from("user_business_memberships")
-      .select(
-        "user_id, role, created_at, users!inner(id, email, display_name, last_password_change_at, deletion_scheduled_for)",
-      )
+      .select("user_id, role, created_at, email, display_name")
       .eq("business_id", businessId)
-      .is("users.deletion_scheduled_for", null)
       .order("created_at", { ascending: true });
 
     if (error) throw new Error(error.message);
+    if (!memberships?.length) return [];
 
-    return (data ?? [])
-      .map((row) => {
-        const profile = row.users as unknown as {
+    const userIds = memberships.map((row) => row.user_id as string);
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select(
+        "id, email, display_name, last_password_change_at, deletion_scheduled_for",
+      )
+      .in("id", userIds)
+      .is("deletion_scheduled_for", null);
+
+    if (usersError) throw new Error(usersError.message);
+
+    const userById = new Map(
+      (users ?? []).map((row) => [
+        row.id as string,
+        row as {
           id: string;
           email: string | null;
           display_name: string | null;
           last_password_change_at: string | null;
-        };
+        },
+      ]),
+    );
+
+    return memberships
+      .map((row) => {
+        const profile = userById.get(row.user_id as string);
+        if (!profile) return null;
+        const role = row.role;
+        if (!ROLES.includes(role as Role)) return null;
         return {
           id: profile.id,
-          email: profile.email,
-          display_name: profile.display_name,
-          role: row.role,
-          created_at: row.created_at,
+          email: profile.email ?? (row.email as string | null),
+          display_name:
+            profile.display_name ?? (row.display_name as string | null),
+          role: role as Role,
+          created_at: row.created_at as string,
           last_password_change_at: profile.last_password_change_at,
         };
       })
-      .filter((r) => ROLES.includes(r.role as Role))
-      .map((r) => ({
-        id: r.id,
-        email: r.email,
-        display_name: r.display_name,
-        role: r.role as Role,
-        created_at: r.created_at,
-        last_password_change_at: r.last_password_change_at,
-      }));
+      .filter((row): row is TeamMemberRow => row !== null);
   },
 );
 

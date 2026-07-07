@@ -1,6 +1,5 @@
 import "server-only";
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
 
 import type { Pillar } from "@/lib/permissions";
 
@@ -52,21 +51,9 @@ const BUILDERS: Record<
 export const buildPillarSnapshot = cache(
   async (pillar: Pillar, ctx?: AgentContext): Promise<PillarSnapshot> => {
     const resolved = ctx ?? (await resolveAgentContext());
-    if (pillar === "hr") {
-      return getCachedHrSnapshot(resolved);
-    }
     return BUILDERS[pillar](resolved);
   },
 );
-
-const getCachedHrSnapshot = cache(async (ctx: AgentContext): Promise<PillarSnapshot> => {
-  const read = unstable_cache(
-    async () => buildHrSnapshot(ctx),
-    ["hr-pillar-snapshot", ctx.businessId],
-    { revalidate: 120, tags: [`hr-snapshot-${ctx.businessId}`] },
-  );
-  return read();
-});
 
 /**
  * Build a complete briefing packet (snapshot + ready-to-inline text).
