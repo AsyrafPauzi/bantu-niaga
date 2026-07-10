@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { isEmailVerified } from "@/lib/auth/send-verification-email";
+import { isEmailVerified } from "@/lib/auth/email-verification-policy";
 
 /**
  * Sign-up and the pre-registration business quiz are for logged-out users only.

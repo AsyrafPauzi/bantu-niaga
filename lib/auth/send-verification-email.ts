@@ -1,12 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
+import { isEmailVerificationRequired } from "@/lib/auth/email-verification-policy";
 
-export function isEmailVerified(
-  user: { email_confirmed_at?: string | null } | null | undefined,
-): boolean {
-  return Boolean(user?.email_confirmed_at);
-}
+export { isEmailVerified, isEmailVerificationRequired } from "@/lib/auth/email-verification-policy";
 
 export async function sendSignupVerificationEmail(opts: {
   email: string;
@@ -14,6 +11,10 @@ export async function sendSignupVerificationEmail(opts: {
   redirectTo: string;
   admin: SupabaseClient;
 }): Promise<{ sent: boolean; devLink: string | null }> {
+  if (!isEmailVerificationRequired()) {
+    return { sent: false, devLink: null };
+  }
+
   const env = getSupabasePublicEnv();
   if (!env) {
     throw new Error("Supabase is not configured.");

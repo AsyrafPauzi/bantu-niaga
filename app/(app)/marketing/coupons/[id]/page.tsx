@@ -145,7 +145,14 @@ export default async function CouponDetailPage({ params }: PageProps) {
         }
         action={
           <div className="flex items-center gap-2">
-            <CouponShareLink code={coupon.code} />
+            <CouponShareLink
+              code={coupon.code}
+              discountLabel={
+                coupon.type === "PCT"
+                  ? `${valueNum}% off`
+                  : `${formatMyr(valueNum)} off`
+              }
+            />
             <CouponStatusBadge status={coupon.status} />
           </div>
         }

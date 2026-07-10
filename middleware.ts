@@ -21,7 +21,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { isEmailVerified } from "@/lib/auth/send-verification-email";
+import { isEmailVerified } from "@/lib/auth/email-verification-policy";
 import {
   getSupabasePublicEnv,
   warnSupabaseNotConfiguredOnce,

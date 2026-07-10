@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -127,6 +127,28 @@ export function MarketplaceView({
   const router = useRouter();
   const [entries, setEntries] = useState<CatalogEntry[]>(initial);
   const [filter, setFilter] = useState<FilterKey>("all");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const f = params.get("filter");
+    const allowed: FilterKey[] = [
+      "marketing",
+      "ai",
+      "hr",
+      "bundles",
+      "active",
+      "admin",
+      "finance",
+      "operations",
+      "sales",
+      "all",
+    ];
+    if (f && (allowed as string[]).includes(f)) {
+      setFilter(f as FilterKey);
+      return;
+    }
+    if (params.get("highlight")) setFilter("marketing");
+  }, []);
   const [query, setQuery] = useState("");
   const [busySlug, setBusySlug] = useState<string | null>(null);
   const [toast, setToast] = useState<

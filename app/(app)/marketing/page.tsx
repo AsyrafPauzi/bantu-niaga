@@ -47,7 +47,7 @@ import {
   getTopCustomers,
   getUpcomingContent,
 } from "@/lib/marketing/dashboard-queries";
-import { getDemoChannelMix, getDemoTopPosts } from "@/lib/demo/figures";
+import { getDemoTopPosts } from "@/lib/demo/figures";
 
 export const metadata = { title: "Marketing" };
 export const dynamic = "force-dynamic";
@@ -73,8 +73,8 @@ const QUICK_ACTIONS = [
   },
   {
     icon: Calendar,
-    title: "Schedule post",
-    subtitle: "TikTok · IG · FB",
+    title: "Plan content",
+    subtitle: "Calendar · drafts",
     href: "/marketing/content/new",
   },
   {
@@ -195,7 +195,6 @@ export default async function MarketingOverviewPage() {
   const atRiskCount = snapshot.atRiskCount;
   const dormantCount = snapshot.dormantCount;
 
-  const channelMix = getDemoChannelMix(user.businessId);
   const topPosts = getDemoTopPosts(user.businessId, 4);
 
   const segPct = (n: number): number =>
@@ -601,67 +600,44 @@ export default async function MarketingOverviewPage() {
       </SectionCard>
 
       <SectionCard
-        title="Channel performance"
-        subtitle="Reach + engagement · last 30 days"
+        title="Content channels"
+        subtitle="Plan in core · auto-publish is Marketplace"
         bodyClassName="space-y-4"
       >
-        {channelMix
-          .filter(
-            (c): c is typeof c & { channel: "tiktok" | "instagram" | "facebook" } =>
-              c.channel !== "whatsapp",
-          )
-          .map((row) => {
-            const upcomingCount = upcoming.filter(
-              (u) => u.channel === row.channel,
-            ).length;
-            return { ...row, posts: upcomingCount || row.posts };
-          })
-          .map((row) => {
-          const meta = CHANNEL_META[row.channel];
+        {(["tiktok", "instagram", "facebook"] as const).map((channelKey) => {
+          const meta = CHANNEL_META[channelKey];
           const Icon = meta.icon;
+          const upcomingCount = upcoming.filter(
+            (u) => u.channel === channelKey,
+          ).length;
           return (
-            <Link
-              key={row.channel}
-              href="/settings/integrations"
-              aria-label={`Connect ${meta.label} in Settings → Integrations`}
-              className="block space-y-1.5 rounded-lg -mx-1 px-1 py-1 transition-colors hover:bg-cream-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:hover:bg-hairline-dark/30"
-            >
+            <div key={channelKey} className="space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="inline-flex items-center gap-2 font-semibold text-ink dark:text-cream-100">
                   <Icon className={`h-4 w-4 ${meta.color}`} strokeWidth={2} />
                   {meta.label}
                 </span>
                 <span className="tabular-nums text-ink-muted dark:text-cream-400">
-                  {row.reach} reach · {row.engagement}
+                  {upcomingCount} planned
                 </span>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream-200 dark:bg-hairline-dark">
-                <div
-                  className={`h-full rounded-full ${
-                    row.channel === "tiktok"
-                      ? "bg-accent-500"
-                      : row.channel === "instagram"
-                        ? "bg-brand-500"
-                        : "bg-brand-300"
-                  }`}
-                  style={{ width: `${row.fill}%` }}
-                />
-              </div>
               <p className="text-[11px] text-ink-muted dark:text-cream-400">
-                {row.posts} upcoming post{row.posts === 1 ? "" : "s"}
+                Plan captions in Content. One-click publish needs the Meta /
+                TikTok add-on.
               </p>
-            </Link>
+            </div>
           );
         })}
-        <p className="border-t border-cream-200 pt-3 text-[11px] italic text-ink-subtle dark:border-hairline-dark">
-          Activate the TikTok Shop sync or WhatsApp Business add-on from{" "}
+        <p className="border-t border-cream-200 pt-3 text-[11px] text-ink-subtle dark:border-hairline-dark">
+          Efficiency add-ons (Meta, WhatsApp Business, TikTok sync, Maya AI) live
+          in{" "}
           <Link
-            href="/settings/integrations"
-            className="font-semibold not-italic text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            href="/marketplace"
+            className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
           >
-            Settings → Integrations
+            Marketplace → Marketing
           </Link>{" "}
-          to swap in live metrics.
+          — coming soon.
         </p>
       </SectionCard>
       </div>

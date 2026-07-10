@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { forgotPasswordSchema } from "@/lib/auth/schemas";
 import { authCallbackUrl } from "@/lib/auth/site-url";
+import { isEmailVerificationRequired } from "@/lib/auth/email-verification-policy";
 import { sendSignupVerificationEmail } from "@/lib/auth/send-verification-email";
 import { enforceAuthRateLimit } from "@/lib/api/auth-rate-limit";
 
@@ -47,6 +48,16 @@ export async function POST(request: Request) {
     "/onboarding/recommendation",
     request.headers.get("origin"),
   );
+
+  if (!isEmailVerificationRequired()) {
+    return NextResponse.json(
+      {
+        ok: true,
+        message: "Email verification is not required on this environment.",
+      },
+      { status: 200 },
+    );
+  }
 
   let devLink: string | null = null;
   try {

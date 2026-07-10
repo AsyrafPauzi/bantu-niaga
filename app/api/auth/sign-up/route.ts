@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { signUpSchema } from "@/lib/auth/schemas";
 import { authCallbackUrl } from "@/lib/auth/site-url";
+import { isEmailVerificationRequired } from "@/lib/auth/email-verification-policy";
 import { sendSignupVerificationEmail } from "@/lib/auth/send-verification-email";
 import { ensureMembership } from "@/lib/auth/memberships";
 import { enforceAuthRateLimit } from "@/lib/api/auth-rate-limit";
@@ -21,8 +22,7 @@ export const runtime = "nodejs";
  *
  * Pipeline (all in this single endpoint so partial failures roll back):
  *   1. Validate input with Zod.
- *   2. Create the auth user via the admin API with email_confirm:false
- *      and send a verification email before the account can be used.
+ *   2. Create the auth user (auto-confirmed when verification is bypassed).
  *   3. Create the business row (Starter tier, 30-day renewal window).
  *   4. Create the public.users profile row (role='owner').
  *   5. Seed a single 'starter' invoice marker so the billing page has
@@ -32,8 +32,8 @@ export const runtime = "nodejs";
  * consistent — otherwise the user could sign in but never reach /home
  * (no profile = UnauthorizedError on every request).
  *
- * Client follow-up: after this returns 201, the sign-up page sends the
- * user to /verify-email — no session until they click the link.
+ * Client follow-up: verification flow when AUTH_REQUIRE_EMAIL_VERIFICATION=true,
+ * otherwise auto sign-in on the sign-up page.
  */
 export async function POST(request: Request) {
   const rl = enforceAuthRateLimit(request, "auth.sign-up", 5, 60 * 60 * 1000);
@@ -60,12 +60,13 @@ export async function POST(request: Request) {
   }
 
   const admin = createServiceRoleClient();
+  const verificationRequired = isEmailVerificationRequired();
 
   // Step 1: auth user
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email: parsed.email,
     password: parsed.password,
-    email_confirm: false,
+    email_confirm: !verificationRequired,
     user_metadata: {
       business_name: parsed.business_name,
       signup_source: "self_serve",
@@ -251,6 +252,19 @@ export async function POST(request: Request) {
       },
     ]),
   ]);
+
+  if (!verificationRequired) {
+    return NextResponse.json(
+      {
+        ok: true,
+        verification_required: false,
+        business_id: businessRow.id,
+        idcompany: businessRow.idcompany,
+        email: parsed.email,
+      },
+      { status: 201 },
+    );
+  }
 
   const redirectTo = authCallbackUrl(
     "/onboarding/recommendation",

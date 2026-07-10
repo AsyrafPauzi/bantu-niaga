@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Check, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { apiErrorMessage } from "@/lib/api/client-error";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const STATES = [
   { code: "KUL", label: "Kuala Lumpur" },
@@ -84,12 +85,31 @@ function SignUpForm() {
         return;
       }
 
-      const verifyUrl = new URL("/verify-email", window.location.origin);
-      verifyUrl.searchParams.set("email", email);
-      if (typeof json.dev_verification_link === "string") {
-        verifyUrl.searchParams.set("dev_link", json.dev_verification_link);
+      if (json.verification_required === true) {
+        const verifyUrl = new URL("/verify-email", window.location.origin);
+        verifyUrl.searchParams.set("email", email);
+        if (typeof json.dev_verification_link === "string") {
+          verifyUrl.searchParams.set("dev_link", json.dev_verification_link);
+        }
+        router.replace(verifyUrl.pathname + verifyUrl.search);
+        return;
       }
-      router.replace(verifyUrl.pathname + verifyUrl.search);
+
+      const supabase = createSupabaseBrowserClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) {
+        setError(
+          "Account created but auto-sign-in failed. Sign in manually with the credentials you just chose.",
+        );
+        setPending(false);
+        return;
+      }
+
+      router.replace("/onboarding/recommendation");
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-up failed");
       setPending(false);

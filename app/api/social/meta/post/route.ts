@@ -18,6 +18,8 @@ import {
 } from "@/lib/api/rate-limit";
 import { tooManyRequests } from "@/lib/api/response";
 import { logger } from "@/lib/logger";
+import { loadAddonFeatureState } from "@/lib/marketplace/addon-availability";
+import { META_SOCIAL_ADDON_SLUG } from "@/lib/marketing/addon-slugs";
 
 /**
  * POST /api/social/meta/post
@@ -83,6 +85,22 @@ export async function POST(request: Request) {
       );
     }
     throw e;
+  }
+
+  const metaAddon = await loadAddonFeatureState(
+    user.businessId,
+    META_SOCIAL_ADDON_SLUG,
+  );
+  if (!metaAddon.accessible) {
+    return NextResponse.json(
+      {
+        error: "addon_required",
+        message:
+          "Meta publish requires the Meta Social add-on. Plan and share drafts from Content without it.",
+        slug: META_SOCIAL_ADDON_SLUG,
+      },
+      { status: 403 },
+    );
   }
 
   // Throttle outbound Graph publish so a runaway client (or compromised

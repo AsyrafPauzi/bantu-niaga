@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Share2,
   Video,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
@@ -25,8 +24,12 @@ import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ContentEntryForm } from "@/components/marketing/ContentEntryForm";
 import { ContentActions } from "@/components/marketing/ContentActions";
+import { ContentSharePanel } from "@/components/marketing/ContentSharePanel";
+import { MarketingAddonTeaser } from "@/components/marketing/MarketingAddonTeaser";
 import { PublishPanel } from "@/components/marketing/social/PublishPanel";
 import { InsightsPanel } from "@/components/marketing/social/InsightsPanel";
+import { loadAddonFeatureState } from "@/lib/marketplace/addon-availability";
+import { META_SOCIAL_ADDON_SLUG } from "@/lib/marketing/addon-slugs";
 import {
   loadActiveSocialAccounts,
   loadPublishesForContent,
@@ -177,10 +180,12 @@ export default async function ContentDetailPage({ params }: PageProps) {
   const entryRow = entry as unknown as ContentEntryRowWithMetrics;
   const media = (mediaRaw ?? []) as unknown as ContentMediaRow[];
 
-  const [socialAccounts, publishes] = await Promise.all([
+  const [socialAccounts, publishes, metaAddon] = await Promise.all([
     loadActiveSocialAccounts(user.businessId),
     loadPublishesForContent(user.businessId, id),
+    loadAddonFeatureState(user.businessId, META_SOCIAL_ADDON_SLUG),
   ]);
+  const metaPublishEnabled = metaAddon.accessible;
 
   const defaultCaption = [entryRow.hook, entryRow.caption]
     .filter(Boolean)
@@ -358,33 +363,31 @@ export default async function ContentDetailPage({ params }: PageProps) {
         </div>
 
         <div className="space-y-4 lg:space-y-6">
-          <div className="rounded-xl border border-accent-200 bg-accent-50 p-4 dark:border-accent-700/40 dark:bg-accent-700/15">
-            <div className="flex items-start gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-white">
-                <Zap className="h-4 w-4" strokeWidth={2} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-700 dark:text-accent-200">
-                  Forecast · Maya
-                </p>
-                <p className="mt-1.5 text-sm text-ink dark:text-cream-100">
-                  Expected reach <strong>{forecastLabel}</strong> based on your
-                  last 10 {channel.label} posts. Best time to post mid-week,
-                  9–11 AM MYT.
-                </p>
-                <p className="mt-2 text-[11px] text-ink-muted dark:text-cream-400">
-                  Forecast switches to live data after the post goes live.
-                </p>
-              </div>
-            </div>
-          </div>
+          <ContentSharePanel
+            caption={defaultCaption}
+            channelLabel={channel.label}
+          />
 
-          <PublishPanel
-            contentPlanId={entryRow.id}
-            contentChannel={entryRow.channel}
-            defaultCaption={defaultCaption}
-            accounts={socialAccounts}
-            alreadyPosted={isPosted}
+          {metaPublishEnabled ? (
+            <PublishPanel
+              contentPlanId={entryRow.id}
+              contentChannel={entryRow.channel}
+              defaultCaption={defaultCaption}
+              accounts={socialAccounts}
+              alreadyPosted={isPosted}
+            />
+          ) : (
+            <MarketingAddonTeaser
+              title="Auto-publish to Facebook & Instagram"
+              description="Connect Meta pages and publish from this calendar in one click. Core Marketing lets you plan and share drafts manually."
+              slug={META_SOCIAL_ADDON_SLUG}
+            />
+          )}
+
+          <MarketingAddonTeaser
+            title="Maya · reach forecast"
+            description={`AI reach estimates (e.g. ${forecastLabel}) unlock with the Marketing AI add-on.`}
+            slug="marketing-assistant"
           />
 
           <ContentEntryForm
@@ -395,7 +398,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <InsightsPanel publishes={publishes} />
+      {metaPublishEnabled ? <InsightsPanel publishes={publishes} /> : null}
     </div>
   );
 }

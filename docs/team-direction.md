@@ -177,6 +177,22 @@ Then show **one recommendation card**, not a price matrix:
 | **Power** | Leave, staff records, POS-lite, HR AI (Azam), daily sales | **Included in Growth** (team to confirm if 1 AI agent bundled) |
 | **Premium** | Statutory payroll (EPF/SOCSO/PCB), multi-costing inventory, Shopee/TikTok sync | Add-on RM49–99; only when needed |
 
+### 3.5 Build order (locked): core modules first, add-ons later
+
+**Rule:** Do **not** implement new paid add-ons until every **core module** for the current release is finished or settled (stable enough to sell without the add-on).
+
+| Order | Focus | Examples |
+|-------|--------|----------|
+| **1. Core settle** | Admin, Finance, Operations, Sales, Marketing, HR **included** features | Invoices, expenses, leave, staff records, POS-lite, customers, tasks, storage |
+| **2. Platform settle** | Auth email (Resend/SMTP), Billplz live checkout, invite email | Needed before charging real money |
+| **3. Add-ons** | Premium / Marketplace packs | Payroll, advanced leave, roster, time clock, contracts, deep inventory, Shopee sync |
+
+**What “settled” means:** Core flows work end-to-end for a real kedai/kafe demo; known gaps are documented as 🟡; no half-built add-on UI that promises features we cannot deliver.
+
+**Until then:** Keep Marketplace add-ons as **coming soon / gated** (placeholders OK). Do not build payroll, staff portal, advanced leave policy, roster, etc. while core pillars still have open 🟡 items.
+
+**Exception:** Bug fixes and security on already-shipped add-ons (e.g. Hana, public holidays, appraisal) are allowed anytime.
+
 ### 3.2 Infrastructure: stay shared until paid to split
 
 | Stage | Tenants (paying) | Database strategy |

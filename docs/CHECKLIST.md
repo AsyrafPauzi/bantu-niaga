@@ -17,7 +17,7 @@
 | Finance module | 11 | 2 | 8 |
 | Operations module | 9 | 1 | 7 |
 | Sales module | 5 | 1 | 6 |
-| Marketing module | 14 | 2 | 8 |
+| Marketing module | 14 | 2 | 9 |
 | HR module | 22 | 2 | 10 |
 | Integrations & API | 8 | 3 | 5 |
 | Super Admin | 6 | 0 | 3 |
@@ -243,26 +243,46 @@
 
 ## 8. Marketing module
 
+> **Unlock:** Pro (`enterprise` tier).  
+> **Rule:** Core must feel complete. Add-ons = efficiency, automation, channel APIs (see [04-marketing.md](./pillars/04-marketing.md)).
+
+### 8.1 Core Marketing (Pro included)
+
 | Status | Item |
 |--------|------|
 | ✅ | Marketing overview + KPIs |
 | ✅ | Customers CRM (list, detail, create, merge) |
 | ✅ | CSV import / export |
 | ✅ | Segments (create, rules, member preview) |
-| ✅ | Broadcasts (compose, send, recipients) |
-| ✅ | Coupons (create, redeem, validate) |
-| ✅ | Content library + media upload |
-| ✅ | Meta social connect / post / insights (OAuth) |
-| ✅ | Customer analytics views |
-| ✅ | Marketing AI add-on in marketplace (placeholder) |
-| 🟡 | Tag refresh cron — Edge Function; pg_cron wiring optional |
-| 🟡 | WhatsApp / email campaign channels — coming soon in Integrations UI |
-| ⬜ | WhatsApp Business API add-on |
-| ⬜ | Email campaign automation |
-| ⬜ | TikTok/Shopee sync |
-| ⬜ | CLV report |
-| ⬜ | Loyalty & review tools |
-| ⬜ | Marketing AI chat |
+| ✅ | Auto-tags (VIP, dormant, at-risk, repeat, new) |
+| ✅ | Dormant / at-risk / VIP one-tap CRM filters |
+| ✅ | WhatsApp + Call from customer profile |
+| ✅ | Finance invoices on customer Orders tab |
+| ✅ | Broadcasts (compose, WhatsApp CTC, email) |
+| ✅ | BM / EN broadcast message templates |
+| ✅ | Coupons (create, redeem) + WhatsApp / email / copy share |
+| ✅ | Public coupon page `/c/[code]` |
+| ✅ | Content calendar + media (plan / draft / manual share) |
+| ✅ | Customer analytics views (spend, last purchase) |
+| ✅ | First-visit Marketing guide (skip/cancel = done) |
+| ✅ | Nightly auto-tag refresh cron (`/api/cron/marketing-tag-refresh`) |
+| 🟡 | POS line-item history on customer (beyond Finance invoices) |
+
+### 8.2 Marketing add-ons (Marketplace · coming soon)
+
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ⬜ | Meta Social (FB + IG) | `meta-social` | Publish + insights — **not core** |
+| ⬜ | Marketing AI (Maya) | `marketing-assistant` | Chat UI not built |
+| ⬜ | WhatsApp Business API | `whatsapp-business` | Official API |
+| ⬜ | TikTok Shop sync | `tiktok-sync` | |
+| ⬜ | Email campaign automation | `email-campaign-automation` | |
+| ⬜ | Dormant reactivation | `dormant-reactivation` | Auto win-back |
+| ⬜ | Campaign analytics | `campaign-analytics` | |
+| ⬜ | Loyalty & reviews | `loyalty-reviews` | |
+| ⬜ | CLV report | `clv-report` | |
+
+Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_coming_soon = true`.
 
 ---
 
@@ -407,20 +427,31 @@
 | `20260708110000_ai_chat_short_memory.sql` | Per-business short AI chat memory (4 turns) |
 | `20260708120000_perf_security_indexes.sql` | Paid-invoice index + super-admin aggregation RPCs |
 | `20260708140000_onboarding_fields.sql` | Quiz answers + `onboarding_completed_at` on businesses |
-| `20260708150000_subscription_billing.sql` | RM0 subscription invoices, renewal cron, tier-change invoices |
+| `20260711090000_marketing_addons_coming_soon.sql` | Marketing add-ons coming soon + Meta/email/loyalty seeds |
 
 ---
 
 ## 13. Phase 2+ backlog (not started)
 
-- Staff login self-service (`/hr/me`)
+> **Build order (see [team-direction.md](./team-direction.md) §3.5):** finish / settle **core modules** first. Paid add-ons wait until cores are stable. Placeholders in Marketplace stay “coming soon”.
+
+### Do next (core / platform settle)
+
+- Finance: DuitNow panel + quote-to-invoice polish; Billplz live checkout
+- Operations: booking buffer; basic stock gaps
+- Sales: POS offline / refund gaps as needed for demo
+- Marketing: POS line-items on customer (beyond Finance invoices)
+- Auth: Supabase SMTP / Resend for invites + (later) email verification
+- Module AI chat UIs only after that module’s core is settled
+
+### After cores settle (add-ons — do not start early)
+
+- Staff login self-service (`/hr/me`) / staff portal
 - Per-business public holiday overrides
 - Operations ↔ HR holiday blocking
 - Cross-pillar event bus / outbox
 - **Onboarding Phase 2** — one-click bundle activate + discounted billing
 - Paid HR add-ons: advanced leave, payroll, roster, time clock, contracts
-- Module AI chat UIs (Marketing, Finance, Operations, Sales, Admin)
-- Live Billplz checkout for credits and subscription
 - Digital signature, approval workflows, advanced compliance
 
 ---

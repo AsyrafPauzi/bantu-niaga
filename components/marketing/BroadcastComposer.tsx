@@ -17,6 +17,10 @@ import {
 import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/lib/utils/cn";
 import { buildCtcUrl, renderTemplate } from "@/lib/marketing/broadcasts-shared";
+import {
+  BROADCAST_MESSAGE_TEMPLATES,
+  type BroadcastMessageTemplate,
+} from "@/lib/marketing/broadcast-templates";
 
 /**
  * 4-step broadcast composer.
@@ -361,6 +365,10 @@ export function BroadcastComposer() {
             template={template}
             onTemplateChange={setTemplate}
             insertPlaceholder={insertPlaceholder}
+            applyPreset={(preset) => {
+              setTemplate(preset.body);
+              if (preset.subject) setSubject(preset.subject);
+            }}
             textareaRef={textareaRef}
             coupons={coupons}
             couponsAvailable={couponsAvailable}
@@ -644,6 +652,7 @@ function Step3Template({
   template,
   onTemplateChange,
   insertPlaceholder,
+  applyPreset,
   textareaRef,
   coupons,
   couponsAvailable,
@@ -656,6 +665,7 @@ function Step3Template({
   template: string;
   onTemplateChange: (s: string) => void;
   insertPlaceholder: (token: string) => void;
+  applyPreset: (preset: BroadcastMessageTemplate) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   coupons: CouponRow[];
   couponsAvailable: boolean;
@@ -664,6 +674,27 @@ function Step3Template({
 }) {
   return (
     <div className="space-y-5">
+      <div className="space-y-2">
+        <span className="block text-sm font-semibold text-ink dark:text-cream-100">
+          Ready templates (BM / EN)
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {BROADCAST_MESSAGE_TEMPLATES.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => applyPreset(preset)}
+              className="rounded-full border border-cream-300 bg-cream-50 px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            >
+              {preset.chip}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-ink-muted dark:text-cream-400">
+          Tap a template to fill the message. Edit freely after.
+        </p>
+      </div>
+
       {channel === "email" ? (
         <label className="block space-y-1.5">
           <span className="block text-sm font-semibold text-ink dark:text-cream-100">

@@ -4,7 +4,10 @@
 
 ## 1. Purpose
 
-Marketing helps owners turn a plain customer list into repeat business. Core should make customer records, simple segmentation, content planning, and basic campaigns easy. Advanced automation, integrations, and AI strategy belong in add-ons.
+Marketing helps owners turn a plain customer list into repeat business.
+
+- **Core (Pro included)** must feel complete for daily CRM + simple campaigns — without buying add-ons.
+- **Add-ons** make Marketing more efficient: channel APIs, AI, automation, deeper analytics.
 
 ## 2. Target Users
 
@@ -12,60 +15,72 @@ Marketing helps owners turn a plain customer list into repeat business. Core sho
 - Micro SMEs that need customer lists, tags, coupons, and campaign planning.
 - Growing SMEs that later need automation, analytics, lifecycle marketing, and integrations.
 
-## 3. Core Features
+## 3. Core Features (included in Pro)
 
-Core Marketing should cover basic customer and campaign organization:
+Core Marketing covers customer and campaign **organization** — plan and share manually:
 
-- Customer CRM.
-- Customer tags and notes.
-- Customer import and export.
-- Basic customer segments.
-- Content calendar.
-- Media library.
-- WhatsApp broadcast draft.
-- Basic coupon creation.
-- Coupon redemption tracking.
+| Feature | Notes |
+|---------|--------|
+| Customer CRM | List, detail, create, merge, tags, notes |
+| Import / export | CSV |
+| Basic segments | Rules + auto-tags (VIP, dormant, at-risk, …) |
+| Dormant / at-risk filters | One-tap filters on CRM KPIs |
+| Content calendar | Plan drafts, media, status — **manual** share |
+| Coupons | Create, redeem, share via WhatsApp / email / copy |
+| Broadcasts | Compose + WhatsApp CTC / email send |
+| Customer activity | Spend, last purchase, tag history, events |
+| Overview KPIs | Real CRM + segment counts |
 
-## 4. Add-on Features
+**Not core:** Meta one-click publish, Marketing AI (Maya), WhatsApp Business API, TikTok/Shopee sync, email drips, auto win-back, loyalty, CLV.
 
-Marketing add-ons should carry campaign intelligence and automation:
+## 4. Add-on Features (Marketplace · efficiency & automation)
 
-- Advanced Smart Segments.
-- Dormant Customer Reactivation.
-- Campaign Performance Analytics.
-- WhatsApp Business API.
-- Email Campaign Automation.
-- Meta Integration.
-- TikTok/Shopee Sync.
-- Customer Lifetime Value Report.
-- Loyalty and Review Tools.
-- Marketing AI Strategist.
+Add-ons upgrade the game — automate channels and intelligence:
 
-## 5. Key User Flows
+| Add-on | Slug | Role |
+|--------|------|------|
+| Meta Social (FB + IG) | `meta-social` | Connect, publish, insights |
+| Marketing AI (Maya) | `marketing-assistant` | Captions, tips, forecasts |
+| WhatsApp Business API | `whatsapp-business` | Official WA send / automate |
+| TikTok Shop sync | `tiktok-sync` | Import buyers + orders |
+| Email campaign automation | `email-campaign-automation` | Drips / sequences |
+| Dormant reactivation | `dormant-reactivation` | Auto win-back packs |
+| Campaign analytics | `campaign-analytics` | Deeper ROI reports |
+| Loyalty & reviews | `loyalty-reviews` | Points / review asks |
+| CLV report | `clv-report` | Lifetime value cohorts |
+
+All Marketing add-ons ship as **coming soon** until cores across modules are settled (see team-direction §3.5).
+
+## 5. Key User Flows (core)
 
 ### 5.1 Add a customer
 
 1. Owner adds customer name and phone number.
 2. Owner adds tags and notes.
-3. Customer appears in the CRM.
-4. Customer can later be linked to invoices, sales, bookings, or coupons.
+3. Customer appears in the CRM with auto-tags over time.
 
-### 5.2 Plan content
+### 5.2 Plan content (without Meta)
 
 1. Owner opens the content calendar.
-2. Owner adds a TikTok, Instagram, Facebook, or WhatsApp content idea.
-3. Owner attaches media from the media library.
-4. Owner marks the post as planned, drafted, posted, or done.
+2. Owner adds a TikTok / IG / FB idea + caption.
+3. Owner copies caption or shares via WhatsApp / email.
+4. Owner marks the post planned → posted manually.
+5. (Add-on) One-click Meta publish when `meta-social` is active.
 
-### 5.3 Create a simple coupon
+### 5.3 Win back dormant customers (core)
+
+1. Owner taps **Dormant** on the CRM KPI strip.
+2. Owner creates a broadcast to that segment.
+3. Owner sends via WhatsApp CTC or email.
+4. (Add-on) Auto reactivation packs later.
+
+### 5.4 Share a coupon
 
 1. Owner creates a coupon code.
-2. Owner sets discount type, value, and validity dates.
-3. Owner copies the coupon into WhatsApp or social content.
-4. Coupon use is tracked when redeemed.
+2. Owner shares via copy / WhatsApp / email from the coupon page.
 
 ## 6. Data Notes
 
-Core tables should cover customers, tags, notes, basic segments, content plans, media references, coupons, and coupon redemptions. Customer dedup should be conservative and phone-based to avoid merging unrelated people.
+Core tables: customers, tags, notes, segments, content plans, media, coupons, redemptions, broadcasts.
 
-Premium add-ons can extend the model with segment rules, campaign events, message delivery status, Meta/TikTok/Shopee references, email automations, lifetime value snapshots, loyalty records, review requests, and AI-generated campaign outputs.
+Premium add-ons extend with Meta/TikTok refs, email automations, loyalty, CLV snapshots, and AI outputs.

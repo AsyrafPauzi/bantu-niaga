@@ -191,6 +191,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       helper: `+${formatCount(snapshot.newThisMonth)} MTD`,
       icon: Users,
       tone: "brand" as const,
+      href: "/marketing/customers",
     },
     {
       label: "VIP",
@@ -201,6 +202,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           : "—",
       icon: Star,
       tone: "accent" as const,
+      href: "/marketing/customers?tags=vip",
     },
     {
       label: "Repeat",
@@ -211,6 +213,15 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           : "—",
       icon: Users,
       tone: "brand" as const,
+      href: "/marketing/customers?tags=repeat",
+    },
+    {
+      label: "Dormant",
+      value: formatCount(snapshot.dormantCount),
+      helper: snapshot.dormantCount > 0 ? "win back soon" : "none",
+      icon: Users,
+      tone: "neutral" as const,
+      href: "/marketing/customers?tags=dormant",
     },
     {
       label: "At-risk",
@@ -218,6 +229,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       helper: snapshot.atRiskCount > 0 ? "needs care" : "all clear",
       icon: AlertTriangle,
       tone: "warning" as const,
+      href: "/marketing/customers?tags=at-risk",
     },
     {
       label: "New (MTD)",
@@ -225,6 +237,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       helper: `${formatMyr(snapshot.avgAovMyr)} AOV`,
       icon: UserPlus,
       tone: "success" as const,
+      href: "/marketing/customers?tags=new",
     },
   ];
 
@@ -244,6 +257,10 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     success: {
       wrap: "bg-status-success/10",
       icon: "text-status-success",
+    },
+    neutral: {
+      wrap: "bg-cream-200 dark:bg-hairline-dark",
+      icon: "text-ink-muted dark:text-cream-400",
     },
   };
 
@@ -275,40 +292,43 @@ export default async function CustomersPage({ searchParams }: PageProps) {
 
       <section
         aria-label="Customer counts"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4"
       >
         {MINI_KPIS.map((k) => {
           const tone = KPI_TONE[k.tone];
           return (
-            <Card key={k.label}>
-              <CardBody className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-                    {k.label}
+            <Link key={k.label} href={k.href} className="block transition-opacity hover:opacity-90">
+              <Card>
+                <CardBody className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
+                      {k.label}
+                    </p>
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-md ${tone.wrap} ${tone.icon}`}
+                    >
+                      <k.icon className="h-3.5 w-3.5" strokeWidth={2} />
+                    </span>
+                  </div>
+                  <p className="text-2xl font-bold text-ink dark:text-cream-100">
+                    {k.value}
                   </p>
-                  <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-md ${tone.wrap} ${tone.icon}`}
-                  >
-                    <k.icon className="h-3.5 w-3.5" strokeWidth={2} />
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-ink dark:text-cream-100">
-                  {k.value}
-                </p>
-                <p className="text-xs text-ink-muted dark:text-cream-400">
-                  {k.helper}
-                </p>
-              </CardBody>
-            </Card>
+                  <p className="text-xs text-ink-muted dark:text-cream-400">
+                    {k.helper}
+                  </p>
+                </CardBody>
+              </Card>
+            </Link>
           );
         })}
       </section>
 
-      {snapshot.atRiskCount > 0 ? (
+      {snapshot.dormantCount > 0 || snapshot.atRiskCount > 0 ? (
         <AiBanner
-          label="Maya · Marketing AI"
-          message={`${formatCount(snapshot.atRiskCount)} customer${snapshot.atRiskCount === 1 ? " is" : "s are"} At-risk. Pick a segment + draft a personalised win-back broadcast in one tap.`}
-          cta="Draft win-back"
+          label="Win-back ready"
+          message={`${formatCount(snapshot.dormantCount + snapshot.atRiskCount)} customers need attention. Filter Dormant or At-risk, then send a broadcast — auto win-back packs are a Marketplace add-on.`}
+          cta="Open broadcasts"
+          href="/marketing/broadcasts/new"
         />
       ) : null}
 

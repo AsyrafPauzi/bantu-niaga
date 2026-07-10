@@ -1,4 +1,6 @@
 import { requirePillar } from "@/lib/auth/require-pillar";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { MarketingGuideJourney } from "@/components/marketing/MarketingGuideJourney";
 
 export default async function MarketingPillarLayout({
   children,
@@ -6,5 +8,18 @@ export default async function MarketingPillarLayout({
   children: React.ReactNode;
 }) {
   await requirePillar("marketing");
-  return <>{children}</>;
+  let businessId: string | null = null;
+  try {
+    const user = await getCurrentUser();
+    businessId = user.businessId;
+  } catch {
+    businessId = null;
+  }
+
+  return (
+    <>
+      {businessId ? <MarketingGuideJourney businessId={businessId} /> : null}
+      {children}
+    </>
+  );
 }

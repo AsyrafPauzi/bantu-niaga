@@ -71,6 +71,16 @@ interface EventRow {
   emitted_at: string;
 }
 
+interface InvoiceRow {
+  id: string;
+  number: string;
+  status: string;
+  total_myr: number | string;
+  invoice_date: string | null;
+  created_at: string;
+  title: string | null;
+}
+
 type ActivityTab = "activity" | "orders" | "notes";
 
 function initialsOf(name: string): string {
@@ -265,30 +275,43 @@ export default async function CustomerProfilePage({
   const aov =
     c.aov_myr ?? (c.order_count > 0 ? totalSpend / c.order_count : 0);
 
-  const [{ data: tagHistoryRaw }, { data: eventsRaw }] = await Promise.all([
-    supabase
-      .from("customer_tag_history")
-      .select("id, prior_auto_tags, new_auto_tags, computed_at")
-      .eq("business_id", user.businessId)
-      .eq("customer_id", id)
-      .order("computed_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("events_outbox")
-      .select("id, name, payload, emitted_at")
-      .eq("business_id", user.businessId)
-      .in("name", [
-        "customer.created",
-        "customer.updated",
-        "customer.merged",
-        "customer.tag_changed",
-      ])
-      .ilike("payload->>customer_id", id)
-      .order("emitted_at", { ascending: false })
-      .limit(8),
-  ]);
+  const [{ data: tagHistoryRaw }, { data: eventsRaw }, { data: invoicesRaw }] =
+    await Promise.all([
+      supabase
+        .from("customer_tag_history")
+        .select("id, prior_auto_tags, new_auto_tags, computed_at")
+        .eq("business_id", user.businessId)
+        .eq("customer_id", id)
+        .order("computed_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("events_outbox")
+        .select("id, name, payload, emitted_at")
+        .eq("business_id", user.businessId)
+        .in("name", [
+          "customer.created",
+          "customer.updated",
+          "customer.merged",
+          "customer.tag_changed",
+        ])
+        .ilike("payload->>customer_id", id)
+        .order("emitted_at", { ascending: false })
+        .limit(8),
+      supabase
+        .from("finance_invoices")
+        .select(
+          "id, number, status, total_myr, invoice_date, created_at, title",
+        )
+        .eq("business_id", user.businessId)
+        .eq("customer_id", id)
+        .is("deleted_at", null)
+        .neq("status", "void")
+        .order("created_at", { ascending: false })
+        .limit(12),
+    ]);
 
   const tagHistory = (tagHistoryRaw ?? []) as unknown as TagHistoryRow[];
+  const invoices = (invoicesRaw ?? []) as unknown as InvoiceRow[];
   let events = (eventsRaw ?? []) as unknown as EventRow[];
   if (events.length === 0) {
     events = [
@@ -420,15 +443,24 @@ export default async function CustomerProfilePage({
         action={
           <div className="flex flex-wrap items-center gap-2">
             {c.phone_e164 ? (
-              <a
-                href={`https://wa.me/${c.phone_e164.replace(/[^\d]/g, "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-              >
-                <MessageCircle className="h-4 w-4" strokeWidth={2} />
-                WhatsApp
-              </a>
+              <>
+                <a
+                  href={`https://wa.me/${c.phone_e164.replace(/[^\d]/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+                >
+                  <MessageCircle className="h-4 w-4" strokeWidth={2} />
+                  WhatsApp
+                </a>
+                <a
+                  href={`tel:${c.phone_e164}`}
+                  className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+                >
+                  <Phone className="h-4 w-4" strokeWidth={2} />
+                  Call
+                </a>
+              </>
             ) : null}
             <a
               href="#edit"
@@ -458,10 +490,13 @@ export default async function CustomerProfilePage({
                   </StatusPill>
                 ))}
                 {c.phone_e164 ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-ink-muted dark:text-cream-400">
+                  <a
+                    href={`tel:${c.phone_e164}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+                  >
                     <Phone className="h-3 w-3" strokeWidth={2} />
                     {c.phone_e164}
-                  </span>
+                  </a>
                 ) : null}
                 {c.email ? (
                   <span className="text-xs text-ink-muted dark:text-cream-400">
@@ -580,16 +615,47 @@ export default async function CustomerProfilePage({
           ) : null}
 
           {activeTab === "orders" ? (
-            c.order_count > 0 ? (
+            invoices.length > 0 ? (
+              <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+                {invoices.map((inv) => {
+                  const total = Number(inv.total_myr) || 0;
+                  const when = inv.invoice_date ?? inv.created_at;
+                  return (
+                    <li key={inv.id}>
+                      <Link
+                        href={`/finance/invoices/${inv.id}/edit`}
+                        className="flex items-center gap-3 py-3 transition-colors hover:bg-cream-50 dark:hover:bg-hairline-dark/40"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+                          <ShoppingBag className="h-4 w-4" strokeWidth={2} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-ink dark:text-cream-100">
+                            {inv.number}
+                            {inv.title ? ` · ${inv.title}` : ""}
+                          </p>
+                          <p className="text-xs text-ink-muted dark:text-cream-400">
+                            {fmtDate(when)} · {inv.status}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums text-ink dark:text-cream-100">
+                          {formatMyr(total)}
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : c.order_count > 0 ? (
               <div className="rounded-lg bg-cream-100/40 p-4 text-sm text-ink dark:bg-hairline-dark/30 dark:text-cream-100">
                 <p className="font-semibold">
                   {formatCount(c.order_count)} lifetime orders ·{" "}
                   {formatMyr(totalSpend)}
                 </p>
                 <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-                  Per-order detail will appear here once Operations or POS
-                  events sync. Today only customer-level aggregates are
-                  available.
+                  Aggregates from POS/events. No Finance invoices linked to this
+                  customer yet — link invoices when you bill them.
                 </p>
               </div>
             ) : (
@@ -599,10 +665,10 @@ export default async function CustomerProfilePage({
                   strokeWidth={1.5}
                 />
                 <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                  No orders yet
+                  No invoices yet
                 </p>
                 <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-                  Orders show here as soon as POS / Booking events flow.
+                  Finance invoices linked to this customer will show here.
                 </p>
               </div>
             )
