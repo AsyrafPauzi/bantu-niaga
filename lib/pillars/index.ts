@@ -87,6 +87,7 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
     surfaces: [
       { href: "/sales/pos", label: "POS", primary: "mobile" },
       { href: "/sales/leads", label: "Leads", primary: "both" },
+      { href: "/sales/assistant", label: "AI Assistant", primary: "both" },
     ],
   },
   hr: {

@@ -116,6 +116,7 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
         subItems: [
           { href: "/sales/pos", label: "POS" },
           { href: "/sales/leads", label: "Leads" },
+          { href: "/sales/assistant", label: "AI Assistant" },
         ],
       },
       {
@@ -157,7 +158,9 @@ export function DesktopShell({
   const pathname = usePathname();
   const isHrRoute = pathname === "/hr" || pathname.startsWith("/hr/");
   const isAssistantRoute =
-    pathname === "/hr/assistant" || pathname === "/marketing/assistant";
+    pathname === "/hr/assistant" ||
+    pathname === "/marketing/assistant" ||
+    pathname === "/sales/assistant";
 
   return (
     <div className="min-h-dvh bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">

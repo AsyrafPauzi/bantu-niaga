@@ -115,6 +115,8 @@ export interface AgentChatOptions {
   }>;
   tool_choice?: "auto" | "none" | { type: "function"; function: { name: string } };
   includeBriefing?: boolean;
+  /** Cap completion length (e.g. free smart clarifiers). */
+  max_tokens?: number;
 }
 
 export interface ChatCompletionResponse {
@@ -177,6 +179,7 @@ export async function openaiChat<T = unknown>(
         model,
         messages,
         temperature: opts.temperature ?? 0.2,
+        ...(opts.max_tokens != null ? { max_tokens: opts.max_tokens } : {}),
         ...(opts.tools?.length
           ? { tools: opts.tools, tool_choice: opts.tool_choice ?? "auto" }
           : {}),

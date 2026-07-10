@@ -32,7 +32,7 @@ Core Sales covers **lead tracking** and **simple counter POS** — paid-in-full,
 
 | Add-on | Role |
 |--------|------|
-| Sales AI (Sufi) | Staff planner for floor / leads — like Maya/Hana |
+| Sales AI (Sufi) | Staff planner for floor / leads — like Maya/Hana · **live** `/sales/assistant` |
 | Dynamic DuitNow QR | Amount-specific QR |
 | Refund & Void Approval | Manager control + ledger reversal |
 | Daily Close-Out Reconciliation | End-of-day cash vs system |

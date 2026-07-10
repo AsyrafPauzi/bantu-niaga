@@ -43,9 +43,9 @@ const STEPS = [
   },
   {
     title: "4 · Leads",
-    body: "Add prospects with name and phone, assign a sales person, set follow-ups, then convert won leads into Marketing customers.",
-    href: "/sales/leads",
-    cta: "Open leads",
+    body: "Ask Sufi (Sales AI) about overdue leads and today\u2019s POS — or open Leads to chase yourself. Convert won leads into Marketing customers.",
+    href: "/sales/assistant",
+    cta: "Open Sufi",
     icon: Users,
   },
 ] as const;

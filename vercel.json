@@ -26,6 +26,10 @@
       "schedule": "15 23 * * *"
     },
     {
+      "path": "/api/cron/sales-daily-notice",
+      "schedule": "20 23 * * *"
+    },
+    {
       "path": "/api/cron/marketing-tag-refresh",
       "schedule": "30 18 * * *"
     }

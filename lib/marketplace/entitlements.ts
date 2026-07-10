@@ -11,6 +11,7 @@ import {
   HR_STAFF_PORTAL_ADDON_SLUG,
   HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG,
   MARKETING_ASSISTANT_ADDON_SLUG,
+  SALES_ASSISTANT_ADDON_SLUG,
   type BusinessAgentSettings,
 } from "@/lib/marketplace/agent-types";
 import { normalizeReasoningMode } from "@/lib/settings/ai-agents-catalog";
@@ -57,6 +58,12 @@ export async function hasMarketingAssistantAddon(
   businessId: string,
 ): Promise<boolean> {
   return hasActiveAddon(businessId, MARKETING_ASSISTANT_ADDON_SLUG);
+}
+
+export async function hasSalesAssistantAddon(
+  businessId: string,
+): Promise<boolean> {
+  return hasActiveAddon(businessId, SALES_ASSISTANT_ADDON_SLUG);
 }
 
 export async function hasPublicHolidaysAddon(businessId: string): Promise<boolean> {

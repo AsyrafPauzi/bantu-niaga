@@ -120,8 +120,9 @@
 | ✅ | Boardroom page (unlocks with 2+ module agents or boardroom add-on) |
 | ✅ | AI context isolation + pillar snapshots |
 | ✅ | `ai_usage` metering + audit |
-| 🟡 | Marketing / Finance / Operations / Sales AI — Maya chat ✅; Finance / Ops / Sales still listing only (`chatHref: null`) |
-| 🟡 | Boardroom multi-agent synthesis — UI exists; depth varies by active agents |
+| 🟡 | Marketing / Finance / Operations AI — Maya ✅; Finance / Ops still listing only |
+| ✅ | **Sales AI (Sufi)** — staff planner (clarify → plan → act), lead tools, daily notice |
+| ✅ | **Boardroom meeting room** — pick attendees (≥2), clarify/speak/synth, pause/resume/end, history + PDF; create-after-confirm (Maya/Sufi) |
 | ✅ | ILMU — super-admin platform key (`/super-admin/integrations/ilmu`); tenant data isolated by `business_id` |
 | ✅ | ILMU usage monitor — invocations + spend on `/super-admin/integrations/ilmu` (`ILMU_API_KEY` env OK) |
 | ✅ | HR short memory — last 4 turns per user per business (`ai_chat_short_memory`) |
@@ -131,7 +132,7 @@
 | ✅ | Marketing AI chat page |
 | ⬜ | Finance AI chat page |
 | ⬜ | Operations AI chat page |
-| ⬜ | Sales AI chat page |
+| ✅ | Sales AI chat page |
 | ⬜ | Admin AI chat page |
 | ⬜ | Weekly Boardroom digest email |
 | ⬜ | Auto reasoning mode (removed by design) |
@@ -146,7 +147,7 @@
 | Maya (Marketing) | `marketing-assistant` | ✅ `/marketing/assistant` | ✅ |
 | Fayza (Finance) | `finance-assistant` | ⬜ | ⬜ |
 | Aiman (Operations) | `operations-assistant` | ⬜ | ⬜ |
-| Sufi (Sales) | `sales-assistant` | ⬜ | ⬜ |
+| Sufi (Sales) | `sales-assistant` | ✅ `/sales/assistant` | ✅ |
 | Boardroom | `boardroom-weekly` | ✅ `/boardroom` | ⬜ |
 
 ---
@@ -249,7 +250,7 @@
 
 | Status | Add-on | Slug (planned) | Notes |
 |--------|--------|----------------|-------|
-| ⬜ | Sales AI (Sufi) | `sales-assistant` | Marketplace placeholder · chat not built |
+| ✅ | Sales AI (Sufi) | `sales-assistant` | RM 20/mo · staff planner · `/sales/assistant` |
 | ⬜ | Dynamic DuitNow QR | `sales-duitnow-dynamic` | Amount-specific QR |
 | ⬜ | Refund & void approval | `sales-refund-void` | Manager PIN / approval |
 | ⬜ | Daily close-out reconciliation | `sales-daily-closeout` | End-of-day cash check |
