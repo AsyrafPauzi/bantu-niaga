@@ -11,6 +11,23 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+/**
+ * Helvetica (WinAnsi) cannot encode emoji / many Unicode glyphs.
+ * Map common symbols, then drop anything still outside Latin-1 printable.
+ */
+function toWinAnsiSafe(text: string): string {
+  return text
+    .replace(/\u26a0\ufe0f?/g, "[!]")
+    .replace(/[\u2018\u2019\u201a\u201b]/g, "'")
+    .replace(/[\u201c\u201d\u201e\u201f]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/[\u2022\u00b7\u25cf\u25e6]/g, "-")
+    .replace(/\u00a0/g, " ")
+    .replace(/[^\x09\x0a\x0d\x20-\x7e\xa0-\xff]/g, "?")
+    .replace(/\*\*/g, "");
+}
+
 /** GET /api/boardroom/meetings/[id]/pdf */
 export async function GET(_request: Request, context: RouteContext) {
   let user;
@@ -80,14 +97,24 @@ export async function GET(_request: Request, context: RouteContext) {
   ) {
     const f = bold ? fontBold : font;
     const maxWidth = 595 - margin * 2;
-    const words = text.split(/\s+/);
+    const safe = toWinAnsiSafe(text);
+    const words = safe.split(/\s+/).filter(Boolean);
     let line = "";
     for (const word of words) {
       const test = line ? `${line} ${word}` : word;
-      if (f.widthOfTextAtSize(test, size) > maxWidth) {
-        ensureSpace(size + 4);
-        page.drawText(line, { x: margin, y, size, font: f, color });
-        y -= size + 4;
+      let width: number;
+      try {
+        width = f.widthOfTextAtSize(test, size);
+      } catch {
+        // Last-resort: skip glyphs WinAnsi still rejects
+        continue;
+      }
+      if (width > maxWidth) {
+        if (line) {
+          ensureSpace(size + 4);
+          page.drawText(line, { x: margin, y, size, font: f, color });
+          y -= size + 4;
+        }
         line = word;
       } else {
         line = test;
@@ -95,12 +122,17 @@ export async function GET(_request: Request, context: RouteContext) {
     }
     if (line) {
       ensureSpace(size + 4);
-      page.drawText(line, { x: margin, y, size, font: f, color });
-      y -= size + 6;
+      try {
+        page.drawText(line, { x: margin, y, size, font: f, color });
+        y -= size + 6;
+      } catch {
+        // Skip unencodable leftover line rather than 500 the export
+        y -= size + 6;
+      }
     }
   }
 
-  drawText("Bantu Niaga — AI Boardroom", 16, true);
+  drawText("Bantu Niaga - AI Boardroom", 16, true);
   drawText(businessName, 11);
   drawText(
     meeting.title ||
@@ -125,7 +157,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     ensureSpace(28);
     drawText(label, 10, true, rgb(0.2, 0.35, 0.25));
-    drawText(m.content.replace(/\*\*/g, ""), 9);
+    drawText(m.content, 9);
     y -= 6;
   }
 
