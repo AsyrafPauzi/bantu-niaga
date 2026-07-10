@@ -172,14 +172,15 @@ export async function DELETE() {
   }
 
   const supabase = await createSupabaseServerClient();
-  // List + delete every object under the business prefix so we don't leak
-  // old logos when the user switches file types.
+  // Only remove logo.* — keep other branding assets (e.g. DuitNow QR).
   const { data: list } = await supabase.storage
     .from("branding")
     .list(user.businessId);
 
-  if (list && list.length > 0) {
-    const paths = list.map((o) => `${user.businessId}/${o.name}`);
+  const paths = (list ?? [])
+    .filter((o) => o.name.startsWith("logo."))
+    .map((o) => `${user.businessId}/${o.name}`);
+  if (paths.length > 0) {
     await supabase.storage.from("branding").remove(paths);
   }
 

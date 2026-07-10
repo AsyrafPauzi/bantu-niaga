@@ -1,6 +1,6 @@
 # Bantu Niaga — Project Checklist
 
-> **Last updated:** 2026-07-08 (onboarding Phase 1)  
+> **Last updated:** 2026-07-11 (Sales core vs add-ons locked; settle core next)  
 > **Purpose:** Single place to see what is **done**, **pending** (partially shipped or needs deploy/config), and **not done yet** across the system.  
 > **Legend:** ✅ Done · 🟡 Pending · ⬜ Not done
 
@@ -16,9 +16,9 @@
 | Admin module | 8 | 1 | 6 |
 | Finance module | 11 | 2 | 8 |
 | Operations module | 9 | 1 | 7 |
-| Sales module | 5 | 1 | 6 |
+| Sales module | 1 | 3 | 20 |
 | Marketing module | 14 | 2 | 9 |
-| HR module | 22 | 2 | 10 |
+| HR module | 23 | 2 | 10 |
 | Integrations & API | 8 | 3 | 5 |
 | Super Admin | 6 | 0 | 3 |
 
@@ -114,13 +114,13 @@
 | ✅ | Credit pause at 0 (no slow mode) |
 | ✅ | Per-agent daily budget cap |
 | ✅ | Reasoning modes: Fast (`ilmu-mini-v3.3`), Deep (`ilmu-v3.1`) |
-| ✅ | **HR AI (Hana)** — chat, leave tools, daily notice, credit metering |
+| ✅ | **HR AI (Hana)** — staff planner (clarify → plan → act), leave tools, daily notice, credit metering |
 | ✅ | **Admin AI (Amir)** — catalog + settings seed |
 | ✅ | AI agent display name rename (owner) |
 | ✅ | Boardroom page (unlocks with 2+ module agents or boardroom add-on) |
 | ✅ | AI context isolation + pillar snapshots |
 | ✅ | `ai_usage` metering + audit |
-| 🟡 | Marketing / Finance / Operations / Sales AI — marketplace listing only, **no chat UI yet** (`chatHref: null`) |
+| 🟡 | Marketing / Finance / Operations / Sales AI — Maya chat ✅; Finance / Ops / Sales still listing only (`chatHref: null`) |
 | 🟡 | Boardroom multi-agent synthesis — UI exists; depth varies by active agents |
 | ✅ | ILMU — super-admin platform key (`/super-admin/integrations/ilmu`); tenant data isolated by `business_id` |
 | ✅ | ILMU usage monitor — invocations + spend on `/super-admin/integrations/ilmu` (`ILMU_API_KEY` env OK) |
@@ -128,7 +128,7 @@
 | ✅ | HR assistant — server-side-only chat history (no client `history`); 20 msg/min rate limit |
 | ✅ | HR briefing context cache — 120s `unstable_cache` per business |
 | ✅ | Vercel crons — `CRON_SECRET` set in production |
-| ⬜ | Marketing AI chat page |
+| ✅ | Marketing AI chat page |
 | ⬜ | Finance AI chat page |
 | ⬜ | Operations AI chat page |
 | ⬜ | Sales AI chat page |
@@ -143,7 +143,7 @@
 |-------|-------------|------|--------------|
 | Hana (HR) | `hr-assistant` | ✅ `/hr/assistant` | ✅ |
 | Amir (Admin) | `admin-assistant` | ⬜ | ⬜ |
-| Maya (Marketing) | `marketing-assistant` | ⬜ | ⬜ |
+| Maya (Marketing) | `marketing-assistant` | ✅ `/marketing/assistant` | ✅ |
 | Fayza (Finance) | `finance-assistant` | ⬜ | ⬜ |
 | Aiman (Operations) | `operations-assistant` | ⬜ | ⬜ |
 | Sufi (Sales) | `sales-assistant` | ⬜ | ⬜ |
@@ -224,20 +224,41 @@
 
 ## 7. Sales module
 
+> **Unlock:** Growth+ (see entitlements).  
+> **Rule:** Core must feel complete for counter + leads. Add-ons = controls, hardware, analytics, AI (see [05-sales.md](./pillars/05-sales.md)).
+
+### 7.1 Core Sales (included)
+
 | Status | Item |
 |--------|------|
-| ✅ | Sales overview |
-| ✅ | POS page (basic) |
-| ✅ | Leads list |
-| ✅ | Sales AI add-on in marketplace (placeholder) |
-| 🟡 | POS offline mode — not built |
-| ⬜ | Dynamic DuitNow QR add-on |
-| ⬜ | Refund/void approval |
-| ⬜ | Daily close-out reconciliation |
-| ⬜ | Sales by staff report |
-| ⬜ | Coupon-to-sales tracking |
-| ⬜ | Online storefront |
-| ⬜ | Sales AI chat |
+| ✅ | Sales overview page |
+| ✅ | Lead pipeline UI — list, create, status, notes, follow-up |
+| ✅ | Lead statuses: new, contacted, interested, won, lost |
+| ✅ | Lead notes timeline |
+| ✅ | Follow-up reminder on lead (date + due/overdue filters) |
+| ✅ | Convert lead → Marketing customer |
+| ✅ | Mobile POS page — product grid checkout (Operations catalog) |
+| ✅ | Cash payment |
+| ✅ | Static DuitNow QR payment (show merchant QR from Branding) |
+| ✅ | Basic receipt after sale |
+| ✅ | Daily sales summary (real totals) |
+| ✅ | POS sale → Finance income / ledger event |
+| ✅ | First-visit Sales guide (skip/cancel = done) |
+
+### 7.2 Sales add-ons (Marketplace · coming soon)
+
+| Status | Add-on | Slug (planned) | Notes |
+|--------|--------|----------------|-------|
+| ⬜ | Sales AI (Sufi) | `sales-assistant` | Marketplace placeholder · chat not built |
+| ⬜ | Dynamic DuitNow QR | `sales-duitnow-dynamic` | Amount-specific QR |
+| ⬜ | Refund & void approval | `sales-refund-void` | Manager PIN / approval |
+| ⬜ | Daily close-out reconciliation | `sales-daily-closeout` | End-of-day cash check |
+| ⬜ | Sales by staff report | `sales-by-staff` | Cashier performance |
+| ⬜ | Coupon-to-sales tracking | `sales-coupon-tracking` | Promo ROI with Marketing |
+| ⬜ | Hardware POS extensions | `sales-hardware-pos` | Barcode / printer |
+| 🟡 | Offline POS mode | `sales-offline-pos` | Not built · add-on |
+| ⬜ | Online storefront | `sales-storefront` | Public shop |
+| ⬜ | Stale lead alerts | `sales-stale-leads` | Auto chase |
 
 ---
 
@@ -273,7 +294,7 @@
 | Status | Add-on | Slug | Notes |
 |--------|--------|------|-------|
 | ⬜ | Meta Social (FB + IG) | `meta-social` | Publish + insights — **not core** |
-| ⬜ | Marketing AI (Maya) | `marketing-assistant` | Chat UI not built |
+| ✅ | Marketing AI (Maya) | `marketing-assistant` | RM 20/mo · staff planner (CRM + sales + products) · `/marketing/assistant` |
 | ⬜ | WhatsApp Business API | `whatsapp-business` | Official API |
 | ⬜ | TikTok Shop sync | `tiktok-sync` | |
 | ⬜ | Email campaign automation | `email-campaign-automation` | |
@@ -314,12 +335,13 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_comi
 | ✅ | Onboarding progress (employee + HR overview) |
 | ✅ | IC/bank encryption at rest (AES-256-GCM sealed fields) |
 | ✅ | Audit log on HR mutations |
+| ✅ | First-visit HR guide (skip/cancel = done) |
 
 ### 9.2 HR add-ons
 
 | Status | Add-on | Slug | Notes |
 |--------|--------|------|-------|
-| ✅ | HR AI Assistant (Hana) | `hr-assistant` | RM 20/mo · 100 credits · chat + daily notice |
+| ✅ | HR AI Assistant (Hana) | `hr-assistant` | RM 20/mo · staff planner + leave tools · 100 credits |
 | ✅ | Public Holiday Calendar | `hr-public-holidays` | Free · MyCal import · state-aware |
 | ✅ | Staff Appraisal Checker | `hr-staff-appraisal` | RM 29/mo · schedule reviews · overdue tracking |
 | 🟡 | Self-Service Leave Forms | — | Share link works; full portal add-on not built |
@@ -339,6 +361,7 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_comi
 | Status | Capability |
 |--------|------------|
 | ✅ | Plain-language leave Q&A |
+| ✅ | Staff-style clarify → plan → act (like Maya) |
 | ✅ | Record leave (annual, MC, emergency) via chat |
 | ✅ | Approve/reject pending leave |
 | ✅ | Team headcount + staff list from HR data |

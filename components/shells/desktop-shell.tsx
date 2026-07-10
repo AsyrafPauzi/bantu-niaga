@@ -105,6 +105,7 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
           { href: "/marketing/content", label: "Content" },
           { href: "/marketing/broadcasts", label: "Broadcasts" },
           { href: "/marketing/coupons", label: "Coupons" },
+          { href: "/marketing/assistant", label: "AI Assistant" },
         ],
       },
       {
@@ -155,7 +156,8 @@ export function DesktopShell({
 }) {
   const pathname = usePathname();
   const isHrRoute = pathname === "/hr" || pathname.startsWith("/hr/");
-  const isHrAssistantRoute = pathname === "/hr/assistant";
+  const isAssistantRoute =
+    pathname === "/hr/assistant" || pathname === "/marketing/assistant";
 
   return (
     <div className="min-h-dvh bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
@@ -313,14 +315,14 @@ export function DesktopShell({
         <main
           className={cn(
             "min-w-0 flex-1",
-            isHrAssistantRoute
+            isAssistantRoute
               ? "flex min-h-0 flex-col overflow-hidden"
               : "overflow-y-auto",
           )}
         >
           <div
             className={cn(
-              isHrAssistantRoute
+              isAssistantRoute
                 ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
                 : isHrRoute
                   ? "mx-auto"

@@ -21,6 +21,7 @@ export interface BusinessRow {
   subscription_renewal_at: string | null;
   credit_balance: number;
   duitnow_id: string | null;
+  duitnow_qr_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,7 +31,7 @@ const BUSINESS_SELECT =
   "logo_url, brand_primary_hex, brand_accent_hex, registration_no, " +
   "sst_number, contact_line, receipt_footer, email_from_name, " +
   "email_reply_to, subscription_status, subscription_renewal_at, " +
-  "credit_balance, duitnow_id, created_at, updated_at";
+  "credit_balance, duitnow_id, duitnow_qr_url, created_at, updated_at";
 
 export async function loadBusiness(businessId: string): Promise<BusinessRow | null> {
   const supabase = await createSupabaseServerClient();

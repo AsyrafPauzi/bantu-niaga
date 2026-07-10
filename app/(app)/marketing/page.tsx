@@ -360,9 +360,8 @@ export default async function MarketingOverviewPage() {
       <AiBanner
         label="Maya · Marketing AI"
         message={aiMessage}
-        cta="Draft broadcast"
-        disabled
-        disabledLabel="Coming soon"
+        cta="Chat with Maya"
+        href="/marketing/assistant"
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
@@ -629,15 +628,15 @@ export default async function MarketingOverviewPage() {
           );
         })}
         <p className="border-t border-cream-200 pt-3 text-[11px] text-ink-subtle dark:border-hairline-dark">
-          Efficiency add-ons (Meta, WhatsApp Business, TikTok sync, Maya AI) live
-          in{" "}
+          Maya AI is live in Marketplace (RM 20/mo). Meta, WhatsApp Business, and
+          TikTok sync stay{" "}
           <Link
             href="/marketplace"
             className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
           >
-            Marketplace → Marketing
-          </Link>{" "}
-          — coming soon.
+            coming soon
+          </Link>
+          .
         </p>
       </SectionCard>
       </div>

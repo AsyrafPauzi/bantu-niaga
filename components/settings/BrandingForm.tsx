@@ -63,6 +63,8 @@ interface BrandingFormProps {
     receipt_footer: string | null;
     email_from_name: string | null;
     email_reply_to: string | null;
+    duitnow_id: string | null;
+    duitnow_qr_url: string | null;
   };
   canEdit: boolean;
 }
@@ -89,8 +91,12 @@ export function BrandingForm({ initial, canEdit }: BrandingFormProps) {
     initial.email_reply_to ?? "",
   );
   const [logoUrl, setLogoUrl] = useState(initial.logo_url);
+  const [duitnowId, setDuitnowId] = useState(initial.duitnow_id ?? "");
+  const [duitnowQrUrl, setDuitnowQrUrl] = useState(initial.duitnow_qr_url);
 
   const [logoBusy, setLogoBusy] = useState(false);
+  const [qrBusy, setQrBusy] = useState(false);
+  const qrInputRef = useRef<HTMLInputElement>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [previewTab, setPreviewTab] = useState<PreviewTab>("receipt");
@@ -178,6 +184,50 @@ export function BrandingForm({ initial, canEdit }: BrandingFormProps) {
     }
   }
 
+  async function handleQrFile(file: File) {
+    setSaveError(null);
+    setQrBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/settings/branding/duitnow-qr", {
+        method: "POST",
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setSaveError(
+          json?.message ?? json?.error ?? "Could not upload DuitNow QR.",
+        );
+        return;
+      }
+      setDuitnowQrUrl(json.duitnow_qr_url);
+      router.refresh();
+    } finally {
+      setQrBusy(false);
+    }
+  }
+
+  async function handleQrRemove() {
+    setSaveError(null);
+    setQrBusy(true);
+    try {
+      const res = await fetch("/api/settings/branding/duitnow-qr", {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setSaveError(json?.message ?? "Could not remove DuitNow QR.");
+        return;
+      }
+      setDuitnowQrUrl(null);
+      if (qrInputRef.current) qrInputRef.current.value = "";
+      router.refresh();
+    } finally {
+      setQrBusy(false);
+    }
+  }
+
   async function handleSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaveError(null);
@@ -200,6 +250,7 @@ export function BrandingForm({ initial, canEdit }: BrandingFormProps) {
           receipt_footer: receiptFooter.trim() || null,
           email_from_name: emailFromName.trim() || null,
           email_reply_to: emailReplyTo.trim() || null,
+          duitnow_id: duitnowId.trim() || null,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -428,7 +479,85 @@ export function BrandingForm({ initial, canEdit }: BrandingFormProps) {
             </div>
           </StepCard>
 
-          {/* Step 4 — Email (collapsible) */}
+          {/* Step 4 — DuitNow (POS / invoices) */}
+          <StepCard
+            step={4}
+            title="DuitNow for POS"
+            description="Set once — your static QR shows at checkout when customers pay by DuitNow. Dynamic amount QR is a Sales add-on later."
+          >
+            <div className="space-y-4">
+              <Field
+                label="DuitNow ID"
+                hint="Phone or business ID customers can transfer to"
+              >
+                <input
+                  value={duitnowId}
+                  onChange={(e) => setDuitnowId(e.target.value)}
+                  disabled={disabled}
+                  placeholder="e.g. 0123456789"
+                  className={inputCx}
+                />
+              </Field>
+              <div className="flex flex-col items-center gap-4 rounded-xl border-2 border-dashed border-cream-300 bg-cream-50/80 p-5 dark:border-hairline-dark dark:bg-hairline-dark/20 sm:flex-row sm:items-start">
+                <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-cream-200 bg-white dark:border-hairline-dark dark:bg-panel-dark">
+                  {duitnowQrUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={duitnowQrUrl}
+                      alt="DuitNow QR"
+                      className="h-full w-full object-contain p-1"
+                    />
+                  ) : (
+                    <Smartphone className="h-8 w-8 text-ink-subtle" />
+                  )}
+                </div>
+                <div className="flex-1 space-y-3 text-center sm:text-left">
+                  <p className="text-sm text-ink-muted dark:text-cream-400">
+                    Upload the QR image from your bank or DuitNow app. PNG or
+                    JPG — max 1.5 MB.
+                  </p>
+                  <input
+                    ref={qrInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleQrFile(f);
+                    }}
+                  />
+                  <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+                    <button
+                      type="button"
+                      onClick={() => qrInputRef.current?.click()}
+                      disabled={disabled || qrBusy}
+                      className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                    >
+                      {qrBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      {duitnowQrUrl ? "Change QR" : "Upload QR"}
+                    </button>
+                    {duitnowQrUrl ? (
+                      <button
+                        type="button"
+                        onClick={handleQrRemove}
+                        disabled={disabled || qrBusy}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 px-4 py-2.5 text-sm font-medium text-ink-muted hover:text-status-danger dark:border-hairline-dark"
+                      >
+                        <X className="h-4 w-4" />
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </StepCard>
+
+          {/* Step 5 — Email (collapsible) */}
           <div className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
             <button
               type="button"
@@ -436,7 +565,7 @@ export function BrandingForm({ initial, canEdit }: BrandingFormProps) {
               className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
             >
               <div className="flex items-start gap-3">
-                <StepBadge step={4} />
+                <StepBadge step={5} />
                 <div>
                   <h3 className="text-base font-semibold text-ink dark:text-cream-100">
                     Customer emails

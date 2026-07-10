@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { requirePillar } from "@/lib/auth/require-pillar";
+import { HrGuideJourney } from "@/components/hr/HrGuideJourney";
 import { HrNavAddonProvider } from "@/components/hr/layout/hr-nav-addon-context";
 import { HR_ADDON_SLUGS } from "@/lib/hr/addon-nav";
 import { loadAddonFeatureStates } from "@/lib/marketplace/addon-availability";
@@ -22,5 +23,10 @@ export default async function HrPillarLayout({
 
   const addonStates = await loadAddonFeatureStates(user.businessId, HR_ADDON_SLUGS);
 
-  return <HrNavAddonProvider states={addonStates}>{children}</HrNavAddonProvider>;
+  return (
+    <HrNavAddonProvider states={addonStates}>
+      <HrGuideJourney businessId={user.businessId} />
+      {children}
+    </HrNavAddonProvider>
+  );
 }

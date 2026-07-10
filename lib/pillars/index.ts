@@ -75,6 +75,7 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
       { href: "/marketing/segments", label: "Segments", primary: "desktop" },
       { href: "/marketing/broadcasts", label: "Broadcasts", primary: "desktop" },
       { href: "/marketing/coupons", label: "Coupons", primary: "desktop" },
+      { href: "/marketing/assistant", label: "AI Assistant", primary: "both" },
     ],
   },
   sales: {

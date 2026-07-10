@@ -40,6 +40,7 @@ export const businessUpdateSchema = z
     receipt_footer: z.string().trim().max(500).nullable().optional(),
     email_from_name: z.string().trim().max(80).nullable().optional(),
     email_reply_to: z.string().trim().email().max(120).nullable().optional(),
+    duitnow_id: z.string().trim().max(80).nullable().optional(),
   })
   .strict();
 

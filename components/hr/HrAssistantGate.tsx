@@ -10,11 +10,12 @@ export function HrAssistantGate() {
         <Sparkles className="h-7 w-7" strokeWidth={2} />
       </div>
       <h2 className="text-lg font-bold text-ink dark:text-cream-100">
-        Meet Hana — your HR helper
+        Meet Hana — your HR staff
       </h2>
       <p className="mt-2 max-w-md text-sm text-ink-muted dark:text-cream-400">
-        Ask about leave, staff, and holidays in plain language. Record MC or
-        annual leave just by chatting. Adds 100 credits/mo to your shared AI
+        Ask about leave, staff, and holidays like you would a colleague. She
+        asks a few questions, plans from your HR records, then can record or
+        approve leave when you say yes. Adds 100 credits/mo to your shared AI
         pool (all assistants use the same balance).
       </p>
       <Link

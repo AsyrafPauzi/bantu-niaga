@@ -51,7 +51,7 @@ const STEPS = [
   },
   {
     title: "5 · Content calendar",
-    body: "Plan TikTok / IG / FB captions here. Share drafts manually — auto-publish is a Marketplace add-on later.",
+    body: "Plan TikTok / IG / FB captions here. Share drafts manually — auto-publish is a Marketplace add-on later. Maya AI (RM20) can draft captions in chat.",
     href: "/marketing/content",
     cta: "Open content",
     icon: Calendar,

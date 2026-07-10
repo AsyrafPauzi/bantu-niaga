@@ -139,13 +139,7 @@ export function HrAssistantChat({
   async function sendMessage(text: string) {
     const message = text.trim();
     if (!message || loading) return;
-    const chatCost = status?.credit_cost_chat ?? HR_CREDIT_COST_CHAT;
-    if (creditBalance !== null && creditBalance < chatCost) {
-      setError(
-        "No credits left. Top up in Billing or wait for your monthly refill.",
-      );
-      return;
-    }
+    // Low balance still allowed — clarifying questions are free on the server.
 
     setError(null);
     setLoading(true);
@@ -306,14 +300,15 @@ export function HrAssistantChat({
 
       {creditsPaused ? (
         <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
-          AI chat is paused — no credits left in your shared pool.{" "}
+          Shared credits are low — clarifying questions stay free. Plans and
+          leave actions need credits.{" "}
           <Link
             href="/settings/billing"
             className="font-semibold underline hover:text-amber-950 dark:hover:text-amber-50"
           >
             Top up in Billing
-          </Link>{" "}
-          or wait for your monthly refill.
+          </Link>
+          .
         </div>
       ) : null}
 
@@ -324,18 +319,19 @@ export function HrAssistantChat({
         {turns.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <p className="text-sm font-semibold text-ink dark:text-cream-100">
-              Ask {displayName} about your HR records
+              Ask {displayName} like your HR staff
             </p>
             <p className="mt-1 max-w-sm text-xs text-ink-muted dark:text-cream-400">
-              Answers use lists and links where helpful. 1 credit per question;
-              leave actions use 2 credits.
+              She uses your employees, leave, and holidays. For big asks she
+              clarifies first, then plans — and can record or approve leave when
+              you confirm.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
               {HR_ASSISTANT_SUGGESTIONS.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
-                  disabled={loading || creditsPaused}
+                  disabled={loading}
                   onClick={() => void sendMessage(prompt)}
                   className="rounded-full border border-[#E5E0D8] bg-[#FFFEFB] px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 dark:border-hairline-dark dark:bg-surface-dark dark:text-cream-400"
                 >
@@ -368,7 +364,7 @@ export function HrAssistantChat({
         {loading ? (
           <div className="flex items-center gap-2 text-xs text-ink-muted dark:text-cream-400">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Checking your HR records…
+            Checking with your HR records…
           </div>
         ) : null}
       </div>
@@ -390,12 +386,12 @@ export function HrAssistantChat({
             onChange={(e) => setInput(e.target.value)}
             placeholder={`Message ${displayName}…`}
             maxLength={2000}
-            disabled={loading || creditsPaused}
+            disabled={loading}
             className="flex-1 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
           <button
             type="submit"
-            disabled={loading || creditsPaused || !input.trim()}
+            disabled={loading || !input.trim()}
             className="inline-flex items-center justify-center rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
           >
             {loading ? (
@@ -406,7 +402,8 @@ export function HrAssistantChat({
           </button>
         </div>
         <p className="mt-2 text-[11px] text-ink-muted dark:text-cream-500">
-          Not legal advice. Chat clears when you close this tab.
+          Clarifying questions are free. Plans and leave actions use credits.
+          Not legal advice.
         </p>
       </form>
     </div>

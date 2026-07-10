@@ -46,7 +46,7 @@ export default async function HrAssistantPage() {
       header={
         <HrPageHeader
           title={`${settings.displayName} · HR Assistant`}
-          subtitle="Ask in plain language — leave, staff, and holidays from your HR records"
+          subtitle="Ask like you would HR staff — she clarifies, plans from your records, then can record or approve leave"
           helpHref="/more"
           className="px-4 lg:px-8"
         />

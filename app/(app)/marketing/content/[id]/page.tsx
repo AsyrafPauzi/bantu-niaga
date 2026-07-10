@@ -385,9 +385,11 @@ export default async function ContentDetailPage({ params }: PageProps) {
           )}
 
           <MarketingAddonTeaser
-            title="Maya · reach forecast"
-            description={`AI reach estimates (e.g. ${forecastLabel}) unlock with the Marketing AI add-on.`}
+            title="Maya · Marketing AI"
+            description={`Ask Maya to rewrite captions, draft broadcasts, or estimate reach (e.g. ${forecastLabel}). Chat at /marketing/assistant after activating.`}
             slug="marketing-assistant"
+            comingSoon={false}
+            ctaLabel="Open Maya / Marketplace →"
           />
 
           <ContentEntryForm

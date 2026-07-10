@@ -77,17 +77,18 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
     roleTitle: "Marketing AI",
     pillar: "Marketing",
     description:
-      "Helps with customer segments, social captions, and the best times to post.",
+      "Answers CRM questions, drafts broadcasts and captions, and creates coupons.",
     tone: "accent",
     icon: Megaphone,
     capabilities: [
-      "Customer auto-segmentation",
-      "Caption and hashtag suggestions",
-      "Best-time posting tips",
-      "Churn-risk early warnings",
+      "CRM Q&A (VIP, dormant, segments)",
+      "Draft WhatsApp / email broadcasts",
+      "Create coupons and content drafts",
+      "Customer notes and tags",
+      "Daily Marketing notice",
     ],
-    chatHref: null,
-    supportsDailyNotice: false,
+    chatHref: "/marketing/assistant",
+    supportsDailyNotice: true,
   },
   {
     slug: "finance",
@@ -153,10 +154,11 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
     roleTitle: "HR AI",
     pillar: "HR",
     description:
-      "Answers HR questions, records leave, and sends a daily team notice.",
+      "Plans like HR staff — clarifies, then helps with leave, cover, and team attention.",
     tone: "brand",
     icon: Users,
     capabilities: [
+      "Staff-style clarify → plan → act",
       "Record leave by chat (annual, MC, emergency)",
       "Approve or reject pending leave requests",
       "Who is on leave today and pending approvals",

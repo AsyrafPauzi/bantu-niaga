@@ -57,6 +57,8 @@ export default async function BrandingSettingsPage() {
           receipt_footer: business.receipt_footer,
           email_from_name: business.email_from_name,
           email_reply_to: business.email_reply_to,
+          duitnow_id: business.duitnow_id,
+          duitnow_qr_url: business.duitnow_qr_url,
         }}
       />
     </div>

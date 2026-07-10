@@ -6,10 +6,14 @@ export function MarketingAddonTeaser({
   title,
   description,
   slug,
+  comingSoon = true,
+  ctaLabel = "View in Marketplace →",
 }: {
   title: string;
   description: string;
   slug?: string;
+  comingSoon?: boolean;
+  ctaLabel?: string;
 }) {
   const href = slug
     ? `/marketplace?highlight=${encodeURIComponent(slug)}`
@@ -32,11 +36,17 @@ export function MarketingAddonTeaser({
             href={href}
             className="mt-3 inline-flex text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
           >
-            View in Marketplace →
+            {ctaLabel}
           </Link>
-          <p className="mt-1 text-[11px] text-ink-subtle dark:text-cream-500">
-            Coming soon · efficiency &amp; automation add-on
-          </p>
+          {comingSoon ? (
+            <p className="mt-1 text-[11px] text-ink-subtle dark:text-cream-500">
+              Coming soon · efficiency &amp; automation add-on
+            </p>
+          ) : (
+            <p className="mt-1 text-[11px] text-ink-subtle dark:text-cream-500">
+              RM 20/mo · 100 credits included
+            </p>
+          )}
         </div>
       </div>
     </section>

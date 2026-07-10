@@ -3,13 +3,14 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
-  DEFAULT_HR_AGENT_SETTINGS,
+  defaultAgentSettingsForSlug,
   HR_AGENT_SLUG,
   HR_ASSISTANT_ADDON_SLUG,
   HR_PUBLIC_HOLIDAYS_ADDON_SLUG,
   HR_STAFF_APPRAISAL_ADDON_SLUG,
   HR_STAFF_PORTAL_ADDON_SLUG,
   HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG,
+  MARKETING_ASSISTANT_ADDON_SLUG,
   type BusinessAgentSettings,
 } from "@/lib/marketplace/agent-types";
 import { normalizeReasoningMode } from "@/lib/settings/ai-agents-catalog";
@@ -52,6 +53,12 @@ export async function hasHrAssistantAddon(businessId: string): Promise<boolean> 
   return hasActiveAddon(businessId, HR_ASSISTANT_ADDON_SLUG);
 }
 
+export async function hasMarketingAssistantAddon(
+  businessId: string,
+): Promise<boolean> {
+  return hasActiveAddon(businessId, MARKETING_ASSISTANT_ADDON_SLUG);
+}
+
 export async function hasPublicHolidaysAddon(businessId: string): Promise<boolean> {
   return hasActiveAddon(businessId, HR_PUBLIC_HOLIDAYS_ADDON_SLUG);
 }
@@ -92,7 +99,7 @@ export async function loadBusinessAgentSettings(
     return {
       businessId,
       agentSlug,
-      ...DEFAULT_HR_AGENT_SETTINGS,
+      ...defaultAgentSettingsForSlug(agentSlug),
     };
   }
 

@@ -31,7 +31,9 @@ Core Marketing covers customer and campaign **organization** — plan and share 
 | Customer activity | Spend, last purchase, tag history, events |
 | Overview KPIs | Real CRM + segment counts |
 
-**Not core:** Meta one-click publish, Marketing AI (Maya), WhatsApp Business API, TikTok/Shopee sync, email drips, auto win-back, loyalty, CLV.
+**Not core:** Meta one-click publish, WhatsApp Business API, TikTok/Shopee sync, email drips, auto win-back, loyalty, CLV.
+
+**Add-on (live):** Marketing AI (Maya) — RM 20/mo — staff-style planner using CRM + products + monthly sales (Finance invoices + Operations orders), then drafts coupons/broadcasts/content after clarifying questions.
 
 ## 4. Add-on Features (Marketplace · efficiency & automation)
 
@@ -40,7 +42,7 @@ Add-ons upgrade the game — automate channels and intelligence:
 | Add-on | Slug | Role |
 |--------|------|------|
 | Meta Social (FB + IG) | `meta-social` | Connect, publish, insights |
-| Marketing AI (Maya) | `marketing-assistant` | Captions, tips, forecasts |
+| Marketing AI (Maya) | `marketing-assistant` | Captions, CRM Q&A, draft broadcasts/coupons — **live** RM 20/mo |
 | WhatsApp Business API | `whatsapp-business` | Official WA send / automate |
 | TikTok Shop sync | `tiktok-sync` | Import buyers + orders |
 | Email campaign automation | `email-campaign-automation` | Drips / sequences |
@@ -49,7 +51,7 @@ Add-ons upgrade the game — automate channels and intelligence:
 | Loyalty & reviews | `loyalty-reviews` | Points / review asks |
 | CLV report | `clv-report` | Lifetime value cohorts |
 
-All Marketing add-ons ship as **coming soon** until cores across modules are settled (see team-direction §3.5).
+Other Marketing add-ons (Meta, WA Business, TikTok, automation, loyalty, CLV) stay **coming soon** until cores across modules are settled (see team-direction §3.5). Maya is available now.
 
 ## 5. Key User Flows (core)
 

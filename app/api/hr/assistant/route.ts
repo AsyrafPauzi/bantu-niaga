@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { resolveAgentContext } from "@/lib/ai/context";
+import {
+  buildFreeClarifierReply,
+  shouldChargeAssistantTurn,
+  shouldUseFreeClarifierTemplate,
+} from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildHrAssistantRules } from "@/lib/ai/hr-assistant-prompt";
 import {
@@ -322,7 +327,68 @@ export async function POST(request: Request) {
     );
   }
 
-  if (creditBalance < chatCreditsForReasoning(settings.reasoningMode)) {
+  const business = businessRes.data;
+  const chatCost = chatCreditsForReasoning(settings.reasoningMode);
+  const actionTopUp = actionTopUpCreditsForReasoning(settings.reasoningMode);
+
+  // Free clarifying questions: no credits, no ILMU call.
+  if (
+    shouldUseFreeClarifierTemplate("hr", parsed.message, historyForModel)
+  ) {
+    const reply = buildFreeClarifierReply(
+      "hr",
+      settings.displayName,
+      parsed.message,
+    );
+    try {
+      await saveShortMemory({
+        businessId: ctx.businessId,
+        userId: user.id,
+        agentSlug: HR_AGENT_SLUG,
+        turns: [
+          ...historyForModel,
+          { role: "user", content: parsed.message },
+          { role: "assistant", content: reply },
+        ],
+      });
+    } catch (memoryError) {
+      logger.warn("hr.assistant.short_memory_failed", {
+        businessId: ctx.businessId,
+        error:
+          memoryError instanceof Error
+            ? memoryError.message
+            : String(memoryError),
+      });
+    }
+
+    await recordAiUsage({
+      businessId: ctx.businessId,
+      triggerType: "CHAT",
+      creditsCharged: 0,
+      mode: "fast",
+      costMyrEstimated: 0,
+      agentSlug: HR_AGENT_SLUG,
+      metadata: {
+        free_clarifier: true,
+        reasoning_mode: settings.reasoningMode,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        reply,
+        credits: {
+          charged: 0,
+          balance: creditBalance,
+          mode: "fast" as const,
+          free_clarifier: true,
+        },
+      },
+      { status: 200 },
+    );
+  }
+
+  if (creditBalance < chatCost) {
     return NextResponse.json(
       {
         error: "insufficient_credits",
@@ -335,20 +401,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const business = businessRes.data;
-
   let totalCharged = 0;
 
-  const chatCost = chatCreditsForReasoning(settings.reasoningMode);
-  const actionTopUp = actionTopUpCreditsForReasoning(settings.reasoningMode);
-
   try {
-    const firstSpend = await spendCredits(ctx, {
-      amount: chatCost,
-      reason: "hr.assistant.chat",
-    });
-    totalCharged += firstSpend.charged;
-
     const { reply, usedActionTool } = await runHrAssistantChat(
       ctx,
       parsed.message,
@@ -379,20 +434,30 @@ export async function POST(request: Request) {
       });
     }
 
-    if (usedActionTool) {
-      try {
-        const actionSpend = await spendCredits(ctx, {
-          amount: actionTopUp,
-          reason: "hr.assistant.action",
-        });
-        totalCharged += actionSpend.charged;
-      } catch (actionError) {
-        if (!isInsufficientCreditsError(actionError)) {
-          throw actionError;
+    const billable = shouldChargeAssistantTurn({ usedActionTool, reply });
+
+    if (billable) {
+      const firstSpend = await spendCredits(ctx, {
+        amount: chatCost,
+        reason: "hr.assistant.chat",
+      });
+      totalCharged += firstSpend.charged;
+
+      if (usedActionTool) {
+        try {
+          const actionSpend = await spendCredits(ctx, {
+            amount: actionTopUp,
+            reason: "hr.assistant.action",
+          });
+          totalCharged += actionSpend.charged;
+        } catch (actionError) {
+          if (!isInsufficientCreditsError(actionError)) {
+            throw actionError;
+          }
+          logger.warn("hr.assistant.action_credit_shortfall", {
+            businessId: ctx.businessId,
+          });
         }
-        logger.warn("hr.assistant.action_credit_shortfall", {
-          businessId: ctx.businessId,
-        });
       }
     }
 
@@ -407,6 +472,7 @@ export async function POST(request: Request) {
       agentSlug: HR_AGENT_SLUG,
       metadata: {
         used_action_tool: usedActionTool,
+        free_clarifier: !billable,
         reasoning_mode: settings.reasoningMode,
       },
     });
@@ -418,6 +484,7 @@ export async function POST(request: Request) {
           charged: totalCharged,
           balance,
           mode: "fast" as const,
+          free_clarifier: !billable,
         },
       },
       { status: 200 },

@@ -1,0 +1,116 @@
+import { NextResponse } from "next/server";
+
+import { ok, unauthorized } from "@/lib/api/response";
+import { buildMarketingSnapshot } from "@/lib/ai/context/marketing";
+import { buildMarketingDailyNotice } from "@/lib/ai/marketing-daily-notice";
+import { malaysiaTodayIso } from "@/lib/ai/marketing-assistant-tools";
+import { MARKETING_AGENT_SLUG } from "@/lib/marketplace/agent-types";
+import { logger } from "@/lib/logger";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+export async function GET(request: Request) {
+  const requestId =
+    request.headers.get("x-request-id") ?? crypto.randomUUID();
+  const authHeader = request.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret) {
+    return unauthorized("CRON_SECRET is not configured.", { requestId });
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return unauthorized("Invalid cron credentials.", { requestId });
+  }
+
+  const admin = createServiceRoleClient();
+  const noticeDate = malaysiaTodayIso();
+  let written = 0;
+
+  const { data: addons, error } = await admin
+    .from("business_addons")
+    .select("business_id, marketplace_addons!inner(slug)")
+    .eq("status", "active")
+    .eq("marketplace_addons.slug", "marketing-assistant");
+
+  if (error) {
+    logger.error("marketing.notice.cron.load_failed", {
+      error: error.message,
+      requestId,
+    });
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
+  for (const row of addons ?? []) {
+    const businessId = row.business_id as string;
+
+    const { data: settings } = await admin
+      .from("business_agent_settings")
+      .select("display_name, daily_notice_enabled")
+      .eq("business_id", businessId)
+      .eq("agent_slug", MARKETING_AGENT_SLUG)
+      .maybeSingle();
+
+    if (settings && !settings.daily_notice_enabled) {
+      continue;
+    }
+
+    const { data: owner } = await admin
+      .from("users")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("role", "owner")
+      .limit(1)
+      .maybeSingle();
+
+    if (!owner) {
+      continue;
+    }
+
+    const displayName = settings?.display_name ?? "Maya";
+
+    try {
+      const snapshot = await buildMarketingSnapshot(
+        {
+          businessId,
+          userId: owner.id,
+          role: "owner",
+          impersonated: false,
+        },
+        admin,
+      );
+
+      const notice = buildMarketingDailyNotice(snapshot, displayName);
+
+      const { error: upsertError } = await admin
+        .from("agent_daily_notices")
+        .upsert(
+          {
+            business_id: businessId,
+            agent_slug: MARKETING_AGENT_SLUG,
+            notice_date: noticeDate,
+            title: notice.title,
+            body: notice.body,
+          },
+          { onConflict: "business_id,agent_slug,notice_date" },
+        );
+
+      if (upsertError) {
+        logger.warn("marketing.notice.cron.upsert_failed", {
+          businessId,
+          error: upsertError.message,
+        });
+        continue;
+      }
+      written += 1;
+    } catch (err) {
+      logger.warn("marketing.notice.cron.business_failed", {
+        businessId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return ok({ written, notice_date: noticeDate }, { requestId });
+}

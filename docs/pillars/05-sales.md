@@ -12,36 +12,38 @@ Sales helps owners manage potential customers and take simple counter payments. 
 - Micro SMEs with basic counter sales or service sales.
 - Growing SMEs that later need cashier controls, staff sales reports, reconciliation, and hardware support.
 
-## 3. Core Features
+## 3. Core Features (included)
 
-Core Sales should cover lead tracking and simple POS:
+Core Sales covers **lead tracking** and **simple counter POS** — paid-in-full, phone/tablet friendly:
 
-- Lead pipeline.
-- Lead status: new, contacted, interested, won, lost.
-- Lead notes.
-- Follow-up reminder.
-- Convert lead to customer.
-- Mobile POS.
-- Product grid checkout.
-- Cash payment.
-- Static DuitNow QR payment.
-- Basic receipt.
-- Daily sales summary.
+| Feature | Notes |
+|---------|--------|
+| Lead pipeline | Statuses: new → contacted → interested → won / lost |
+| Lead notes + follow-up | Chase list without losing WhatsApp / walk-in leads |
+| Convert lead → customer | Writes into Marketing CRM (not a separate customer book) |
+| Mobile POS | Product grid from Operations catalog |
+| Payments (core) | Cash + **static** DuitNow QR only |
+| Basic receipt | Subtotal / SST (if enabled) / total |
+| Daily sales summary | Today’s take for the owner |
 
-## 4. Add-on Features
+**Not core:** Dynamic DuitNow, refund/void approval, close-out, staff reports, offline, hardware, storefront, stale-lead alerts, Sales AI (Sufi).
 
-Sales add-ons should carry stronger controls, hardware, analytics, and automation:
+## 4. Add-on Features (Marketplace · efficiency & control)
 
-- Dynamic DuitNow QR.
-- Refund and Void Approval.
-- Daily Close-Out Reconciliation.
-- Sales by Staff Report.
-- Coupon-to-Sales Tracking.
-- Hardware POS Extensions.
-- Offline POS Mode.
-- Online Storefront.
-- Stale Lead Alerts.
-- Sales AI Assistant.
+| Add-on | Role |
+|--------|------|
+| Sales AI (Sufi) | Staff planner for floor / leads — like Maya/Hana |
+| Dynamic DuitNow QR | Amount-specific QR |
+| Refund & Void Approval | Manager control + ledger reversal |
+| Daily Close-Out Reconciliation | End-of-day cash vs system |
+| Sales by Staff Report | Cashier performance |
+| Coupon-to-Sales Tracking | Promo ROI with Marketing |
+| Hardware POS Extensions | Barcode / thermal printer |
+| Offline POS Mode | Network drop queue |
+| Online Storefront | Public shop |
+| Stale Lead Alerts | Auto chase |
+
+All Sales add-ons stay **coming soon** until Sales core is settled (see team-direction §3.5).
 
 ## 5. Key User Flows
 
