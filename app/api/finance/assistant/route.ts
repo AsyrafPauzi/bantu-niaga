@@ -11,6 +11,16 @@ import {
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildFinanceAssistantRules } from "@/lib/ai/finance-assistant-prompt";
 import {
+  detectUserLanguage,
+  userLanguageInstruction,
+} from "@/lib/ai/user-language";
+import {
+  FINANCE_ASSISTANT_TOOLS,
+  executeFinanceAssistantTool,
+  isFinanceActionTool,
+  malaysiaTodayIso,
+} from "@/lib/ai/finance-assistant-tools";
+import {
   extractChatAssistantText,
   openaiChat,
   type AgentChatMessage,
@@ -20,7 +30,10 @@ import { resolveAgentModel } from "@/lib/settings/ai-agents-catalog";
 import { recordAiUsage } from "@/lib/ai/usage";
 import { canUseFinanceAssistant } from "@/lib/finance/access";
 import { FINANCE_AGENT_SLUG } from "@/lib/marketplace/agent-types";
-import { chatCreditsForReasoning } from "@/lib/settings/reasoning-credits";
+import {
+  actionTopUpCreditsForReasoning,
+  chatCreditsForReasoning,
+} from "@/lib/settings/reasoning-credits";
 import {
   getCreditBalance,
   hasFinanceAssistantAddon,
@@ -94,19 +107,21 @@ async function runFinanceAssistantChat(
   businessName: string | null,
   settings: Awaited<ReturnType<typeof loadBusinessAgentSettings>>,
   financePacketText: string,
-): Promise<string> {
+): Promise<{ reply: string; usedActionTool: boolean }> {
   const model = resolveAgentModel({
     reasoningMode: settings.reasoningMode,
     modelOverride: settings.modelOverride,
   });
-  const messages: AgentChatMessage[] = [
+  const lang = detectUserLanguage(userMessage);
+  const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
       content:
         buildFinanceAssistantRules({
           displayName,
           businessName: businessName ?? undefined,
-          todayIso: malaysiaTodayYmd(),
+          todayIso: malaysiaTodayIso(),
+          userLanguageInstruction: userLanguageInstruction(lang),
         }) +
         "\n\nDATA PACKET — FINANCE (invoices + cash flow):\n" +
         financePacketText,
@@ -118,16 +133,76 @@ async function runFinanceAssistantChat(
     { role: "user", content: userMessage },
   ];
 
-  const completion = await openaiChat<ChatCompletionResponse>({
+  let completion = await openaiChat<ChatCompletionResponse>({
     model,
     briefingFor: "finance",
     context: ctx,
     temperature: 0.2,
-    messages,
+    max_tokens: 900,
+    messages: baseMessages,
+    tools: FINANCE_ASSISTANT_TOOLS,
+    tool_choice: "auto",
+  });
+
+  const assistantMessage = completion.choices?.[0]?.message;
+  const toolCalls = assistantMessage?.tool_calls ?? [];
+
+  if (toolCalls.length === 0) {
+    return {
+      reply: extractChatAssistantText(completion),
+      usedActionTool: false,
+    };
+  }
+
+  const followUpMessages: AgentChatMessage[] = [
+    ...baseMessages,
+    {
+      role: "assistant",
+      content: assistantMessage?.content ?? null,
+      tool_calls: toolCalls,
+    },
+  ];
+
+  let usedActionTool = false;
+  for (const toolCall of toolCalls) {
+    let parsedArgs: unknown = {};
+    try {
+      parsedArgs = JSON.parse(toolCall.function.arguments || "{}");
+    } catch {
+      parsedArgs = {};
+    }
+
+    if (isFinanceActionTool(toolCall.function.name)) {
+      usedActionTool = true;
+    }
+
+    const result = await executeFinanceAssistantTool(
+      ctx,
+      toolCall.function.name,
+      parsedArgs,
+    );
+
+    followUpMessages.push({
+      role: "tool",
+      tool_call_id: toolCall.id,
+      content: JSON.stringify(result),
+    });
+  }
+
+  completion = await openaiChat<ChatCompletionResponse>({
+    model,
+    context: ctx,
+    temperature: 0.2,
+    max_tokens: 900,
+    messages: followUpMessages,
+    includeBriefing: false,
     tool_choice: "none",
   });
 
-  return extractChatAssistantText(completion);
+  return {
+    reply: extractChatAssistantText(completion),
+    usedActionTool,
+  };
 }
 
 export async function GET() {
@@ -275,6 +350,7 @@ export async function POST(request: Request) {
 
   const business = businessRes.data;
   const chatCost = chatCreditsForReasoning(settings.reasoningMode);
+  const actionTopUp = actionTopUpCreditsForReasoning(settings.reasoningMode);
   const financePacketText = formatSnapshotPacket(financeSnapshot);
 
   if (
@@ -351,7 +427,7 @@ export async function POST(request: Request) {
   let totalCharged = 0;
 
   try {
-    const reply = await runFinanceAssistantChat(
+    const { reply, usedActionTool } = await runFinanceAssistantChat(
       ctx,
       parsed.message,
       historyForModel,
@@ -382,17 +458,31 @@ export async function POST(request: Request) {
       });
     }
 
-    const billable = shouldChargeAssistantTurn({
-      usedActionTool: false,
-      reply,
-    });
+    const billable = shouldChargeAssistantTurn({ usedActionTool, reply });
 
     if (billable) {
-      const spend = await spendCredits(ctx, {
+      const firstSpend = await spendCredits(ctx, {
         amount: chatCost,
         reason: "finance.assistant.chat",
       });
-      totalCharged += spend.charged;
+      totalCharged += firstSpend.charged;
+
+      if (usedActionTool) {
+        try {
+          const actionSpend = await spendCredits(ctx, {
+            amount: actionTopUp,
+            reason: "finance.assistant.action",
+          });
+          totalCharged += actionSpend.charged;
+        } catch (actionError) {
+          if (!isInsufficientCreditsError(actionError)) {
+            throw actionError;
+          }
+          logger.warn("finance.assistant.action_credit_shortfall", {
+            businessId: ctx.businessId,
+          });
+        }
+      }
     }
 
     const balance = await getCreditBalance(ctx.businessId);
@@ -400,12 +490,13 @@ export async function POST(request: Request) {
     await recordAiUsage({
       businessId: ctx.businessId,
       actorUserId: ctx.userId,
-      triggerType: "CHAT",
+      triggerType: usedActionTool ? "ACTION" : "CHAT",
       creditsCharged: totalCharged,
       mode: "fast",
       costMyrEstimated: creditsToMyr(totalCharged),
       agentSlug: FINANCE_AGENT_SLUG,
       metadata: {
+        used_action_tool: usedActionTool,
         free_clarifier: !billable,
         reasoning_mode: settings.reasoningMode,
       },

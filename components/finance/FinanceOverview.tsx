@@ -2,7 +2,7 @@ import Link from "next/link";
 import {
   ArrowDownRight,
   ArrowUpRight,
-  BookOpen,
+  BarChart3,
   FileText,
   MessageSquare,
   MessageSquareQuote,
@@ -47,6 +47,13 @@ const QUICK_ACTIONS = [
     accent: "from-rose-500 to-orange-500",
   },
   {
+    href: "/finance/income",
+    icon: Wallet,
+    title: "Log income",
+    subtitle: "Capital, loans & sales",
+    accent: "from-emerald-500 to-teal-600",
+  },
+  {
     href: "/finance/invoices?kind=quote",
     icon: MessageSquareQuote,
     title: "Quotes",
@@ -54,11 +61,11 @@ const QUICK_ACTIONS = [
     accent: "from-violet-500 to-purple-600",
   },
   {
-    href: "/finance/ledger",
-    icon: BookOpen,
-    title: "Ledger",
-    subtitle: "Full cash flow",
-    accent: "from-emerald-500 to-teal-600",
+    href: "/finance/reports",
+    icon: BarChart3,
+    title: "Reports",
+    subtitle: "Ledger, P&L & charts",
+    accent: "from-indigo-500 to-fuchsia-600",
   },
   {
     href: "/finance/invoices",
@@ -529,7 +536,7 @@ export function FinanceOverview({
         message={
           counts.overdueInvoices > 0
             ? `You have ${counts.overdueInvoices} overdue invoice${counts.overdueInvoices === 1 ? "" : "s"}. Ask Fayza for a chase plan or month-end checklist.`
-            : "Ask Fayza about cash flow, unpaid invoices, or what to log before month-end."
+            : "Ask Fayza to check cash flow, create invoices, log expenses, or chase unpaid bills."
         }
         cta="Chat with Fayza"
         href="/finance/assistant"
@@ -542,10 +549,10 @@ export function FinanceOverview({
           bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
           action={
             <Link
-              href="/finance/ledger"
+              href="/finance/reports"
               className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              Open ledger
+              View reports
             </Link>
           }
         >

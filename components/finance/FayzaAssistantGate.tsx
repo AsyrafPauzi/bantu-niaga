@@ -13,9 +13,9 @@ export function FayzaAssistantGate() {
         Meet Fayza — your Finance helper
       </h2>
       <p className="mt-2 max-w-md text-sm text-ink-muted dark:text-cream-400">
-        Ask about invoices, cash flow, and month-end in plain language. Fayza
-        plans like finance staff and advises from your records. Adds 100
-        credits/mo to your shared AI pool.
+        Ask about invoices, cash flow, and month-end — or ask Fayza to log
+        expenses, create invoices, and chase payments. Adds 100 credits/mo to
+        your shared AI pool.
       </p>
       <Link
         href="/marketplace"

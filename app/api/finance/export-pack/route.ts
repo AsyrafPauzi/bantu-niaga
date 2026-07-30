@@ -2,14 +2,9 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { buildAccountantExportCsv } from "@/lib/finance/accountant-export";
+import { parseFinanceMonth } from "@/lib/finance/helpers";
 
 export const dynamic = "force-dynamic";
-
-function currentMonth(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kuala_Lumpur",
-  }).format(new Date());
-}
 
 export async function GET(request: Request) {
   let user;
@@ -33,7 +28,7 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const month = url.searchParams.get("month") ?? currentMonth();
+  const month = parseFinanceMonth(url.searchParams.get("month"));
   if (!/^\d{4}-\d{2}$/.test(month)) {
     return NextResponse.json(
       { error: "validation_failed", message: "Use month=YYYY-MM." },

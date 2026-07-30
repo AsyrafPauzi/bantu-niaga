@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
-import { FinanceExpensesPanel } from "@/components/finance/FinanceExpensesPanel";
+import { FinanceIncomePanel } from "@/components/finance/FinanceIncomePanel";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -10,15 +10,15 @@ import { ListPagination } from "@/components/ui/list-pagination";
 import { parsePagination } from "@/lib/pagination";
 import {
   computeFinanceMonthSummary,
-  loadExpenseMonthInsights,
+  loadIncomeMonthInsights,
 } from "@/lib/finance/helpers";
 import { loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 import type { FinanceTransactionRow } from "@/lib/finance/schemas";
 
-export const metadata = { title: "Expenses" };
+export const metadata = { title: "Income" };
 export const dynamic = "force-dynamic";
 
-export default async function ExpensesPage({
+export default async function IncomePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -47,7 +47,7 @@ export default async function ExpensesPage({
 
   const [summary, insights] = await Promise.all([
     computeFinanceMonthSummary(supabase, user.businessId),
-    loadExpenseMonthInsights(supabase, user.businessId),
+    loadIncomeMonthInsights(supabase, user.businessId),
   ]);
 
   const { data, error, count } = await supabase
@@ -58,7 +58,7 @@ export default async function ExpensesPage({
       { count: "exact" },
     )
     .eq("business_id", user.businessId)
-    .eq("kind", "expense")
+    .eq("kind", "income")
     .is("deleted_at", null)
     .order("txn_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -90,16 +90,16 @@ export default async function ExpensesPage({
       {error ? (
         <Card>
           <CardBody className="text-sm text-status-danger">
-            Failed to load expenses: {error.message}
+            Failed to load income: {error.message}
           </CardBody>
         </Card>
       ) : (
         <>
-          <FinanceExpensesPanel
+          <FinanceIncomePanel
             initialTransactions={transactions}
-            monthExpenseMyr={summary.expense_myr}
+            monthIncomeMyr={summary.income_myr}
             monthLabel={insights.monthLabel}
-            expenseCount={insights.expenseCount}
+            incomeCount={insights.incomeCount}
             categories={insights.categories}
           />
           {total > pagination.pageSize ? (
@@ -107,7 +107,7 @@ export default async function ExpensesPage({
               page={pagination.page}
               pageSize={pagination.pageSize}
               total={total}
-              basePath="/finance/expenses"
+              basePath="/finance/income"
               className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark"
             />
           ) : null}

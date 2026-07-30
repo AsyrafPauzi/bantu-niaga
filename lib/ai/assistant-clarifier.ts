@@ -4,6 +4,11 @@
  * Substantive replies and actions still bill credits.
  */
 
+import {
+  detectUserLanguage,
+  type UserLanguage,
+} from "@/lib/ai/user-language";
+
 export type StaffAssistantKind =
   | "hr"
   | "marketing"
@@ -18,9 +23,181 @@ const FREE_NOTE_EN = "_These clarifying questions are free (no credits). Your ne
 const FREE_NOTE_BM = "_Soalan penjelasan ini percuma (tiada kredit). Jawapan seterusnya yang beri rancangan atau tindakan akan guna kredit._";
 
 function prefersBahasa(message: string): boolean {
-  return /\b(saya|tolong|bantu|bulan|jualan|cuti|pekerja|rancang|soalan|lead|prospek)\b/i.test(
-    message,
-  );
+  return detectUserLanguage(message) === "bahasa_malaysia";
+}
+
+function financeClarifierForLanguage(
+  lang: UserLanguage,
+  name: string,
+): string[] {
+  switch (lang) {
+    case "tamil":
+      return [
+        `நான் **${name}**, உங்கள் நிதி உதவியாளர்.`,
+        "",
+        "**திட்டமிடுவதற்கு முன், சில கேள்விகள்:**",
+        "",
+        "1. இலக்கு — செலுத்தப்படாத இன்வாய்ஸ், பணப்புழக்கம், அல்லது இந்த மாத செலவுகள்?",
+        "2. காலம் — இந்த வாரம், இந்த மாதம், அல்லது அடுத்த 30 நாட்கள்?",
+        "3. கவனம் — இன்வாய்ஸ், செலவு, அல்லது இரண்டும்?",
+        "4. நினைவூட்டல் நடை — நட்பு, முறையான, அல்லது குறுகிய?",
+        "",
+        "ஒரே செய்தியில் பதிலளியுங்கள் — அல்லது **நீங்கள் முடிவு செய்யுங்கள்** என்று எழுதுங்கள்.",
+        "",
+        "_இந்த தெளிவுபடுத்தல் கேள்விகள் இலவசம் (கிரெடிட் இல்லை). அடுத்த பதில் திட்டம் அல்லது செயலைக் கொண்டு வந்தால் கிரெடிட் பயன்படுத்தப்படும்._",
+      ];
+    case "mandarin_traditional":
+      return [
+        `我是 **${name}**，您的財務助手。`,
+        "",
+        "**在制定計劃前，請先回答幾個問題：**",
+        "",
+        "1. 目標 — 催收未付發票、預測現金流，還是查看本月支出？",
+        "2. 時間 — 本週、本月，還是未來30天？",
+        "3. 重點 — 發票、支出，還是兩者？",
+        "4. 催收語氣 — 友好、正式，還是簡短？",
+        "",
+        "請一條訊息回覆 — 或輸入 **你來決定**。",
+        "",
+        "_這些澄清問題免費（不扣積分）。下一條給出計劃或執行操作的回覆將使用積分。_",
+      ];
+    case "mandarin_simplified":
+    case "cantonese":
+      return [
+        `我是 **${name}**，您的财务助手。`,
+        "",
+        "**在制定计划前，请先回答几个问题：**",
+        "",
+        "1. 目标 — 催收未付发票、预测现金流，还是查看本月支出？",
+        "2. 时间 — 本周、本月，还是未来30天？",
+        "3. 重点 — 发票、支出，还是两者？",
+        "4. 催收语气 — 友好、正式，还是简短？",
+        "",
+        "请一条消息回复 — 或输入 **你来决定**。",
+        "",
+        "_这些澄清问题免费（不扣积分）。下一条给出计划或执行操作的回复将使用积分。_",
+      ];
+    case "hokkien":
+      return [
+        `Wa **${name}**, lu eh Finance staff.`,
+        "",
+        "**Chia plan chit pai, ai lim kua kua lang eh soal:**",
+        "",
+        "1. Mubiao — kejar invois bo bayar, teng cash flow, aseh check chit go eh belanja?",
+        "2. Time — chit leh paai, chit go eh goeh, aseh 30 kang?",
+        "3. Focus — invois, belanja, aseh nang eh?",
+        "4. Chase tone — ho lang, formal, aseh toh toh?",
+        "",
+        "Hui chiok tiaw — aseh si **lu decide**.",
+        "",
+        "_Chit eh soal long free (bo kredit). Eh eh tiaw hui long plan aseh action toh sio kredit._",
+      ];
+    case "bahasa_kelantan":
+      return [
+        `Ambe **${name}**, staf Kewangan hang.`,
+        "",
+        "**Sebelum ambo rancang, soalan sikit je:**",
+        "",
+        "1. Matlamat — kejar invois tak bayar, tengok aliran tunai, atau semak belanja bulan ni?",
+        "2. Masa — minggu ni, bulan ni, atau 30 hari akan datang?",
+        "3. Fokus — invois, belanja, atau dua-dua?",
+        "4. Nada kejar — mesra, formal, atau pendek?",
+        "",
+        "Jawab dalam satu mesej — atau tulis **hang decide**.",
+        "",
+        "_Soalan ni percuma (tak guna kredit). Jawapan seterusnya yang bagi rancangan atau buat tindakan akan guna kredit._",
+      ];
+    case "bahasa_terengganu":
+      return [
+        `Aku **${name}**, staf Kewangan demo.`,
+        "",
+        "**Sebelum kito rancang, soalan sikit:**",
+        "",
+        "1. Matlamat — kejar invois tak bayar, tengok aliran tunai, atau semak belanja bulan ni?",
+        "2. Masa — minggu ni, bulan ni, atau 30 hari akan datang?",
+        "3. Fokus — invois, belanja, atau dua-dua?",
+        "4. Nada kejar — mesra, formal, atau pendek?",
+        "",
+        "Jawab dalam satu mesej — atau tulis **demo decide**.",
+        "",
+        "_Soalan ni percuma (tak guna kredit). Jawapan seterusnya yang bagi rancangan atau buat tindakan akan guna kredit._",
+      ];
+    case "bahasa_kedah":
+      return [
+        `Aku **${name}**, staf Kewangan hang.`,
+        "",
+        "**Sebelum aku rancang, soalan sikit je:**",
+        "",
+        "1. Matlamat — kejar invois tak bayar, tengok aliran tunai, atau semak belanja bulan ni?",
+        "2. Masa — minggu ni, bulan ni, atau 30 hari akan datang?",
+        "3. Fokus — invois, belanja, atau dua-dua?",
+        "4. Nada kejar — mesra, formal, atau pendek?",
+        "",
+        "Jawab dalam satu mesej — atau tulis **hang decide**.",
+        "",
+        "_Soalan ni percuma (tak guna kredit). Jawapan seterusnya yang bagi rancangan atau buat tindakan akan guna kredit._",
+      ];
+    case "bahasa_sabah":
+      return [
+        `Saya **${name}**, staf Kewangan ko punya.`,
+        "",
+        "**Sebelum saya plan, tanya sikit bah:**",
+        "",
+        "1. Matlamat — kejar invois tak bayar, tengok cash flow, atau check belanja bulan ni?",
+        "2. Masa — minggu ni, bulan ni, atau 30 hari lagi?",
+        "3. Fokus — invois, belanja, atau dua-dua?",
+        "4. Nada kejar — mesra, formal, atau pendek?",
+        "",
+        "Reply satu message — atau tulis **ko decide**.",
+        "",
+        "_Soalan ni free (tak guna kredit). Next reply yang bagi plan atau action akan guna kredit._",
+      ];
+    case "bahasa_sarawak":
+      return [
+        `Kamek **${name}**, staf Kewangan kitak.`,
+        "",
+        "**Sebelum kamek rancang, soalan sikit jak:**",
+        "",
+        "1. Matlamat — kejar invois sik bayar, tengok cash flow, atau semak belanja bulan tok?",
+        "2. Masa — minggu tok, bulan tok, atau 30 hari kelak?",
+        "3. Fokus — invois, belanja, atau dua-dua?",
+        "4. Nada kejar — mesra, formal, atau pendek?",
+        "",
+        "Reply dalam satu message — atau tulis **kitak decide**.",
+        "",
+        "_Soalan tok free (sik guna kredit). Reply seterusnya yang bagi plan atau action akan guna kredit._",
+      ];
+    case "bahasa_malaysia":
+      return [
+        `Saya **${name}**, staf Kewangan anda.`,
+        "",
+        "**Sebelum saya rancang, beberapa soalan ringkas:**",
+        "",
+        "1. Matlamat — kejar invois tertunggak, ramal aliran tunai, atau semak perbelanjaan bulan ini?",
+        "2. Tempoh — minggu ini, bulan ini, atau 30 hari akan datang?",
+        "3. Fokus — invois, perbelanjaan, atau kedua-duanya?",
+        "4. Nada kejar bayaran — mesra, formal, atau ringkas?",
+        "",
+        "Jawab dalam satu mesej — atau tulis **anda decide**.",
+        "",
+        "_Soalan penjelasan ini percuma (tiada kredit). Jawapan seterusnya yang beri rancangan atau tindakan akan guna kredit._",
+      ];
+    default:
+      return [
+        `I'm **${name}**, your Finance staff.`,
+        "",
+        "**Before I plan, a few quick questions:**",
+        "",
+        "1. Goal — chase unpaid invoices, forecast cash, or review expenses this month?",
+        "2. Timeframe — this week, this month, or next 30 days?",
+        "3. Focus — invoices, expenses, or both?",
+        "4. Chase tone — friendly, formal, or short?",
+        "",
+        "Reply in one message — or say **you decide**.",
+        "",
+        "_These clarifying questions are free (no credits). Your next reply that gets a plan or action will use credits._",
+      ];
+  }
 }
 
 const MARKETING_PLANNING =
@@ -160,36 +337,10 @@ export function buildFreeClarifierReply(
   }
 
   if (kind === "finance") {
-    if (bm) {
-      return [
-        `Saya **${name}**, staf Kewangan anda.`,
-        "",
-        `**${header}:**`,
-        "",
-        "1. Matlamat — kejar invois tertunggak, ramal aliran tunai, atau semak perbelanjaan bulan ini?",
-        "2. Tempoh — minggu ini, bulan ini, atau 30 hari akan datang?",
-        "3. Fokus — invois, perbelanjaan, atau kedua-duanya?",
-        "4. Nada kejar bayaran — mesra, formal, atau ringkas?",
-        "",
-        "Jawab dalam satu mesej — atau tulis **anda decide**.",
-        "",
-        freeNote,
-      ].join("\n");
-    }
-    return [
-      `I'm **${name}**, your Finance staff.`,
-      "",
-      `**${header}:**`,
-      "",
-      "1. Goal — chase unpaid invoices, forecast cash, or review expenses this month?",
-      "2. Timeframe — this week, this month, or next 30 days?",
-      "3. Focus — invoices, expenses, or both?",
-      "4. Chase tone — friendly, formal, or short?",
-      "",
-      "Reply in one message — or say **you decide**.",
-      "",
-      freeNote,
-    ].join("\n");
+    return financeClarifierForLanguage(
+      detectUserLanguage(userMessage),
+      name,
+    ).join("\n");
   }
 
   if (kind === "operations") {

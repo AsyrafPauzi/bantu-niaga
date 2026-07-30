@@ -119,6 +119,8 @@ export interface AgentChatOptions {
   max_tokens?: number;
 }
 
+import { formatAssistantReply } from "@/lib/ai/assistant-reply";
+
 export interface ChatCompletionResponse {
   choices?: Array<{
     message?: {
@@ -132,7 +134,8 @@ export function extractChatAssistantText(
   response: ChatCompletionResponse,
 ): string {
   const text = response.choices?.[0]?.message?.content?.trim();
-  return text || "I could not generate a response. Please try again.";
+  if (!text) return "I could not generate a response. Please try again.";
+  return formatAssistantReply(text);
 }
 
 /**

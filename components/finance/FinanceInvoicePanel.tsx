@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -11,12 +11,13 @@ import {
   Loader2,
   Mail,
   MessageCircle,
+  MessageSquareQuote,
   Pencil,
   Plus,
   Send,
   Ban,
+  Sparkles,
 } from "lucide-react";
-import { StatusPill } from "@/components/dashboard/status-pill";
 import { ListPagination } from "@/components/ui/list-pagination";
 import type { FinanceInvoicesSummary } from "@/lib/finance/invoices-summary";
 import { cn } from "@/lib/utils/cn";
@@ -56,17 +57,27 @@ function fmtShortDate(iso: string): string {
   });
 }
 
-function invoiceStatusTone(
+function invoiceStatusClasses(
   status: FinanceInvoiceStatus,
   dueDate: string | null,
   isQuote: boolean,
-): "success" | "warning" | "danger" | "neutral" | "accent" {
-  if (isQuote) return "accent";
-  if (status === "paid") return "success";
-  if (status === "draft") return "neutral";
-  if (dueDate && dueDate < malaysiaTodayYmd()) return "danger";
-  if (status === "sent") return "warning";
-  return "neutral";
+): string {
+  if (isQuote) {
+    return "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100";
+  }
+  if (status === "paid") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100";
+  }
+  if (status === "draft") {
+    return "border-cream-300 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-300";
+  }
+  if (dueDate && dueDate < malaysiaTodayYmd()) {
+    return "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100";
+  }
+  if (status === "sent") {
+    return "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100";
+  }
+  return "border-cream-300 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-300";
 }
 
 function invoiceStatusLabel(
@@ -114,6 +125,10 @@ export function FinanceInvoicePanel({
     null,
   );
   const [convertDueDate, setConvertDueDate] = useState("");
+
+  useEffect(() => {
+    setInvoices(initialInvoices);
+  }, [initialInvoices]);
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
@@ -317,93 +332,178 @@ export function FinanceInvoicePanel({
     },
   ];
 
+  const heroEmoji =
+    summary.outstanding_myr > 0
+      ? "💸"
+      : summary.invoice_count === 0
+        ? "✨"
+        : "🎉";
+
+  const nudges = [
+    summary.overdue_count > 0
+      ? {
+          label: `${summary.overdue_count} overdue — chase on WhatsApp`,
+          href: buildFilterHref({ kind: "invoice", status: "sent" }),
+          tone: "danger" as const,
+        }
+      : null,
+    summary.draft_count > 0
+      ? {
+          label: `${summary.draft_count} draft${summary.draft_count === 1 ? "" : "s"} ready to send`,
+          href: buildFilterHref({ kind: "invoice", status: "draft" }),
+          tone: "neutral" as const,
+        }
+      : null,
+    summary.quote_count > 0 && documentKind !== "invoice"
+      ? {
+          label: `${summary.quote_count} open quote${summary.quote_count === 1 ? "" : "s"}`,
+          href: buildFilterHref({ kind: "quote" }),
+          tone: "accent" as const,
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    label: string;
+    href: string;
+    tone: "danger" | "neutral" | "accent";
+  }>;
+
+  const actionBtn =
+    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-60";
+  const actionBtnOutline =
+    "border border-cream-300 bg-white text-ink hover:bg-cream-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <section
         className={cn(
-          "relative overflow-hidden rounded-2xl border p-5 shadow-card sm:p-6",
+          "relative overflow-hidden rounded-2xl border p-5 shadow-card",
           summary.outstanding_myr > 0
-            ? "border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-brand-50 dark:border-amber-900/40 dark:from-amber-950/30 dark:via-panel-dark dark:to-brand-950/20"
-            : "border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-brand-50 dark:border-emerald-900/40 dark:from-emerald-950/30 dark:via-panel-dark dark:to-brand-950/20",
+            ? "border-amber-200/80 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 dark:border-amber-900/40 dark:from-amber-950/40 dark:via-orange-950/20 dark:to-rose-950/20"
+            : summary.invoice_count === 0
+              ? "border-sky-200/80 bg-gradient-to-br from-sky-50 via-indigo-50 to-violet-50 dark:border-sky-900/40 dark:from-sky-950/40 dark:via-indigo-950/20 dark:to-violet-950/20"
+              : "border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 dark:border-emerald-900/40 dark:from-emerald-950/40 dark:via-teal-950/20 dark:to-sky-950/20",
         )}
       >
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-ink dark:text-cream-100 sm:text-2xl">
+        <div className="pointer-events-none absolute -right-2 -top-2 text-6xl opacity-25">
+          {heroEmoji}
+        </div>
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-muted dark:text-cream-400">
+              Invoices &amp; quotes
+            </p>
+            <h2 className="mt-1 text-2xl font-bold tracking-tight text-ink dark:text-cream-100">
               {heroHeadline}
             </h2>
             <p className="mt-1 max-w-lg text-sm text-ink-muted dark:text-cream-400">
               {heroSub}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
             <Link
               href="/finance/invoices/new"
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-600"
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-600"
             >
               <Plus className="h-4 w-4" />
               New invoice
             </Link>
             <Link
               href="/finance/invoices/new?kind=quote"
-              className="inline-flex items-center gap-2 rounded-xl border border-cream-300 bg-white px-4 py-2.5 text-sm font-semibold text-ink hover:bg-cream-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-white/90 px-4 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50 dark:border-violet-800 dark:bg-panel-dark/90 dark:text-violet-100 dark:hover:bg-violet-950/40"
             >
-              <FileText className="h-4 w-4" />
+              <MessageSquareQuote className="h-4 w-4" />
               New quote
             </Link>
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-white/60 bg-white/70 p-3 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
-            <p className="text-xs text-ink-muted dark:text-cream-400">Outstanding</p>
-            <p className="text-lg font-bold text-ink dark:text-cream-100">
+        <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <div className="rounded-xl border border-amber-200/60 bg-white/70 p-3 dark:border-amber-900/40 dark:bg-panel-dark/60">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              Outstanding
+            </p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-amber-800 dark:text-amber-100">
               {formatMyr(summary.outstanding_myr)}
             </p>
           </div>
-          <div className="rounded-xl border border-white/60 bg-white/70 p-3 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
-            <p className="text-xs text-ink-muted dark:text-cream-400">Awaiting pay</p>
-            <p className="text-lg font-bold text-ink dark:text-cream-100">
+          <div className="rounded-xl border border-rose-200/60 bg-white/70 p-3 dark:border-rose-900/40 dark:bg-panel-dark/60">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300">
+              Awaiting pay
+            </p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink dark:text-cream-100">
               {summary.sent_count}
             </p>
           </div>
-          <div className="rounded-xl border border-white/60 bg-white/70 p-3 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
-            <p className="text-xs text-ink-muted dark:text-cream-400">Drafts</p>
-            <p className="text-lg font-bold text-ink dark:text-cream-100">
+          <div className="rounded-xl border border-sky-200/60 bg-white/70 p-3 dark:border-sky-900/40 dark:bg-panel-dark/60">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+              Drafts
+            </p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink dark:text-cream-100">
               {summary.draft_count}
             </p>
           </div>
-          <div className="rounded-xl border border-white/60 bg-white/70 p-3 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
-            <p className="text-xs text-ink-muted dark:text-cream-400">Open quotes</p>
-            <p className="text-lg font-bold text-ink dark:text-cream-100">
+          <div className="rounded-xl border border-violet-200/60 bg-white/70 p-3 dark:border-violet-900/40 dark:bg-panel-dark/60">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+              Open quotes
+            </p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink dark:text-cream-100">
               {summary.quote_count}
             </p>
           </div>
         </div>
       </section>
 
-      <div className="flex flex-wrap gap-2">
+      {nudges.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {nudges.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+                item.tone === "danger"
+                  ? "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100"
+                  : item.tone === "accent"
+                    ? "border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100"
+                    : "border-cream-300 bg-white text-ink-muted hover:border-sky-200 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-300",
+              )}
+            >
+              <Sparkles className="h-3 w-3" />
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-1.5">
         {filterChips.map((chip) => (
           <Link
             key={chip.label}
             href={chip.href}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+              "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
               chip.active
-                ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-100"
-                : "border-cream-300 bg-white text-ink-muted hover:border-brand-200 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400",
+                ? "border-sky-500 bg-sky-500 text-white"
+                : "border-cream-300 bg-white/80 text-ink-muted hover:border-sky-200 dark:border-hairline-dark dark:bg-panel-dark/80 dark:text-cream-400",
             )}
           >
             {chip.label}
             {chip.count !== undefined && chip.count > 0 ? (
-              <span className="tabular-nums opacity-80">{chip.count}</span>
+              <span
+                className={cn(
+                  "tabular-nums",
+                  chip.active ? "text-white/90" : "opacity-70",
+                )}
+              >
+                {chip.count}
+              </span>
             ) : null}
           </Link>
         ))}
       </div>
 
       {emailError ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-status-danger/30 bg-status-danger/10 px-4 py-3 text-sm text-status-danger">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100">
           <span className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {emailError}
@@ -420,15 +520,18 @@ export function FinanceInvoicePanel({
       ) : null}
 
       {invoices.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-cream-300 py-14 text-center dark:border-hairline-dark">
-          <p className="text-sm font-medium text-ink dark:text-cream-100">
+        <div className="rounded-2xl border border-dashed border-cream-300 bg-white/50 py-14 text-center dark:border-hairline-dark dark:bg-panel-dark/40">
+          <div className="text-4xl">
+            {documentKind === "quote" ? "📝" : "🧾"}
+          </div>
+          <p className="mt-3 text-sm font-medium text-ink dark:text-cream-100">
             {documentKind === "quote"
               ? "No quotes here yet"
               : statusFilter !== "all"
                 ? "Nothing in this filter"
                 : "No invoices yet"}
           </p>
-          <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
+          <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
             {documentKind === "quote"
               ? "Send a quote first — convert to invoice when they say yes."
               : "Create an invoice, share on WhatsApp, mark paid when money arrives."}
@@ -439,153 +542,211 @@ export function FinanceInvoicePanel({
                 ? "/finance/invoices/new?kind=quote"
                 : "/finance/invoices/new"
             }
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 dark:text-brand-200"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
           >
             <Plus className="h-4 w-4" />
             {documentKind === "quote" ? "New quote" : "New invoice"}
           </Link>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
+        <div className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+          <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
             {invoices.map((inv) => {
             const busy = busyId === inv.id;
             const links = shareLinks(inv);
             const total = Number(inv.total_myr);
             const isQuote = inv.document_kind === "quote";
-            const tone = invoiceStatusTone(inv.status, inv.due_date, isQuote);
             const statusLabel = invoiceStatusLabel(
               inv.status,
               isQuote,
               inv.due_date,
             );
+            const isOverdue =
+              !isQuote &&
+              inv.status === "sent" &&
+              inv.due_date &&
+              inv.due_date < malaysiaTodayYmd();
 
             return (
               <li
                 key={inv.id}
-                className="p-4"
+                className="p-4 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/80"
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-ink dark:text-cream-100">
-                        {inv.number}
-                      </p>
-                      <StatusPill tone={tone}>{statusLabel}</StatusPill>
-                    </div>
-                    <p className="mt-0.5 text-sm text-ink dark:text-cream-100">
-                      {inv.customer_name}
-                    </p>
-                    <p className="text-xs text-ink-muted dark:text-cream-400">
-                      {inv.invoice_date ? fmtShortDate(inv.invoice_date) : "—"}
-                      {inv.due_date
-                        ? ` · due ${fmtShortDate(inv.due_date)}`
-                        : ""}
-                      {inv.title ? ` · ${inv.title}` : ""}
-                    </p>
-                  </div>
-                  <p className="text-xl font-bold tabular-nums text-ink dark:text-cream-100">
-                    {formatMyr(total)}
-                  </p>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2 border-t border-cream-100 pt-3 dark:border-hairline-dark">
-                  <Link
-                    href={`/finance/invoices/${inv.id}/edit`}
-                    className="inline-flex items-center gap-1 rounded-lg border border-cream-300 px-2.5 py-1.5 text-xs font-semibold text-ink dark:border-hairline-dark dark:text-cream-100"
+                <div className="flex items-start gap-3">
+                  <div
+                    className={cn(
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm",
+                      isQuote
+                        ? "bg-gradient-to-br from-violet-400 to-purple-500 text-white"
+                        : "bg-gradient-to-br from-sky-400 to-blue-500 text-white",
+                    )}
                   >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Edit
-                  </Link>
+                    {isQuote ? (
+                      <MessageSquareQuote className="h-5 w-5" />
+                    ) : (
+                      <FileText className="h-5 w-5" />
+                    )}
+                  </div>
 
-                  {isQuote ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => openConvert(inv)}
-                      className="inline-flex items-center gap-1 rounded-lg bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-                    >
-                      {busy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <FileText className="h-3.5 w-3.5" />
-                      )}
-                      Convert
-                    </button>
-                  ) : null}
-
-                  {inv.status === "draft" ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void patchInvoice(inv.id, "sent")}
-                      className="inline-flex items-center gap-1 rounded-lg border border-brand-300 bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-800 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-100"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      Mark sent
-                    </button>
-                  ) : null}
-
-                  {inv.status === "sent" ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void patchInvoice(inv.id, "paid")}
-                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100"
-                    >
-                      {busy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      )}
-                      Mark paid
-                    </button>
-                  ) : null}
-
-                  {inv.status !== "void" && inv.status !== "paid" ? (
-                    <>
-                      <a
-                        href={links.whatsapp}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100"
-                      >
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        WhatsApp
-                      </a>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void sendInvoiceEmail(inv)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-cream-300 px-2.5 py-1.5 text-xs font-semibold text-ink dark:border-hairline-dark dark:text-cream-100"
-                      >
-                        {busy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Mail className="h-3.5 w-3.5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate text-sm font-semibold text-ink dark:text-cream-100">
+                            {inv.customer_name}
+                          </h3>
+                          <span
+                            className={cn(
+                              "inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                              invoiceStatusClasses(
+                                inv.status,
+                                inv.due_date,
+                                isQuote,
+                              ),
+                            )}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                          <span className="font-medium text-ink/80 dark:text-cream-200">
+                            {inv.number}
+                          </span>
+                          {inv.invoice_date
+                            ? ` · ${fmtShortDate(inv.invoice_date)}`
+                            : ""}
+                          {inv.due_date
+                            ? ` · due ${fmtShortDate(inv.due_date)}`
+                            : ""}
+                          {inv.title ? ` · ${inv.title}` : ""}
+                        </p>
+                      </div>
+                      <p
+                        className={cn(
+                          "shrink-0 text-lg font-bold tabular-nums",
+                          isOverdue
+                            ? "text-rose-600 dark:text-rose-300"
+                            : "text-ink dark:text-cream-100",
                         )}
-                        Email
-                      </button>
-                      <a
-                        href={links.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-lg border border-cream-300 px-2.5 py-1.5 text-xs font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
                       >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Pay link
-                      </a>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void patchInvoice(inv.id, "void")}
-                        className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-ink-muted hover:text-status-danger dark:text-cream-400"
+                        {formatMyr(total)}
+                      </p>
+                    </div>
+
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      <Link
+                        href={`/finance/invoices/${inv.id}/edit`}
+                        className={cn(actionBtn, actionBtnOutline)}
                       >
-                        <Ban className="h-3.5 w-3.5" />
-                        Void
-                      </button>
-                    </>
-                  ) : null}
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </Link>
+
+                      {isQuote ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => openConvert(inv)}
+                          className={cn(
+                            actionBtn,
+                            "bg-brand-500 text-white hover:bg-brand-600",
+                          )}
+                        >
+                          {busy ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <FileText className="h-3 w-3" />
+                          )}
+                          Convert
+                        </button>
+                      ) : null}
+
+                      {inv.status === "draft" ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void patchInvoice(inv.id, "sent")}
+                          className={cn(
+                            actionBtn,
+                            "border border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100",
+                          )}
+                        >
+                          <Send className="h-3 w-3" />
+                          Mark sent
+                        </button>
+                      ) : null}
+
+                      {inv.status === "sent" ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void patchInvoice(inv.id, "paid")}
+                          className={cn(
+                            actionBtn,
+                            "border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100",
+                          )}
+                        >
+                          {busy ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-3 w-3" />
+                          )}
+                          Mark paid
+                        </button>
+                      ) : null}
+
+                      {inv.status !== "void" && inv.status !== "paid" ? (
+                        <>
+                          <a
+                            href={links.whatsapp}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              actionBtn,
+                              "border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100",
+                            )}
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                            WhatsApp
+                          </a>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void sendInvoiceEmail(inv)}
+                            className={cn(actionBtn, actionBtnOutline)}
+                          >
+                            {busy ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Mail className="h-3 w-3" />
+                            )}
+                            Email
+                          </button>
+                          <a
+                            href={links.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(actionBtn, actionBtnOutline)}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Pay link
+                          </a>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void patchInvoice(inv.id, "void")}
+                            className={cn(
+                              actionBtn,
+                              "text-ink-muted hover:text-status-danger dark:text-cream-400",
+                            )}
+                          >
+                            <Ban className="h-3 w-3" />
+                            Void
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               </li>
             );

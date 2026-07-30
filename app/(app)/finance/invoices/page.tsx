@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { FinanceInvoicePanel } from "@/components/finance/FinanceInvoicePanel";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
@@ -33,17 +32,10 @@ export default async function InvoicesPage({
 
   if (!can(user.role, "finance")) {
     return (
-      <div className="space-y-6">
-        <PageHeader
-          eyebrow="Finance"
-          title="Invoices"
-          description="Create and share invoices with secure links."
-        />
-        <Card>
-          <CardBody className="py-10 text-center text-sm text-ink-muted dark:text-cream-400">
-            You don&apos;t have access to Finance.
-          </CardBody>
-        </Card>
+      <div className="space-y-4 pb-20 lg:pb-0">
+        <p className="text-sm text-ink-muted dark:text-cream-400">
+          You don&apos;t have access to Finance.
+        </p>
       </div>
     );
   }
@@ -99,20 +91,14 @@ export default async function InvoicesPage({
     "http://localhost:3000";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-20 lg:pb-0">
       <Link
         href="/finance"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-200"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Money dashboard
+        Finance dashboard
       </Link>
-
-      <PageHeader
-        eyebrow="Finance"
-        title="Invoices & quotes"
-        description="Bill customers, share a pay link, and chase what’s still unpaid."
-      />
 
       {error ? (
         <Card>

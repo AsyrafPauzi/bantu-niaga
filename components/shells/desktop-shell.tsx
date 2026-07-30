@@ -80,8 +80,9 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
         pillar: "finance",
         subItems: [
           { href: "/finance/invoices", label: "Invoices" },
+          { href: "/finance/income", label: "Income" },
           { href: "/finance/expenses", label: "Expenses" },
-          { href: "/finance/ledger", label: "Ledger" },
+          { href: "/finance/reports", label: "Reports" },
           { href: "/finance/customers", label: "Customers" },
         ],
       },

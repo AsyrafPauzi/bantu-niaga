@@ -1,17 +1,24 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { PageHeader } from "@/components/dashboard/page-header";
 import { FinanceCustomerPanel } from "@/components/finance/FinanceCustomerPanel";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import {
+  loadFinanceCustomersPage,
+  loadFinanceCustomersSummary,
+} from "@/lib/finance/customers";
+import { parsePagination } from "@/lib/pagination";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { FinanceCustomerRow } from "@/lib/finance/schemas";
 
 export const metadata = { title: "Customers" };
 export const dynamic = "force-dynamic";
 
-export default async function FinanceCustomersPage() {
+export default async function FinanceCustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   let user;
   try {
     user = await getCurrentUser();
@@ -22,34 +29,38 @@ export default async function FinanceCustomersPage() {
 
   if (!can(user.role, "finance")) redirect("/home");
 
+  const params = await searchParams;
+  const pagination = parsePagination(params, { defaultPageSize: 10 });
+  const searchQuery =
+    typeof params.q === "string" ? params.q.trim() : "";
+
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("customers")
-    .select(
-      "id, business_id, name, phone_e164, email, address, notes, created_at, updated_at",
-    )
-    .eq("business_id", user.businessId)
-    .is("deleted_at", null)
-    .order("name", { ascending: true });
+  const [summary, pageData] = await Promise.all([
+    loadFinanceCustomersSummary(supabase, user.businessId),
+    loadFinanceCustomersPage(supabase, user.businessId, {
+      from: pagination.from,
+      to: pagination.to,
+      q: searchQuery || undefined,
+    }),
+  ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-20 lg:pb-0">
       <Link
-        href="/finance/invoices"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
+        href="/finance"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-200"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Back to invoices
+        Finance dashboard
       </Link>
 
-      <PageHeader
-        eyebrow="Finance"
-        title="Customers"
-        description="Save customer details once — pick them when creating invoices."
-      />
-
       <FinanceCustomerPanel
-        initialCustomers={(data ?? []) as unknown as FinanceCustomerRow[]}
+        initialCustomers={pageData.customers}
+        summary={summary}
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pageData.total}
+        searchQuery={searchQuery}
       />
     </div>
   );

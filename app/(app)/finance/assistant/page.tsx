@@ -47,8 +47,8 @@ export default async function FinanceAssistantPage() {
             {settings.displayName} · Finance AI
           </h1>
           <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
-            Ask in plain language — Fayza plans like finance staff using your
-            invoices and cash flow
+            Ask in plain language — Fayza reads your books and can log expenses,
+            create invoices, chase payments, and more
           </p>
         </div>
       }

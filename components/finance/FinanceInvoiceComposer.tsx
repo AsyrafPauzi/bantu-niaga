@@ -789,7 +789,7 @@ export function FinanceInvoiceComposer({
       : "New invoice";
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="space-y-5 pb-24">
+    <form onSubmit={(e) => void onSubmit(e)} className="space-y-3 pb-20">
       {toast ? (
         <div
           role="status"
@@ -804,65 +804,116 @@ export function FinanceInvoiceComposer({
         </div>
       ) : null}
 
-      <section className="overflow-hidden rounded-2xl border border-cream-200 bg-gradient-to-br from-brand-50 via-white to-cream-50 p-5 shadow-card dark:border-hairline-dark dark:from-brand-950/30 dark:via-panel-dark dark:to-panel-dark">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <section className="overflow-hidden rounded-xl border border-cream-200 bg-gradient-to-br from-brand-50 via-white to-cream-50 p-4 shadow-card dark:border-hairline-dark dark:from-brand-950/30 dark:via-panel-dark dark:to-panel-dark">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             {mergedHeader ? (
-              <>
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700/70 dark:text-brand-200/70">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-700/70 dark:text-brand-200/70">
                   Finance
                 </p>
-                <h1 className="mt-1 text-2xl font-semibold text-ink dark:text-cream-100">
+                <span className="text-ink-muted dark:text-cream-500">·</span>
+                <h1 className="text-lg font-semibold text-ink dark:text-cream-100">
                   {headerTitle}
                 </h1>
-                <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
-                  {isQuote
-                    ? "Send a quote — convert to invoice when they say yes."
-                    : "Bill a customer and share a pay link."}
-                </p>
-              </>
+              </div>
             ) : (
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
                 {headerTitle}
               </p>
             )}
-            <div className="mt-3 max-w-xs">
-              <Field label={numberLabel} compact>
-                <input
-                  type="text"
-                  value={documentNumber}
-                  onChange={(e) => {
-                    setDocumentNumber(e.target.value.toUpperCase());
-                    setFieldErrors((prev) => ({ ...prev, number: undefined }));
-                  }}
-                  placeholder={nextNumberPreview ?? "INV-2026-0001"}
-                  className={cn(
-                    compactFieldCx,
-                    "font-semibold tracking-tight",
-                    fieldErrors.number &&
-                      "border-status-danger focus:border-status-danger focus:ring-status-danger/30",
-                  )}
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-invalid={Boolean(fieldErrors.number)}
-                />
-              </Field>
-              {fieldErrors.number ? (
-                <p className="mt-1 text-xs text-status-danger">{fieldErrors.number}</p>
-              ) : null}
-            </div>
+            {!mergedHeader && (
+              <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                {isQuote
+                  ? "Send a quote — convert to invoice when they say yes."
+                  : "Bill a customer and share a pay link."}
+              </p>
+            )}
           </div>
           <div className="text-right">
-            <p className="text-xs text-ink-muted dark:text-cream-400">Total</p>
-            <p className="text-2xl font-bold tabular-nums text-ink dark:text-cream-100">
+            <p className="text-[10px] uppercase tracking-wide text-ink-muted dark:text-cream-400">
+              Total
+            </p>
+            <p className="text-xl font-bold tabular-nums text-ink dark:text-cream-100">
               RM {fmtAmount(totals.total_myr)}
             </p>
           </div>
         </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Field label={numberLabel} compact>
+            <input
+              type="text"
+              value={documentNumber}
+              onChange={(e) => {
+                setDocumentNumber(e.target.value.toUpperCase());
+                setFieldErrors((prev) => ({ ...prev, number: undefined }));
+              }}
+              placeholder={nextNumberPreview ?? "INV-2026-0001"}
+              className={cn(
+                compactFieldCx,
+                "font-semibold tracking-tight",
+                fieldErrors.number &&
+                  "border-status-danger focus:border-status-danger focus:ring-status-danger/30",
+              )}
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={Boolean(fieldErrors.number)}
+            />
+          </Field>
+          <Field label={dateLabel} compact>
+            <input
+              type="date"
+              value={invoiceDate}
+              onChange={(e) => setInvoiceDate(e.target.value)}
+              className={compactFieldCx}
+            />
+          </Field>
+          <Field label={dueLabel} compact>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => {
+                dueDateTouched.current = true;
+                setDueDate(e.target.value);
+              }}
+              className={compactFieldCx}
+            />
+          </Field>
+          {isEdit ? (
+            <Field label="Status" compact>
+              <select
+                value={status}
+                onChange={(e) =>
+                  setStatus(e.target.value as FinanceInvoiceStatus)
+                }
+                className={compactFieldCx}
+              >
+                {statusOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : (
+            <Field label="Title (optional)" compact>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. March retainer"
+                className={compactFieldCx}
+              />
+            </Field>
+          )}
+        </div>
+        {fieldErrors.number ? (
+          <p className="mt-1 text-xs text-status-danger">{fieldErrors.number}</p>
+        ) : null}
       </section>
 
       {isQuote && savedRecord?.id ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 dark:border-brand-800 dark:bg-brand-950/30">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 dark:border-brand-800 dark:bg-brand-950/30">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-brand-900 dark:text-brand-100">
               Quote saved
@@ -887,12 +938,12 @@ export function FinanceInvoiceComposer({
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-        {/* Customer + dates */}
-        <div className="grid gap-4 border-b border-cream-200 px-4 py-4 sm:px-5 lg:grid-cols-2 lg:items-start dark:border-hairline-dark">
-          <div className="space-y-2">
+      <div className="overflow-hidden rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+        {/* Customer */}
+        <div className="border-b border-cream-200 px-4 py-3 sm:px-4 dark:border-hairline-dark">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-ink dark:text-cream-100">
+              <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
                 Customer
               </span>
               <button
@@ -1004,63 +1055,25 @@ export function FinanceInvoiceComposer({
               </button>
             ) : null}
           </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Field label={dateLabel} compact>
-              <input
-                type="date"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-                className={compactFieldCx}
-              />
-            </Field>
-            <Field label={dueLabel} compact>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => {
-                  dueDateTouched.current = true;
-                  setDueDate(e.target.value);
-                }}
-                className={compactFieldCx}
-              />
-            </Field>
-            {isEdit ? (
-              <Field label="Status" compact>
-                <select
-                  value={status}
-                  onChange={(e) =>
-                    setStatus(e.target.value as FinanceInvoiceStatus)
-                  }
+          {isEdit ? (
+            <div className="mt-2 border-t border-cream-100 pt-2 dark:border-hairline-dark">
+              <Field label="Title (optional)" compact>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Website design — March"
                   className={compactFieldCx}
-                >
-                  {statusOptions.map((s) => (
-                    <option key={s} value={s}>
-                      {STATUS_LABEL[s]}
-                    </option>
-                  ))}
-                </select>
+                />
               </Field>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
 
-        <div className="border-b border-cream-200 px-4 py-3 sm:px-5 dark:border-hairline-dark">
-          <Field label="Title (optional)" compact>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Website design — March"
-              className={compactFieldCx}
-            />
-          </Field>
-        </div>
-
-        {/* Compact line items table */}
-        <div className="border-b border-cream-200 px-4 py-4 sm:px-5 dark:border-hairline-dark">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-ink dark:text-cream-100">
+        {/* Line items */}
+        <div className="border-b border-cream-200 px-4 py-3 sm:px-4 dark:border-hairline-dark">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
               Line items
             </span>
             <div className="flex flex-wrap items-center gap-2">
@@ -1283,8 +1296,8 @@ export function FinanceInvoiceComposer({
         </div>
 
         {/* Notes + totals */}
-        <div className="grid border-b border-cream-200 lg:grid-cols-[1fr_minmax(220px,280px)] lg:divide-x lg:divide-cream-200 dark:border-hairline-dark dark:lg:divide-hairline-dark">
-          <div className="px-4 py-4 sm:px-5">
+        <div className="grid border-b border-cream-200 lg:grid-cols-[1fr_minmax(200px,240px)] lg:divide-x lg:divide-cream-200 dark:border-hairline-dark dark:lg:divide-hairline-dark">
+          <div className="px-4 py-3 sm:px-4">
             <Field label={isQuote ? "Terms & notes" : "Notes (optional)"} compact>
               <textarea
                 value={notes}
@@ -1294,7 +1307,7 @@ export function FinanceInvoiceComposer({
                     ? "Prices valid 14 days, payment terms…"
                     : "Payment terms, thank-you note…"
                 }
-                rows={4}
+                rows={3}
                 className={textareaFieldCx}
               />
             </Field>
@@ -1351,16 +1364,16 @@ export function FinanceInvoiceComposer({
           </div>
         </div>
 
-        {/* Optional: payment + attachment */}
+        {/* Payment + attachment */}
         <div
           className={cn(
-            "grid gap-4 px-4 py-4 sm:px-5",
-            isQuote ? "grid-cols-1" : "sm:grid-cols-2",
+            "divide-y divide-cream-200 dark:divide-hairline-dark",
+            !isQuote && "sm:grid sm:grid-cols-2 sm:divide-x sm:divide-y-0",
           )}
         >
           {!isQuote ? (
-            <div className="min-w-0 space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+            <div className="min-w-0 space-y-2 px-4 py-2.5 sm:px-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
                 Payment on invoice
               </p>
               {duitnowId || duitnowQrUrl ? (
@@ -1388,8 +1401,8 @@ export function FinanceInvoiceComposer({
                 </p>
               )}
 
-              <div className="rounded-lg border border-cream-200 bg-cream-50/80 p-3 dark:border-hairline-dark dark:bg-panel-dark/50">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+              <div className="rounded-md border border-cream-200 bg-cream-50/80 p-2 dark:border-hairline-dark dark:bg-panel-dark/50">
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
                   Public link preview
                 </p>
                 <ul className="space-y-1.5">
@@ -1439,18 +1452,18 @@ export function FinanceInvoiceComposer({
 
           <div
             className={cn(
-              "min-w-0",
-              !isQuote &&
-                "sm:border-l sm:border-cream-200 sm:pl-5 dark:sm:border-hairline-dark",
+              "flex min-w-0 items-center gap-2 px-4 py-2.5 sm:px-4",
+              !isQuote && "sm:pl-4",
             )}
           >
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
-              Supporting document
-            </p>
+            <span className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+              Attachment
+            </span>
             <AdminStorageFileAttach
               fileId={adminFileId}
               fileName={adminFileName}
               compact
+              className="min-w-0 flex-1"
               onAttach={async (fileId) => {
                 if (isEdit && invoice?.id) {
                   const res = await fetch(`/api/finance/invoices/${invoice.id}`, {
@@ -1661,7 +1674,7 @@ function Field({
       <span
         className={cn(
           "mb-1 block font-medium text-ink-muted dark:text-cream-400",
-          compact ? "text-[11px] uppercase tracking-wide" : "text-xs",
+          compact ? "mb-0.5 text-[10px] uppercase tracking-wide" : "mb-1 text-xs",
         )}
       >
         {label}
@@ -1721,7 +1734,7 @@ function SummaryRow({
   return (
     <div
       className={cn(
-        "grid grid-cols-2 items-center gap-2 px-4 py-2.5 sm:px-5",
+        "grid grid-cols-2 items-center gap-2 px-3 py-2 sm:px-4",
         strong && "bg-cream-50 dark:bg-panel-dark/60",
       )}
     >
@@ -1758,7 +1771,7 @@ const compactFieldCx =
   "h-9 w-full rounded-lg border border-cream-300 bg-white px-3 text-sm text-ink focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
 
 const textareaFieldCx =
-  "min-h-[96px] w-full resize-y rounded-lg border border-cream-300 bg-white px-3 py-2.5 text-sm leading-relaxed text-ink focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
+  "min-h-[72px] w-full resize-y rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm leading-relaxed text-ink focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
 
 const tableInputCx =
   "h-8 w-full rounded border-0 bg-transparent px-2 text-sm text-ink placeholder:text-ink-muted/60 focus:bg-cream-50 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:text-cream-100 dark:focus:bg-panel-dark/80";

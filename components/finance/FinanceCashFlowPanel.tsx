@@ -7,7 +7,7 @@ import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttac
 import { cn } from "@/lib/utils/cn";
 import {
   FINANCE_EXPENSE_CATEGORIES,
-  FINANCE_INCOME_CATEGORIES,
+  FINANCE_INCOME_MANUAL_CATEGORIES,
   FINANCE_PAYMENT_METHODS,
   formatMyr,
   type FinanceMonthSummary,
@@ -81,7 +81,7 @@ export function FinanceCashFlowPanel({
   const refresh = useCallback(() => router.refresh(), [router]);
 
   const categories =
-    kind === "income" ? FINANCE_INCOME_CATEGORIES : FINANCE_EXPENSE_CATEGORIES;
+    kind === "income" ? FINANCE_INCOME_MANUAL_CATEGORIES : FINANCE_EXPENSE_CATEGORIES;
 
   const resetForm = useCallback(() => {
     setAmount("");
@@ -291,7 +291,7 @@ export function FinanceCashFlowPanel({
           </p>
         </div>
         <div className="rounded-lg border border-cream-200 bg-white p-3 dark:border-hairline-dark dark:bg-panel-dark">
-          <p className="text-xs text-ink-muted dark:text-cream-400">Net (P&L)</p>
+          <p className="text-xs text-ink-muted dark:text-cream-400">Net</p>
           <p
             className={cn(
               "text-lg font-semibold",

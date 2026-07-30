@@ -38,7 +38,28 @@ export const FINANCE_INCOME_CATEGORIES = [
   "sales",
   "services",
   "invoice_payment",
+  "capital",
+  "loan",
+  "grant",
+  "refund",
   "other",
+] as const;
+
+/** Categories users can pick when logging income manually (excludes auto-posted invoice payments). */
+export const FINANCE_INCOME_MANUAL_CATEGORIES = [
+  "sales",
+  "services",
+  "capital",
+  "loan",
+  "grant",
+  "refund",
+  "other",
+] as const;
+
+export const FINANCE_INCOME_REVENUE_CATEGORIES = [
+  "sales",
+  "services",
+  "invoice_payment",
 ] as const;
 
 export const financeTransactionCreateSchema = z
@@ -264,6 +285,30 @@ export interface FinanceMonthSummary {
   net_myr: number;
   invoice_paid_myr: number;
   invoice_outstanding_myr: number;
+}
+
+export interface FinancePnLLine {
+  category: string;
+  label: string;
+  amount_myr: number;
+  count: number;
+}
+
+/** Profit & loss statement for a calendar month (revenue − expenses). */
+export interface FinancePnLStatement {
+  period_start: string;
+  period_end: string;
+  period_label: string;
+  /** Calendar month key (`YYYY-MM`) when the period is a full month — used for CSV export. */
+  month: string;
+  revenue_lines: FinancePnLLine[];
+  total_revenue_myr: number;
+  expense_lines: FinancePnLLine[];
+  total_expenses_myr: number;
+  net_profit_myr: number;
+  /** Capital, loans, etc. — cash in but not P&L revenue. */
+  excluded_cash_in: FinancePnLLine[];
+  total_excluded_cash_in_myr: number;
 }
 
 export function formatMyr(amount: number): string {
