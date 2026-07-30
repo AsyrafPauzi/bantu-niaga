@@ -1,6 +1,6 @@
 # Bantu Niaga — Project Checklist
 
-> **Last updated:** 2026-07-11 (Sales core vs add-ons locked; settle core next)  
+> **Last updated:** 2026-07-30 (Phase 1 core settle)  
 > **Purpose:** Single place to see what is **done**, **pending** (partially shipped or needs deploy/config), and **not done yet** across the system.  
 > **Legend:** ✅ Done · 🟡 Pending · ⬜ Not done
 
@@ -14,9 +14,9 @@
 | Settings & billing | 14 | 3 | 4 |
 | Marketplace & AI | 21 | 4 | 8 |
 | Admin module | 8 | 1 | 6 |
-| Finance module | 11 | 2 | 8 |
-| Operations module | 9 | 1 | 7 |
-| Sales module | 1 | 3 | 20 |
+| Finance module | 14 | 1 | 5 |
+| Operations module | 12 | 0 | 6 |
+| Sales module | 8 | 1 | 14 |
 | Marketing module | 14 | 2 | 9 |
 | HR module | 23 | 2 | 10 |
 | Integrations & API | 8 | 3 | 5 |
@@ -49,7 +49,7 @@
 | ✅ | Free-first sign-up — default Free path + optional Starter trial |
 | ✅ | Onboarding quiz (`/sign-up/guide`) — pre-sign-up only; skippable; can recommend Free |
 | ✅ | Post-sign-up recommendation page (`/onboarding/recommendation`) — Phase 1 |
-| 🟡 | Business bundle one-click activate — Phase 2 (`/api/marketplace/activate-bundle` returns 501) |
+| ✅ | Bundle one-click activate — `POST /api/marketplace/activate-bundle` (tier + add-ons) |
 
 ---
 
@@ -65,7 +65,9 @@
 | ✅ | Skip / manual choice — `onboarding_completed_at`, links to Subscription + Marketplace |
 | ✅ | Payroll in bundle — optional checkbox only, never default (Pakej Kafe) |
 | ✅ | À la carte pricing unchanged — bundle discount is display-only in Phase 1 |
-| ⬜ | Phase 2: `marketplace_bundles` table + single “Activate Café Pack” RPC |
+| ✅ | Hybrid deployment mode — `DEPLOYMENT_MODE=saas|standalone` (Phase 2) |
+| ✅ | Standalone bootstrap — one-time sign-up when zero businesses |
+| ⬜ | Phase 2: Custom domain + Supabase SMTP + Resend |
 | ⬜ | Phase 2: Billplz single checkout for bundle plan + discounted add-ons |
 | ⬜ | Persist quiz for users who skip guide (default generic recommendation) |
 
@@ -91,8 +93,8 @@
 | ✅ | External API rate limiting (120 req/min per key) |
 | ✅ | API key pepper fail-closed in production (`API_KEY_PEPPER` / `INTEGRATION_ENCRYPTION_KEY`) |
 | ✅ | AI Agent activation page (7 agents, daily budget, rename) |
-| 🟡 | Billplz live checkout for top-ups — TODO in code; dev bypass only |
-| 🟡 | Billplz auto-renew for subscription — not fully wired |
+| 🟡 | Billplz live checkout for top-ups — webhook + pending invoice wired; set `BILLPLZ_*` in prod |
+| 🟡 | Billplz auto-renew for subscription — renewal cron still issues invoices only (no charge yet) |
 | 🟡 | Recent migrations may need `supabase db push` on remote — see §12 migrations table |
 | ⬜ | Multiple payment methods stored in UI |
 | ⬜ | Accountant export pack |
@@ -120,7 +122,7 @@
 | ✅ | Boardroom page (unlocks with 2+ module agents or boardroom add-on) |
 | ✅ | AI context isolation + pillar snapshots |
 | ✅ | `ai_usage` metering + audit |
-| 🟡 | Marketing / Finance / Operations AI — Maya ✅; Finance / Ops still listing only |
+| ✅ | Marketing / Finance / Operations AI — Maya, Fayza, Aiman chat + tenant snapshots |
 | ✅ | **Sales AI (Sufi)** — staff planner (clarify → plan → act), lead tools, daily notice |
 | ✅ | **Boardroom meeting room** — pick attendees (≥2), clarify/speak/synth, pause/resume/end, history + PDF; create-after-confirm (Maya/Sufi) |
 | ✅ | ILMU — super-admin platform key (`/super-admin/integrations/ilmu`); tenant data isolated by `business_id` |
@@ -130,11 +132,11 @@
 | ✅ | HR briefing context cache — 120s `unstable_cache` per business |
 | ✅ | Vercel crons — `CRON_SECRET` set in production |
 | ✅ | Marketing AI chat page |
-| ⬜ | Finance AI chat page |
-| ⬜ | Operations AI chat page |
+| ✅ | Finance AI chat page (`/finance/assistant`) |
+| ✅ | Operations AI chat page (`/operations/assistant`) |
 | ✅ | Sales AI chat page |
 | ⬜ | Admin AI chat page |
-| ⬜ | Weekly Boardroom digest email |
+| ⬜ | Weekly Boardroom digest email — cron + Resend wired; needs `RESEND_API_KEY` |
 | ⬜ | Auto reasoning mode (removed by design) |
 | ⬜ | Credit rollover policy enforcement UI |
 
@@ -145,10 +147,10 @@
 | Hana (HR) | `hr-assistant` | ✅ `/hr/assistant` | ✅ |
 | Amir (Admin) | `admin-assistant` | ⬜ | ⬜ |
 | Maya (Marketing) | `marketing-assistant` | ✅ `/marketing/assistant` | ✅ |
-| Fayza (Finance) | `finance-assistant` | ⬜ | ⬜ |
-| Aiman (Operations) | `operations-assistant` | ⬜ | ⬜ |
+| Fayza (Finance) | `finance-assistant` | ✅ `/finance/assistant` | ⬜ |
+| Aiman (Operations) | `operations-assistant` | ✅ `/operations/assistant` | ⬜ |
 | Sufi (Sales) | `sales-assistant` | ✅ `/sales/assistant` | ✅ |
-| Boardroom | `boardroom-weekly` | ✅ `/boardroom` | ⬜ |
+| Boardroom | `boardroom-weekly` | ✅ `/boardroom` | ✅ cron (Sunday) |
 
 ---
 
@@ -181,14 +183,10 @@
 | ✅ | Finance overview |
 | ✅ | Income / expense transactions |
 | ✅ | Ledger view |
-| ✅ | Invoices v2 (create, edit, list, statuses) |
-| ✅ | Invoice public link (customer view) |
-| ✅ | Finance customers (shared with marketing) |
-| ✅ | Basic finance APIs + RLS |
-| ✅ | Finance server pages use RLS client (not service role) |
-| ✅ | Finance AI add-on in marketplace (placeholder) |
-| 🟡 | DuitNow panel on invoices — verify copy/fields per tenant |
-| 🟡 | Quote-to-invoice — check if fully wired in UI |
+| ✅ | Invoices v2 (create, edit, list, statuses, void, filters) |
+| ✅ | Quotes — create, list, convert to invoice |
+| ✅ | DuitNow panel on public invoices (`show_duitnow` toggle) |
+| ✅ | Finance AI chat (`/finance/assistant`) |
 | ⬜ | LHDN e-Invoice connector add-on |
 | ⬜ | SST advanced reporting |
 | ⬜ | Cashflow forecast |
@@ -196,7 +194,6 @@
 | ⬜ | Payment gateway webhooks (Billplz live) |
 | ⬜ | Auto bank reconciliation |
 | ⬜ | Accountant export pack |
-| ⬜ | Finance AI chat |
 
 ---
 
@@ -209,10 +206,9 @@
 | ✅ | Suppliers directory |
 | ✅ | Orders pipeline |
 | ✅ | Bookings calendar + resources |
-| ✅ | Low-stock style fields on products |
-| ✅ | Operations APIs + RLS |
-| ✅ | Operations AI add-on in marketplace (placeholder) |
-| 🟡 | Booking buffer automation — not built |
+| ✅ | Booking buffer + conflict check (create + PATCH) |
+| ✅ | Low-stock tracking + overview alerts |
+| ✅ | Operations AI chat (`/operations/assistant`) |
 | ⬜ | Product variants add-on |
 | ⬜ | Public customer booking page |
 | ⬜ | Advanced inventory / stock movements |
@@ -232,7 +228,7 @@
 
 | Status | Item |
 |--------|------|
-| ✅ | Sales overview page |
+| ✅ | Sales overview — POS KPIs + leads pipeline / overdue / due today |
 | ✅ | Lead pipeline UI — list, create, status, notes, follow-up |
 | ✅ | Lead statuses: new, contacted, interested, won, lost |
 | ✅ | Lead notes timeline |
@@ -431,7 +427,7 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_comi
 | ✅ | `NEXT_PUBLIC_APP_URL` set in production |
 | ✅ | `CRON_SECRET` set in Vercel production |
 | 🟡 | Set production env: `INTEGRATION_ENCRYPTION_KEY`, `ILMU_API_KEY` (or configure ILMU in super-admin integrations) — `ILMU_API_KEY` ✅ if set in Vercel |
-| 🟡 | Configure Supabase Auth email templates / SMTP for team invites |
+| 🟡 | Configure Supabase Auth email templates / SMTP for team invites — see `docs/DEPLOY-SMTP.md` |
 | ✅ | Vercel crons configured: `privacy-sweep`, `hr-daily-notice`, `hr-assistant-renewal`, `subscription-renewal`, `tenant-health` |
 | ⬜ | Billplz production keys + webhook URL |
 | ⬜ | E2E test suite in CI |

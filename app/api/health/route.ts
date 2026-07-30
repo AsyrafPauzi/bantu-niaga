@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
+import {
+  productionEnvHealthy,
+  runProductionEnvChecks,
+} from "@/lib/env/production-checks";
 import { logger } from "@/lib/logger";
+import { getDeploymentMode } from "@/lib/platform/deployment";
 
 /**
  * GET /api/health
@@ -70,16 +75,23 @@ async function probeSupabase(): Promise<CheckResult> {
 
 export async function GET() {
   const supabaseCheck = await probeSupabase();
-  const allOk = supabaseCheck.ok;
+  const envChecks = runProductionEnvChecks();
+  const envOk = productionEnvHealthy();
+  const allOk = supabaseCheck.ok && envOk;
 
   const body = {
     status: allOk ? "ok" : "degraded",
     service: SERVICE,
     version: VERSION,
     env: process.env.NODE_ENV ?? "unknown",
+    deploymentMode: getDeploymentMode(),
     timestamp: new Date().toISOString(),
     checks: {
       supabase: supabaseCheck,
+      environment: {
+        ok: envOk,
+        items: envChecks.filter((c) => c.required || !c.ok),
+      },
     },
   };
 

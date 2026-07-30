@@ -106,7 +106,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
       "30-day cash-flow forecast",
       "Tax-saving suggestions",
     ],
-    chatHref: null,
+    chatHref: "/finance/assistant",
     supportsDailyNotice: false,
   },
   {
@@ -125,7 +125,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
       "Booking calendar tips",
       "Order routing suggestions",
     ],
-    chatHref: null,
+    chatHref: "/operations/assistant",
     supportsDailyNotice: false,
   },
   {

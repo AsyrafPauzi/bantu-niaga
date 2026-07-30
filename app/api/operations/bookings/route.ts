@@ -101,6 +101,36 @@ export async function POST(request: Request) {
   const completedAt =
     parsed.status === "completed" ? new Date().toISOString() : null;
 
+  if (parsed.resource_id) {
+    const { findBookingConflicts } = await import(
+      "@/lib/operations/booking-buffer"
+    );
+    const supabaseCheck = await createSupabaseServerClient();
+    const conflicts = await findBookingConflicts(
+      supabaseCheck,
+      user.businessId,
+      {
+        resourceId: parsed.resource_id,
+        startsAt: parsed.starts_at,
+        endsAt: parsed.ends_at,
+      },
+    );
+    if (conflicts.length > 0) {
+      const c = conflicts[0];
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "booking_conflict",
+            message: `Slot overlaps ${c.number} (includes ${c.bufferMinutes}m buffer).`,
+            conflicts,
+          },
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("operations_bookings")

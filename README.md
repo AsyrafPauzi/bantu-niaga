@@ -38,9 +38,22 @@ npm run dev
 # 5. (Optional) Seed 5 demo tenants with customers + social-media posts
 npm run seed:demo
 # Logs sign-in emails + the shared demo password at the end.
+
+# 6. (Optional) Seed AI demo data for one owner (leads, POS sales, products)
+npm run seed:ai
+# Targets owner@demo.bantuniaga.local — run after npm run seed.
 ```
 
 Open http://localhost:3000 — the app auto-renders the **mobile** shell on phones / narrow viewports and the **desktop ERP** shell on wide viewports.
+
+### Deployment mode (Phase 2)
+
+| Mode | Env | Use case |
+|------|-----|----------|
+| **SaaS** (default) | `DEPLOYMENT_MODE=saas` | Multi-tenant Vercel — public sign-up |
+| **Standalone** | `DEPLOYMENT_MODE=standalone` | Single kedai on-prem — sign-up hidden after bootstrap |
+
+Set both `DEPLOYMENT_MODE` and `NEXT_PUBLIC_DEPLOYMENT_MODE` to the same value. See `docs/superpowers/specs/2026-07-30-phase-2-deployment.md`.
 
 ## Repo layout
 

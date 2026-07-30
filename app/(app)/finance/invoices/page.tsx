@@ -9,6 +9,7 @@ import { ListPagination } from "@/components/ui/list-pagination";
 import { parsePagination } from "@/lib/pagination";
 import { loadBusiness } from "@/lib/settings/business";
 import type { FinanceInvoiceRow } from "@/lib/finance/schemas";
+import { FINANCE_INVOICE_STATUSES } from "@/lib/finance/schemas";
 
 export const metadata = { title: "Invoices" };
 export const dynamic = "force-dynamic";
@@ -48,20 +49,40 @@ export default async function InvoicesPage({
 
   const params = await searchParams;
   const pagination = parsePagination(params, { defaultPageSize: 20 });
+  const kindParam = typeof params.kind === "string" ? params.kind : undefined;
+  const documentKind =
+    kindParam === "quote" || kindParam === "invoice" ? kindParam : "all";
+  const statusParam =
+    typeof params.status === "string" ? params.status : undefined;
+  const statusFilter = FINANCE_INVOICE_STATUSES.includes(
+    statusParam as (typeof FINANCE_INVOICE_STATUSES)[number],
+  )
+    ? (statusParam as (typeof FINANCE_INVOICE_STATUSES)[number])
+    : "all";
+
   const supabase = await createSupabaseServerClient();
-  const { data, error, count } = await supabase
+  let listQuery = supabase
     .from("finance_invoices")
     .select(
       "id, business_id, number, share_hash, customer_id, customer_name, customer_email, " +
         "customer_phone, title, description, invoice_date, amount_myr, discount_myr, " +
         "discount_pct, tax_myr, tax_pct, shipping_myr, total_myr, status, due_date, notes, " +
-        "paid_at, sent_at, created_at, updated_at",
+        "paid_at, sent_at, document_kind, show_duitnow, converted_from_id, created_at, updated_at",
       { count: "exact" },
     )
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .range(pagination.from, pagination.to);
+
+  if (documentKind !== "all") {
+    listQuery = listQuery.eq("document_kind", documentKind);
+  }
+  if (statusFilter !== "all") {
+    listQuery = listQuery.eq("status", statusFilter);
+  }
+
+  const { data, error, count } = await listQuery;
   const total = count ?? data?.length ?? 0;
 
   const appUrl =
@@ -89,12 +110,18 @@ export default async function InvoicesPage({
             idcompany={business.idcompany}
             businessName={business.name}
             appUrl={appUrl}
+            documentKind={documentKind}
+            statusFilter={statusFilter}
           />
           <ListPagination
             page={pagination.page}
             pageSize={pagination.pageSize}
             total={total}
             basePath="/finance/invoices"
+            searchParams={{
+              ...(documentKind !== "all" ? { kind: documentKind } : {}),
+              ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+            }}
             className="rounded-xl border border-cream-300 bg-white shadow-card"
           />
         </>

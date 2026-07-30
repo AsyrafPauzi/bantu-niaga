@@ -20,6 +20,9 @@ export const FINANCE_INVOICE_STATUSES = [
 ] as const;
 export type FinanceInvoiceStatus = (typeof FINANCE_INVOICE_STATUSES)[number];
 
+export const FINANCE_DOCUMENT_KINDS = ["invoice", "quote"] as const;
+export type FinanceDocumentKind = (typeof FINANCE_DOCUMENT_KINDS)[number];
+
 export const FINANCE_EXPENSE_CATEGORIES = [
   "supplies",
   "rent",
@@ -109,6 +112,8 @@ export const financeInvoiceCreateSchema = z
       .nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
     status: z.enum(FINANCE_INVOICE_STATUSES).optional().default("draft"),
+    document_kind: z.enum(FINANCE_DOCUMENT_KINDS).optional().default("invoice"),
+    show_duitnow: z.boolean().optional().default(true),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -154,6 +159,8 @@ export const financeInvoiceUpdateSchema = z
       .nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
     status: z.enum(FINANCE_INVOICE_STATUSES).optional(),
+    document_kind: z.enum(FINANCE_DOCUMENT_KINDS).optional(),
+    show_duitnow: z.boolean().optional(),
   })
   .strict();
 
@@ -222,6 +229,9 @@ export interface FinanceInvoiceRow {
   notes: string | null;
   paid_at: string | null;
   sent_at: string | null;
+  document_kind: FinanceDocumentKind;
+  show_duitnow: boolean;
+  converted_from_id: string | null;
   created_at: string;
   updated_at: string;
   items?: FinanceInvoiceItemRow[];

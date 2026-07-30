@@ -69,6 +69,7 @@ interface FinanceInvoiceComposerProps {
   businessName?: string;
   duitnowId?: string | null;
   appUrl?: string;
+  documentKind?: "invoice" | "quote";
 }
 
 function emptyLine(key: string): LineDraft {
@@ -109,6 +110,7 @@ export function FinanceInvoiceComposer({
   businessName = "",
   duitnowId,
   appUrl = "",
+  documentKind = "invoice",
 }: FinanceInvoiceComposerProps) {
   const router = useRouter();
   const formId = useId();
@@ -146,6 +148,10 @@ export function FinanceInvoiceComposer({
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showDuitnow, setShowDuitnow] = useState(
+    invoice?.show_duitnow ?? Boolean(duitnowId),
+  );
+  const kind = invoice?.document_kind ?? documentKind;
 
   const selectedCustomer = useMemo(
     () => customers.find((c) => c.id === customerId) ?? null,
@@ -279,6 +285,8 @@ export function FinanceInvoiceComposer({
         tax_pct: parseFloat(taxPct) || 0,
         shipping_myr: parseFloat(shippingMyr) || 0,
         status: nextStatus ?? status,
+        document_kind: kind,
+        show_duitnow: showDuitnow,
         items: validLines,
       };
 
@@ -315,6 +323,8 @@ export function FinanceInvoiceComposer({
       notes,
       parsedLines,
       shippingMyr,
+      showDuitnow,
+      kind,
       status,
       taxPct,
       title,
@@ -734,7 +744,12 @@ export function FinanceInvoiceComposer({
           </p>
           {duitnowId ? (
             <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input type="checkbox" defaultChecked className="h-4 w-4" />
+              <input
+                type="checkbox"
+                checked={showDuitnow}
+                onChange={(e) => setShowDuitnow(e.target.checked)}
+                className="h-4 w-4"
+              />
               <span className="text-ink dark:text-cream-100">
                 DuitNow — {duitnowId}
               </span>

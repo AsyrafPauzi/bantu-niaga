@@ -23,6 +23,8 @@ export function OperationsProductPanel({
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [priceMyr, setPriceMyr] = useState("");
+  const [stockQty, setStockQty] = useState("");
+  const [lowStockThreshold, setLowStockThreshold] = useState("5");
   const [notes, setNotes] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -59,6 +61,12 @@ export function OperationsProductPanel({
             description: description || null,
             category: category || null,
             price_myr: priceMyr === "" ? 0 : Number(priceMyr),
+            stock_qty:
+              stockQty.trim() === "" ? null : Number.parseInt(stockQty, 10),
+            low_stock_threshold:
+              lowStockThreshold.trim() === ""
+                ? 5
+                : Number.parseInt(lowStockThreshold, 10),
             notes: notes || null,
           }),
         });
@@ -78,6 +86,8 @@ export function OperationsProductPanel({
         setDescription("");
         setCategory("");
         setPriceMyr("");
+        setStockQty("");
+        setLowStockThreshold("5");
         setNotes("");
         setShowForm(false);
         refresh();
@@ -87,7 +97,7 @@ export function OperationsProductPanel({
         setCreating(false);
       }
     },
-    [category, description, name, notes, priceMyr, refresh, sku],
+    [category, description, lowStockThreshold, name, notes, priceMyr, refresh, sku, stockQty],
   );
 
   const toggleActive = useCallback(
@@ -202,6 +212,26 @@ export function OperationsProductPanel({
               className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
             />
           </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <input
+              type="number"
+              min={0}
+              step="1"
+              value={stockQty}
+              onChange={(e) => setStockQty(e.target.value)}
+              placeholder="Stock qty (optional)"
+              className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            />
+            <input
+              type="number"
+              min={0}
+              step="1"
+              value={lowStockThreshold}
+              onChange={(e) => setLowStockThreshold(e.target.value)}
+              placeholder="Low-stock alert at"
+              className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            />
+          </div>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -279,6 +309,17 @@ export function OperationsProductPanel({
                       {price ? (
                         <span className="font-medium text-ink dark:text-cream-100">
                           {price}
+                        </span>
+                      ) : null}
+                      {p.stock_qty != null ? (
+                        <span
+                          className={
+                            p.stock_qty <= p.low_stock_threshold
+                              ? "font-medium text-status-warning"
+                              : undefined
+                          }
+                        >
+                          Stock: {p.stock_qty}
                         </span>
                       ) : null}
                     </div>

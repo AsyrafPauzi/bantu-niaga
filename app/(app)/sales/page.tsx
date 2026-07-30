@@ -17,7 +17,7 @@ import { TxRow } from "@/components/dashboard/tx-row";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { formatMyr } from "@/lib/marketing/metrics";
 import { canUsePos } from "@/lib/sales/access";
-import { malaysiaTodayYmd } from "@/lib/sales/schemas";
+import { malaysiaDayBounds, malaysiaTodayYmd } from "@/lib/sales/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Sales" };
@@ -66,12 +66,14 @@ export default async function SalesPage() {
 
   const supabase = await createSupabaseServerClient();
   const today = malaysiaTodayYmd();
+  const { dayStartIso, dayEndIso } = malaysiaDayBounds(today);
   const dayStart = `${today}T00:00:00.000+08:00`;
   const endDate = new Date(`${today}T00:00:00.000+08:00`);
   endDate.setDate(endDate.getDate() + 1);
   const dayEnd = endDate.toISOString();
 
-  const [recentRes, todayRes] = await Promise.all([
+  const [recentRes, todayRes, openLeadsRes, overdueLeadsRes, dueTodayLeadsRes] =
+    await Promise.all([
     supabase
       .from("pos_sales")
       .select(
@@ -86,6 +88,25 @@ export default async function SalesPage() {
       .eq("business_id", user.businessId)
       .gte("created_at", dayStart)
       .lt("created_at", dayEnd),
+    supabase
+      .from("sales_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", user.businessId)
+      .not("status", "in", "(won,lost)"),
+    supabase
+      .from("sales_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", user.businessId)
+      .not("follow_up_at", "is", null)
+      .lt("follow_up_at", dayStartIso)
+      .not("status", "in", "(won,lost)"),
+    supabase
+      .from("sales_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", user.businessId)
+      .gte("follow_up_at", dayStartIso)
+      .lt("follow_up_at", dayEndIso)
+      .not("status", "in", "(won,lost)"),
   ]);
 
   const recent = (recentRes.data ?? []) as SaleRow[];
@@ -106,6 +127,10 @@ export default async function SalesPage() {
     salesToday > 0 ? Math.round((cashToday / salesToday) * 100) : 0;
   const duitnowPct =
     salesToday > 0 ? Math.round((duitnowToday / salesToday) * 100) : 0;
+
+  const openLeads = openLeadsRes.count ?? 0;
+  const overdueLeads = overdueLeadsRes.count ?? 0;
+  const dueTodayLeads = dueTodayLeadsRes.count ?? 0;
 
   const showPos = canUsePos(user.role);
 
@@ -154,6 +179,29 @@ export default async function SalesPage() {
           value={formatMyr(duitnowToday)}
           helper={salesToday > 0 ? `${duitnowPct}% of today` : "—"}
           icon={Smartphone}
+        />
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
+        <KpiTile
+          label="Open leads"
+          value={String(openLeads)}
+          helper="Pipeline (not won/lost)"
+          icon={Users}
+        />
+        <KpiTile
+          label="Overdue follow-ups"
+          value={String(overdueLeads)}
+          deltaTone={overdueLeads > 0 ? "danger" : "success"}
+          delta={overdueLeads > 0 ? "Needs chase" : "Clear"}
+          helper="Past due date"
+          icon={Users}
+        />
+        <KpiTile
+          label="Due today"
+          value={String(dueTodayLeads)}
+          helper="Follow-ups scheduled"
+          icon={Users}
         />
       </section>
 

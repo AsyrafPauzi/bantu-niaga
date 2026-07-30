@@ -130,6 +130,7 @@ export interface OperationsSummary {
   active_product_count: number;
   upcoming_bookings: number;
   resource_count: number;
+  low_stock_count: number;
 }
 
 export const OPERATIONS_BOOKING_STATUSES = [
@@ -149,6 +150,8 @@ export const operationsProductCreateSchema = z
     category: z.string().trim().max(100).optional().nullable(),
     price_myr: z.coerce.number().min(0).default(0),
     is_active: z.boolean().optional().default(true),
+    stock_qty: z.coerce.number().int().min(0).optional().nullable(),
+    low_stock_threshold: z.coerce.number().int().min(0).optional().default(5),
     notes: z.string().trim().max(2000).optional().nullable(),
   })
   .strict();
@@ -161,6 +164,8 @@ export const operationsProductUpdateSchema = z
     category: z.string().trim().max(100).optional().nullable(),
     price_myr: z.coerce.number().min(0).optional(),
     is_active: z.boolean().optional(),
+    stock_qty: z.coerce.number().int().min(0).optional().nullable(),
+    low_stock_threshold: z.coerce.number().int().min(0).optional(),
     notes: z.string().trim().max(2000).optional().nullable(),
   })
   .strict();
@@ -174,6 +179,8 @@ export interface OperationsProductRow {
   category: string | null;
   price_myr: number;
   is_active: boolean;
+  stock_qty: number | null;
+  low_stock_threshold: number;
   notes: string | null;
   created_by: string;
   created_at: string;

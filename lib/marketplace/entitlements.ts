@@ -10,7 +10,9 @@ import {
   HR_STAFF_APPRAISAL_ADDON_SLUG,
   HR_STAFF_PORTAL_ADDON_SLUG,
   HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG,
+  FINANCE_ASSISTANT_ADDON_SLUG,
   MARKETING_ASSISTANT_ADDON_SLUG,
+  OPERATIONS_ASSISTANT_ADDON_SLUG,
   SALES_ASSISTANT_ADDON_SLUG,
   type BusinessAgentSettings,
 } from "@/lib/marketplace/agent-types";
@@ -64,6 +66,18 @@ export async function hasSalesAssistantAddon(
   businessId: string,
 ): Promise<boolean> {
   return hasActiveAddon(businessId, SALES_ASSISTANT_ADDON_SLUG);
+}
+
+export async function hasFinanceAssistantAddon(
+  businessId: string,
+): Promise<boolean> {
+  return hasActiveAddon(businessId, FINANCE_ASSISTANT_ADDON_SLUG);
+}
+
+export async function hasOperationsAssistantAddon(
+  businessId: string,
+): Promise<boolean> {
+  return hasActiveAddon(businessId, OPERATIONS_ASSISTANT_ADDON_SLUG);
 }
 
 export async function hasPublicHolidaysAddon(businessId: string): Promise<boolean> {

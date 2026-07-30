@@ -81,6 +81,24 @@ interface InvoiceRow {
   title: string | null;
 }
 
+interface PosSaleItemRow {
+  id: string;
+  sale_id: string;
+  product_name: string;
+  quantity: number | string;
+  line_total_myr: number | string;
+  sort_order: number;
+}
+
+interface PosSaleRow {
+  id: string;
+  sale_number: string;
+  total_myr: number | string;
+  payment_method: string;
+  created_at: string;
+  items: PosSaleItemRow[];
+}
+
 type ActivityTab = "activity" | "orders" | "notes";
 
 function initialsOf(name: string): string {
@@ -275,7 +293,7 @@ export default async function CustomerProfilePage({
   const aov =
     c.aov_myr ?? (c.order_count > 0 ? totalSpend / c.order_count : 0);
 
-  const [{ data: tagHistoryRaw }, { data: eventsRaw }, { data: invoicesRaw }] =
+  const [{ data: tagHistoryRaw }, { data: eventsRaw }, { data: invoicesRaw }, { data: posSalesRaw }] =
     await Promise.all([
       supabase
         .from("customer_tag_history")
@@ -308,10 +326,43 @@ export default async function CustomerProfilePage({
         .neq("status", "void")
         .order("created_at", { ascending: false })
         .limit(12),
+      supabase
+        .from("pos_sales")
+        .select("id, sale_number, total_myr, payment_method, created_at")
+        .eq("business_id", user.businessId)
+        .eq("customer_id", id)
+        .order("created_at", { ascending: false })
+        .limit(12),
     ]);
 
   const tagHistory = (tagHistoryRaw ?? []) as unknown as TagHistoryRow[];
   const invoices = (invoicesRaw ?? []) as unknown as InvoiceRow[];
+  const posSalesBase = (posSalesRaw ?? []) as Array<
+    Omit<PosSaleRow, "items">
+  >;
+
+  let posSales: PosSaleRow[] = [];
+  if (posSalesBase.length > 0) {
+    const saleIds = posSalesBase.map((s) => s.id);
+    const { data: posItemsRaw } = await supabase
+      .from("pos_sale_items")
+      .select("id, sale_id, product_name, quantity, line_total_myr, sort_order")
+      .eq("business_id", user.businessId)
+      .in("sale_id", saleIds)
+      .order("sort_order", { ascending: true });
+
+    const itemsBySale = new Map<string, PosSaleItemRow[]>();
+    for (const item of (posItemsRaw ?? []) as unknown as PosSaleItemRow[]) {
+      const list = itemsBySale.get(item.sale_id) ?? [];
+      list.push(item);
+      itemsBySale.set(item.sale_id, list);
+    }
+
+    posSales = posSalesBase.map((sale) => ({
+      ...sale,
+      items: itemsBySale.get(sale.id) ?? [],
+    }));
+  }
   let events = (eventsRaw ?? []) as unknown as EventRow[];
   if (events.length === 0) {
     events = [
@@ -615,8 +666,62 @@ export default async function CustomerProfilePage({
           ) : null}
 
           {activeTab === "orders" ? (
-            invoices.length > 0 ? (
-              <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+            <>
+              {posSales.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
+                    POS purchases
+                  </p>
+                  <ul className="divide-y divide-cream-200 rounded-lg border border-cream-200 dark:divide-hairline-dark dark:border-hairline-dark">
+                    {posSales.map((sale) => {
+                      const total = Number(sale.total_myr) || 0;
+                      return (
+                        <li key={sale.id} className="p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-ink dark:text-cream-100">
+                                {sale.sale_number}
+                              </p>
+                              <p className="text-xs text-ink-muted dark:text-cream-400">
+                                {fmtDate(sale.created_at)} · {sale.payment_method.replace(/_/g, " ")}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-sm font-semibold tabular-nums text-ink dark:text-cream-100">
+                              {formatMyr(total)}
+                            </span>
+                          </div>
+                          {sale.items.length > 0 ? (
+                            <ul className="mt-2 space-y-1 border-t border-cream-100 pt-2 text-xs text-ink-muted dark:border-hairline-dark dark:text-cream-400">
+                              {sale.items.map((item) => (
+                                <li
+                                  key={item.id}
+                                  className="flex justify-between gap-2"
+                                >
+                                  <span className="truncate">
+                                    {item.product_name} × {Number(item.quantity)}
+                                  </span>
+                                  <span className="shrink-0 tabular-nums">
+                                    {formatMyr(Number(item.line_total_myr) || 0)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+
+              {invoices.length > 0 ? (
+                <div className="space-y-3">
+                  {posSales.length > 0 ? (
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
+                      Finance invoices
+                    </p>
+                  ) : null}
+                  <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
                 {invoices.map((inv) => {
                   const total = Number(inv.total_myr) || 0;
                   const when = inv.invoice_date ?? inv.created_at;
@@ -647,31 +752,38 @@ export default async function CustomerProfilePage({
                   );
                 })}
               </ul>
-            ) : c.order_count > 0 ? (
-              <div className="rounded-lg bg-cream-100/40 p-4 text-sm text-ink dark:bg-hairline-dark/30 dark:text-cream-100">
-                <p className="font-semibold">
-                  {formatCount(c.order_count)} lifetime orders ·{" "}
-                  {formatMyr(totalSpend)}
-                </p>
-                <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-                  Aggregates from POS/events. No Finance invoices linked to this
-                  customer yet — link invoices when you bill them.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-lg bg-cream-100/40 p-6 text-center dark:bg-hairline-dark/30">
-                <ShoppingBag
-                  className="mx-auto mb-2 h-6 w-6 text-ink-muted"
-                  strokeWidth={1.5}
-                />
-                <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                  No invoices yet
-                </p>
-                <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-                  Finance invoices linked to this customer will show here.
-                </p>
-              </div>
-            )
+                </div>
+              ) : null}
+
+              {invoices.length === 0 && posSales.length === 0 ? (
+                c.order_count > 0 ? (
+                  <div className="rounded-lg bg-cream-100/40 p-4 text-sm text-ink dark:bg-hairline-dark/30 dark:text-cream-100">
+                    <p className="font-semibold">
+                      {formatCount(c.order_count)} lifetime orders ·{" "}
+                      {formatMyr(totalSpend)}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
+                      Aggregates from POS/events. No linked POS sales or Finance
+                      invoices for this customer yet.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-cream-100/40 p-6 text-center dark:bg-hairline-dark/30">
+                    <ShoppingBag
+                      className="mx-auto mb-2 h-6 w-6 text-ink-muted"
+                      strokeWidth={1.5}
+                    />
+                    <p className="text-sm font-semibold text-ink dark:text-cream-100">
+                      No orders yet
+                    </p>
+                    <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
+                      POS purchases and Finance invoices linked to this customer
+                      will show here.
+                    </p>
+                  </div>
+                )
+              ) : null}
+            </>
           ) : null}
 
           {activeTab === "notes" ? (

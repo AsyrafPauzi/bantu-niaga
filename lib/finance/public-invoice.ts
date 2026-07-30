@@ -26,6 +26,8 @@ export interface PublicFinanceInvoice {
   due_date: string | null;
   paid_at: string | null;
   notes: string | null;
+  show_duitnow: boolean;
+  document_kind: string;
   items: PublicFinanceInvoiceItem[];
   business: {
     id: string;
@@ -60,7 +62,7 @@ export async function loadPublicFinanceInvoice(
     .select(
       "id, number, share_hash, customer_name, title, description, invoice_date, " +
         "amount_myr, discount_myr, tax_myr, shipping_myr, total_myr, status, " +
-        "due_date, paid_at, notes",
+        "due_date, paid_at, notes, show_duitnow, document_kind",
     )
     .eq("business_id", biz.id)
     .eq("share_hash", shareHash)

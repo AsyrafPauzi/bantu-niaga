@@ -71,12 +71,15 @@ async function InvoiceView({
   const duitnowId = business.duitnow_id ?? "—";
   const total = formatMyr(Number(invoice.total_myr));
   const isPaid = invoice.status === "paid";
+  const isQuote = invoice.document_kind === "quote";
+  const showPayPanel =
+    !isPaid && !isQuote && invoice.show_duitnow && Boolean(business.duitnow_id);
 
   return (
     <div className="space-y-4">
       <header>
         <p className="text-sm font-medium text-ink-muted dark:text-cream-400">
-          Invoice from {business.name}
+          {isQuote ? "Quote" : "Invoice"} from {business.name}
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-ink dark:text-cream-100">
           {invoice.number}
@@ -173,7 +176,7 @@ async function InvoiceView({
         </CardBody>
       </Card>
 
-      {!isPaid ? (
+      {!isPaid && showPayPanel ? (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -193,13 +196,13 @@ async function InvoiceView({
             </div>
           </CardBody>
         </Card>
-      ) : (
+      ) : isPaid ? (
         <Card>
           <CardBody className="text-sm text-status-success">
             This invoice has been marked as paid. Thank you!
           </CardBody>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }

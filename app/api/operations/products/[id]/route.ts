@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const PRODUCT_SELECT =
   "id, business_id, sku, name, description, category, price_myr, " +
-  "is_active, notes, created_by, created_at, updated_at";
+  "is_active, stock_qty, low_stock_threshold, notes, created_by, created_at, updated_at";
 
 export async function PATCH(
   request: Request,

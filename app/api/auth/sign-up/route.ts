@@ -13,6 +13,8 @@ import {
   subscriptionPeriodLabel,
   trialRenewalAt,
 } from "@/lib/settings/subscription-billing";
+import { isStandaloneDeployment } from "@/lib/platform/deployment";
+import { canAcceptPublicSignup } from "@/lib/platform/standalone-bootstrap";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -61,6 +63,20 @@ export async function POST(request: Request) {
 
   const admin = createServiceRoleClient();
   const verificationRequired = isEmailVerificationRequired();
+
+  if (isStandaloneDeployment()) {
+    const allowed = await canAcceptPublicSignup(admin);
+    if (!allowed) {
+      return NextResponse.json(
+        {
+          error: "signup_disabled",
+          message:
+            "Self-serve sign-up is disabled on this installation. Sign in with your existing account.",
+        },
+        { status: 403 },
+      );
+    }
+  }
 
   // Step 1: auth user
   const { data: created, error: createError } = await admin.auth.admin.createUser({

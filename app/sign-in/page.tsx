@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { isPublicStandaloneDeployment } from "@/lib/platform/deployment";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function SignInPage() {
@@ -201,13 +202,19 @@ function SignInInner() {
       </form>
 
       <p className="text-center text-sm text-ink-muted dark:text-cream-400">
-        Don&apos;t have an account?{" "}
-        <Link
-          href="/sign-up"
-          className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-        >
-          Start a 14-day trial
-        </Link>
+        {isPublicStandaloneDeployment() ? (
+          <>Sign in with the account your administrator created.</>
+        ) : (
+          <>
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/sign-up"
+              className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            >
+              Start a 14-day trial
+            </Link>
+          </>
+        )}
       </p>
     </AuthShell>
   );

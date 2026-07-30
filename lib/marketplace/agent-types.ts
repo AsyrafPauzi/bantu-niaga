@@ -20,6 +20,14 @@ export const MARKETING_ASSISTANT_MONTHLY_CREDITS = 100;
 export const SALES_ASSISTANT_ADDON_SLUG = "sales-assistant";
 export const SALES_AGENT_SLUG = "sales";
 export const SALES_ASSISTANT_MONTHLY_CREDITS = 100;
+
+export const FINANCE_ASSISTANT_ADDON_SLUG = "finance-assistant";
+export const FINANCE_AGENT_SLUG = "finance";
+export const FINANCE_ASSISTANT_MONTHLY_CREDITS = 100;
+
+export const OPERATIONS_ASSISTANT_ADDON_SLUG = "operations-assistant";
+export const OPERATIONS_AGENT_SLUG = "operations";
+export const OPERATIONS_ASSISTANT_MONTHLY_CREDITS = 100;
 /** Baseline fast-mode costs — prefer `chatCreditsForReasoning` / `actionCreditsForReasoning`. */
 export const HR_CREDIT_COST_CHAT = 1;
 export const HR_CREDIT_COST_ACTION = 2;
@@ -81,12 +89,40 @@ export const DEFAULT_SALES_AGENT_SETTINGS: Omit<
   modelOverride: null,
 };
 
+export const DEFAULT_FINANCE_AGENT_SETTINGS: Omit<
+  BusinessAgentSettings,
+  "businessId" | "agentSlug"
+> = {
+  displayName: "Fayza",
+  assistantEnabled: true,
+  dailyNoticeEnabled: false,
+  dailyNoticeHour: 8,
+  reasoningMode: "fast",
+  dailyBudgetCredits: DAILY_BUDGET_DEFAULT_CREDITS,
+  modelOverride: null,
+};
+
+export const DEFAULT_OPERATIONS_AGENT_SETTINGS: Omit<
+  BusinessAgentSettings,
+  "businessId" | "agentSlug"
+> = {
+  displayName: "Aiman",
+  assistantEnabled: true,
+  dailyNoticeEnabled: false,
+  dailyNoticeHour: 8,
+  reasoningMode: "fast",
+  dailyBudgetCredits: DAILY_BUDGET_DEFAULT_CREDITS,
+  modelOverride: null,
+};
+
 export function defaultAgentSettingsForSlug(
   agentSlug: string,
 ): Omit<BusinessAgentSettings, "businessId" | "agentSlug"> {
   if (agentSlug === HR_AGENT_SLUG) return DEFAULT_HR_AGENT_SETTINGS;
   if (agentSlug === MARKETING_AGENT_SLUG) return DEFAULT_MARKETING_AGENT_SETTINGS;
   if (agentSlug === SALES_AGENT_SLUG) return DEFAULT_SALES_AGENT_SETTINGS;
+  if (agentSlug === FINANCE_AGENT_SLUG) return DEFAULT_FINANCE_AGENT_SETTINGS;
+  if (agentSlug === OPERATIONS_AGENT_SLUG) return DEFAULT_OPERATIONS_AGENT_SETTINGS;
   return {
     displayName: "Assistant",
     assistantEnabled: true,

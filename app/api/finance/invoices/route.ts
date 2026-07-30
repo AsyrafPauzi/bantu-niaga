@@ -92,19 +92,30 @@ async function recordInvoiceIncome(
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireFinanceUser();
   if (auth.response) return auth.response;
   const { user } = auth;
 
+  const url = new URL(request.url);
+  const kindParam = url.searchParams.get("kind");
+  const documentKind =
+    kindParam === "quote" || kindParam === "invoice" ? kindParam : null;
+
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("finance_invoices")
     .select(INVOICE_SELECT)
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(100);
+
+  if (documentKind) {
+    query = query.eq("document_kind", documentKind);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json(
@@ -171,7 +182,12 @@ export async function POST(request: Request) {
 
   const totals = buildTotalsFromPayload(parsed);
   const admin = createServiceRoleClient();
-  const number = await nextFinanceInvoiceNumber(admin, user.businessId);
+  const documentKind = parsed.document_kind ?? "invoice";
+  const number = await nextFinanceInvoiceNumber(
+    admin,
+    user.businessId,
+    documentKind === "quote" ? "QUO" : "INV",
+  );
   const shareHash = generateShareHash();
   const now = new Date().toISOString();
   const status = parsed.status ?? "draft";
@@ -201,6 +217,8 @@ export async function POST(request: Request) {
       status,
       due_date: parsed.due_date ?? null,
       notes: parsed.notes ?? null,
+      document_kind: documentKind,
+      show_duitnow: parsed.show_duitnow ?? true,
       sent_at: status === "sent" ? now : null,
       paid_at: status === "paid" ? now : null,
       created_by: user.id,

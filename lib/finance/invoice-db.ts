@@ -9,7 +9,7 @@ export const INVOICE_SELECT =
   "id, business_id, number, share_hash, customer_id, customer_name, customer_email, " +
   "customer_phone, title, description, invoice_date, amount_myr, discount_myr, " +
   "discount_pct, tax_myr, tax_pct, shipping_myr, total_myr, status, due_date, notes, " +
-  "paid_at, sent_at, created_at, updated_at";
+  "paid_at, sent_at, document_kind, show_duitnow, converted_from_id, created_at, updated_at";
 
 export const INVOICE_ITEM_SELECT =
   "id, business_id, invoice_id, description, unit_price, quantity, unit, taxable, " +

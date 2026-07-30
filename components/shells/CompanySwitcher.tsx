@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Building2, Check, ChevronDown, Loader2, LogIn, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { apiErrorMessage } from "@/lib/api/client-error";
-import { MAX_OWNED_BUSINESSES_PER_USER } from "@/lib/auth/owned-business-limits";
+import { MAX_OWNED_BUSINESSES_PER_USER_SAAS } from "@/lib/auth/owned-business-limits";
+import { isPublicStandaloneDeployment } from "@/lib/platform/deployment";
 import type { BusinessMembership } from "@/lib/auth/memberships";
 
 interface CompanySwitcherProps {
@@ -141,11 +142,11 @@ export function CompanySwitcher({
                 <Plus className="h-4 w-4 shrink-0" strokeWidth={2} />
                 Create new company
               </Link>
-            ) : (
+            ) : !isPublicStandaloneDeployment() ? (
               <p className="px-3 py-2.5 text-xs text-ink-muted dark:text-cream-400">
-                Company limit reached ({MAX_OWNED_BUSINESSES_PER_USER} owned)
+                Company limit reached ({MAX_OWNED_BUSINESSES_PER_USER_SAAS} owned)
               </p>
-            )}
+            ) : null}
             <Link
               href="/sign-in?reason=switch_account"
               onClick={() => setOpen(false)}

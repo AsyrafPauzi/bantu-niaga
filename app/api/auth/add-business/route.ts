@@ -15,6 +15,7 @@ import {
   issueSubscriptionInvoice,
   subscriptionPeriodLabel,
 } from "@/lib/settings/subscription-billing";
+import { isStandaloneDeployment } from "@/lib/platform/deployment";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,6 +25,17 @@ export const runtime = "nodejs";
  * Requires password re-entry for security.
  */
 export async function POST(request: Request) {
+  if (isStandaloneDeployment()) {
+    return NextResponse.json(
+      {
+        error: "standalone_single_tenant",
+        message:
+          "Adding companies is disabled in standalone mode. Use team invites instead.",
+      },
+      { status: 403 },
+    );
+  }
+
   let user;
   try {
     user = await getCurrentUser();

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
+import { ZodError, z } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { createBillplzBill, billplzCallbackUrl } from "@/lib/integrations/billplz";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TOPUP_BUNDLES, topupSchema } from "@/lib/settings/schemas";
 import {
@@ -13,11 +14,8 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/settings/billing/topup — owner-only Fast Credits top-up.
  *
- * When Billplz env vars are set, this should create a Billplz bill and
- * return pending until the webhook marks the invoice paid.
- *
- * Until Billplz is wired up, we bypass the gateway and credit immediately
- * via settings_topup_credits (same RPC the webhook will call later).
+ * When Billplz env vars are set, creates a Billplz bill and returns checkout URL.
+ * Webhook completes credits via settings_complete_topup_billplz.
  */
 export async function POST(request: Request) {
   let user;
@@ -86,15 +84,77 @@ export async function POST(request: Request) {
   }
 
   if (billplzLive) {
-    // TODO: create Billplz bill, return checkout URL, keep invoice pending.
-    return NextResponse.json(
-      {
-        error: "billplz_not_implemented",
-        message:
-          "Billplz checkout is not wired yet. Remove BILLPLZ_* env vars to use the development bypass.",
-      },
-      { status: 501 },
-    );
+    const collectionId = process.env.BILLPLZ_COLLECTION_ID!.trim();
+    const amountCents = Math.round(bundle.amount_myr * 100);
+
+    const { data: profile } = await supabase
+      .from("users")
+      .select("email, display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const payerEmail = profile?.email ?? "owner@business.local";
+    const payerName = profile?.display_name ?? "Business owner";
+
+    try {
+      const bill = await createBillplzBill({
+        collectionId,
+        email: payerEmail,
+        name: payerName,
+        amountCents,
+        description: `Bantu Niaga Fast Credits — ${bundle.credits} credits`,
+        callbackUrl: billplzCallbackUrl(),
+        redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")}/settings/billing?topup=success`,
+        reference1: user.businessId,
+        reference2: String(bundle.credits),
+      });
+
+      const { data: pending, error: pendingErr } = await supabase.rpc(
+        "settings_create_topup_pending",
+        {
+          p_business_id: user.businessId,
+          p_credits: bundle.credits,
+          p_amount_myr: bundle.amount_myr,
+          p_payment_method_id: paymentMethodId,
+          p_user_id: user.id,
+          p_billplz_id: bill.id,
+          p_billplz_url: bill.url,
+        },
+      );
+
+      if (pendingErr || !pending) {
+        return NextResponse.json(
+          {
+            error: "topup_pending_failed",
+            message: pendingErr?.message ?? "Could not create pending invoice",
+          },
+          { status: 500 },
+        );
+      }
+
+      const row = Array.isArray(pending) ? pending[0] : pending;
+
+      return NextResponse.json(
+        {
+          checkout_url: bill.url,
+          billplz_id: bill.id,
+          invoice_id: row?.invoice_id ?? null,
+          intent_id: row?.intent_id ?? null,
+          credits: bundle.credits,
+          amount_myr: bundle.amount_myr,
+          pending: true,
+        },
+        { status: 201 },
+      );
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error: "billplz_create_failed",
+          message: e instanceof Error ? e.message : "Billplz checkout failed",
+        },
+        { status: 502 },
+      );
+    }
   }
 
   const { data, error } = await supabase.rpc("settings_topup_credits", {

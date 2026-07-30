@@ -7,6 +7,7 @@ import {
   canCreateOwnedBusiness,
 } from "@/lib/auth/owned-business-limits";
 import { countOwnedBusinesses } from "@/lib/auth/count-owned-businesses";
+import { isStandaloneDeployment } from "@/lib/platform/deployment";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TierKey } from "@/lib/settings/plans";
 import { ImpersonationBanner } from "@/components/super-admin/ImpersonationBanner";
@@ -48,7 +49,8 @@ export default async function AppLayout({
     ]);
     if (data?.tier) tier = data.tier as TierKey;
     memberships = loadedMemberships;
-    canCreateCompany = canCreateOwnedBusiness(ownedCount);
+    canCreateCompany =
+      !isStandaloneDeployment() && canCreateOwnedBusiness(ownedCount);
   } catch (e) {
     if (!(e instanceof UnauthorizedError)) throw e;
   }

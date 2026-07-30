@@ -123,6 +123,21 @@ export async function computeOperationsSummary(
     .in("status", ["held", "confirmed"])
     .gte("starts_at", nowIso);
 
+  const { data: trackedStock } = await admin
+    .from("operations_products")
+    .select("stock_qty, low_stock_threshold")
+    .eq("business_id", businessId)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .not("stock_qty", "is", null);
+
+  let low_stock_count = 0;
+  for (const row of trackedStock ?? []) {
+    const qty = row.stock_qty as number;
+    const threshold = (row.low_stock_threshold as number) ?? 5;
+    if (qty <= threshold) low_stock_count++;
+  }
+
   return {
     open_orders: todo_count + in_progress_count,
     todo_count,
@@ -134,5 +149,6 @@ export async function computeOperationsSummary(
     active_product_count: active_product_count ?? 0,
     upcoming_bookings: upcoming_bookings ?? 0,
     resource_count: resource_count ?? 0,
+    low_stock_count,
   };
 }

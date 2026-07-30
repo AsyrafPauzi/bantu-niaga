@@ -51,6 +51,22 @@ export default async function OperationsPage() {
   const admin = createServiceRoleClient();
   const summary = await computeOperationsSummary(admin, user.businessId);
 
+  const { data: lowStockProducts } = await admin
+    .from("operations_products")
+    .select("id, sku, name, stock_qty, low_stock_threshold")
+    .eq("business_id", user.businessId)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .not("stock_qty", "is", null)
+    .order("stock_qty", { ascending: true })
+    .limit(5);
+
+  const lowStockItems = (lowStockProducts ?? []).filter((row) => {
+    const qty = row.stock_qty as number;
+    const threshold = (row.low_stock_threshold as number) ?? 5;
+    return qty <= threshold;
+  });
+
   const { data: recentOrders } = await admin
     .from("operations_orders")
     .select("id, number, customer_name, title, status, due_date, amount_myr")
@@ -128,8 +144,12 @@ export default async function OperationsPage() {
         <KpiTile
           label="Active products"
           value={String(summary.active_product_count)}
-          delta={`${summary.product_count} total`}
-          deltaTone="neutral"
+          delta={
+            summary.low_stock_count > 0
+              ? `${summary.low_stock_count} low stock`
+              : `${summary.product_count} total`
+          }
+          deltaTone={summary.low_stock_count > 0 ? "danger" : "neutral"}
           helper="catalog items"
           icon={ShoppingBag}
         />
@@ -142,6 +162,35 @@ export default async function OperationsPage() {
           icon={Users}
         />
       </section>
+
+      {summary.low_stock_count > 0 ? (
+        <div className="flex items-start gap-3 rounded-lg border border-status-warning/30 bg-status-warning/5 px-4 py-3 text-sm dark:border-status-warning/20">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
+          <div className="min-w-0">
+            <p className="text-ink dark:text-cream-100">
+              <span className="font-semibold">{summary.low_stock_count}</span>{" "}
+              product{summary.low_stock_count === 1 ? "" : "s"} at or below
+              stock threshold.
+            </p>
+            {lowStockItems.length > 0 ? (
+              <ul className="mt-1 list-inside list-disc text-xs text-ink-muted dark:text-cream-400">
+                {lowStockItems.map((row) => (
+                  <li key={row.id as string}>
+                    {row.name as string} ({row.sku as string}) —{" "}
+                    {row.stock_qty as number} left
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <Link
+              href="/operations/products"
+              className="mt-1 inline-block font-medium text-brand-600 hover:underline dark:text-brand-300"
+            >
+              Review catalog
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       {summary.overdue_count > 0 ? (
         <div className="flex items-start gap-3 rounded-lg border border-status-warning/30 bg-status-warning/5 px-4 py-3 text-sm dark:border-status-warning/20">

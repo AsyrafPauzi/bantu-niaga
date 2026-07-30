@@ -4,7 +4,7 @@
  * Substantive replies and actions still bill credits.
  */
 
-export type StaffAssistantKind = "hr" | "marketing" | "sales";
+export type StaffAssistantKind = "hr" | "marketing" | "sales" | "finance" | "operations";
 
 const CLARIFIER_HEADER_EN = "Before I plan, a few quick questions";
 const CLARIFIER_HEADER_BM = "Sebelum saya rancang, beberapa soalan ringkas";
@@ -26,6 +26,12 @@ const HR_PLANNING =
 const SALES_PLANNING =
   /\b(help\s+(me\s+)?with\s+sales|sales\s+today|chase\s+(leads?|them)|who\s+should\s+i\s+chase|overdue\s+leads?|plan\s+(the\s+)?(floor|counter)|follow[\s-]?up|bantu\s+jualan|jualan\s+hari\s+ini|kejar\s+(lead|prospek)|siapa\s+perlu\s+dihubungi|rancang\s+jualan)\b/i;
 
+const FINANCE_PLANNING =
+  /\b(help\s+(me\s+)?with\s+(cash\s*flow|finance)|cash\s*flow|chase\s+invoices?|overdue\s+invoices?|month[\s-]?end|forecast|reconcile|bantu\s+(kewangan|cash\s*flow)|aliran\s+tunai|kejar\s+invois|hujung\s+bulan|rancang\s+kewangan)\b/i;
+
+const OPERATIONS_PLANNING =
+  /\b(help\s+(me\s+)?with\s+operations|low\s+stock|reorder|restock|bookings?\s+today|upcoming\s+bookings?|open\s+orders?|supplier|plan\s+(ops|operations)|bantu\s+operasi|stok\s+rendah|tempahan|pesanan\s+terbuka|rancang\s+operasi)\b/i;
+
 export function isPlanningIntent(
   kind: StaffAssistantKind,
   message: string,
@@ -34,6 +40,8 @@ export function isPlanningIntent(
   if (text.length < 8) return false;
   if (kind === "marketing") return MARKETING_PLANNING.test(text);
   if (kind === "sales") return SALES_PLANNING.test(text);
+  if (kind === "finance") return FINANCE_PLANNING.test(text);
+  if (kind === "operations") return OPERATIONS_PLANNING.test(text);
   return HR_PLANNING.test(text);
 }
 
@@ -96,7 +104,81 @@ export function buildFreeClarifierReply(
   const freeNote = bm ? FREE_NOTE_BM : FREE_NOTE_EN;
   const name =
     displayName ||
-    (kind === "hr" ? "Hana" : kind === "sales" ? "Sufi" : "Maya");
+    (kind === "hr"
+      ? "Hana"
+      : kind === "sales"
+        ? "Sufi"
+        : kind === "finance"
+          ? "Fayza"
+          : kind === "operations"
+            ? "Aiman"
+            : "Maya");
+
+  if (kind === "finance") {
+    if (bm) {
+      return [
+        `Saya **${name}**, staf Kewangan anda.`,
+        "",
+        `**${header}:**`,
+        "",
+        "1. Matlamat — kejar invois tertunggak, ramal aliran tunai, atau semak perbelanjaan bulan ini?",
+        "2. Tempoh — minggu ini, bulan ini, atau 30 hari akan datang?",
+        "3. Fokus — invois, perbelanjaan, atau kedua-duanya?",
+        "4. Nada kejar bayaran — mesra, formal, atau ringkas?",
+        "",
+        "Jawab dalam satu mesej — atau tulis **anda decide**.",
+        "",
+        freeNote,
+      ].join("\n");
+    }
+    return [
+      `I'm **${name}**, your Finance staff.`,
+      "",
+      `**${header}:**`,
+      "",
+      "1. Goal — chase unpaid invoices, forecast cash, or review expenses this month?",
+      "2. Timeframe — this week, this month, or next 30 days?",
+      "3. Focus — invoices, expenses, or both?",
+      "4. Chase tone — friendly, formal, or short?",
+      "",
+      "Reply in one message — or say **you decide**.",
+      "",
+      freeNote,
+    ].join("\n");
+  }
+
+  if (kind === "operations") {
+    if (bm) {
+      return [
+        `Saya **${name}**, staf Operasi anda.`,
+        "",
+        `**${header}:**`,
+        "",
+        "1. Matlamat — stok semula, selesaikan pesanan tertunggak, atau susun tempahan?",
+        "2. Tempoh — hari ini atau minggu ini?",
+        "3. Fokus — produk, pesanan, atau tempahan?",
+        "4. Keutamaan — kerja segera atau stok rutin?",
+        "",
+        "Jawab dalam satu mesej — atau tulis **anda decide**.",
+        "",
+        freeNote,
+      ].join("\n");
+    }
+    return [
+      `I'm **${name}**, your Operations staff.`,
+      "",
+      `**${header}:**`,
+      "",
+      "1. Goal — restock, clear backlog orders, or schedule bookings?",
+      "2. Timeframe — today or this week?",
+      "3. Focus — products, orders, or bookings?",
+      "4. Priority — urgent jobs or routine restock?",
+      "",
+      "Reply in one message — or say **you decide**.",
+      "",
+      freeNote,
+    ].join("\n");
+  }
 
   if (kind === "sales") {
     if (bm) {

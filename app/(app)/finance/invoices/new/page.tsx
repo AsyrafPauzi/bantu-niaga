@@ -9,10 +9,22 @@ import { loadBusiness } from "@/lib/settings/business";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { FinanceCustomerRow } from "@/lib/finance/schemas";
 
-export const metadata = { title: "New invoice" };
 export const dynamic = "force-dynamic";
 
-export default async function NewInvoicePage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export async function generateMetadata({ searchParams }: PageProps) {
+  const sp = await searchParams;
+  const isQuote = sp.kind === "quote";
+  return { title: isQuote ? "New quote" : "New invoice" };
+}
+
+export default async function NewInvoicePage({ searchParams }: PageProps) {
+  const sp = await searchParams;
+  const documentKind = sp.kind === "quote" ? "quote" : "invoice";
+
   let user;
   try {
     user = await getCurrentUser();
@@ -36,7 +48,11 @@ export default async function NewInvoicePage() {
       .eq("business_id", user.businessId)
       .is("deleted_at", null)
       .order("name", { ascending: true }),
-    nextFinanceInvoiceNumber(supabase, user.businessId),
+    nextFinanceInvoiceNumber(
+      supabase,
+      user.businessId,
+      documentKind === "quote" ? "QUO" : "INV",
+    ),
   ]);
 
   const appUrl =
@@ -63,6 +79,7 @@ export default async function NewInvoicePage() {
         businessName={business.name}
         duitnowId={business.duitnow_id}
         appUrl={appUrl}
+        documentKind={documentKind}
       />
     </div>
   );

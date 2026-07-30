@@ -63,6 +63,71 @@ export async function PATCH(
     );
   }
 
+  const supabase = await createSupabaseServerClient();
+  const { data: existing } = await supabase
+    .from("operations_bookings")
+    .select("resource_id, starts_at, ends_at")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!existing) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: "not_found", message: "Booking not found." },
+      },
+      { status: 404 },
+    );
+  }
+
+  const resourceId =
+    parsed.resource_id !== undefined
+      ? parsed.resource_id
+      : (existing.resource_id as string | null);
+  const startsAt = parsed.starts_at ?? (existing.starts_at as string);
+  const endsAt = parsed.ends_at ?? (existing.ends_at as string);
+
+  if (resourceId && startsAt && endsAt) {
+    if (new Date(endsAt) <= new Date(startsAt)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "validation_failed",
+            message: "End time must be after start time.",
+          },
+        },
+        { status: 400 },
+      );
+    }
+
+    const { findBookingConflicts } = await import(
+      "@/lib/operations/booking-buffer"
+    );
+    const conflicts = await findBookingConflicts(supabase, user.businessId, {
+      resourceId,
+      startsAt,
+      endsAt,
+      excludeBookingId: id,
+    });
+    if (conflicts.length > 0) {
+      const c = conflicts[0];
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "booking_conflict",
+            message: `Slot overlaps ${c.number} (includes ${c.bufferMinutes}m buffer).`,
+            conflicts,
+          },
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const patch: Record<string, unknown> = { ...parsed };
   if (parsed.status === "completed") {
     patch.completed_at = new Date().toISOString();
@@ -74,7 +139,6 @@ export async function PATCH(
     patch.completed_at = null;
   }
 
-  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("operations_bookings")
     .update(patch)

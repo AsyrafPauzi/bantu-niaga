@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { apiErrorMessage } from "@/lib/api/client-error";
+import { isPublicStandaloneDeployment } from "@/lib/platform/deployment";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -123,15 +124,17 @@ export default function ForgotPasswordPage() {
         </form>
       )}
 
-      <p className="text-center text-sm text-ink-muted dark:text-cream-400">
-        Don&apos;t have an account yet?{" "}
-        <Link
-          href="/sign-up"
-          className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-        >
-          Start a 14-day trial
-        </Link>
-      </p>
+      {!isPublicStandaloneDeployment() ? (
+        <p className="text-center text-sm text-ink-muted dark:text-cream-400">
+          Don&apos;t have an account yet?{" "}
+          <Link
+            href="/sign-up"
+            className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+          >
+            Start a 14-day trial
+          </Link>
+        </p>
+      ) : null}
     </AuthShell>
   );
 }

@@ -31,7 +31,7 @@ export default async function ProductsPage() {
     .from("operations_products")
     .select(
       "id, business_id, sku, name, description, category, price_myr, " +
-        "is_active, notes, created_by, created_at, updated_at",
+        "is_active, stock_qty, low_stock_threshold, notes, created_by, created_at, updated_at",
     )
     .eq("business_id", user.businessId)
     .is("deleted_at", null)

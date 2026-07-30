@@ -3,15 +3,20 @@ import { AddCompanyForm } from "@/components/auth/AddCompanyForm";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import {
   canCreateOwnedBusiness,
-  MAX_OWNED_BUSINESSES_PER_USER,
+  getMaxOwnedBusinessesPerUser,
   ownedBusinessLimitMessage,
 } from "@/lib/auth/owned-business-limits";
 import { countOwnedBusinesses } from "@/lib/auth/count-owned-businesses";
+import { isStandaloneDeployment } from "@/lib/platform/deployment";
 
 export const metadata = { title: "Add company" };
 export const dynamic = "force-dynamic";
 
 export default async function AddCompanyPage() {
+  if (isStandaloneDeployment()) {
+    redirect("/home");
+  }
+
   let user;
   try {
     user = await getCurrentUser();
@@ -22,6 +27,7 @@ export default async function AddCompanyPage() {
 
   const ownedCount = await countOwnedBusinesses(user.id);
   const atLimit = !canCreateOwnedBusiness(ownedCount);
+  const maxOwned = getMaxOwnedBusinessesPerUser();
 
   return (
     <div className="py-4">
@@ -34,14 +40,14 @@ export default async function AddCompanyPage() {
             {ownedBusinessLimitMessage()}
           </p>
           <p className="mt-3 text-xs text-ink-subtle dark:text-cream-500">
-            You own {ownedCount} of {MAX_OWNED_BUSINESSES_PER_USER} companies on
+            You own {ownedCount} of {maxOwned} companies on
             this account.
           </p>
         </div>
       ) : (
         <AddCompanyForm
           ownedCount={ownedCount}
-          maxOwned={MAX_OWNED_BUSINESSES_PER_USER}
+          maxOwned={maxOwned}
         />
       )}
     </div>

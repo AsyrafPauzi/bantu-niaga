@@ -1,27 +1,24 @@
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { isEmailVerified } from "@/lib/auth/email-verification-policy";
+import { isStandaloneDeployment } from "@/lib/platform/deployment";
+import { canAcceptPublicSignup } from "@/lib/platform/standalone-bootstrap";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 /**
- * Sign-up and the pre-registration business quiz are for logged-out users only.
- * Owners who are already signed in should use Settings → Subscription instead.
+ * Gate self-serve sign-up in standalone mode — only open during first-time
+ * bootstrap (zero businesses). Otherwise owners sign in via seeded accounts.
  */
 export default async function SignUpLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    if (!isEmailVerified(user)) {
-      redirect("/verify-email");
+  if (isStandaloneDeployment()) {
+    const admin = createServiceRoleClient();
+    const allowed = await canAcceptPublicSignup(admin);
+    if (!allowed) {
+      redirect("/sign-in");
     }
-    redirect("/home");
   }
 
-  return <>{children}</>;
+  return children;
 }

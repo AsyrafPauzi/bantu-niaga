@@ -216,6 +216,6 @@ export const config = {
   matcher: [
     "/(add-company|admin|boardroom|finance|home|hr|marketing|marketplace|more|operations|sales|settings)/:path*",
     "/super-admin/:path*",
-    "/api/((?!health).*)",
+    "/api/((?!health|webhooks).*)",
   ],
 };
