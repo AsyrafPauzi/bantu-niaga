@@ -98,6 +98,15 @@ export interface AgentChatMessage {
   tool_call_id?: string;
 }
 
+export type AgentChatTool = {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+};
+
 export interface AgentChatOptions {
   model?: string;
   messages: AgentChatMessage[];
@@ -105,14 +114,7 @@ export interface AgentChatOptions {
   timeoutMs?: number;
   briefingFor?: Pillar;
   context?: AgentContext;
-  tools?: Array<{
-    type: "function";
-    function: {
-      name: string;
-      description: string;
-      parameters: Record<string, unknown>;
-    };
-  }>;
+  tools?: readonly AgentChatTool[];
   tool_choice?: "auto" | "none" | { type: "function"; function: { name: string } };
   includeBriefing?: boolean;
   /** Cap completion length (e.g. free smart clarifiers). */
