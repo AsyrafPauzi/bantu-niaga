@@ -71,6 +71,15 @@ interface EventRow {
   emitted_at: string;
 }
 
+interface InvoiceItemRow {
+  id: string;
+  invoice_id: string;
+  description: string;
+  quantity: number | string;
+  line_total_myr: number | string;
+  sort_order: number;
+}
+
 interface InvoiceRow {
   id: string;
   number: string;
@@ -79,6 +88,7 @@ interface InvoiceRow {
   invoice_date: string | null;
   created_at: string;
   title: string | null;
+  items: InvoiceItemRow[];
 }
 
 interface PosSaleItemRow {
@@ -336,10 +346,35 @@ export default async function CustomerProfilePage({
     ]);
 
   const tagHistory = (tagHistoryRaw ?? []) as unknown as TagHistoryRow[];
-  const invoices = (invoicesRaw ?? []) as unknown as InvoiceRow[];
+  const invoicesBase = (invoicesRaw ?? []) as Array<Omit<InvoiceRow, "items">>;
   const posSalesBase = (posSalesRaw ?? []) as Array<
     Omit<PosSaleRow, "items">
   >;
+
+  let invoices: InvoiceRow[] = [];
+  if (invoicesBase.length > 0) {
+    const invoiceIds = invoicesBase.map((inv) => inv.id);
+    const { data: invoiceItemsRaw } = await supabase
+      .from("finance_invoice_items")
+      .select(
+        "id, invoice_id, description, quantity, line_total_myr, sort_order",
+      )
+      .eq("business_id", user.businessId)
+      .in("invoice_id", invoiceIds)
+      .order("sort_order", { ascending: true });
+
+    const itemsByInvoice = new Map<string, InvoiceItemRow[]>();
+    for (const item of (invoiceItemsRaw ?? []) as unknown as InvoiceItemRow[]) {
+      const list = itemsByInvoice.get(item.invoice_id) ?? [];
+      list.push(item);
+      itemsByInvoice.set(item.invoice_id, list);
+    }
+
+    invoices = invoicesBase.map((invoice) => ({
+      ...invoice,
+      items: itemsByInvoice.get(invoice.id) ?? [],
+    }));
+  }
 
   let posSales: PosSaleRow[] = [];
   if (posSalesBase.length > 0) {
@@ -742,11 +777,28 @@ export default async function CustomerProfilePage({
                           <p className="text-xs text-ink-muted dark:text-cream-400">
                             {fmtDate(when)} · {inv.status}
                           </p>
+                          {inv.items.length > 0 ? (
+                            <ul className="mt-2 space-y-1 border-t border-cream-100 pt-2 text-xs text-ink-muted dark:border-hairline-dark dark:text-cream-400">
+                              {inv.items.map((item) => (
+                                <li
+                                  key={item.id}
+                                  className="flex justify-between gap-2"
+                                >
+                                  <span className="truncate">
+                                    {item.description} × {Number(item.quantity)}
+                                  </span>
+                                  <span className="shrink-0 tabular-nums">
+                                    {formatMyr(Number(item.line_total_myr) || 0)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
                         </div>
-                        <span className="shrink-0 text-sm font-semibold tabular-nums text-ink dark:text-cream-100">
+                        <span className="shrink-0 self-start text-sm font-semibold tabular-nums text-ink dark:text-cream-100">
                           {formatMyr(total)}
                         </span>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" />
+                        <ChevronRight className="h-4 w-4 shrink-0 self-start text-ink-muted" />
                       </Link>
                     </li>
                   );

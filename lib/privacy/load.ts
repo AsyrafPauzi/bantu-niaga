@@ -71,7 +71,7 @@ export const loadConsents = cache(
  * List the current user's data-subject requests, newest first.
  */
 export const loadUserDsrs = cache(
-  async (userId: string, limit = 20): Promise<DataSubjectRequest[]> => {
+  async (userId: string, limit = 10): Promise<DataSubjectRequest[]> => {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("data_subject_requests")
@@ -86,6 +86,39 @@ export const loadUserDsrs = cache(
     return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(
       coerceDsr,
     );
+  },
+);
+
+export const countUserDsrs = cache(async (userId: string): Promise<number> => {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from("data_subject_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (error) throw error;
+  return count ?? 0;
+});
+
+/** Active account/business deletion awaiting grace, if any. */
+export const loadPendingDeletionRequest = cache(
+  async (userId: string): Promise<DataSubjectRequest | null> => {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("data_subject_requests")
+      .select(
+        "id, business_id, user_id, kind, status, reason, payload, scheduled_for, completed_at, cancelled_at, cancellation_reason, created_at, updated_at",
+      )
+      .eq("user_id", userId)
+      .eq("status", "awaiting_grace")
+      .in("kind", ["delete_user", "delete_business"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+    return coerceDsr(data as unknown as Record<string, unknown>);
   },
 );
 
@@ -162,115 +195,7 @@ export async function loadAllDsrsPage(
   return { rows, total: count ?? rows.length };
 }
 
-/**
- * Build the canonical export bundle for a user. Returns a JSON-serialisable
- * object that includes every personal-data category we hold for the user
- * within the bounds of their tenant.
- *
- * Anything outside the user's tenant is excluded (a single user cannot
- * export an entire business's books — that would be a separate request).
- */
-export async function buildExportBundle(opts: {
-  userId: string;
-  businessId: string;
-}): Promise<{ payload: Record<string, unknown>; byteSize: number }> {
-  const admin = createServiceRoleClient();
-  const { userId, businessId } = opts;
-
-  // Tables to dump: ordered so the most personal data comes first.
-  const [
-    profile,
-    business,
-    consents,
-    dsrs,
-    auditOwn,
-    socialAccounts,
-    contentPlans,
-    customersOwnedByUser,
-  ] = await Promise.all([
-    admin
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle()
-      .then((r) => r.data),
-    admin
-      .from("businesses")
-      .select(
-        "id, idcompany, name, state_code, tier, subscription_status, brand_primary_hex, brand_accent_hex, created_at",
-      )
-      .eq("id", businessId)
-      .maybeSingle()
-      .then((r) => r.data),
-    admin
-      .from("user_consents")
-      .select("*")
-      .eq("user_id", userId)
-      .then((r) => r.data ?? []),
-    admin
-      .from("data_subject_requests")
-      .select("*")
-      .eq("user_id", userId)
-      .then((r) => r.data ?? []),
-    admin
-      .from("audit_log")
-      .select("*")
-      .eq("actor_user_id", userId)
-      .limit(5000)
-      .then((r) => r.data ?? []),
-    admin
-      .from("social_accounts")
-      .select(
-        "id, provider, name, username, external_id, status, connected_at",
-      )
-      .eq("connected_by_user_id", userId)
-      .then((r) => r.data ?? []),
-    admin
-      .from("content_plan")
-      .select(
-        "id, channel, status, scheduled_at, hook, caption, posted_at, created_at",
-      )
-      .eq("created_by", userId)
-      .limit(2000)
-      .then((r) => r.data ?? []),
-    admin
-      .from("customers")
-      .select("*")
-      .eq("created_by_user_id", userId)
-      .limit(5000)
-      .then((r) => r.data ?? []),
-  ]);
-
-  const payload = {
-    schema_version: "1.0",
-    generated_at: new Date().toISOString(),
-    notice:
-      "Personal data Bantu Niaga holds for you in this business. " +
-      "Business-wide records (all invoices, payroll, etc.) belong to the " +
-      "tenant and require an owner export if applicable.",
-    tenant: business,
-    profile: profile
-      ? {
-          id: profile.id,
-          email: profile.email,
-          display_name: profile.display_name,
-          phone_e164: profile.phone_e164,
-          role: profile.role,
-          created_at: profile.created_at,
-          last_password_change_at: profile.last_password_change_at,
-        }
-      : null,
-    consents,
-    data_subject_requests: dsrs,
-    audit_actions_taken_by_you: auditOwn,
-    social_accounts_connected_by_you: socialAccounts,
-    content_plans_created_by_you: contentPlans,
-    customers_created_by_you: customersOwnedByUser,
-  };
-
-  const json = JSON.stringify(payload);
-  return { payload, byteSize: new TextEncoder().encode(json).length };
-}
+export { buildExportBundle } from "@/lib/privacy/export-bundle";
 
 export async function loadExportSummary(
   exportId: string,

@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
+import { AdminTaskBoard } from "@/components/admin/AdminTaskBoard";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardBody } from "@/components/ui/card";
-import { AdminTaskBoard } from "@/components/admin/AdminTaskBoard";
 import {
   getCurrentUser,
   UnauthorizedError,
 } from "@/lib/auth/current-user";
+import { loadTaskColumns } from "@/lib/admin/task-columns";
+import { enrichAdminTasks } from "@/lib/admin/tasks-enrich";
 import { canSurface, getSurfaceScope } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AdminTaskRow } from "@/lib/admin/task-compliance-schemas";
@@ -13,7 +16,22 @@ import type { AdminTaskRow } from "@/lib/admin/task-compliance-schemas";
 export const metadata = { title: "Tasks" };
 export const dynamic = "force-dynamic";
 
-export default async function TasksPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function flattenParams(
+  raw: Record<string, string | string[] | undefined>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v === "string") out[k] = v;
+    else if (Array.isArray(v) && v.length > 0) out[k] = v[0];
+  }
+  return out;
+}
+
+export default async function TasksPage({ searchParams }: PageProps) {
   let user;
   try {
     user = await getCurrentUser();
@@ -25,6 +43,7 @@ export default async function TasksPage() {
   if (!canSurface(user.role, "admin", "tasks")) {
     return (
       <div className="space-y-6">
+        <AdminBackLink />
         <PageHeader
           eyebrow="Admin"
           title="To-do list"
@@ -44,57 +63,41 @@ export default async function TasksPage() {
   const supabase = await createSupabaseServerClient();
   const scope = getSurfaceScope(user.role, "admin", "tasks");
   const canManage = scope === "*";
+  const canAttachStorage = canSurface(user.role, "admin", "storage");
+  const params = flattenParams(await searchParams);
+  const initialOpenTaskId = params.task?.trim() || null;
 
-  let query = supabase
-    .from("admin_tasks")
-    .select(
-      "id, business_id, title, description, status, due_date, assignee_user_id, " +
-        "created_by, sort_order, completed_at, created_at, updated_at",
-    )
-    .eq("business_id", user.businessId)
-    .is("deleted_at", null)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
+  const [initialColumns, tasksRes, teamRaw] = await Promise.all([
+    loadTaskColumns(supabase, user.businessId),
+    (async () => {
+      let query = supabase
+        .from("admin_tasks")
+        .select(
+          "id, business_id, title, description, column_id, due_date, assignee_user_id, " +
+            "admin_file_id, created_by, sort_order, completed_at, created_at, updated_at",
+        )
+        .eq("business_id", user.businessId)
+        .is("deleted_at", null)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false });
 
-  if (scope === "assigned_only") {
-    query = query.eq("assignee_user_id", user.id);
-  }
-
-  const { data: tasks, error } = await query;
-  const rows = (tasks ?? []) as unknown as AdminTaskRow[];
-
-  const assigneeIds = Array.from(
-    new Set(rows.map((r) => r.assignee_user_id).filter(Boolean)),
-  ) as string[];
-  const nameLookup = new Map<string, string | null>();
-  if (assigneeIds.length > 0) {
-    const { data: profiles } = await supabase
+      if (scope === "assigned_only") {
+        query = query.eq("assignee_user_id", user.id);
+      }
+      return query;
+    })(),
+    supabase
       .from("users")
       .select("id, display_name, email")
-      .in("id", assigneeIds);
-    for (const p of (profiles ?? []) as Array<{
-      id: string;
-      display_name: string | null;
-      email: string | null;
-    }>) {
-      nameLookup.set(p.id, p.display_name || p.email);
-    }
-  }
+      .eq("business_id", user.businessId)
+      .order("display_name", { ascending: true }),
+  ]);
 
-  const enriched = rows.map((r) => ({
-    ...r,
-    assignee_name: r.assignee_user_id
-      ? (nameLookup.get(r.assignee_user_id) ?? null)
-      : null,
-  }));
+  const { data: tasks, error } = tasksRes;
+  const rows = (tasks ?? []) as unknown as AdminTaskRow[];
+  const enriched = await enrichAdminTasks(supabase, user.businessId, rows);
 
-  const { data: teamRaw } = await supabase
-    .from("users")
-    .select("id, display_name, email")
-    .eq("business_id", user.businessId)
-    .order("display_name", { ascending: true });
-
-  const teamMembers = (teamRaw ?? []).map(
+  const teamMembers = (teamRaw.data ?? []).map(
     (m: { id: string; display_name: string | null; email: string | null }) => ({
       id: m.id,
       label: m.display_name || m.email || m.id.slice(0, 8),
@@ -103,10 +106,12 @@ export default async function TasksPage() {
 
   return (
     <div className="space-y-6">
+      <AdminBackLink />
+
       <PageHeader
-        eyebrow="Admin"
+        eyebrow="Admin · Tasks"
         title="To-do list"
-        description="Simple daily tasks — tap a card to move it To do → Doing → Done."
+        description="Drag cards between columns. Add, rename, or remove columns to match your workflow."
       />
 
       {error ? (
@@ -118,8 +123,11 @@ export default async function TasksPage() {
       ) : (
         <AdminTaskBoard
           initialTasks={enriched}
+          initialColumns={initialColumns}
           teamMembers={teamMembers}
           canManage={canManage}
+          canAttachStorage={canAttachStorage}
+          initialOpenTaskId={initialOpenTaskId}
         />
       )}
     </div>

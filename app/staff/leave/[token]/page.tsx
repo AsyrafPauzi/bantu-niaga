@@ -42,7 +42,7 @@ export default async function StaffLeavePage({ params }: PageProps) {
   const usable = isLeaveLinkUsable(link);
 
   return (
-    <main className="flex min-h-dvh flex-col items-center bg-[#FAF7F2] px-6 py-8">
+    <main className="flex h-dvh flex-col items-center overflow-y-auto overscroll-y-contain bg-[#FAF7F2] px-6 py-8">
       <div className="flex w-full max-w-[480px] flex-col items-center gap-6">
         <Image
           src="/icon.png"

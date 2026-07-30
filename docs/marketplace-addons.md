@@ -49,7 +49,6 @@ Free businesses cannot activate add-ons. Starter, Growth, and Pro businesses can
 | Cashflow Forecast | Simple projection from invoices, expenses, overdue payments, and recurring patterns. |
 | Profit and Margin Analytics | Margin view by product, service, customer, campaign, or period. |
 | Auto Bank Reconciliation | Bank statement import or integration to match payments against invoices and POS sales. |
-| Accountant Export Pack | Monthly export bundle for accountant review. |
 | Recurring Invoices | Repeat invoices for subscriptions, retainers, rentals, and monthly services. |
 | Payment Gateway Connector | Billplz, Curlec, cards, FPX, e-wallets, and webhook-based payment status updates. |
 | Finance AI Assistant | Payment reminder drafts, finance health score, anomaly notes, and monthly summary. |

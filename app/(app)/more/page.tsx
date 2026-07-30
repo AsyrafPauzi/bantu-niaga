@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { ChevronRight, Lock } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { canAccessStaffMe } from "@/lib/hr/access";
+import { isSaasDeployment } from "@/lib/platform/deployment";
+import { shouldShowPlanAndBilling } from "@/lib/settings/nav";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   hasPillar,
@@ -19,6 +22,8 @@ interface MoreItem {
   label: string;
   description: string;
   pillar?: Pillar;
+  /** Hidden for non-owners in standalone unless SaaS. */
+  ownerOnlyBilling?: boolean;
 }
 
 const SECTIONS: readonly { label: string; items: MoreItem[] }[] = [
@@ -28,7 +33,7 @@ const SECTIONS: readonly { label: string; items: MoreItem[] }[] = [
       {
         href: "/admin",
         label: "Admin",
-        description: "Tasks · Compliance · Documents · Storage",
+        description: "Tasks · Compliance · Storage",
         pillar: "admin",
       },
       {
@@ -64,9 +69,16 @@ const SECTIONS: readonly { label: string; items: MoreItem[] }[] = [
         description: "Roles & invitations",
       },
       {
+        href: "/settings/subscription",
+        label: "Settings · Plan",
+        description: "Subscription tier & renewal",
+        ownerOnlyBilling: true,
+      },
+      {
         href: "/settings/billing",
         label: "Settings · Billing",
-        description: "Tier & subscriptions",
+        description: "Invoices & Fast Credits",
+        ownerOnlyBilling: true,
       },
     ],
   },
@@ -74,8 +86,15 @@ const SECTIONS: readonly { label: string; items: MoreItem[] }[] = [
 
 export default async function MorePage() {
   let tier: TierKey = "starter";
+  let staffSelfService = false;
+  let showPlanBilling = true;
   try {
     const user = await getCurrentUser();
+    staffSelfService = canAccessStaffMe(user.role);
+    showPlanBilling = shouldShowPlanAndBilling(
+      !isSaasDeployment(),
+      user.role,
+    );
     const supabase = await createSupabaseServerClient();
     const { data } = await supabase
       .from("businesses")
@@ -97,6 +116,35 @@ export default async function MorePage() {
         </p>
       </header>
 
+      {staffSelfService ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">My HR</CardTitle>
+          </CardHeader>
+          <CardBody className="p-0">
+            <ul className="divide-y divide-cream-200">
+              <li>
+                <Link
+                  href="/hr/me"
+                  className="flex items-center justify-between gap-3 px-4 py-3 min-h-tap-min hover:bg-cream-100 active:bg-cream-200 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink">My leave</p>
+                    <p className="text-xs text-ink-muted truncate">
+                      Balance · apply · history
+                    </p>
+                  </div>
+                  <ChevronRight
+                    className="h-5 w-5 text-ink-subtle shrink-0"
+                    strokeWidth={2}
+                  />
+                </Link>
+              </li>
+            </ul>
+          </CardBody>
+        </Card>
+      ) : null}
+
       {SECTIONS.map((section) => (
         <Card key={section.label}>
           <CardHeader>
@@ -104,7 +152,12 @@ export default async function MorePage() {
           </CardHeader>
           <CardBody className="p-0">
             <ul className="divide-y divide-cream-200">
-              {section.items.map((item) => {
+              {section.items
+                .filter(
+                  (item) =>
+                    !item.ownerOnlyBilling || showPlanBilling,
+                )
+                .map((item) => {
                 const locked = item.pillar
                   ? !hasPillar(tier, item.pillar)
                   : false;

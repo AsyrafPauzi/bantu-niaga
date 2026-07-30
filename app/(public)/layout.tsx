@@ -10,8 +10,8 @@ import type { ReactNode } from "react";
  */
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-dvh bg-cream-100 text-ink">
-      <div className="max-w-xl mx-auto px-4 py-6 sm:py-10">
+    <div className="h-dvh overflow-y-auto overscroll-y-contain bg-cream-100 text-ink dark:bg-surface-dark dark:text-cream-100">
+      <div className="mx-auto max-w-xl px-4 py-6 sm:py-10">
         {children}
         <footer className="mt-12 pt-6 border-t border-cream-300 text-xs text-ink-subtle text-center">
           Powered by{" "}

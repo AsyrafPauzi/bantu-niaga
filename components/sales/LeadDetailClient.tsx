@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
+import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import {
   LEAD_CHANNELS,
@@ -26,6 +27,8 @@ type Lead = {
   customer_id: string | null;
   converted_at: string | null;
   lost_reason: string | null;
+  admin_file_id: string | null;
+  admin_file_name?: string | null;
 };
 
 type Note = {
@@ -172,6 +175,20 @@ export function LeadDetailClient({
       setStatus("won");
       router.refresh();
     });
+  }
+
+  async function attachFile(fileId: string | null) {
+    const res = await fetch(`/api/sales/leads/${lead.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ admin_file_id: fileId }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(json?.message ?? "Could not attach file.");
+    }
+    setLead((l) => ({ ...l, ...json.data }));
+    router.refresh();
   }
 
   return (
@@ -342,6 +359,15 @@ export function LeadDetailClient({
           Save changes
         </button>
       </form>
+
+      <section className="rounded-xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark sm:p-5">
+        <AdminStorageFileAttach
+          fileId={lead.admin_file_id}
+          fileName={lead.admin_file_name}
+          label="Proposal / brochure"
+          onAttach={attachFile}
+        />
+      </section>
 
       <section className="rounded-xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark sm:p-5">
         <h2 className="text-sm font-bold text-ink dark:text-cream-100">

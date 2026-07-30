@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
-import { canManageHrCore } from "@/lib/hr/access";
+import { canAccessStaffMe, canManageHrCore } from "@/lib/hr/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -24,7 +24,7 @@ export async function GET(_request: Request, context: RouteContext) {
     throw error;
   }
 
-  if (!canManageHrCore(user.role)) {
+  if (!canManageHrCore(user.role) && !canAccessStaffMe(user.role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

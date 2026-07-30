@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, MapPin, Phone, Plus, Trash2 } from "lucide-react";
+import { FileText, Loader2, Mail, MapPin, Phone, Plus, Trash2 } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import type { FinanceCustomerRow } from "@/lib/finance/schemas";
 
@@ -203,19 +204,28 @@ export function FinanceCustomerPanel({
                       ) : null}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void deleteCustomer(c.id)}
-                    className="inline-flex shrink-0 items-center gap-1 text-xs text-status-danger hover:underline disabled:opacity-50"
-                  >
-                    {busy ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3 w-3" />
-                    )}
-                    Remove
-                  </button>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <Link
+                      href={`/finance/invoices/new?customer_id=${encodeURIComponent(c.id)}`}
+                      className="inline-flex items-center gap-1 rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800 hover:bg-brand-100 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-100"
+                    >
+                      <FileText className="h-3 w-3" />
+                      New invoice
+                    </Link>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void deleteCustomer(c.id)}
+                      className="inline-flex items-center gap-1 text-xs text-status-danger hover:underline disabled:opacity-50"
+                    >
+                      {busy ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
+                      Remove
+                    </button>
+                  </div>
                 </div>
               </li>
             );

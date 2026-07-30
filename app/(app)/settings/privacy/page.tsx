@@ -1,24 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ExternalLink, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ConsentMatrix } from "@/components/settings/privacy/ConsentMatrix";
 import { DataExportCard } from "@/components/settings/privacy/DataExportCard";
 import { DeleteAccountCard } from "@/components/settings/privacy/DeleteAccountCard";
 import { PrivacyRequestsTable } from "@/components/settings/privacy/PrivacyRequestsTable";
-import {
-  getCurrentUser,
-  UnauthorizedError,
-} from "@/lib/auth/current-user";
-import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/privacy/catalog";
-import { loadConsents, loadUserDsrs } from "@/lib/privacy/load";
+import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { loadConsents, countUserDsrs, loadPendingDeletionRequest, loadUserDsrs } from "@/lib/privacy/load";
 import type { DataSubjectRequest, UserConsent } from "@/lib/privacy/types";
 
-export const metadata = {
-  title: "Privacy & data",
-  description: "Manage consent, export your data, or close your account (PDPA).",
-};
+export const metadata = { title: "Privacy & data" };
 export const dynamic = "force-dynamic";
 
 export default async function PrivacySettingsPage() {
@@ -32,21 +25,21 @@ export default async function PrivacySettingsPage() {
 
   let consents: UserConsent[] = [];
   let dsrs: DataSubjectRequest[] = [];
+  let dsrTotal = 0;
+  let pendingDeletion: DataSubjectRequest | null = null;
   try {
-    [consents, dsrs] = await Promise.all([
+    [consents, dsrs, dsrTotal, pendingDeletion] = await Promise.all([
       loadConsents(user.id, user.businessId),
-      loadUserDsrs(user.id, 20),
+      loadUserDsrs(user.id, 10),
+      countUserDsrs(user.id),
+      loadPendingDeletionRequest(user.id),
     ]);
   } catch {
     consents = [];
     dsrs = [];
+    dsrTotal = 0;
+    pendingDeletion = null;
   }
-
-  const pendingDeletion = dsrs.find(
-    (r) =>
-      (r.kind === "delete_user" || r.kind === "delete_business") &&
-      r.status === "awaiting_grace",
-  );
 
   const optionalGranted = consents.filter(
     (c) =>
@@ -55,30 +48,27 @@ export default async function PrivacySettingsPage() {
       c.kind !== "privacy_notice",
   ).length;
 
-  return (
-    <div className="space-y-6">
-      <Link
-        href="/settings"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Back to settings
-      </Link>
+  const summaryParts = [
+    `${optionalGranted} optional on`,
+    `${dsrTotal} request${dsrTotal === 1 ? "" : "s"}`,
+  ];
 
+  return (
+    <>
       <PageHeader
-        eyebrow="Settings · Privacy & data"
+        eyebrow="Settings"
         title="Privacy & data"
-        description={`Your PDPA rights — export data, manage consent, or close your account. Deletions have a ${ACCOUNT_DELETION_GRACE_DAYS}-day grace period.`}
+        description={summaryParts.join(" · ")}
       />
 
       {pendingDeletion ? (
         <div className="flex items-start gap-3 rounded-xl border border-status-warning/30 bg-status-warning/10 p-4">
           <ShieldAlert
             aria-hidden
-            className="mt-0.5 h-5 w-5 text-[#8C5C0A] dark:text-[#F5C97A]"
+            className="mt-0.5 h-5 w-5 shrink-0 text-[#8C5C0A] dark:text-[#F5C97A]"
             strokeWidth={2}
           />
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <p className="text-sm font-semibold text-ink dark:text-cream-100">
               {pendingDeletion.kind === "delete_business"
                 ? "This business is scheduled for permanent deletion."
@@ -100,59 +90,31 @@ export default async function PrivacySettingsPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryTile label="Optional consents on" value={String(optionalGranted)} />
-        <SummaryTile
-          label="Privacy requests"
-          value={String(dsrs.length)}
-        />
-        <SummaryTile
-          label="Deletion grace"
-          value={`${ACCOUNT_DELETION_GRACE_DAYS} days`}
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DataExportCard />
-        <DeleteAccountCard
-          userRole={user.role}
-          pendingDeletion={pendingDeletion ?? null}
-        />
-      </div>
-
       <ConsentMatrix initialConsents={consents} />
 
-      <PrivacyRequestsTable initialRequests={dsrs} />
+      <DataExportCard isOwner={user.role === "owner"} />
 
-      <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-4 text-sm dark:border-brand-800 dark:bg-brand-900/20">
-        <p className="font-semibold text-ink dark:text-cream-100">
-          Full Privacy Notice
-        </p>
-        <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-          Retention periods, sub-processors, and your full rights under PDPA
-          2010 are in our public notice.
-        </p>
+      <DeleteAccountCard
+        userRole={user.role}
+        pendingDeletion={pendingDeletion ?? null}
+      />
+
+      <PrivacyRequestsTable
+        initialRequests={dsrs}
+        totalCount={dsrTotal}
+        listLimit={10}
+      />
+
+      <p className="text-center text-xs text-ink-muted dark:text-cream-400">
+        Full retention schedule and PDPA rights in our{" "}
         <Link
           href="/legal/privacy"
-          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+          className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
         >
-          Read Privacy Notice
-          <ExternalLink className="h-3 w-3" strokeWidth={2} />
+          Privacy Notice
         </Link>
-      </div>
-    </div>
-  );
-}
-
-function SummaryTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-ink-subtle">
-        {label}
+        .
       </p>
-      <p className="mt-1 text-xl font-bold text-ink dark:text-cream-100">
-        {value}
-      </p>
-    </div>
+    </>
   );
 }

@@ -31,6 +31,10 @@ export interface SendEmailInput {
   body: string;
   fromEmail: string;
   apiKey: string;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+  }>;
 }
 
 export type SendEmailMissingConfigResult = {
@@ -92,6 +96,9 @@ export async function sendEmail(
         to: input.to,
         subject: input.subject,
         text: input.body,
+        ...(input.attachments?.length
+          ? { attachments: input.attachments }
+          : {}),
       }),
     });
   } catch (e) {

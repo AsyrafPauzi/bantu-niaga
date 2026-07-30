@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { ok, unauthorized } from "@/lib/api/response";
 import { buildBoardroomWeeklyDigest } from "@/lib/ai/boardroom-weekly-digest";
 import { logger } from "@/lib/logger";
-import { sendEmail } from "@/lib/marketing/email-resend";
+import { sendPlatformEmail } from "@/lib/privacy/platform-email";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +74,9 @@ export async function GET(request: Request) {
         admin,
       );
 
-      const result = await sendEmail({
+      const result = await sendPlatformEmail({
+        userId: owner.id as string,
+        category: "product_updates",
         to: owner.email,
         subject: digest.subject,
         body: digest.body,
@@ -83,6 +85,16 @@ export async function GET(request: Request) {
       });
 
       if (!result.ok) {
+        if (result.reason === "consent_denied") {
+          logger.info("boardroom.digest.cron.skipped_consent", {
+            businessId,
+            userId: owner.id,
+            consentKind: result.consentKind,
+            requestId,
+          });
+          skipped += 1;
+          continue;
+        }
         logger.warn("boardroom.digest.cron.send_failed", {
           businessId,
           reason: result.reason,

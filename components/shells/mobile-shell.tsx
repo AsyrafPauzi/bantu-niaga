@@ -20,6 +20,7 @@ import type { TierKey } from "@/lib/settings/plans";
 import type { BusinessMembership } from "@/lib/auth/memberships";
 import { CompanySwitcher } from "@/components/shells/CompanySwitcher";
 import { hasPillar, type Pillar } from "@/lib/auth/entitlements";
+import { isAssistantChatRoute } from "@/lib/navigation/assistant-routes";
 
 interface Tab {
   href: string;
@@ -53,7 +54,7 @@ export function MobileShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const isHrAssistantRoute = pathname === "/hr/assistant";
+  const isAssistantRoute = isAssistantChatRoute(pathname);
 
   return (
     <div className="flex min-h-dvh flex-col bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
@@ -95,8 +96,8 @@ export function MobileShell({
       <main
         className={cn(
           "flex-1",
-          isHrAssistantRoute
-            ? "flex min-h-0 flex-col overflow-hidden pb-20"
+          isAssistantRoute
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden pb-20"
             : "px-4 py-5 pb-24",
         )}
       >

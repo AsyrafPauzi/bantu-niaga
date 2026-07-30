@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 import type { OperationsSupplierRow } from "@/lib/operations/schemas";
 
 export const metadata = { title: "Suppliers" };
@@ -31,13 +32,24 @@ export default async function SuppliersPage() {
     .from("operations_suppliers")
     .select(
       "id, business_id, name, contact_name, phone, email, address, " +
-        "payment_terms, notes, created_by, created_at, updated_at",
+        "payment_terms, notes, admin_file_id, created_by, created_at, updated_at",
     )
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
     .order("name", { ascending: true });
 
   const rows = (data ?? []) as unknown as OperationsSupplierRow[];
+  const fileNames = await loadAdminFileNames(
+    supabase,
+    user.businessId,
+    rows.map((r) => r.admin_file_id).filter(Boolean) as string[],
+  );
+  const enriched = rows.map((r) => ({
+    ...r,
+    admin_file_name: r.admin_file_id
+      ? (fileNames.get(r.admin_file_id) ?? null)
+      : null,
+  }));
 
   return (
     <div className="space-y-6">
@@ -54,7 +66,7 @@ export default async function SuppliersPage() {
           </CardBody>
         </Card>
       ) : (
-        <OperationsSupplierPanel initialSuppliers={rows} />
+        <OperationsSupplierPanel initialSuppliers={enriched} />
       )}
     </div>
   );

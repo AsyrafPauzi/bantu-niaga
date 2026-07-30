@@ -1,46 +1,12 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
-import {
-  IntegrationsView,
-  type ChannelCardConfig,
-} from "@/components/settings/IntegrationsView";
+import { IntegrationsView } from "@/components/settings/IntegrationsView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { encryptionConfigured } from "@/lib/integrations/crypto";
 
-export const metadata = { title: "API keys & integrations" };
+export const metadata = { title: "Integrations" };
 export const dynamic = "force-dynamic";
-
-const CHANNELS: readonly ChannelCardConfig[] = [
-  {
-    id: "facebook",
-    name: "Facebook Page",
-    description:
-      "Cross-post and pull reach from your Facebook Pages. Free — no API fees.",
-    icon: "facebook",
-  },
-  {
-    id: "instagram",
-    name: "Instagram Business",
-    description:
-      "Publish photos and captions, pull engagement metrics into Content Detail.",
-    icon: "instagram",
-  },
-  {
-    id: "tiktok",
-    name: "TikTok for Business",
-    description: "Sync post performance and run TikTok Ads from Marketing.",
-    icon: "tiktok",
-  },
-  {
-    id: "whatsapp",
-    name: "WhatsApp Business Cloud",
-    description: "Send broadcasts and order confirmations.",
-    icon: "whatsapp",
-  },
-];
 
 export default async function IntegrationsSettingsPage() {
   let user;
@@ -66,31 +32,29 @@ export default async function IntegrationsSettingsPage() {
       .order("created_at", { ascending: false }),
   ]);
 
+  const apiKeys = keysRes.data ?? [];
+  const webhooks = webhooksRes.data ?? [];
   const canEdit = user.role === "owner";
 
-  return (
-    <div className="space-y-6">
-      <Link
-        href="/settings"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Back to settings
-      </Link>
+  const summaryParts = [
+    `${apiKeys.length} API key${apiKeys.length === 1 ? "" : "s"}`,
+    `${webhooks.length} webhook${webhooks.length === 1 ? "" : "s"}`,
+  ];
 
+  return (
+    <>
       <PageHeader
-        eyebrow="Settings · Security"
-        title="API keys & integrations"
-        description="Issue API tokens, configure outgoing webhooks, and connect marketing channels."
+        eyebrow="Settings"
+        title="Integrations"
+        description={summaryParts.join(" · ")}
       />
 
       <IntegrationsView
-        channels={CHANNELS}
-        initialApiKeys={keysRes.data ?? []}
-        initialWebhooks={webhooksRes.data ?? []}
+        initialApiKeys={apiKeys}
+        initialWebhooks={webhooks}
         canEdit={canEdit}
         encryptionReady={encryptionConfigured()}
       />
-    </div>
+    </>
   );
 }

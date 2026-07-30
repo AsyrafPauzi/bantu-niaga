@@ -4,6 +4,7 @@ import {
   UnauthorizedError,
   type CurrentUser,
 } from "@/lib/auth/current-user";
+import { canUseAdminFilePicker } from "@/lib/admin/storage-cross-access";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -34,10 +35,11 @@ function isHrDocOnly(role: CurrentUser["role"]): boolean {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const inline = new URL(request.url).searchParams.get("inline") === "1";
 
   let user: CurrentUser;
   try {
@@ -55,7 +57,10 @@ export async function GET(
     throw e;
   }
 
-  if (!canSurface(user.role, "admin", "storage")) {
+  if (
+    !canSurface(user.role, "admin", "storage") &&
+    !canUseAdminFilePicker(user.role)
+  ) {
     return NextResponse.json(
       {
         ok: false,
@@ -110,7 +115,7 @@ export async function GET(
   const { data: signed, error: signErr } = await admin.storage
     .from(STORAGE_BUCKET)
     .createSignedUrl(row.storage_path, DOWNLOAD_URL_TTL_SECONDS, {
-      download: row.file_name,
+      download: inline ? false : row.file_name,
     });
 
   if (signErr || !signed) {

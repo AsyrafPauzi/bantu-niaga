@@ -5,12 +5,15 @@ import {
   UnauthorizedError,
   type CurrentUser,
 } from "@/lib/auth/current-user";
+import {
+  COMPLIANCE_SELECT,
+  enrichComplianceRows,
+  logComplianceRenewal,
+} from "@/lib/admin/compliance-server";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   adminComplianceUpdateSchema,
-  complianceUrgency,
-  daysUntil,
   type AdminComplianceRow,
 } from "@/lib/admin/task-compliance-schemas";
 
@@ -91,6 +94,25 @@ export async function PATCH(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from("admin_compliance_items")
+    .select("expires_on")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .single();
+
+  if (fetchErr || !existing) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: "not_found", message: "Licence not found." },
+      },
+      { status: 404 },
+    );
+  }
+
   const patch: Record<string, unknown> = {};
 
   if (parsed.title !== undefined) patch.title = parsed.title;
@@ -100,6 +122,10 @@ export async function PATCH(
     patch.reference_number = parsed.reference_number;
   }
   if (parsed.notes !== undefined) patch.notes = parsed.notes;
+  if (parsed.remind_days !== undefined) patch.remind_days = parsed.remind_days;
+  if (parsed.admin_file_id !== undefined) {
+    patch.admin_file_id = parsed.admin_file_id;
+  }
 
   if (parsed.status === "renewed") {
     patch.status = "active";
@@ -119,10 +145,7 @@ export async function PATCH(
     .eq("id", id)
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
-    .select(
-      "id, business_id, title, category, authority, reference_number, " +
-        "expires_on, remind_days, notes, status, last_renewed_at, created_at, updated_at",
-    )
+    .select(COMPLIANCE_SELECT)
     .single();
 
   if (error) {
@@ -135,18 +158,33 @@ export async function PATCH(
     );
   }
 
-  const row = data as unknown as AdminComplianceRow;
-  return NextResponse.json(
-    {
-      ok: true,
-      data: {
-        ...row,
-        days_until_expiry: daysUntil(row.expires_on),
-        urgency: complianceUrgency(row.expires_on),
-      },
-    },
-    { status: 200 },
-  );
+  if (
+    parsed.status === "renewed" &&
+    parsed.next_expires_on &&
+    parsed.next_expires_on !== existing.expires_on
+  ) {
+    try {
+      await logComplianceRenewal(supabase, {
+        businessId: user.businessId,
+        complianceItemId: id,
+        previousExpiresOn: String(existing.expires_on),
+        newExpiresOn: parsed.next_expires_on,
+        renewedBy: user.id,
+        adminFileId:
+          parsed.admin_file_id !== undefined
+            ? parsed.admin_file_id
+            : (data as { admin_file_id?: string | null }).admin_file_id ?? null,
+      });
+    } catch (logErr) {
+      console.error("compliance renewal log failed", logErr);
+    }
+  }
+
+  const [enriched] = await enrichComplianceRows(supabase, [
+    data as unknown as AdminComplianceRow,
+  ]);
+
+  return NextResponse.json({ ok: true, data: enriched }, { status: 200 });
 }
 
 export async function DELETE(

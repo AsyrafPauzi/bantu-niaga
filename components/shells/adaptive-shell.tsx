@@ -6,6 +6,7 @@ import { DesktopShell } from "./desktop-shell";
 import type { ReactNode } from "react";
 import type { TierKey } from "@/lib/settings/plans";
 import type { BusinessMembership } from "@/lib/auth/memberships";
+import type { SidebarAssistantsByModule } from "@/lib/navigation/sidebar-assistants";
 
 /**
  * Renders the right shell (Mobile PWA vs Desktop ERP) based on viewport.
@@ -21,11 +22,13 @@ export function AdaptiveShell({
   tier,
   memberships,
   canCreateCompany,
+  sidebarAssistants = {},
   children,
 }: {
   tier: TierKey;
   memberships: BusinessMembership[];
   canCreateCompany: boolean;
+  sidebarAssistants?: SidebarAssistantsByModule;
   children: ReactNode;
 }) {
   const mode = useMode();
@@ -42,6 +45,7 @@ export function AdaptiveShell({
       tier={tier}
       memberships={memberships}
       canCreateCompany={canCreateCompany}
+      sidebarAssistants={sidebarAssistants}
     >
       {children}
     </DesktopShell>

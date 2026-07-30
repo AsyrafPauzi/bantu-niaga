@@ -70,6 +70,7 @@ Core features:
 - Quote-to-invoice conversion.
 - Monthly income vs expense summary.
 - WhatsApp-ready payment reminder text.
+- Accountant export pack (monthly CSV for your accountant).
 
 Keep out of core:
 
@@ -79,7 +80,6 @@ Keep out of core:
 - Cashflow forecast.
 - Profit and margin analytics.
 - Auto bank reconciliation.
-- Accountant export pack.
 - Recurring invoices.
 - Payment gateway connector.
 

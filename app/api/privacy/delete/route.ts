@@ -15,6 +15,7 @@ import { consume, rateLimitHeaders } from "@/lib/api/rate-limit";
 import { tooManyRequests } from "@/lib/api/response";
 import { logger } from "@/lib/logger";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/privacy/catalog";
+import { canScheduleDeletionScope } from "@/lib/privacy/delete-access";
 import {
   cancelDeleteSchema,
   requestDeleteSchema,
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
     return badRequest("Invalid JSON body.", undefined, { requestId });
   }
 
-  if (parsed.scope === "business" && user.role !== "owner") {
+  if (!canScheduleDeletionScope(user.role, parsed.scope)) {
     return forbidden(
       "Only the business owner can close the entire tenant. Use scope='user' to close your own account.",
       { requestId },

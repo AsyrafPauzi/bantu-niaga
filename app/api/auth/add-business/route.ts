@@ -4,6 +4,10 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { ensureMembership, switchActiveBusiness } from "@/lib/auth/memberships";
 import { addBusinessSchema } from "@/lib/auth/schemas";
 import {
+  DEFAULT_GENERIC_QUIZ_ANSWERS,
+  planQuizToDbPayload,
+} from "@/lib/onboarding/default-quiz";
+import {
   canCreateOwnedBusiness,
   ownedBusinessLimitMessage,
 } from "@/lib/auth/owned-business-limits";
@@ -100,6 +104,7 @@ export async function POST(request: Request) {
 
   const admin = createServiceRoleClient();
   const idcompany = slugifyBusiness(parsed.business_name) + "-" + randomShort();
+  const quizDb = planQuizToDbPayload(DEFAULT_GENERIC_QUIZ_ANSWERS);
 
   const { data: businessRow, error: businessError } = await admin
     .from("businesses")
@@ -113,6 +118,9 @@ export async function POST(request: Request) {
       brand_primary_hex: "#5B8C5A",
       brand_accent_hex: "#F4A340",
       credit_balance: 0,
+      business_type: quizDb.business_type,
+      team_size_band: quizDb.team_size_band,
+      onboarding_priorities: quizDb.priorities,
     })
     .select("id, idcompany, name")
     .single();

@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ListPagination } from "@/components/ui/list-pagination";
 import { parsePagination } from "@/lib/pagination";
 import { computeFinanceMonthSummary } from "@/lib/finance/helpers";
+import { loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 import type { FinanceTransactionRow } from "@/lib/finance/schemas";
 
 export const metadata = { title: "Expenses" };
@@ -52,7 +53,7 @@ export default async function ExpensesPage({
     .from("finance_transactions")
     .select(
       "id, business_id, kind, amount_myr, category, description, counterparty, " +
-        "payment_method, txn_date, finance_invoice_id, created_by, created_at, updated_at",
+        "payment_method, txn_date, finance_invoice_id, admin_file_id, created_by, created_at, updated_at",
       { count: "exact" },
     )
     .eq("business_id", user.businessId)
@@ -61,6 +62,18 @@ export default async function ExpensesPage({
     .order("txn_date", { ascending: false })
     .range(pagination.from, pagination.to);
   const total = count ?? data?.length ?? 0;
+  const rows = (data ?? []) as unknown as FinanceTransactionRow[];
+  const fileNames = await loadAdminFileNames(
+    supabase,
+    user.businessId,
+    rows.map((r) => r.admin_file_id).filter(Boolean) as string[],
+  );
+  const transactions = rows.map((row) => ({
+    ...row,
+    admin_file_name: row.admin_file_id
+      ? (fileNames.get(row.admin_file_id) ?? null)
+      : null,
+  }));
 
   return (
     <div className="space-y-6">
@@ -79,7 +92,7 @@ export default async function ExpensesPage({
       ) : (
         <>
           <FinanceCashFlowPanel
-            initialTransactions={(data ?? []) as unknown as FinanceTransactionRow[]}
+            initialTransactions={transactions}
             initialSummary={summary}
             defaultKind="expense"
             title="Expenses"

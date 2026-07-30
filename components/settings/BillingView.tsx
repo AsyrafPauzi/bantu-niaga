@@ -2,8 +2,6 @@
 
 import { useState, useTransition } from "react";
 import {
-  AlertTriangle,
-  CreditCard,
   Download,
   Loader2,
   Receipt,
@@ -12,7 +10,10 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { BillingUsageReport } from "@/components/settings/BillingUsageReport";
+import { PaymentMethodsCard } from "@/components/settings/PaymentMethodsCard";
 import { TOPUP_BUNDLES } from "@/lib/settings/schemas";
+import type { CreditRolloverPolicy } from "@/lib/settings/credit-rollover";
 
 const INVOICE_PAGE_SIZE = 10;
 
@@ -32,12 +33,13 @@ interface Invoice {
 interface BillingViewProps {
   initialInvoices: Invoice[];
   initialInvoiceTotal: number;
-  creditBalance: number;
-  monthlyCreditQuota: number;
+  creditPolicy: CreditRolloverPolicy;
+  tierLabel: string;
   nextChargeMyr: number;
   nextRenewalAt: string | null;
   canEdit: boolean;
   billplzBypass: boolean;
+  showBillplzDevNotice: boolean;
 }
 
 function fmtDate(iso: string | null): string {
@@ -52,22 +54,25 @@ function fmtDate(iso: string | null): string {
 export function BillingView({
   initialInvoices,
   initialInvoiceTotal,
-  creditBalance,
-  monthlyCreditQuota,
+  creditPolicy: initialCreditPolicy,
+  tierLabel,
   nextChargeMyr,
   nextRenewalAt,
   canEdit,
   billplzBypass,
+  showBillplzDevNotice,
 }: BillingViewProps) {
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
   const [invoicePage, setInvoicePage] = useState(1);
   const [invoiceTotal, setInvoiceTotal] = useState(initialInvoiceTotal);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
-  const [balance, setBalance] = useState(creditBalance);
+  const [creditPolicy, setCreditPolicy] =
+    useState<CreditRolloverPolicy>(initialCreditPolicy);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [showTopup, setShowTopup] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
 
   const invoiceTotalPages = Math.max(
     1,
@@ -143,23 +148,46 @@ export function BillingView({
       const res = await fetch("/api/settings/billing/topup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bundle }),
+        body: JSON.stringify({
+          bundle,
+          ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(json?.message ?? "Top-up failed");
         return;
       }
-      setBalance(json.new_balance);
+      const creditsAdded = TOPUP_BUNDLES[bundle].credits;
+      setCreditPolicy((prev) => ({
+        ...prev,
+        total_balance: json.new_balance ?? prev.total_balance + creditsAdded,
+        topup_balance: prev.topup_balance + creditsAdded,
+      }));
       setShowTopup(false);
       await loadInvoicePage(1, true);
     });
   }
 
-  const balancePct =
-    monthlyCreditQuota > 0
-      ? Math.min(100, Math.round((balance / monthlyCreditQuota) * 100))
+  const bundlePct =
+    creditPolicy.max_monthly_bundle > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (creditPolicy.bundle_balance / creditPolicy.max_monthly_bundle) *
+              100,
+          ),
+        )
       : 0;
+
+  const renewalSubtext =
+    nextChargeMyr > 0
+      ? billplzBypass
+        ? "Billplz not configured — renewals are simulated locally"
+        : "Auto-renew via Billplz"
+      : nextRenewalAt
+        ? `${tierLabel} plan`
+        : `${tierLabel} plan · no renewal scheduled`;
 
   return (
     <>
@@ -169,31 +197,45 @@ export function BillingView({
         </div>
       ) : null}
 
-      {billplzBypass ? (
+      {showBillplzDevNotice ? (
         <div className="rounded-lg border border-status-warning/30 bg-status-warning/10 p-3 text-sm text-ink dark:text-cream-100">
-          <strong>Development mode:</strong> Billplz is not configured, so
-          Fast Credit top-ups are applied immediately without charging a card.
+          <strong>Dev only:</strong> Billplz is not configured — top-ups apply
+          without charging a card.
         </div>
       ) : null}
 
       {/* Next charge banner */}
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-800 dark:bg-brand-900/30">
         <div className="flex items-start gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-500 text-white shadow-card">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-500 text-white shadow-card">
             <Wallet className="h-5 w-5" strokeWidth={2} />
           </span>
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[1.4px] text-brand-700/80 dark:text-brand-200/80">
-              Next charge
+              {nextChargeMyr > 0 ? "Next charge" : "Current plan"}
             </p>
             <p className="mt-0.5 text-xl font-bold text-ink dark:text-cream-100">
-              RM {nextChargeMyr.toFixed(2)}{" "}
-              <span className="text-sm font-medium text-ink-muted dark:text-cream-400">
-                · {fmtDate(nextRenewalAt)}
-              </span>
+              {nextChargeMyr > 0 ? (
+                <>
+                  RM {nextChargeMyr.toFixed(2)}{" "}
+                  <span className="text-sm font-medium text-ink-muted dark:text-cream-400">
+                    · {fmtDate(nextRenewalAt)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  {tierLabel}
+                  {nextRenewalAt ? (
+                    <span className="text-sm font-medium text-ink-muted dark:text-cream-400">
+                      {" "}
+                      · renews {fmtDate(nextRenewalAt)}
+                    </span>
+                  ) : null}
+                </>
+              )}
             </p>
             <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-              Auto-renew via Billplz
+              {renewalSubtext}
             </p>
           </div>
         </div>
@@ -212,37 +254,13 @@ export function BillingView({
 
       <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
         <div className="space-y-5 lg:col-span-2">
-          {/* Payment method — Billplz only */}
-          <div className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <div className="flex items-start gap-3 border-b border-cream-200 p-5 dark:border-hairline-dark">
-              <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                <CreditCard className="h-5 w-5" strokeWidth={2} />
-              </span>
-              <div>
-                <h3 className="text-base font-semibold text-ink dark:text-cream-100">
-                  Payment method
-                </h3>
-                <p className="text-xs text-ink-muted dark:text-cream-400">
-                  All payments go through Billplz — FPX, credit card, and debit
-                  card.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 px-5 py-4">
-              <span className="grid h-9 w-12 place-items-center rounded-md bg-gradient-to-br from-sky-700 to-sky-500 text-[9px] font-bold tracking-wider text-white">
-                BILLPLZ
-              </span>
-              <div>
-                <p className="flex items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
-                  Billplz
-                  <Badge tone="accent">Default</Badge>
-                </p>
-                <p className="text-[11px] text-ink-muted dark:text-cream-400">
-                  FPX · Credit card · Debit card
-                </p>
-              </div>
-            </div>
-          </div>
+          <PaymentMethodsCard
+            canEdit={canEdit}
+            selectedId={paymentMethodId}
+            onSelect={setPaymentMethodId}
+          />
+
+          <BillingUsageReport />
 
           {/* Invoices */}
           <div className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
@@ -406,31 +424,65 @@ export function BillingView({
         <aside className="space-y-5">
           <div className="rounded-xl border border-accent-200 bg-accent-50 p-5 dark:border-accent-700/40 dark:bg-accent-700/15">
             <div className="flex items-start gap-3">
-              <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent-500 text-white">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-500 text-white">
                 <Zap className="h-5 w-5" strokeWidth={2} />
               </span>
               <div>
                 <h3 className="text-base font-semibold text-ink dark:text-cream-100">
-                  Fast Credits balance
+                  Fast Credits
                 </h3>
                 <p className="text-xs text-ink-muted dark:text-cream-400">
-                  Used by all 4 AI agents.
+                  {creditPolicy.active_ai_agents > 0
+                    ? `${creditPolicy.active_ai_agents} active AI agent${creditPolicy.active_ai_agents === 1 ? "" : "s"}`
+                    : "No active AI agents"}
                 </p>
               </div>
             </div>
             <p className="mt-3 text-3xl font-bold text-accent-700 dark:text-accent-200">
-              {balance.toLocaleString("en-MY")}
+              {creditPolicy.total_balance.toLocaleString("en-MY")}
               <span className="text-sm font-medium text-ink-muted dark:text-cream-400">
                 {" "}
-                / {monthlyCreditQuota.toLocaleString("en-MY")}
+                credits
               </span>
             </p>
-            <div className="mt-2 h-1.5 rounded-full bg-white/60 dark:bg-panel-dark/40">
-              <div
-                className="h-full rounded-full bg-accent-500"
-                style={{ width: `${balancePct}%` }}
-              />
-            </div>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-ink-muted dark:text-cream-400">
+                  Monthly bundle
+                </dt>
+                <dd className="font-semibold text-ink dark:text-cream-100">
+                  {creditPolicy.bundle_balance.toLocaleString("en-MY")}
+                  {creditPolicy.max_monthly_bundle > 0 ? (
+                    <span className="font-medium text-ink-muted dark:text-cream-400">
+                      {" "}
+                      / {creditPolicy.max_monthly_bundle.toLocaleString("en-MY")}
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+              {creditPolicy.max_monthly_bundle > 0 ? (
+                <div className="h-1.5 rounded-full bg-white/60 dark:bg-panel-dark/40">
+                  <div
+                    className="h-full rounded-full bg-accent-500"
+                    style={{ width: `${bundlePct}%` }}
+                  />
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-ink-muted dark:text-cream-400">
+                  Top-up (rolls over)
+                </dt>
+                <dd className="font-semibold text-ink dark:text-cream-100">
+                  {creditPolicy.topup_balance.toLocaleString("en-MY")}
+                </dd>
+              </div>
+            </dl>
+            {creditPolicy.next_ai_addon_renewal_at ? (
+              <p className="mt-3 text-xs text-ink-muted dark:text-cream-400">
+                Next agent renewal{" "}
+                {fmtDate(creditPolicy.next_ai_addon_renewal_at)}
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={() => setShowTopup(true)}
@@ -439,21 +491,6 @@ export function BillingView({
             >
               Top up — {bundleLabel("small")}
             </button>
-          </div>
-
-          <div className="flex items-start gap-2 rounded-xl border border-status-warning/30 bg-status-warning/15 p-4 text-xs">
-            <AlertTriangle
-              className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8C5C0A] dark:text-[#F5C97A]"
-              strokeWidth={2}
-            />
-            <p className="text-ink dark:text-cream-100">
-              <strong>Heads up:</strong> Tax invoices include SST 8% per LHDN
-              requirements. Manage your SST number under{" "}
-              <a href="/settings/branding" className="font-semibold underline">
-                Branding
-              </a>
-              .
-            </p>
           </div>
         </aside>
       </div>
@@ -469,8 +506,8 @@ export function BillingView({
                 </h3>
                 <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
                   {billplzBypass
-                    ? "Credits are added immediately (Billplz bypass)."
-                    : "You will be redirected to Billplz to complete payment."}
+                    ? "Credits are added immediately. Top-up credits roll over."
+                    : "You will be redirected to Billplz. Top-up credits roll over."}
                 </p>
               </div>
               <button

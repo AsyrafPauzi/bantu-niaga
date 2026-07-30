@@ -5,3 +5,7 @@ const HR_CORE_MANAGERS = ["owner", "manager", "hr_officer"] as const;
 export function canManageHrCore(role: Role): boolean {
   return (HR_CORE_MANAGERS as readonly string[]).includes(role);
 }
+
+export function canAccessStaffMe(role: Role): boolean {
+  return role === "staff";
+}

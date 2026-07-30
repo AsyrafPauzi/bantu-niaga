@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Receipt } from "lucide-react";
+import { Receipt } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SubscriptionView } from "@/components/settings/SubscriptionView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
@@ -66,15 +66,7 @@ export default async function SubscriptionPlanPage({
     | "enterprise";
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/settings"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Back to settings
-      </Link>
-
+    <>
       <PageHeader
         eyebrow="Settings · Account"
         title="Subscription plan"
@@ -108,6 +100,6 @@ export default async function SubscriptionPlanPage({
         canEdit={user.role === "owner"}
         lockedPillar={locked}
       />
-    </div>
+    </>
   );
 }

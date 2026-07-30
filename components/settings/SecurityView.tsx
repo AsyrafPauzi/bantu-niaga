@@ -3,7 +3,6 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
   Check,
   Eye,
   KeyRound,
@@ -49,6 +48,16 @@ interface SecurityViewProps {
   initialFactors: Factor[];
   initialAudit: AuditEntry[];
   initialSessions: SessionEntry[];
+  sessionListLimit?: number;
+}
+
+function sortSessionsForDisplay(sessions: SessionEntry[]): SessionEntry[] {
+  return [...sessions].sort((a, b) => {
+    if (a.is_current !== b.is_current) return a.is_current ? -1 : 1;
+    return (
+      new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime()
+    );
+  });
 }
 
 function fmtRelative(iso: string): string {
@@ -84,11 +93,16 @@ export function SecurityView({
   initialFactors,
   initialAudit,
   initialSessions,
+  sessionListLimit = 10,
 }: SecurityViewProps) {
   const router = useRouter();
   const [factors, setFactors] = useState<Factor[]>(initialFactors);
   const [audit, setAudit] = useState<AuditEntry[]>(initialAudit);
   const [sessions, setSessions] = useState<SessionEntry[]>(initialSessions);
+
+  useEffect(() => {
+    setSessions(initialSessions);
+  }, [initialSessions]);
 
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -114,6 +128,12 @@ export function SecurityView({
   const verifiedFactor = factors.find((f) => f.status === "verified");
   const twoFaOn = !!verifiedFactor;
   const otherSessions = sessions.filter((s) => !s.is_current);
+  const sortedSessions = sortSessionsForDisplay(sessions);
+  const visibleSessions = sortedSessions.slice(0, sessionListLimit);
+  const hiddenSessionCount = Math.max(
+    0,
+    sortedSessions.length - visibleSessions.length,
+  );
 
   async function refreshFactors() {
     const res = await fetch("/api/settings/security/2fa");
@@ -124,9 +144,11 @@ export function SecurityView({
   }
 
   async function refreshSessions() {
-    const res = await fetch("/api/settings/security/sessions");
+    const res = await fetch("/api/settings/security/sessions", {
+      credentials: "same-origin",
+    });
     if (res.ok) {
-      const json = await res.json();
+      const json = (await res.json()) as { data?: SessionEntry[] };
       setSessions(json.data ?? []);
     }
   }
@@ -246,13 +268,22 @@ export function SecurityView({
     startSessionsTransition(async () => {
       const res = await fetch("/api/settings/security/sessions/revoke-all", {
         method: "POST",
+        credentials: "same-origin",
       });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        setSessionsError(json?.message ?? "Could not revoke sessions.");
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        revoked_count?: number;
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.ok) {
+        setSessionsError(
+          json.message ?? json.error ?? "Could not revoke sessions.",
+        );
         return;
       }
       setSessionsRevokedAt(Date.now());
+      setSessions((prev) => prev.filter((s) => s.is_current));
       await refreshSessions();
       router.refresh();
     });
@@ -260,7 +291,7 @@ export function SecurityView({
 
   useEffect(() => {
     if (!enrolModal) {
-      fetch("/api/settings/security/audit?limit=20")
+      fetch("/api/settings/security/audit?limit=10")
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => j && setAudit(j.data));
     }
@@ -268,28 +299,6 @@ export function SecurityView({
 
   return (
     <>
-      {/* Summary strip */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryTile
-          label="Two-factor auth"
-          value={twoFaOn ? "On" : "Off"}
-          tone={twoFaOn ? "success" : "warning"}
-          icon={ShieldCheck}
-        />
-        <SummaryTile
-          label="Active sessions"
-          value={String(sessions.length)}
-          tone="neutral"
-          icon={Monitor}
-        />
-        <SummaryTile
-          label="Other devices"
-          value={String(otherSessions.length)}
-          tone={otherSessions.length > 0 ? "warning" : "success"}
-          icon={Smartphone}
-        />
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
         <div className="space-y-5 lg:col-span-2">
           {/* Password */}
@@ -304,9 +313,8 @@ export function SecurityView({
                 </h3>
                 <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
                   {lastPasswordChangeAt
-                    ? `Last changed ${fmtRelative(lastPasswordChangeAt)}.`
-                    : "No password change recorded yet."}{" "}
-                  Min 12 characters with upper, lower, and a number.
+                    ? `Last changed ${fmtRelative(lastPasswordChangeAt)}`
+                    : "No change recorded yet"}
                 </p>
               </div>
             </div>
@@ -372,11 +380,12 @@ export function SecurityView({
                 </span>
                 <div>
                   <h3 className="text-base font-semibold text-ink dark:text-cream-100">
-                    Authenticator app
+                    Two-factor authentication
                   </h3>
                   <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-                    Google Authenticator, Authy, or 1Password — required after
-                    every password sign-in.
+                    {twoFaOn
+                      ? "Required at sign-in with your authenticator app."
+                      : "Add a 6-digit code from an authenticator app at sign-in."}
                   </p>
                 </div>
               </div>
@@ -408,21 +417,9 @@ export function SecurityView({
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-status-warning/30 bg-status-warning/10 p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle
-                      className="mt-0.5 h-5 w-5 shrink-0 text-[#8C5C0A] dark:text-[#F5C97A]"
-                      strokeWidth={2}
-                    />
-                    <div>
-                      <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                        Protect customer data and financial records
-                      </p>
-                      <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-                        Scan a QR code once, then enter a 6-digit code at each
-                        sign-in.
-                      </p>
-                    </div>
-                  </div>
+                  <p className="text-sm text-ink dark:text-cream-100">
+                    Two-factor authentication is off.
+                  </p>
                   <button
                     type="button"
                     onClick={startEnrol}
@@ -459,7 +456,12 @@ export function SecurityView({
                     Active sessions
                   </h3>
                   <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-                    Devices where you are signed in to Bantu Niaga.
+                    {sessions.length === 0
+                      ? "No sessions recorded"
+                      : `${sessions.length} device${sessions.length === 1 ? "" : "s"} signed in`}
+                    {otherSessions.length > 0
+                      ? ` · ${otherSessions.length} other`
+                      : ""}
                   </p>
                 </div>
               </div>
@@ -483,8 +485,9 @@ export function SecurityView({
                 No sessions recorded yet. Refresh this page after signing in.
               </p>
             ) : (
-              <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
-                {sessions.map((s) => (
+              <>
+                <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+                  {visibleSessions.map((s) => (
                   <li
                     key={s.id}
                     className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
@@ -511,8 +514,12 @@ export function SecurityView({
                           ) : null}
                         </p>
                         <p className="text-[11px] text-ink-muted dark:text-cream-400">
-                          {s.location_label ?? "Malaysia"} · Last active{" "}
-                          {fmtRelative(s.last_seen_at)}
+                          {[
+                            s.location_label,
+                            `Last active ${fmtRelative(s.last_seen_at)}`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </p>
                       </div>
                     </div>
@@ -527,7 +534,14 @@ export function SecurityView({
                     </span>
                   </li>
                 ))}
-              </ul>
+                </ul>
+                {hiddenSessionCount > 0 ? (
+                  <p className="border-t border-cream-200 px-5 py-3 text-xs text-ink-muted dark:border-hairline-dark dark:text-cream-400">
+                    Showing {visibleSessions.length} of {sortedSessions.length}{" "}
+                    sessions.
+                  </p>
+                ) : null}
+              </>
             )}
 
             {sessionsError ? (
@@ -538,8 +552,7 @@ export function SecurityView({
             {sessionsRevokedAt ? (
               <div className="px-5 pb-4">
                 <Alert tone="success">
-                  Other devices have been signed out. Only this browser remains
-                  active.
+                  Other devices signed out. Only this browser stays active.
                 </Alert>
               </div>
             ) : null}
@@ -555,7 +568,7 @@ export function SecurityView({
                   Audit log
                 </h3>
                 <p className="text-xs text-ink-muted dark:text-cream-400">
-                  Last 20 security events
+                  Recent activity
                 </p>
               </div>
               <KeyRound className="h-4 w-4 shrink-0 text-ink-subtle" strokeWidth={2} />
@@ -583,16 +596,6 @@ export function SecurityView({
               </ul>
             )}
           </section>
-
-          <div className="rounded-xl border border-brand-200 bg-brand-50 p-5 text-xs dark:border-brand-800 dark:bg-brand-900/30">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:text-brand-200">
-              Compliance
-            </p>
-            <p className="mt-1.5 leading-relaxed text-ink dark:text-cream-100">
-              Aligned with PDPA Malaysia 2010. Data is stored in the Supabase
-              Singapore region.
-            </p>
-          </div>
         </aside>
       </div>
 
@@ -677,41 +680,6 @@ export function SecurityView({
         </div>
       ) : null}
     </>
-  );
-}
-
-function SummaryTile({
-  label,
-  value,
-  tone,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  tone: "success" | "warning" | "neutral";
-  icon: typeof ShieldCheck;
-}) {
-  const toneClass =
-    tone === "success"
-      ? "border-status-success/30 bg-status-success/10 text-status-success"
-      : tone === "warning"
-        ? "border-status-warning/30 bg-status-warning/10 text-[#8C5C0A] dark:text-[#F5C97A]"
-        : "border-cream-200 bg-white text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
-
-  return (
-    <div
-      className={`flex items-center gap-3 rounded-xl border p-4 shadow-card ${toneClass}`}
-    >
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-white/60 dark:bg-panel-dark/40">
-        <Icon className="h-4 w-4" strokeWidth={2} />
-      </span>
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">
-          {label}
-        </p>
-        <p className="text-lg font-bold">{value}</p>
-      </div>
-    </div>
   );
 }
 

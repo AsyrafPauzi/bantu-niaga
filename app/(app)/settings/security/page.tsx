@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SecurityView } from "@/components/settings/SecurityView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
@@ -48,15 +46,16 @@ export default async function SecuritySettingsPage() {
         .select("id, action, entity_type, diff, created_at, actor_user_id")
         .eq("business_id", user.businessId)
         .order("created_at", { ascending: false })
-        .limit(20),
+        .limit(10),
     ]);
 
   let currentSessionId = await getCurrentSessionId();
   try {
     const ensured = await ensureCurrentSession(supabase, user.id, meta);
     currentSessionId = ensured.sessionId;
-    if (ensured.created) {
-      const jar = await cookies();
+    const jar = await cookies();
+    const existingCookie = jar.get(SESSION_COOKIE_NAME)?.value;
+    if (existingCookie !== ensured.sessionId) {
       jar.set(SESSION_COOKIE_NAME, ensured.sessionId, sessionCookieOptions());
     }
   } catch {
@@ -92,19 +91,11 @@ export default async function SecuritySettingsPage() {
   }));
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/settings"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Back to settings
-      </Link>
-
+    <>
       <PageHeader
-        eyebrow="Settings · Security"
-        title="Security settings"
-        description="Authenticator 2FA, password, active sessions, and audit log."
+        eyebrow="Settings"
+        title="Security"
+        description={email}
       />
 
       <SecurityView
@@ -113,7 +104,8 @@ export default async function SecuritySettingsPage() {
         initialFactors={factors}
         initialAudit={auditRes.data ?? []}
         initialSessions={sessions}
+        sessionListLimit={10}
       />
-    </div>
+    </>
   );
 }

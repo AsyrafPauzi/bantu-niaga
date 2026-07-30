@@ -27,6 +27,7 @@ export const operationsOrderCreateSchema = z
     amount_myr: z.coerce.number().min(0).optional().nullable(),
     supplier_id: z.string().uuid().optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -45,6 +46,7 @@ export const operationsOrderUpdateSchema = z
     amount_myr: z.coerce.number().min(0).optional().nullable(),
     supplier_id: z.string().uuid().optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -61,6 +63,8 @@ export interface OperationsOrderRow {
   amount_myr: number | null;
   supplier_id: string | null;
   notes: string | null;
+  admin_file_id: string | null;
+  admin_file_name?: string | null;
   completed_at: string | null;
   created_by: string;
   created_at: string;
@@ -83,6 +87,7 @@ export const operationsSupplierCreateSchema = z
     address: z.string().trim().max(500).optional().nullable(),
     payment_terms: z.string().trim().max(200).optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -101,6 +106,7 @@ export const operationsSupplierUpdateSchema = z
     address: z.string().trim().max(500).optional().nullable(),
     payment_terms: z.string().trim().max(200).optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -114,6 +120,8 @@ export interface OperationsSupplierRow {
   address: string | null;
   payment_terms: string | null;
   notes: string | null;
+  admin_file_id: string | null;
+  admin_file_name?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Check, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { apiErrorMessage } from "@/lib/api/client-error";
+import { readQuizFromSession } from "@/lib/onboarding/session-quiz";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const STATES = [
@@ -66,6 +67,7 @@ function SignUpForm() {
 
     setPending(true);
     try {
+      const sessionQuiz = readQuizFromSession();
       const res = await fetch("/api/auth/sign-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,6 +78,15 @@ function SignUpForm() {
           state_code: stateCode,
           accept_terms: acceptTerms,
           signup_path: signupPath,
+          ...(sessionQuiz
+            ? {
+                onboarding_quiz: {
+                  business_type: sessionQuiz.businessType,
+                  team_size_band: sessionQuiz.teamSize,
+                  priorities: sessionQuiz.priorities,
+                },
+              }
+            : {}),
         }),
       });
       const json = await res.json();

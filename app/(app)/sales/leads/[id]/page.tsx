@@ -7,6 +7,7 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canUseLeads, LEAD_ASSIGNEE_ROLES } from "@/lib/sales/access";
 import type { LeadChannel, LeadStatus } from "@/lib/sales/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 
 export const metadata = { title: "Lead" };
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
     supabase
       .from("sales_leads")
       .select(
-        "id, name, phone_e164, channel, interest, estimated_value_myr, status, follow_up_at, assigned_to, customer_id, converted_at, lost_reason, created_at, updated_at",
+        "id, name, phone_e164, channel, interest, estimated_value_myr, status, follow_up_at, assigned_to, customer_id, converted_at, lost_reason, admin_file_id, created_at, updated_at",
       )
       .eq("id", id)
       .eq("business_id", user.businessId)
@@ -53,10 +54,19 @@ export default async function LeadDetailPage({ params }: PageProps) {
 
   if (!leadRes.data) notFound();
 
+  const fileNames = await loadAdminFileNames(
+    supabase,
+    user.businessId,
+    leadRes.data.admin_file_id ? [leadRes.data.admin_file_id] : [],
+  );
+
   const lead = {
     ...leadRes.data,
     channel: leadRes.data.channel as LeadChannel | null,
     status: leadRes.data.status as LeadStatus,
+    admin_file_name: leadRes.data.admin_file_id
+      ? (fileNames.get(leadRes.data.admin_file_id) ?? null)
+      : null,
   };
 
   return (

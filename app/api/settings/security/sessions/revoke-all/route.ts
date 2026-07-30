@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { cookies, headers } from "next/headers";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
+  ensureCurrentSession,
   getCurrentSessionId,
+  listActiveSessions,
   revokeOtherSessions,
+  sessionCookieOptions,
+  SESSION_COOKIE_NAME,
 } from "@/lib/auth/sessions";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +33,22 @@ export async function POST() {
   }
 
   const supabase = await createSupabaseServerClient();
-  const currentSessionId = await getCurrentSessionId();
+  const h = await headers();
+  const meta = {
+    userAgent: h.get("user-agent"),
+    forwardedFor: h.get("x-forwarded-for"),
+    realIp: h.get("x-real-ip"),
+  };
+
+  let currentSessionId = await getCurrentSessionId();
+  try {
+    const ensured = await ensureCurrentSession(supabase, user.id, meta);
+    currentSessionId = ensured.sessionId;
+  } catch {
+    // Continue — revoke still clears stale rows when possible.
+  }
+
+  const beforeCount = (await listActiveSessions(supabase, user.id)).length;
 
   const { error } = await supabase.auth.signOut({ scope: "others" });
 
@@ -51,14 +71,30 @@ export async function POST() {
     );
   }
 
+  const afterCount = (await listActiveSessions(supabase, user.id)).length;
+  const revokedCount = Math.max(0, beforeCount - afterCount);
+
   await supabase.from("audit_log").insert({
     business_id: user.businessId,
     actor_user_id: user.id,
     action: "security.sessions.revoke_all",
     entity_type: "user",
     entity_id: user.id,
-    diff: { kept_session_id: currentSessionId },
+    diff: { kept_session_id: currentSessionId, revoked_count: revokedCount },
   });
 
-  return NextResponse.json({ ok: true }, { status: 200 });
+  const res = NextResponse.json(
+    { ok: true, revoked_count: revokedCount, kept_session_id: currentSessionId },
+    { status: 200 },
+  );
+
+  if (currentSessionId) {
+    res.cookies.set(
+      SESSION_COOKIE_NAME,
+      currentSessionId,
+      sessionCookieOptions(),
+    );
+  }
+
+  return res;
 }

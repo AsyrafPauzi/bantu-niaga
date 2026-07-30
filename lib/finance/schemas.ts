@@ -53,6 +53,7 @@ export const financeTransactionCreateSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
       .optional(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -67,6 +68,17 @@ export const financeInvoiceLineItemSchema = z.object({
   unit: z.string().trim().max(40).optional().nullable(),
   taxable: z.boolean().optional().default(false),
 });
+
+export const financeInvoiceNumberSchema = z
+  .string()
+  .trim()
+  .min(1, "Document number is required.")
+  .max(40, "Document number is too long.")
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/,
+    "Use letters, numbers, hyphens, dots, or underscores only.",
+  )
+  .transform((value) => value.toUpperCase());
 
 export const financeCustomerCreateSchema = z
   .object({
@@ -113,7 +125,9 @@ export const financeInvoiceCreateSchema = z
     notes: z.string().trim().max(2000).optional().nullable(),
     status: z.enum(FINANCE_INVOICE_STATUSES).optional().default("draft"),
     document_kind: z.enum(FINANCE_DOCUMENT_KINDS).optional().default("invoice"),
+    number: financeInvoiceNumberSchema.optional(),
     show_duitnow: z.boolean().optional().default(true),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -160,7 +174,9 @@ export const financeInvoiceUpdateSchema = z
     notes: z.string().trim().max(2000).optional().nullable(),
     status: z.enum(FINANCE_INVOICE_STATUSES).optional(),
     document_kind: z.enum(FINANCE_DOCUMENT_KINDS).optional(),
+    number: financeInvoiceNumberSchema.optional(),
     show_duitnow: z.boolean().optional(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -175,6 +191,8 @@ export interface FinanceTransactionRow {
   payment_method: string | null;
   txn_date: string;
   finance_invoice_id: string | null;
+  admin_file_id: string | null;
+  admin_file_name?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -232,6 +250,8 @@ export interface FinanceInvoiceRow {
   document_kind: FinanceDocumentKind;
   show_duitnow: boolean;
   converted_from_id: string | null;
+  admin_file_id: string | null;
+  admin_file_name?: string | null;
   created_at: string;
   updated_at: string;
   items?: FinanceInvoiceItemRow[];
@@ -251,6 +271,43 @@ export function formatMyr(amount: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+/** e.g. "14 Aug" — used on quote PDFs and public links. */
+export function formatFinanceShortDate(iso: string): string {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString("en-MY", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+export const QUOTE_DEFAULT_VALIDITY_DAYS = 14;
+
+export function formatQuoteValidUntil(iso: string): string {
+  return `Valid until ${formatFinanceShortDate(iso)}`;
+}
+
+export function quoteValidityDays(
+  quoteDate: string,
+  validUntil: string,
+): number {
+  const ms =
+    new Date(`${validUntil}T12:00:00`).getTime() -
+    new Date(`${quoteDate}T12:00:00`).getTime();
+  return Math.max(1, Math.round(ms / 86_400_000));
+}
+
+export function defaultQuoteTermsNote(
+  quoteDate: string,
+  validUntil: string,
+): string {
+  return `Prices valid ${quoteValidityDays(quoteDate, validUntil)} days.`;
+}
+
+const QUOTE_TERMS_PATTERN = /^Prices valid \d+ days\.?$/;
+
+export function isDefaultQuoteTermsNote(note: string): boolean {
+  return QUOTE_TERMS_PATTERN.test(note.trim());
 }
 
 export function invoiceSharePath(idcompany: string, shareHash: string): string {
@@ -291,5 +348,24 @@ export function buildInvoiceShareMessage(
     `Invoice: ${invoiceNumber}\n` +
     `Amount: ${formatMyr(totalMyr)}\n` +
     `View & pay: ${shareUrl}`
+  );
+}
+
+export function buildQuoteShareMessage(
+  businessName: string,
+  quoteNumber: string,
+  totalMyr: number,
+  shareUrl: string,
+  validUntil?: string | null,
+): string {
+  const expiryLine = validUntil
+    ? `${formatQuoteValidUntil(validUntil)}\n`
+    : "";
+  return (
+    `Hi! Here is your quote from ${businessName}.\n` +
+    `Quote: ${quoteNumber}\n` +
+    `Amount: ${formatMyr(totalMyr)}\n` +
+    expiryLine +
+    `View: ${shareUrl}`
   );
 }

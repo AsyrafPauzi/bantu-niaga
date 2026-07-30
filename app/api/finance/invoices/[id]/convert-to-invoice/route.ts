@@ -58,13 +58,27 @@ async function requireFinanceUser(): Promise<
 
 /** POST /api/finance/invoices/[id]/convert-to-invoice — copy quote to invoice. */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const auth = await requireFinanceUser();
   if (auth.response) return auth.response;
   const { user } = auth;
+
+  let dueDateOverride: string | null | undefined;
+  try {
+    const body = await request.json();
+    if (body && typeof body === "object" && "due_date" in body) {
+      const raw = (body as { due_date?: unknown }).due_date;
+      if (raw === null || raw === "") dueDateOverride = null;
+      else if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        dueDateOverride = raw;
+      }
+    }
+  } catch {
+    // empty body is fine
+  }
 
   const supabase = await createSupabaseServerClient();
   const quote = await loadInvoiceWithItems(supabase, user.businessId, id);
@@ -93,6 +107,13 @@ export async function POST(
   const number = await nextFinanceInvoiceNumber(admin, user.businessId, "INV");
   const shareHash = generateShareHash();
   const now = new Date().toISOString();
+  const defaultDue = new Date();
+  defaultDue.setDate(defaultDue.getDate() + 30);
+  const dueDate =
+    dueDateOverride !== undefined
+      ? dueDateOverride
+      : quote.due_date ??
+        defaultDue.toISOString().slice(0, 10);
 
   const { data, error } = await supabase
     .from("finance_invoices")
@@ -115,10 +136,11 @@ export async function POST(
       shipping_myr: quote.shipping_myr,
       total_myr: quote.total_myr,
       status: "draft",
-      due_date: quote.due_date,
+      due_date: dueDate,
       notes: quote.notes,
       document_kind: "invoice",
       show_duitnow: quote.show_duitnow,
+      admin_file_id: quote.admin_file_id ?? null,
       converted_from_id: quote.id,
       created_by: user.id,
     })

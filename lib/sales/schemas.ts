@@ -150,6 +150,7 @@ export const leadUpdateSchema = z
     follow_up_at: followUpAtSchema,
     assigned_to: z.string().uuid().nullable().optional(),
     lost_reason: z.string().trim().max(500).nullable().optional(),
+    admin_file_id: z.string().uuid().nullable().optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).length > 0, {

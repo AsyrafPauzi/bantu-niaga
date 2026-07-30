@@ -136,7 +136,7 @@ export const loadAgentsOverview = cache(
           assistant_enabled: stored?.assistant_enabled ?? addonActive,
           daily_notice_enabled:
             stored?.daily_notice_enabled ??
-            (def.slug === "hr" && addonActive),
+            (addonActive && def.supportsDailyNotice),
           reasoning_mode: normalizeReasoningMode(stored?.reasoning_mode),
           daily_budget_myr: creditsToMyr(budgetCredits),
           daily_budget_credits: budgetCredits,

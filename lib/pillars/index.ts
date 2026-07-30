@@ -29,11 +29,10 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
     label: "Admin",
     short: "Admin",
     href: "/admin",
-    description: "Daily back-office: documents, tasks, notifications, compliance.",
+    description: "Daily back-office: tasks, compliance, and file storage.",
     surfaces: [
       { href: "/admin/tasks", label: "Tasks", primary: "both" },
       { href: "/admin/compliance", label: "Compliance", primary: "both" },
-      { href: "/admin/documents", label: "Documents", primary: "desktop" },
       { href: "/admin/storage", label: "Storage", primary: "desktop" },
     ],
   },

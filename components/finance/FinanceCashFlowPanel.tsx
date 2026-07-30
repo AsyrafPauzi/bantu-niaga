@@ -2,7 +2,8 @@
 
 import { useCallback, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDownRight, ArrowUpRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import { cn } from "@/lib/utils/cn";
 import {
   FINANCE_EXPENSE_CATEGORIES,
@@ -28,6 +29,33 @@ function fmtDate(iso: string): string {
   });
 }
 
+function isEditableTxn(row: FinanceTransactionRow): boolean {
+  if (row.finance_invoice_id) return false;
+  if (row.description.startsWith("POS ")) return false;
+  return true;
+}
+
+function applyTxnSummaryDelta(
+  summary: FinanceMonthSummary,
+  oldKind: FinanceTxnKind,
+  oldAmt: number,
+  newKind: FinanceTxnKind,
+  newAmt: number,
+): FinanceMonthSummary {
+  let income = summary.income_myr;
+  let expense = summary.expense_myr;
+  if (oldKind === "income") income -= oldAmt;
+  else expense -= oldAmt;
+  if (newKind === "income") income += newAmt;
+  else expense += newAmt;
+  return {
+    ...summary,
+    income_myr: income,
+    expense_myr: expense,
+    net_myr: income - expense,
+  };
+}
+
 export function FinanceCashFlowPanel({
   initialTransactions,
   initialSummary,
@@ -47,6 +75,7 @@ export function FinanceCashFlowPanel({
   const [txnDate, setTxnDate] = useState(new Date().toISOString().slice(0, 10));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const refresh = useCallback(() => router.refresh(), [router]);
@@ -54,7 +83,32 @@ export function FinanceCashFlowPanel({
   const categories =
     kind === "income" ? FINANCE_INCOME_CATEGORIES : FINANCE_EXPENSE_CATEGORIES;
 
-  const onCreate = useCallback(
+  const resetForm = useCallback(() => {
+    setAmount("");
+    setDescription("");
+    setCategory("");
+    setCounterparty("");
+    setPaymentMethod("");
+    setTxnDate(new Date().toISOString().slice(0, 10));
+    setEditingId(null);
+    setShowForm(false);
+    setFormError(null);
+  }, []);
+
+  const startEdit = useCallback((row: FinanceTransactionRow) => {
+    setEditingId(row.id);
+    setKind(row.kind);
+    setAmount(String(row.amount_myr));
+    setDescription(row.description);
+    setCategory(row.category ?? "");
+    setCounterparty(row.counterparty ?? "");
+    setPaymentMethod(row.payment_method ?? "");
+    setTxnDate(row.txn_date);
+    setShowForm(true);
+    setFormError(null);
+  }, []);
+
+  const onSave = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
       setFormError(null);
@@ -64,6 +118,56 @@ export function FinanceCashFlowPanel({
         if (!Number.isFinite(amountNum) || amountNum <= 0) {
           throw new Error("Enter a valid amount.");
         }
+
+        if (editingId) {
+          const existing = transactions.find((t) => t.id === editingId);
+          if (!existing) throw new Error("Entry not found.");
+          const res = await fetch(`/api/finance/transactions/${editingId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kind,
+              amount_myr: amountNum,
+              description,
+              category: category || null,
+              counterparty: counterparty || null,
+              payment_method: paymentMethod || null,
+              txn_date: txnDate,
+            }),
+          });
+          const json = (await res.json()) as {
+            ok: boolean;
+            data?: FinanceTransactionRow;
+            error?: { message?: string };
+          };
+          if (!res.ok || !json.ok || !json.data) {
+            throw new Error(json.error?.message ?? "Could not update entry.");
+          }
+          setTransactions((prev) =>
+            prev.map((t) =>
+              t.id === editingId
+                ? {
+                    ...t,
+                    ...json.data!,
+                    admin_file_name: t.admin_file_name,
+                  }
+                : t,
+            ),
+          );
+          setSummary((s) =>
+            applyTxnSummaryDelta(
+              s,
+              existing.kind,
+              Number(existing.amount_myr),
+              kind,
+              amountNum,
+            ),
+          );
+          resetForm();
+          refresh();
+          return;
+        }
+
         const res = await fetch("/api/finance/transactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -100,7 +204,7 @@ export function FinanceCashFlowPanel({
         setCategory("");
         setCounterparty("");
         setPaymentMethod("");
-        setShowForm(false);
+        resetForm();
         refresh();
       } catch (err) {
         setFormError(err instanceof Error ? err.message : "Save failed.");
@@ -113,9 +217,12 @@ export function FinanceCashFlowPanel({
       category,
       counterparty,
       description,
+      editingId,
       kind,
       paymentMethod,
       refresh,
+      resetForm,
+      transactions,
       txnDate,
     ],
   );
@@ -141,6 +248,29 @@ export function FinanceCashFlowPanel({
       } finally {
         setBusyId(null);
       }
+    },
+    [refresh],
+  );
+
+  const attachReceipt = useCallback(
+    async (id: string, fileId: string | null) => {
+      const res = await fetch(`/api/finance/transactions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_file_id: fileId }),
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        data?: FinanceTransactionRow;
+        error?: { message?: string };
+      };
+      if (!res.ok || !json.ok || !json.data) {
+        throw new Error(json.error?.message ?? "Could not update receipt.");
+      }
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...json.data! } : t)),
+      );
+      refresh();
     },
     [refresh],
   );
@@ -179,6 +309,7 @@ export function FinanceCashFlowPanel({
         <button
           type="button"
           onClick={() => {
+            resetForm();
             setKind("income");
             setShowForm(true);
           }}
@@ -190,6 +321,7 @@ export function FinanceCashFlowPanel({
         <button
           type="button"
           onClick={() => {
+            resetForm();
             setKind("expense");
             setShowForm(true);
           }}
@@ -202,11 +334,11 @@ export function FinanceCashFlowPanel({
 
       {showForm ? (
         <form
-          onSubmit={onCreate}
+          onSubmit={onSave}
           className="space-y-3 rounded-lg border border-cream-200 bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark"
         >
           <p className="text-sm font-semibold text-ink dark:text-cream-100">
-            New {kind === "income" ? "income" : "expense"} · {title}
+            {editingId ? "Edit" : "New"} {kind === "income" ? "income" : "expense"} · {title}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <input
@@ -277,11 +409,11 @@ export function FinanceCashFlowPanel({
               className="inline-flex items-center gap-1.5 rounded-md bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
             >
               {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              Save
+              {editingId ? "Update" : "Save"}
             </button>
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={resetForm}
               className="rounded-md border border-cream-300 px-3 py-1.5 text-xs font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
             >
               Cancel
@@ -302,6 +434,7 @@ export function FinanceCashFlowPanel({
             const isIncome = row.kind === "income";
             const busy = busyId === row.id;
             const amt = Number(row.amount_myr);
+            const editable = isEditableTxn(row);
             return (
               <li key={row.id} className="flex items-start gap-3 p-4">
                 <span
@@ -326,7 +459,18 @@ export function FinanceCashFlowPanel({
                     {fmtDate(row.txn_date)}
                     {row.counterparty ? ` · ${row.counterparty}` : ""}
                     {row.category ? ` · ${row.category.replace(/_/g, " ")}` : ""}
+                    {!editable ? " · system entry" : ""}
                   </p>
+                  {row.kind === "expense" ? (
+                    <div className="mt-2">
+                      <AdminStorageFileAttach
+                        fileId={row.admin_file_id}
+                        fileName={row.admin_file_name}
+                        label="Receipt"
+                        onAttach={(fileId) => attachReceipt(row.id, fileId)}
+                      />
+                    </div>
+                  ) : null}
                 </div>
                 <div className="text-right">
                   <p
@@ -338,19 +482,34 @@ export function FinanceCashFlowPanel({
                     {isIncome ? "+" : "−"}
                     {formatMyr(amt)}
                   </p>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void removeTxn(row.id, row.kind, amt)}
-                    className="mt-1 inline-flex items-center gap-1 text-xs text-ink-muted hover:text-status-danger dark:text-cream-400"
-                  >
-                    {busy ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3 w-3" />
-                    )}
-                    Remove
-                  </button>
+                  <div className="mt-1 flex justify-end gap-2">
+                    {editable ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => startEdit(row)}
+                        className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-brand-700 dark:text-cream-400 dark:hover:text-brand-200"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </button>
+                    ) : null}
+                    {editable ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void removeTxn(row.id, row.kind, amt)}
+                        className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-status-danger dark:text-cream-400"
+                      >
+                        {busy ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </li>
             );

@@ -7,7 +7,11 @@ import {
 } from "@/lib/auth/current-user";
 import { canSurface, getSurfaceScope } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { adminTaskUpdateSchema } from "@/lib/admin/task-compliance-schemas";
+import { assertAdminFileOwned } from "@/lib/admin/validate-admin-file";
+import { getTaskColumnIsDone } from "@/lib/admin/task-columns";
+import { enrichAdminTasks } from "@/lib/admin/tasks-enrich";
 
 export const dynamic = "force-dynamic";
 
@@ -136,10 +140,31 @@ export async function PATCH(
   }
 
   const patch: Record<string, unknown> = { ...parsed };
-  if (parsed.status === "done") {
-    patch.completed_at = new Date().toISOString();
-  } else if (parsed.status === "todo" || parsed.status === "doing") {
-    patch.completed_at = null;
+
+  if (parsed.admin_file_id !== undefined && parsed.admin_file_id !== null) {
+    const owned = await assertAdminFileOwned(
+      supabase,
+      user.businessId,
+      parsed.admin_file_id,
+    );
+    if (!owned) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "file_not_found", message: "Storage file not found." },
+        },
+        { status: 404 },
+      );
+    }
+  }
+
+  if (parsed.column_id !== undefined) {
+    const isDone = await getTaskColumnIsDone(
+      supabase,
+      user.businessId,
+      parsed.column_id,
+    );
+    patch.completed_at = isDone ? new Date().toISOString() : null;
   }
 
   const { data, error } = await supabase
@@ -148,8 +173,8 @@ export async function PATCH(
     .eq("id", id)
     .eq("business_id", user.businessId)
     .select(
-      "id, business_id, title, description, status, due_date, assignee_user_id, " +
-        "created_by, sort_order, completed_at, created_at, updated_at",
+      "id, business_id, title, description, column_id, due_date, assignee_user_id, " +
+        "admin_file_id, created_by, sort_order, completed_at, created_at, updated_at",
     )
     .single();
 
@@ -163,7 +188,11 @@ export async function PATCH(
     );
   }
 
-  return NextResponse.json({ ok: true, data }, { status: 200 });
+  const [enriched] = await enrichAdminTasks(supabase, user.businessId, [
+    data as unknown as import("@/lib/admin/task-compliance-schemas").AdminTaskRow,
+  ]);
+
+  return NextResponse.json({ ok: true, data: enriched }, { status: 200 });
 }
 
 export async function DELETE(
@@ -189,7 +218,27 @@ export async function DELETE(
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
+
+  const { data: existing, error: lookupErr } = await supabase
+    .from("admin_tasks")
+    .select("id")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (lookupErr || !existing) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: "not_found", message: "Task not found." },
+      },
+      { status: 404 },
+    );
+  }
+
+  const admin = createServiceRoleClient();
+  const { error } = await admin
     .from("admin_tasks")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", id)

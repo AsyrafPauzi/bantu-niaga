@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AdaptiveShell } from "@/components/shells/adaptive-shell";
 import { SessionRegistrar } from "@/components/auth/SessionRegistrar";
+import { ProductAnalytics } from "@/components/privacy/ProductAnalytics";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { loadUserMemberships } from "@/lib/auth/memberships";
 import {
@@ -8,9 +9,12 @@ import {
 } from "@/lib/auth/owned-business-limits";
 import { countOwnedBusinesses } from "@/lib/auth/count-owned-businesses";
 import { isStandaloneDeployment } from "@/lib/platform/deployment";
+import { getConsentFlags } from "@/lib/privacy/consent";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TierKey } from "@/lib/settings/plans";
 import { ImpersonationBanner } from "@/components/super-admin/ImpersonationBanner";
+import { loadSidebarAssistantsByModule } from "@/lib/navigation/sidebar-assistants";
+import type { SidebarAssistantsByModule } from "@/lib/navigation/sidebar-assistants";
 
 // Authenticated app surface — keep it out of search engines + previews.
 export const metadata: Metadata = {
@@ -35,10 +39,13 @@ export default async function AppLayout({
   let tier: TierKey = "starter";
   let memberships: Awaited<ReturnType<typeof loadUserMemberships>> = [];
   let canCreateCompany = true;
+  let analyticsConsent = false;
+  let sidebarAssistants: SidebarAssistantsByModule = {};
   try {
     const user = await getCurrentUser();
     const supabase = await createSupabaseServerClient();
-    const [{ data }, loadedMemberships, ownedCount] = await Promise.all([
+    const [{ data }, loadedMemberships, ownedCount, consentFlags, assistants] =
+      await Promise.all([
       supabase
         .from("businesses")
         .select("tier")
@@ -46,11 +53,15 @@ export default async function AppLayout({
         .maybeSingle(),
       loadUserMemberships(user.id, user.businessId),
       countOwnedBusinesses(user.id),
+      getConsentFlags(user.id),
+      loadSidebarAssistantsByModule(user.businessId),
     ]);
     if (data?.tier) tier = data.tier as TierKey;
     memberships = loadedMemberships;
     canCreateCompany =
       !isStandaloneDeployment() && canCreateOwnedBusiness(ownedCount);
+    analyticsConsent = consentFlags.analytics;
+    sidebarAssistants = assistants;
   } catch (e) {
     if (!(e instanceof UnauthorizedError)) throw e;
   }
@@ -60,8 +71,10 @@ export default async function AppLayout({
       tier={tier}
       memberships={memberships}
       canCreateCompany={canCreateCompany}
+      sidebarAssistants={sidebarAssistants}
     >
       <SessionRegistrar />
+      <ProductAnalytics enabled={analyticsConsent} />
       <ImpersonationBanner />
       {children}
     </AdaptiveShell>

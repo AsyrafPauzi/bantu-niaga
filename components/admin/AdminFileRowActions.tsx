@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Eye, Pencil, Trash2 } from "lucide-react";
 
 interface ApiEnvelope<T> {
   ok: boolean;
@@ -20,44 +20,61 @@ interface DownloadResponse {
 interface RowActionsProps {
   id: string;
   fileName: string;
+  mimeType: string;
   /** Show labels next to icons (desktop). Mobile cards pass false. */
   showLabels?: boolean;
+  onEdit?: () => void;
 }
 
-/**
- * Per-row Download + Delete buttons. Both call the corresponding API
- * route and (on delete) router.refresh() so the table re-renders without
- * the soft-deleted row.
- */
 export function AdminFileRowActions({
   id,
   fileName,
+  mimeType,
   showLabels = true,
+  onEdit,
 }: RowActionsProps) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"download" | "delete" | null>(null);
+  const [busy, setBusy] = useState<"download" | "preview" | "delete" | null>(
+    null,
+  );
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const fetchDownloadUrl = async (inline: boolean) => {
+    const res = await fetch(
+      `/api/admin/storage/${id}/download${inline ? "?inline=1" : ""}`,
+      { method: "GET" },
+    );
+    const body = (await res.json().catch(() => null)) as
+      | ApiEnvelope<DownloadResponse>
+      | null;
+    if (!res.ok || !body?.data) {
+      throw new Error(body?.error?.message ?? "Could not get a download link.");
+    }
+    return body.data;
+  };
 
   const handleDownload = async () => {
     setError(null);
     setBusy("download");
     try {
-      const res = await fetch(`/api/admin/storage/${id}/download`, {
-        method: "GET",
-      });
-      const body = (await res.json().catch(() => null)) as
-        | ApiEnvelope<DownloadResponse>
-        | null;
-      if (!res.ok || !body?.data) {
-        setError(body?.error?.message ?? "Could not get a download link.");
-        return;
-      }
-      // Direct navigate triggers the browser download (the signed URL
-      // carries a Content-Disposition: attachment hint).
-      window.location.href = body.data.download_url;
+      const data = await fetchDownloadUrl(false);
+      window.location.href = data.download_url;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Download failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handlePreview = async () => {
+    setError(null);
+    setBusy("preview");
+    try {
+      const data = await fetchDownloadUrl(true);
+      window.open(data.download_url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Preview failed.");
     } finally {
       setBusy(null);
     }
@@ -86,13 +103,40 @@ export function AdminFileRowActions({
     }
   };
 
+  const canPreview =
+    mimeType.startsWith("image/") || mimeType === "application/pdf";
+
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
+      {canPreview ? (
+        <button
+          type="button"
+          onClick={() => void handlePreview()}
+          disabled={busy !== null}
+          className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+          aria-label="Preview file"
+        >
+          <Eye className="h-3.5 w-3.5" strokeWidth={2} />
+          {showLabels ? (busy === "preview" ? "Opening…" : "Preview") : null}
+        </button>
+      ) : null}
+      {onEdit ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={busy !== null}
+          className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+          aria-label="Edit file metadata"
+        >
+          <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+          {showLabels ? "Edit" : null}
+        </button>
+      ) : null}
       <button
         type="button"
-        onClick={handleDownload}
+        onClick={() => void handleDownload()}
         disabled={busy !== null}
-        className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+        className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
         aria-label="Download file"
       >
         <Download className="h-3.5 w-3.5" strokeWidth={2} />
@@ -100,9 +144,9 @@ export function AdminFileRowActions({
       </button>
       <button
         type="button"
-        onClick={handleDelete}
+        onClick={() => void handleDelete()}
         disabled={busy !== null}
-        className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-2.5 py-1 text-xs font-semibold text-status-danger hover:bg-status-danger/10 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:hover:bg-status-danger/15"
+        className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-2.5 py-1 text-xs font-semibold text-status-danger hover:bg-status-danger/10 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark"
         aria-label="Delete file"
       >
         <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />

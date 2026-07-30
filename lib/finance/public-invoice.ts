@@ -14,6 +14,7 @@ export interface PublicFinanceInvoice {
   number: string;
   share_hash: string;
   customer_name: string;
+  customer_email: string | null;
   title: string | null;
   description: string | null;
   invoice_date: string | null;
@@ -34,6 +35,7 @@ export interface PublicFinanceInvoice {
     idcompany: string;
     name: string;
     duitnow_id: string | null;
+    duitnow_qr_url: string | null;
     sst_enabled: boolean;
     sst_rate_pct: number;
   };
@@ -48,7 +50,7 @@ export async function loadPublicFinanceInvoice(
   const { data: business } = await admin
     .from("businesses")
     .select(
-      "id, idcompany, name, duitnow_id, sst_enabled, sst_rate_pct",
+      "id, idcompany, name, duitnow_id, duitnow_qr_url, sst_enabled, sst_rate_pct",
     )
     .eq("idcompany", idcompany)
     .maybeSingle();
@@ -60,7 +62,7 @@ export async function loadPublicFinanceInvoice(
   const { data: invoice } = await admin
     .from("finance_invoices")
     .select(
-      "id, number, share_hash, customer_name, title, description, invoice_date, " +
+      "id, number, share_hash, customer_name, customer_email, title, description, invoice_date, " +
         "amount_myr, discount_myr, tax_myr, shipping_myr, total_myr, status, " +
         "due_date, paid_at, notes, show_duitnow, document_kind",
     )

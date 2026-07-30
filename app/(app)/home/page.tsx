@@ -11,15 +11,13 @@ import {
   Megaphone,
   ShoppingCart,
   Sparkles,
-  Tag,
   TrendingUp,
-  UserCheck,
   UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import { AiBanner } from "@/components/dashboard/ai-banner";
-import { AgentNoticeCard } from "@/components/dashboard/agent-notice-card";
+import { AgentNoticeCarousel } from "@/components/dashboard/agent-notice-carousel";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -29,21 +27,16 @@ import {
   UnauthorizedError,
 } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { formatCount } from "@/lib/marketing/metrics";
-import { loadTodayHrNotice } from "@/lib/hr/load";
+import { loadTodayHomeAgentNotices } from "@/lib/agent-notices/load-home";
 import {
-  hasHrAssistantAddon,
-  loadBusinessAgentSettings,
-} from "@/lib/marketplace/entitlements";
+  loadHomeRecentActivity,
+  loadHomeSnapshot,
+} from "@/lib/home/load-snapshot";
+import { formatCount } from "@/lib/marketing/metrics";
 import {
   getKpiSnapshot,
-  getRecentActivity,
 } from "@/lib/marketing/dashboard-queries";
-import {
-  formatMyrAmount,
-  getDemoActivity,
-  getDemoFigures,
-} from "@/lib/demo/figures";
+import { formatMyrAmount } from "@/lib/demo/figures";
 import {
   hasPillar,
   minimumTierFor,
@@ -100,22 +93,9 @@ function fmtRel(iso: string): string {
   return `${days}d ago`;
 }
 
-function eventIcon(name: string): {
-  icon: LucideIcon;
-  tone: "brand" | "success" | "warning" | "neutral";
-} {
-  switch (name) {
-    case "customer.created":
-      return { icon: UserPlus, tone: "success" };
-    case "customer.tag_changed":
-      return { icon: Tag, tone: "brand" };
-    case "customer.merged":
-      return { icon: UserCheck, tone: "brand" };
-    case "customer.deleted":
-      return { icon: AlertTriangle, tone: "warning" };
-    default:
-      return { icon: Users, tone: "neutral" };
-  }
+function formatGrowthPct(pct: number | null): string {
+  if (pct === null) return "No prior month";
+  return `${pct >= 0 ? "+" : ""}${pct}%`;
 }
 
 async function fetchDisplayName(): Promise<string> {
@@ -148,18 +128,16 @@ export default async function HomePage() {
 
   const { weekday, greeting } = todayParts();
   const supabase = await createSupabaseServerClient();
-  const [displayName, snapshot, activity, hrAddon, hrSettings, hrNotice] =
+  const [displayName, snapshot, homeSnapshot, recentActivity, homeNotices] =
     await Promise.all([
-    fetchDisplayName(),
-    getKpiSnapshot(supabase, user.businessId),
-    getRecentActivity(supabase, user.businessId, 6),
-    hasHrAssistantAddon(user.businessId),
-    loadBusinessAgentSettings(user.businessId),
-    loadTodayHrNotice(user.businessId),
-  ]);
+      fetchDisplayName(),
+      getKpiSnapshot(supabase, user.businessId),
+      loadHomeSnapshot(supabase, user.businessId),
+      loadHomeRecentActivity(supabase, user.businessId, 6),
+      loadTodayHomeAgentNotices(user.businessId, user.id, user.role),
+    ]);
 
-  const figures = getDemoFigures(user.businessId);
-  const demoActivity = getDemoActivity(user.businessId, 3);
+  const figures = homeSnapshot;
 
   const { data: bizRow } = await supabase
     .from("businesses")
@@ -174,11 +152,11 @@ export default async function HomePage() {
   const onFreePlan =
     tier === "starter" && (bizRow?.subscription_status ?? "active") === "active";
   const maxBar = Math.max(
+    1,
     ...figures.cashflow.flatMap((d) => [d.inflow, d.outflow]),
   );
-  const inflow7d = figures.cashflow.reduce((a, d) => a + d.inflow, 0) * 100;
-  const outflow7d = figures.cashflow.reduce((a, d) => a + d.outflow, 0) * 100;
-  const docsThisMonth = (snapshot.totalCustomers % 19) + 4;
+  const inflow7d = figures.cashflow.reduce((a, d) => a + d.inflow, 0);
+  const outflow7d = figures.cashflow.reduce((a, d) => a + d.outflow, 0);
 
   interface PillarTile {
     href: string;
@@ -198,11 +176,11 @@ export default async function HomePage() {
       label: "Admin",
       pillar: "admin",
       icon: FileText,
-      metric: String(docsThisMonth),
+      metric: String(figures.docsThisMonth),
       secondary: "docs",
-      helper: `${docsThisMonth} active this month`,
+      helper: `${figures.docsThisMonth} uploaded this month`,
       tone: "brand",
-      live: false,
+      live: true,
     },
     {
       href: "/finance",
@@ -213,7 +191,7 @@ export default async function HomePage() {
       secondary: "MTD",
       helper: `${figures.outstandingInvoices} invoices outstanding`,
       tone: "success",
-      live: false,
+      live: true,
     },
     {
       href: "/operations",
@@ -225,7 +203,7 @@ export default async function HomePage() {
       helper:
         figures.opsAtRisk > 0 ? "Some orders need attention" : "All on track",
       tone: figures.opsAtRisk > 0 ? "warning" : "brand",
-      live: false,
+      live: true,
     },
     {
       href: "/marketing",
@@ -247,7 +225,7 @@ export default async function HomePage() {
       secondary: `RM ${formatMyrAmount(figures.salesToday)} today`,
       helper: "Across all channels",
       tone: "brand",
-      live: false,
+      live: true,
     },
     {
       href: "/hr",
@@ -261,7 +239,7 @@ export default async function HomePage() {
           ? "Approve in HR dashboard"
           : "All caught up",
       tone: "brand",
-      live: false,
+      live: true,
     },
   ];
 
@@ -308,8 +286,14 @@ export default async function HomePage() {
         <KpiTile
           label="Revenue (MTD)"
           value={`RM ${formatMyrAmount(figures.revenueMtd)}`}
-          delta={`${figures.revenueGrowthPct >= 0 ? "+" : ""}${figures.revenueGrowthPct}%`}
-          deltaTone={figures.revenueGrowthPct >= 0 ? "success" : "warning"}
+          delta={formatGrowthPct(figures.revenueGrowthPct)}
+          deltaTone={
+            figures.revenueGrowthPct === null
+              ? "neutral"
+              : figures.revenueGrowthPct >= 0
+                ? "success"
+                : "warning"
+          }
           helper="vs last month"
           icon={TrendingUp}
         />
@@ -324,21 +308,9 @@ export default async function HomePage() {
         <KpiTile
           label="Low stock"
           value={`${figures.lowStock} SKU`}
-          delta={
-            figures.lowStockDelta === 0
-              ? "0"
-              : figures.lowStockDelta > 0
-                ? `+${figures.lowStockDelta}`
-                : `${figures.lowStockDelta}`
-          }
-          deltaTone={
-            figures.lowStockDelta > 0
-              ? "danger"
-              : figures.lowStockDelta < 0
-                ? "success"
-                : "neutral"
-          }
-          helper="since yesterday"
+          delta={figures.lowStock > 0 ? "Needs reorder" : "All stocked"}
+          deltaTone={figures.lowStock > 0 ? "danger" : "success"}
+          helper="active products tracked"
           icon={AlertTriangle}
         />
         <KpiTile
@@ -359,19 +331,15 @@ export default async function HomePage() {
         label="Bantu Niaga AI"
         message={
           snapshot.atRiskCount > 0
-            ? `${formatCount(snapshot.atRiskCount)} customers at-risk and revenue MTD is tracking ${figures.revenueGrowthPct >= 0 ? "+" : ""}${figures.revenueGrowthPct}%. Open the Boardroom for a synthesised plan.`
+            ? `${formatCount(snapshot.atRiskCount)} customers at-risk and revenue MTD is ${formatGrowthPct(figures.revenueGrowthPct).toLowerCase()}. Open the Boardroom for a synthesised plan.`
             : `Outstanding AR is RM ${formatMyrAmount(figures.outstanding)} across ${figures.outstandingInvoices} invoices, ${figures.lowStock} SKUs are running low, and ${formatCount(snapshot.newThisMonth)} new customers joined this month. Open the Boardroom for a synthesised plan.`
         }
         cta="Open Boardroom"
         href="/boardroom"
       />
 
-      {hrAddon && hrSettings.dailyNoticeEnabled && hrNotice ? (
-        <AgentNoticeCard
-          title={hrNotice.title}
-          body={hrNotice.body}
-          assistantName={hrSettings.displayName}
-        />
+      {homeNotices.length > 0 ? (
+        <AgentNoticeCarousel notices={homeNotices} />
       ) : null}
 
       <section aria-label="Module overview">
@@ -495,12 +463,12 @@ export default async function HomePage() {
                   <div
                     className="w-3 rounded-t-md bg-brand-500 sm:w-4"
                     style={{ height: `${(d.inflow / maxBar) * 100}%` }}
-                    title={`Inflow RM ${d.inflow * 100}`}
+                    title={`Inflow RM ${formatMyrAmount(d.inflow)}`}
                   />
                   <div
                     className="w-3 rounded-t-md bg-accent-500 sm:w-4"
                     style={{ height: `${(d.outflow / maxBar) * 100}%` }}
-                    title={`Outflow RM ${d.outflow * 100}`}
+                    title={`Outflow RM ${formatMyrAmount(d.outflow)}`}
                   />
                 </div>
                 <span className="text-[11px] font-medium text-ink-muted dark:text-cream-400">
@@ -550,43 +518,41 @@ export default async function HomePage() {
             </Link>
           }
         >
-          {demoActivity.map((row) => {
-            const icon =
-              row.kind === "invoice_paid"
-                ? CheckCircle2
-                : row.kind === "pos_sale"
-                  ? ShoppingCart
-                  : Boxes;
-            const tone =
-              row.kind === "invoice_paid"
-                ? "success"
-                : row.kind === "pos_sale"
-                  ? "brand"
-                  : "warning";
-            return (
-              <TxRow
-                key={row.id}
-                icon={icon}
-                tone={tone}
-                title={row.title}
-                subtitle={row.subtitle}
-                amount={row.amount}
-              />
-            );
-          })}
-          {activity.slice(0, 3).map((row) => {
-            const ev = eventIcon(row.event_name);
-            return (
-              <TxRow
-                key={row.id}
-                icon={ev.icon}
-                tone={ev.tone}
-                title={row.summary}
-                subtitle={fmtRel(row.created_at)}
-                amount="Live"
-              />
-            );
-          })}
+          {recentActivity.length > 0 ? (
+            recentActivity.map((row) => {
+              const icon =
+                row.kind === "invoice_paid"
+                  ? CheckCircle2
+                  : row.kind === "pos_sale"
+                    ? ShoppingCart
+                    : row.kind === "customer"
+                      ? UserPlus
+                      : Boxes;
+              const tone =
+                row.kind === "invoice_paid"
+                  ? "success"
+                  : row.kind === "pos_sale"
+                    ? "brand"
+                    : row.kind === "customer"
+                      ? "brand"
+                      : "warning";
+              return (
+                <TxRow
+                  key={row.id}
+                  icon={icon}
+                  tone={tone}
+                  title={row.title}
+                  subtitle={fmtRel(row.createdAt)}
+                  amount={row.amount}
+                />
+              );
+            })
+          ) : (
+            <p className="py-6 text-center text-sm text-ink-muted dark:text-cream-400">
+              No recent activity yet — invoices, POS sales, and CRM events will
+              show up here.
+            </p>
+          )}
         </SectionCard>
       </div>
 
@@ -658,19 +624,15 @@ export default async function HomePage() {
           bodyClassName="space-y-2.5"
         >
           <p className="text-sm text-ink-muted dark:text-cream-400">
-            Marketing CRM and the Marketplace are wired to real data.
-            Finance, Operations, Sales, and HR modules will replace today&apos;s
-            figures with their own ledgers as each ships.
+            Home pulls live numbers from Finance, Operations, Sales, HR, Admin,
+            and Marketing — all scoped to your business.
           </p>
           <ul className="space-y-1.5">
             {[
-              { label: "Marketing CRM (live)", tone: "success" as const },
-              { label: "Marketplace add-ons (live)", tone: "success" as const },
-              {
-                label: "Module dashboards (UI ready)",
-                tone: "warning" as const,
-              },
-              { label: "AI Boardroom (preview)", tone: "warning" as const },
+              { label: "Finance ledger & invoices", tone: "success" as const },
+              { label: "Operations stock & orders", tone: "success" as const },
+              { label: "Marketing CRM", tone: "success" as const },
+              { label: "AI daily notices", tone: "success" as const },
             ].map((item) => (
               <li
                 key={item.label}
@@ -694,9 +656,7 @@ export default async function HomePage() {
       </div>
 
       <p className="text-center text-[11px] text-ink-subtle">
-        Marketing CRM and the Marketplace run on real data · Finance,
-        Operations, Sales, and HR modules will swap in their own data services
-        as each ships.
+        All figures on this page are live from your business data.
       </p>
     </div>
   );

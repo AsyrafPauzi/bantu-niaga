@@ -10,6 +10,7 @@ import {
   HR_STAFF_APPRAISAL_ADDON_SLUG,
   HR_STAFF_PORTAL_ADDON_SLUG,
   HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG,
+  ADMIN_ASSISTANT_ADDON_SLUG,
   FINANCE_ASSISTANT_ADDON_SLUG,
   MARKETING_ASSISTANT_ADDON_SLUG,
   OPERATIONS_ASSISTANT_ADDON_SLUG,
@@ -78,6 +79,12 @@ export async function hasOperationsAssistantAddon(
   businessId: string,
 ): Promise<boolean> {
   return hasActiveAddon(businessId, OPERATIONS_ASSISTANT_ADDON_SLUG);
+}
+
+export async function hasAdminAssistantAddon(
+  businessId: string,
+): Promise<boolean> {
+  return hasActiveAddon(businessId, ADMIN_ASSISTANT_ADDON_SLUG);
 }
 
 export async function hasPublicHolidaysAddon(businessId: string): Promise<boolean> {

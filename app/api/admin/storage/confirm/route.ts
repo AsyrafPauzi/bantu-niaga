@@ -262,6 +262,7 @@ export async function POST(request: Request) {
   const description = parsed.description?.trim()
     ? parsed.description.trim()
     : null;
+  const tags = parsed.tags ?? [];
 
   // Insert via the regular RLS-respecting client.
   const supabase = await createSupabaseServerClient();
@@ -276,10 +277,11 @@ export async function POST(request: Request) {
       file_size_bytes: parsed.file_size_bytes,
       category: finalCategory,
       description,
+      tags,
     })
     .select(
       "id, business_id, uploaded_by, storage_path, file_name, mime_type, " +
-        "file_size_bytes, category, description, created_at, updated_at",
+        "file_size_bytes, category, description, tags, created_at, updated_at",
     )
     .single();
 
@@ -310,8 +312,13 @@ export async function POST(request: Request) {
     .eq("id", user.id)
     .maybeSingle();
 
+  const insertedRow = inserted as unknown as Omit<AdminFileRow, "uploaded_by_name" | "tags"> & {
+    tags?: string[];
+  };
+
   const row: AdminFileRow = {
-    ...(inserted as unknown as Omit<AdminFileRow, "uploaded_by_name">),
+    ...insertedRow,
+    tags: Array.isArray(insertedRow.tags) ? insertedRow.tags : [],
     uploaded_by_name:
       (profile as { display_name?: string | null } | null)?.display_name ?? null,
   };

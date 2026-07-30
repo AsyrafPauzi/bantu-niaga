@@ -309,6 +309,7 @@ export async function POST(request: Request) {
 
     await recordAiUsage({
       businessId: ctx.businessId,
+      actorUserId: ctx.userId,
       triggerType: "CHAT",
       creditsCharged: 0,
       mode: "fast",
@@ -398,6 +399,7 @@ export async function POST(request: Request) {
 
     await recordAiUsage({
       businessId: ctx.businessId,
+      actorUserId: ctx.userId,
       triggerType: "CHAT",
       creditsCharged: totalCharged,
       mode: "fast",

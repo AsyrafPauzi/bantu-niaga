@@ -14,10 +14,11 @@
   html {
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
+    @apply h-dvh overflow-hidden;
   }
 
   body {
-    @apply bg-surface-light text-ink antialiased dark:bg-surface-dark dark:text-cream-100;
+    @apply h-dvh overflow-hidden bg-surface-light text-ink antialiased dark:bg-surface-dark dark:text-cream-100;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 

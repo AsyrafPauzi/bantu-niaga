@@ -1,9 +1,16 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PayFieldCopy } from "@/components/finance/PayFieldCopy";
+import { FinancePublicCheckoutButton } from "@/components/finance/FinancePublicCheckoutButton";
+import { isFinanceBillplzCheckoutEnabled } from "@/lib/finance/billplz-config";
 import { loadPublicFinanceInvoice } from "@/lib/finance/public-invoice";
-import { formatMyr } from "@/lib/finance/schemas";
+import {
+  formatFinanceShortDate,
+  formatMyr,
+  formatQuoteValidUntil,
+} from "@/lib/finance/schemas";
 
 /**
  * Single dispatcher for all unauthenticated secure-hash URLs:
@@ -68,12 +75,21 @@ async function InvoiceView({
   if (!invoice) notFound();
 
   const { business } = invoice;
-  const duitnowId = business.duitnow_id ?? "—";
+  const duitnowId = business.duitnow_id;
+  const duitnowQrUrl = business.duitnow_qr_url;
   const total = formatMyr(Number(invoice.total_myr));
+  const totalMyr = Number(invoice.total_myr).toFixed(2);
   const isPaid = invoice.status === "paid";
   const isQuote = invoice.document_kind === "quote";
-  const showPayPanel =
-    !isPaid && !isQuote && invoice.show_duitnow && Boolean(business.duitnow_id);
+  const fpxEnabled = isFinanceBillplzCheckoutEnabled();
+  const showDuitnow =
+    !isPaid &&
+    !isQuote &&
+    invoice.show_duitnow &&
+    Boolean(duitnowQrUrl || duitnowId);
+  const showPayCard = !isPaid && !isQuote && (fpxEnabled || showDuitnow);
+  const quoteBadgeLabel =
+    invoice.status === "sent" ? "Sent" : "Quote";
 
   return (
     <div className="space-y-4">
@@ -89,6 +105,17 @@ async function InvoiceView({
         </p>
         {invoice.title ? (
           <p className="mt-1 text-sm text-ink dark:text-cream-100">{invoice.title}</p>
+        ) : null}
+        {invoice.invoice_date ? (
+          <p className="mt-2 text-xs text-ink-muted dark:text-cream-400">
+            {isQuote ? "Quote date" : "Invoice date"}:{" "}
+            {formatFinanceShortDate(invoice.invoice_date)}
+            {invoice.due_date
+              ? isQuote
+                ? ` · ${formatQuoteValidUntil(invoice.due_date)}`
+                : ` · Due ${formatFinanceShortDate(invoice.due_date)}`
+              : null}
+          </p>
         ) : null}
       </header>
 
@@ -129,9 +156,9 @@ async function InvoiceView({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Amount due</CardTitle>
-            <Badge tone={isPaid ? "success" : "brand"}>
-              {isPaid ? "Paid" : invoice.status}
+            <CardTitle>{isQuote ? "Quote total" : "Amount due"}</CardTitle>
+            <Badge tone={isPaid && !isQuote ? "success" : "brand"}>
+              {isQuote ? quoteBadgeLabel : isPaid ? "Paid" : invoice.status}
             </Badge>
           </div>
         </CardHeader>
@@ -170,30 +197,98 @@ async function InvoiceView({
           </p>
           {invoice.due_date ? (
             <p className="text-xs text-ink-muted dark:text-cream-400">
-              Due: {invoice.due_date}
+              {isQuote
+                ? formatQuoteValidUntil(invoice.due_date)
+                : `Due: ${formatFinanceShortDate(invoice.due_date)}`}
             </p>
           ) : null}
         </CardBody>
       </Card>
 
-      {!isPaid && showPayPanel ? (
+      {isQuote && invoice.notes?.trim() ? (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Pay Now</CardTitle>
-              <Badge tone="brand">DuitNow</Badge>
-            </div>
+            <CardTitle>Terms</CardTitle>
           </CardHeader>
-          <CardBody className="space-y-3 text-sm">
-            <p className="text-ink-muted dark:text-cream-400">
-              Tap to copy each field, paste into your banking app&apos;s DuitNow
-              Transfer.
-            </p>
-            <div className="space-y-2">
-              <PayFieldCopy label="DuitNow ID" value={duitnowId} />
-              <PayFieldCopy label="Amount (MYR)" value={Number(invoice.total_myr).toFixed(2)} />
-              <PayFieldCopy label="Reference" value={invoice.number} />
-            </div>
+          <CardBody className="whitespace-pre-wrap text-sm text-ink dark:text-cream-100">
+            {invoice.notes.trim()}
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {showPayCard ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pay this invoice</CardTitle>
+          </CardHeader>
+          <CardBody className="space-y-5 text-sm">
+            {fpxEnabled ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+                  Online — FPX / card
+                </p>
+                <FinancePublicCheckoutButton
+                  idcompany={idcompany}
+                  shareHash={hash}
+                />
+              </div>
+            ) : null}
+
+            {fpxEnabled && showDuitnow ? (
+              <div className="relative py-1 text-center text-xs text-ink-muted dark:text-cream-400">
+                <span className="bg-panel-light px-2 dark:bg-panel-dark">or</span>
+                <div className="absolute inset-x-0 top-1/2 -z-10 border-t border-cream-200 dark:border-hairline-dark" />
+              </div>
+            ) : null}
+
+            {showDuitnow ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+                    DuitNow
+                  </p>
+                  <Badge tone="brand">Scan or transfer</Badge>
+                </div>
+
+                {duitnowQrUrl ? (
+                  <div className="rounded-xl border border-dashed border-cream-300 bg-cream-50/50 p-4 text-center dark:border-hairline-dark dark:bg-panel-dark/40">
+                    <Image
+                      src={duitnowQrUrl}
+                      alt="DuitNow QR code"
+                      width={200}
+                      height={200}
+                      className="mx-auto rounded-lg"
+                      unoptimized
+                    />
+                    <p className="mt-3 text-sm text-ink dark:text-cream-100">
+                      Scan with your banking app to pay{" "}
+                      <span className="font-semibold tabular-nums">{total}</span>
+                    </p>
+                    <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
+                      Use reference <span className="font-medium">{invoice.number}</span>{" "}
+                      if your bank asks for one.
+                    </p>
+                  </div>
+                ) : null}
+
+                {duitnowId ? (
+                  <div className="space-y-2">
+                    {duitnowQrUrl ? (
+                      <p className="text-xs text-ink-muted dark:text-cream-400">
+                        Prefer manual transfer? Copy these details:
+                      </p>
+                    ) : (
+                      <p className="text-xs text-ink-muted dark:text-cream-400">
+                        Copy each field into your banking app&apos;s DuitNow transfer.
+                      </p>
+                    )}
+                    <PayFieldCopy label="DuitNow ID" value={duitnowId} />
+                    <PayFieldCopy label="Amount (MYR)" value={totalMyr} />
+                    <PayFieldCopy label="Reference" value={invoice.number} />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </CardBody>
         </Card>
       ) : isPaid ? (

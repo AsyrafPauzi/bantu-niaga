@@ -36,6 +36,26 @@ export const ADMIN_FILE_CATEGORIES = [
 ] as const;
 export type AdminFileCategory = (typeof ADMIN_FILE_CATEGORIES)[number];
 
+export const ADMIN_FILE_SORT_OPTIONS = ["newest", "largest", "name"] as const;
+export type AdminFileSort = (typeof ADMIN_FILE_SORT_OPTIONS)[number];
+
+export const ADMIN_FILE_MAX_TAGS = 10;
+export const ADMIN_FILE_MAX_TAG_LEN = 40;
+
+const adminFileTagsSchema = z
+  .array(
+    z
+      .string()
+      .trim()
+      .min(1)
+      .max(ADMIN_FILE_MAX_TAG_LEN)
+      .regex(
+        /^[a-z0-9][a-z0-9_-]*$/i,
+        "Tags may only contain letters, numbers, hyphens, and underscores.",
+      ),
+  )
+  .max(ADMIN_FILE_MAX_TAGS);
+
 // ─────────────────────────────────────────────────────────────────────────
 // POST /api/admin/storage — issue signed upload URL
 // ─────────────────────────────────────────────────────────────────────────
@@ -66,6 +86,7 @@ export const adminFileUploadInitSchema = z
       .max(2000)
       .optional()
       .nullable(),
+    tags: adminFileTagsSchema.optional(),
   })
   .strict();
 
@@ -102,6 +123,7 @@ export const adminFileConfirmSchema = z
       .max(2000)
       .optional()
       .nullable(),
+    tags: adminFileTagsSchema.optional(),
   })
   .strict();
 
@@ -114,16 +136,46 @@ export type AdminFileConfirm = z.infer<typeof adminFileConfirmSchema>;
 export const adminFileListQuerySchema = z.object({
   q: z.string().trim().min(1).max(200).optional(),
   category: z.enum(ADMIN_FILE_CATEGORIES).optional(),
+  sort: z.enum(ADMIN_FILE_SORT_OPTIONS).default("newest"),
   limit: z.coerce.number().int().min(1).max(200).default(50),
-  /**
-   * Opaque cursor: `<iso-created_at>__<id>`. The handler decodes it for
-   * the keyset paging `(created_at, id) < (cursor.created_at, cursor.id)`
-   * clause; the client treats it as a black box.
-   */
-  cursor: z.string().trim().min(1).max(200).optional(),
+  /** Opaque cursor — base64url JSON or legacy newest cursor. */
+  cursor: z.string().trim().min(1).max(400).optional(),
 });
 
 export type AdminFileListQuery = z.infer<typeof adminFileListQuerySchema>;
+
+// ─────────────────────────────────────────────────────────────────────────
+// PATCH /api/admin/storage/[id] — update metadata
+// ─────────────────────────────────────────────────────────────────────────
+
+export const adminFileUpdateSchema = z
+  .object({
+    file_name: z
+      .string()
+      .trim()
+      .min(1, "File name is required.")
+      .max(ADMIN_FILE_MAX_NAME_LEN)
+      .optional(),
+    category: z.enum(ADMIN_FILE_CATEGORIES).optional().nullable(),
+    description: z
+      .string()
+      .trim()
+      .max(2000)
+      .optional()
+      .nullable(),
+    tags: adminFileTagsSchema.optional(),
+  })
+  .strict()
+  .refine(
+    (v) =>
+      v.file_name !== undefined ||
+      v.category !== undefined ||
+      v.description !== undefined ||
+      v.tags !== undefined,
+    { message: "At least one field must be provided." },
+  );
+
+export type AdminFileUpdate = z.infer<typeof adminFileUpdateSchema>;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Wire types — list rows + responses
@@ -139,6 +191,7 @@ export interface AdminFileRow {
   file_size_bytes: number;
   category: string | null;
   description: string | null;
+  tags: string[];
   created_at: string;
   updated_at: string;
   uploaded_by_name: string | null;
@@ -163,9 +216,12 @@ export interface AdminFileDownloadResponse {
   mime_type: string;
 }
 
+import type { AdminFileUsageLink } from "@/lib/admin/storage-usage";
+
 export interface AdminFileListResponse {
   data: AdminFileRow[];
   next_cursor: string | null;
+  usage_by_file_id?: Record<string, AdminFileUsageLink[]>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -1,19 +1,18 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { TeamView } from "@/components/settings/TeamView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { isSaasDeployment } from "@/lib/platform/deployment";
 import { loadBusiness } from "@/lib/settings/business";
-import { tierBy } from "@/lib/settings/plans";
 import {
+  countTeamAudit,
   loadTeamAudit,
   loadTeamInvites,
   loadTeamMembers,
   seatQuota,
 } from "@/lib/settings/team";
 
-export const metadata = { title: "Team & roles" };
+export const metadata = { title: "Team" };
 export const dynamic = "force-dynamic";
 
 export default async function TeamSettingsPage() {
@@ -26,44 +25,47 @@ export default async function TeamSettingsPage() {
   }
 
   const business = await loadBusiness(user.businessId);
-  const [members, invites, audit] = await Promise.all([
+  const [members, invites, audit, auditTotal] = await Promise.all([
     loadTeamMembers(user.businessId),
     loadTeamInvites(user.businessId),
-    loadTeamAudit(user.businessId),
+    loadTeamAudit(user.businessId, 10),
+    countTeamAudit(user.businessId),
   ]);
 
   const tier = business?.tier ?? "starter";
   const quota = seatQuota(tier);
   const seatUsed = members.length + invites.length;
-  const tierLabel = tierBy(tier)?.label ?? tier;
   const canEdit = user.role === "owner";
 
-  return (
-    <div className="space-y-6">
-      <Link
-        href="/settings"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Back to settings
-      </Link>
+  const summaryParts = [
+    `${members.length} member${members.length === 1 ? "" : "s"}`,
+    invites.length > 0
+      ? `${invites.length} invite${invites.length === 1 ? "" : "s"} pending`
+      : null,
+    quota >= 999
+      ? `${seatUsed} seats`
+      : `${seatUsed}/${quota} seats`,
+  ].filter(Boolean);
 
+  return (
+    <>
       <PageHeader
-        eyebrow="Settings · Workspace"
-        title="Team & roles"
-        description="Invite staff, assign roles, revoke access, and review who can see what."
+        eyebrow="Settings"
+        title="Team"
+        description={summaryParts.join(" · ")}
       />
 
       <TeamView
         members={members}
         invites={invites}
         audit={audit}
+        auditTotal={auditTotal}
         seatQuota={quota}
         seatUsed={seatUsed}
         canEdit={canEdit}
         currentUserId={user.id}
-        tierLabel={tierLabel}
+        showBillingLink={isSaasDeployment() || user.role === "owner"}
       />
-    </div>
+    </>
   );
 }

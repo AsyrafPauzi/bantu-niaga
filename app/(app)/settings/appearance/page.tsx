@@ -1,6 +1,7 @@
 "use client";
 
 import { Sun, Moon, Monitor, type LucideIcon } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -39,22 +40,13 @@ export default function AppearanceSettingsPage() {
   const { preference, resolved, setPreference } = useTheme();
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand-700/70 dark:text-brand-200/70">
-            Settings
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-ink sm:text-3xl dark:text-cream-100">
-            Appearance
-          </h1>
-          <p className="mt-2 max-w-2xl text-base text-ink-muted dark:text-cream-400">
-            Pick a theme for Bantu Niaga. The setting is saved in this browser
-            only — we&apos;ll sync it to your account in a later release.
-          </p>
-        </div>
-        <Badge tone="brand">v1 core</Badge>
-      </header>
+    <>
+      <PageHeader
+        eyebrow="Settings"
+        title="Appearance"
+        description="Pick a theme for Bantu Niaga. The setting is saved in this browser only — we'll sync it to your account in a later release."
+        action={<Badge tone="brand">v1 core</Badge>}
+      />
 
       <Card>
         <CardHeader>
@@ -215,6 +207,6 @@ export default function AppearanceSettingsPage() {
           </div>
         </CardBody>
       </Card>
-    </div>
+    </>
   );
 }

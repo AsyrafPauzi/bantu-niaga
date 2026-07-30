@@ -16,6 +16,7 @@ import {
   Store,
   Settings,
   LogOut,
+  CircleHelp,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -30,6 +31,8 @@ import {
   type Pillar,
 } from "@/lib/auth/entitlements";
 import { tierBy } from "@/lib/settings/plans";
+import { isAssistantChatRoute } from "@/lib/navigation/assistant-routes";
+import type { SidebarAssistantsByModule } from "@/lib/navigation/sidebar-assistants";
 
 interface SidebarSubItem {
   href: string;
@@ -65,7 +68,6 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
         icon: FileText,
         pillar: "admin",
         subItems: [
-          { href: "/admin/documents", label: "Documents" },
           { href: "/admin/storage", label: "Storage" },
           { href: "/admin/tasks", label: "Tasks" },
           { href: "/admin/compliance", label: "Compliance" },
@@ -80,6 +82,7 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
           { href: "/finance/invoices", label: "Invoices" },
           { href: "/finance/expenses", label: "Expenses" },
           { href: "/finance/ledger", label: "Ledger" },
+          { href: "/finance/customers", label: "Customers" },
         ],
       },
       {
@@ -105,7 +108,6 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
           { href: "/marketing/content", label: "Content" },
           { href: "/marketing/broadcasts", label: "Broadcasts" },
           { href: "/marketing/coupons", label: "Coupons" },
-          { href: "/marketing/assistant", label: "AI Assistant" },
         ],
       },
       {
@@ -116,7 +118,6 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
         subItems: [
           { href: "/sales/pos", label: "POS" },
           { href: "/sales/leads", label: "Leads" },
-          { href: "/sales/assistant", label: "AI Assistant" },
         ],
       },
       {
@@ -129,7 +130,6 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
           { href: "/hr/employees", label: "Employees" },
           { href: "/hr/leave", label: "Leave" },
           { href: "/hr/holidays", label: "Public holidays" },
-          { href: "/hr/assistant", label: "AI Assistant" },
         ],
       },
     ],
@@ -148,22 +148,23 @@ export function DesktopShell({
   tier,
   memberships,
   canCreateCompany,
+  sidebarAssistants = {},
   children,
 }: {
   tier: TierKey;
   memberships: BusinessMembership[];
   canCreateCompany: boolean;
+  sidebarAssistants?: SidebarAssistantsByModule;
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const isHrRoute = pathname === "/hr" || pathname.startsWith("/hr/");
-  const isAssistantRoute =
-    pathname === "/hr/assistant" ||
-    pathname === "/marketing/assistant" ||
-    pathname === "/sales/assistant";
+  const isSettingsRoute =
+    pathname === "/settings" || pathname.startsWith("/settings/");
+  const isAssistantRoute = isAssistantChatRoute(pathname);
 
   return (
-    <div className="min-h-dvh bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
+    <div className="h-dvh overflow-hidden bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
       <div className="flex h-dvh min-h-0 overflow-hidden">
         <aside className="sticky top-0 hidden h-dvh w-[272px] shrink-0 flex-col border-r border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark lg:flex">
           <div className="border-b border-[#D5E2FB] bg-[#EEF3FE] px-5 py-5 dark:border-hairline-dark dark:bg-brand-900/30">
@@ -218,13 +219,18 @@ export function DesktopShell({
                       const lockedHref = locked
                         ? `/settings/subscription?locked=${pillar}`
                         : href;
-                      const visibleSubItems = subItems?.filter(
-                        (sub) =>
-                          !(tier === "starter" && sub.href === "/finance/expenses"),
-                      );
+                      const visibleSubItems = [
+                        ...(subItems?.filter(
+                          (sub) =>
+                            !(
+                              tier === "starter" &&
+                              sub.href === "/finance/expenses"
+                            ),
+                        ) ?? []),
+                        ...(sidebarAssistants[href] ?? []),
+                      ];
                       const showSubItems =
                         !locked &&
-                        visibleSubItems &&
                         visibleSubItems.length > 0 &&
                         isSectionActive;
                       return (
@@ -261,7 +267,7 @@ export function DesktopShell({
                           </Link>
                           {showSubItems ? (
                             <ul className="mb-1 ml-3 mt-0.5 space-y-0.5 border-l border-[#E5E0D8] pl-3 dark:border-hairline-dark">
-                              {visibleSubItems!.map((sub) => {
+                              {visibleSubItems.map((sub) => {
                                 const subActive =
                                   sub.href === "/hr"
                                     ? pathname === "/hr"
@@ -294,15 +300,19 @@ export function DesktopShell({
             ))}
           </nav>
 
-          <div className="space-y-2 border-t border-[#E5E0D8] p-4 dark:border-hairline-dark">
-            <div className="rounded-xl border border-[#FED7AA] bg-[#FFF7ED] p-3.5 dark:border-accent-900/40 dark:bg-accent-900/20">
-              <p className="text-[13px] font-bold text-[#C2410C] dark:text-accent-300">
-                Need help?
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-[#C2410C]/90 dark:text-accent-200/80">
-                Tap the help button on any page for step-by-step guides.
-              </p>
-            </div>
+          <div className="space-y-1.5 border-t border-[#E5E0D8] p-3 dark:border-hairline-dark">
+            <p className="flex items-center gap-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-2.5 py-2 text-[11px] leading-snug text-[#C2410C]/90 dark:border-accent-900/40 dark:bg-accent-900/20 dark:text-accent-200/80">
+              <CircleHelp
+                className="h-3.5 w-3.5 shrink-0 text-[#C2410C] dark:text-accent-300"
+                strokeWidth={2}
+              />
+              <span>
+                <span className="font-semibold text-[#C2410C] dark:text-accent-300">
+                  Need help?
+                </span>{" "}
+                Use the help button on any page.
+              </span>
+            </p>
             <form action={signOutAction}>
               <button
                 type="submit"
@@ -317,10 +327,10 @@ export function DesktopShell({
 
         <main
           className={cn(
-            "min-w-0 flex-1",
+            "min-h-0 min-w-0 flex-1",
             isAssistantRoute
               ? "flex min-h-0 flex-col overflow-hidden"
-              : "overflow-y-auto",
+              : "overflow-hidden",
           )}
         >
           <div
@@ -328,8 +338,10 @@ export function DesktopShell({
               isAssistantRoute
                 ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
                 : isHrRoute
-                  ? "mx-auto"
-                  : "mx-auto max-w-6xl px-6 py-8 lg:px-10 lg:py-10",
+                  ? "mx-auto h-full min-h-0 overflow-y-auto"
+                  : isSettingsRoute
+                    ? "h-full min-h-0 w-full overflow-y-auto px-6 py-8 lg:px-10 lg:py-10"
+                    : "mx-auto h-full min-h-0 max-w-6xl overflow-y-auto px-6 py-8 lg:px-10 lg:py-10",
             )}
           >
             {children}

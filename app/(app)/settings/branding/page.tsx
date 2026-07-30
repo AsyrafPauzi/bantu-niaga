@@ -1,8 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { Badge } from "@/components/ui/badge";
 import { BrandingForm } from "@/components/settings/BrandingForm";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { loadBusiness } from "@/lib/settings/business";
@@ -23,25 +20,17 @@ export default async function BrandingSettingsPage() {
   if (!business) redirect("/settings");
   const canEdit = user.role === "owner";
 
-  return (
-    <div className="space-y-6">
-      <Link
-        href="/settings"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Back to settings
-      </Link>
+  const summaryParts = [
+    business.name,
+    business.logo_url ? "logo set" : "no logo",
+  ];
 
+  return (
+    <>
       <PageHeader
-        eyebrow="Settings · Workspace"
+        eyebrow="Settings"
         title="Branding"
-        description="Make Bantu Niaga look like your business — logo, colours, and the details customers see on receipts, invoices, and emails."
-        action={
-          canEdit ? null : (
-            <Badge tone="warning">View only — owner can edit</Badge>
-          )
-        }
+        description={summaryParts.join(" · ")}
       />
 
       <BrandingForm
@@ -61,6 +50,6 @@ export default async function BrandingSettingsPage() {
           duitnow_qr_url: business.duitnow_qr_url,
         }}
       />
-    </div>
+    </>
   );
 }

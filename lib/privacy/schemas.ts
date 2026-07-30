@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  EXPORT_CATEGORIES,
+  type ExportCategoryId,
+} from "@/lib/privacy/export-catalog";
 import type { ConsentKind } from "./types";
 
 const CONSENT_KINDS = [
@@ -20,9 +24,15 @@ export const consentsUpdateSchema = z.object({
   changes: z.array(consentToggleSchema).min(1).max(20),
 });
 
+const EXPORT_CATEGORY_IDS = EXPORT_CATEGORIES.map(
+  (c) => c.id,
+) as [ExportCategoryId, ...ExportCategoryId[]];
+
 export const requestExportSchema = z
   .object({
     reason: z.string().max(280).optional(),
+    scope: z.enum(["personal", "business"]).default("personal"),
+    categories: z.array(z.enum(EXPORT_CATEGORY_IDS)).min(1).max(20).optional(),
   })
   .strict();
 

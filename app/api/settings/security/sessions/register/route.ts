@@ -85,9 +85,7 @@ export async function GET() {
       { session_id: sessionId, created },
       { status: created ? 201 : 200 },
     );
-    if (created) {
-      res.cookies.set(SESSION_COOKIE_NAME, sessionId, sessionCookieOptions());
-    }
+    res.cookies.set(SESSION_COOKIE_NAME, sessionId, sessionCookieOptions());
     return res;
   } catch (e) {
     return NextResponse.json(

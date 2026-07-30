@@ -8,6 +8,7 @@ import {
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isFinanceInvoiceNumberTaken } from "@/lib/finance/helpers";
 import {
   INVOICE_SELECT,
   buildTotalsFromPayload,
@@ -15,6 +16,7 @@ import {
   replaceInvoiceItems,
   resolveCustomerSnapshot,
 } from "@/lib/finance/invoice-db";
+import { resolveAdminFileIdPatch, loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 import {
   financeInvoiceUpdateSchema,
   type FinanceInvoiceRow,
@@ -161,6 +163,48 @@ export async function PATCH(
   const patch: Record<string, unknown> = { ...parsed };
   if (parsed.customer_email === "") patch.customer_email = null;
 
+  if (parsed.number !== undefined) {
+    const admin = createServiceRoleClient();
+    if (parsed.number !== current.number) {
+      const taken = await isFinanceInvoiceNumberTaken(
+        admin,
+        user.businessId,
+        parsed.number,
+        id,
+      );
+      if (taken) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "duplicate_number",
+              message: `“${parsed.number}” is already used. Pick a different number.`,
+            },
+          },
+          { status: 409 },
+        );
+      }
+    }
+  }
+
+  if (parsed.admin_file_id !== undefined) {
+    const fileCheck = await resolveAdminFileIdPatch(
+      supabase,
+      user.businessId,
+      parsed.admin_file_id,
+    );
+    if (!fileCheck.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "invalid_file", message: fileCheck.message },
+        },
+        { status: 400 },
+      );
+    }
+    patch.admin_file_id = fileCheck.value;
+  }
+
   if (
     parsed.customer_id !== undefined ||
     parsed.customer_name !== undefined ||
@@ -267,6 +311,25 @@ export async function PATCH(
   }
 
   const row = await loadInvoiceWithItems(supabase, user.businessId, id);
+  if (row?.admin_file_id) {
+    const names = await loadAdminFileNames(supabase, user.businessId, [
+      row.admin_file_id,
+    ]);
+    row.admin_file_name = names.get(row.admin_file_id) ?? null;
+  }
+  if (
+    parsed.number &&
+    parsed.number !== current.number &&
+    row
+  ) {
+    const admin = createServiceRoleClient();
+    await admin
+      .from("finance_transactions")
+      .update({ description: `Payment for ${row.number}` })
+      .eq("business_id", user.businessId)
+      .eq("finance_invoice_id", id)
+      .is("deleted_at", null);
+  }
   if (parsed.status === "paid" && row) {
     const admin = createServiceRoleClient();
     await recordInvoiceIncome(admin, user.businessId, user.id, row);

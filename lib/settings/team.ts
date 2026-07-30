@@ -102,7 +102,7 @@ export const loadTeamInvites = cache(
 
 export async function loadTeamAudit(
   businessId: string,
-  limit = 12,
+  limit = 10,
 ): Promise<
   Array<{
     id: string;
@@ -123,4 +123,18 @@ export async function loadTeamAudit(
 
   if (error) return [];
   return data ?? [];
+}
+
+export async function countTeamAudit(businessId: string): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from("audit_log")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .or(
+      "action.ilike.team.%,action.ilike.settings.team%,action.eq.auth.sign_up",
+    );
+
+  if (error) return 0;
+  return count ?? 0;
 }

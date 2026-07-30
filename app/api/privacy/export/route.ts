@@ -3,14 +3,21 @@ import { ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { consume, rateLimitHeaders } from "@/lib/api/rate-limit";
 import {
+  badRequest,
   created,
+  forbidden,
   serverError,
   tooManyRequests,
   unauthorized,
   unprocessable,
 } from "@/lib/api/response";
 import { logger } from "@/lib/logger";
-import { buildExportBundle } from "@/lib/privacy/load";
+import { buildExportBundle } from "@/lib/privacy/export-bundle";
+import {
+  categoriesForScope,
+  isCategoryAllowedForScope,
+  type ExportCategoryId,
+} from "@/lib/privacy/export-catalog";
 import { requestExportSchema } from "@/lib/privacy/schemas";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -63,7 +70,11 @@ export async function POST(request: Request) {
     /* empty body is fine */
   }
 
-  let parsed: { reason?: string };
+  let parsed: {
+    reason?: string;
+    scope: "personal" | "business";
+    categories?: ExportCategoryId[];
+  };
   try {
     parsed = requestExportSchema.parse(body);
   } catch (e) {
@@ -71,6 +82,26 @@ export async function POST(request: Request) {
       return unprocessable("Invalid request body.", e.issues, { requestId });
     }
     throw e;
+  }
+
+  if (parsed.scope === "business" && user.role !== "owner") {
+    return forbidden(
+      "Only the business owner can export full business data.",
+      { requestId },
+    );
+  }
+
+  const categories =
+    parsed.categories ?? categoriesForScope(parsed.scope);
+
+  for (const category of categories) {
+    if (!isCategoryAllowedForScope(category, parsed.scope)) {
+      return badRequest(
+        `Category "${category}" is not available for ${parsed.scope} exports.`,
+        undefined,
+        { requestId },
+      );
+    }
   }
 
   const admin = createServiceRoleClient();
@@ -108,6 +139,8 @@ export async function POST(request: Request) {
     bundle = await buildExportBundle({
       userId: user.id,
       businessId: user.businessId,
+      scope: parsed.scope,
+      categories,
     });
   } catch (e) {
     await admin
@@ -164,7 +197,7 @@ export async function POST(request: Request) {
     action: "privacy.export.created",
     entity_type: "data_export",
     entity_id: exp.id,
-    diff: { byte_size: bundle.byteSize },
+    diff: { byte_size: bundle.byteSize, scope: parsed.scope, categories },
   });
 
   return created(

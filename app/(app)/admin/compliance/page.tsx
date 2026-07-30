@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { AdminCompliancePanel } from "@/components/admin/AdminCompliancePanel";
@@ -6,12 +7,15 @@ import {
   getCurrentUser,
   UnauthorizedError,
 } from "@/lib/auth/current-user";
+import {
+  COMPLIANCE_SELECT,
+  enrichComplianceRows,
+} from "@/lib/admin/compliance-server";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  complianceUrgency,
-  daysUntil,
-  type AdminComplianceRow,
+import type {
+  AdminComplianceRow,
+  ComplianceInAppAlert,
 } from "@/lib/admin/task-compliance-schemas";
 
 export const metadata = { title: "Compliance" };
@@ -29,6 +33,7 @@ export default async function CompliancePage() {
   if (!canSurface(user.role, "admin", "compliance")) {
     return (
       <div className="space-y-6">
+        <AdminBackLink />
         <PageHeader
           eyebrow="Admin"
           title="Licence & permit tracker"
@@ -46,27 +51,40 @@ export default async function CompliancePage() {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("admin_compliance_items")
-    .select(
-      "id, business_id, title, category, authority, reference_number, " +
-        "expires_on, remind_days, notes, status, last_renewed_at, created_at, updated_at",
-    )
-    .eq("business_id", user.businessId)
-    .is("deleted_at", null)
-    .eq("status", "active")
-    .order("expires_on", { ascending: true });
 
-  const items = ((data ?? []) as unknown as AdminComplianceRow[]).map((row) => ({
-    ...row,
-    days_until_expiry: daysUntil(row.expires_on),
-    urgency: complianceUrgency(row.expires_on),
-  }));
+  const [itemsRes, alertsRes] = await Promise.all([
+    supabase
+      .from("admin_compliance_items")
+      .select(COMPLIANCE_SELECT)
+      .eq("business_id", user.businessId)
+      .is("deleted_at", null)
+      .eq("status", "active")
+      .order("expires_on", { ascending: true }),
+    supabase
+      .from("compliance_in_app_alerts")
+      .select(
+        "id, business_id, compliance_item_id, notice_date, days_before, message, dismissed_at, created_at",
+      )
+      .eq("business_id", user.businessId)
+      .is("dismissed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
+
+  const items = await enrichComplianceRows(
+    supabase,
+    (itemsRes.data ?? []) as unknown as AdminComplianceRow[],
+  );
+
+  const alerts = (alertsRes.data ?? []) as ComplianceInAppAlert[];
+  const error = itemsRes.error;
 
   return (
     <div className="space-y-6">
+      <AdminBackLink />
+
       <PageHeader
-        eyebrow="Admin"
+        eyebrow="Admin · Compliance"
         title="Licence & permit tracker"
         description="Track SSM, DBKL signboard licences, insurance, and other renewals before they expire."
       />
@@ -78,7 +96,10 @@ export default async function CompliancePage() {
           </CardBody>
         </Card>
       ) : (
-        <AdminCompliancePanel initialItems={items} />
+        <AdminCompliancePanel
+          initialItems={items}
+          initialAlerts={alerts}
+        />
       )}
     </div>
   );

@@ -28,6 +28,7 @@ Core Finance should cover everyday money visibility:
 - Quote-to-invoice conversion.
 - Monthly income vs expense summary.
 - WhatsApp-ready payment reminder text.
+- Accountant export pack (monthly CSV: summary, invoices, ledger).
 
 ## 4. Add-on Features
 
@@ -39,7 +40,6 @@ Finance add-ons should carry compliance, deeper analytics, and automation:
 - Cashflow Forecast.
 - Profit and Margin Analytics.
 - Auto Bank Reconciliation.
-- Accountant Export Pack.
 - Recurring Invoices.
 - Payment Gateway Connector.
 - Finance AI Assistant.

@@ -28,6 +28,10 @@ export const FINANCE_ASSISTANT_MONTHLY_CREDITS = 100;
 export const OPERATIONS_ASSISTANT_ADDON_SLUG = "operations-assistant";
 export const OPERATIONS_AGENT_SLUG = "operations";
 export const OPERATIONS_ASSISTANT_MONTHLY_CREDITS = 100;
+
+export const ADMIN_ASSISTANT_ADDON_SLUG = "admin-assistant";
+export const ADMIN_AGENT_SLUG = "admin";
+export const ADMIN_ASSISTANT_MONTHLY_CREDITS = 100;
 /** Baseline fast-mode costs — prefer `chatCreditsForReasoning` / `actionCreditsForReasoning`. */
 export const HR_CREDIT_COST_CHAT = 1;
 export const HR_CREDIT_COST_ACTION = 2;
@@ -95,7 +99,7 @@ export const DEFAULT_FINANCE_AGENT_SETTINGS: Omit<
 > = {
   displayName: "Fayza",
   assistantEnabled: true,
-  dailyNoticeEnabled: false,
+  dailyNoticeEnabled: true,
   dailyNoticeHour: 8,
   reasoningMode: "fast",
   dailyBudgetCredits: DAILY_BUDGET_DEFAULT_CREDITS,
@@ -108,7 +112,20 @@ export const DEFAULT_OPERATIONS_AGENT_SETTINGS: Omit<
 > = {
   displayName: "Aiman",
   assistantEnabled: true,
-  dailyNoticeEnabled: false,
+  dailyNoticeEnabled: true,
+  dailyNoticeHour: 8,
+  reasoningMode: "fast",
+  dailyBudgetCredits: DAILY_BUDGET_DEFAULT_CREDITS,
+  modelOverride: null,
+};
+
+export const DEFAULT_ADMIN_AGENT_SETTINGS: Omit<
+  BusinessAgentSettings,
+  "businessId" | "agentSlug"
+> = {
+  displayName: "Amir",
+  assistantEnabled: true,
+  dailyNoticeEnabled: true,
   dailyNoticeHour: 8,
   reasoningMode: "fast",
   dailyBudgetCredits: DAILY_BUDGET_DEFAULT_CREDITS,
@@ -123,6 +140,7 @@ export function defaultAgentSettingsForSlug(
   if (agentSlug === SALES_AGENT_SLUG) return DEFAULT_SALES_AGENT_SETTINGS;
   if (agentSlug === FINANCE_AGENT_SLUG) return DEFAULT_FINANCE_AGENT_SETTINGS;
   if (agentSlug === OPERATIONS_AGENT_SLUG) return DEFAULT_OPERATIONS_AGENT_SETTINGS;
+  if (agentSlug === ADMIN_AGENT_SLUG) return DEFAULT_ADMIN_AGENT_SETTINGS;
   return {
     displayName: "Assistant",
     assistantEnabled: true,

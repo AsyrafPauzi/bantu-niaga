@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { onboardingQuizSchema } from "@/lib/onboarding/schemas";
 
 /**
  * Zod schemas for /api/auth/* endpoints.
@@ -44,6 +45,7 @@ export const signUpSchema = z
       message: "Accept the terms to continue",
     }),
     signup_path: z.enum(["free", "starter_trial"]).optional().default("free"),
+    onboarding_quiz: onboardingQuizSchema.optional(),
   })
   .strict();
 

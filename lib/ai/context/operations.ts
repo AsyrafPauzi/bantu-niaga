@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { createAgentScopedClient } from "./client";
 import type {
   AgentContext,
@@ -14,8 +16,9 @@ import type {
  */
 export async function buildOperationsSnapshot(
   ctx: AgentContext,
+  client?: SupabaseClient,
 ): Promise<PillarSnapshot> {
-  const supabase = await createAgentScopedClient(ctx);
+  const supabase = client ?? (await createAgentScopedClient(ctx));
   const today = new Date().toISOString().slice(0, 10);
   const nowIso = new Date().toISOString();
 

@@ -7,7 +7,11 @@ import {
 } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { operationsSupplierUpdateSchema } from "@/lib/operations/schemas";
+import {
+  operationsSupplierUpdateSchema,
+  type OperationsSupplierRow,
+} from "@/lib/operations/schemas";
+import { resolveAdminFileIdPatch, loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +56,7 @@ async function requireOperationsUser(): Promise<
 
 const SUPPLIER_SELECT =
   "id, business_id, name, contact_name, phone, email, address, " +
-  "payment_terms, notes, created_by, created_at, updated_at";
+  "payment_terms, notes, admin_file_id, created_by, created_at, updated_at";
 
 export async function PATCH(
   request: Request,
@@ -93,6 +97,25 @@ export async function PATCH(
   if (parsed.email === "") patch.email = null;
 
   const supabase = await createSupabaseServerClient();
+
+  if (parsed.admin_file_id !== undefined) {
+    const fileCheck = await resolveAdminFileIdPatch(
+      supabase,
+      user.businessId,
+      parsed.admin_file_id,
+    );
+    if (!fileCheck.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "invalid_file", message: fileCheck.message },
+        },
+        { status: 400 },
+      );
+    }
+    patch.admin_file_id = fileCheck.value;
+  }
+
   const { data, error } = await supabase
     .from("operations_suppliers")
     .update(patch)
@@ -116,7 +139,19 @@ export async function PATCH(
     );
   }
 
-  return NextResponse.json({ ok: true, data }, { status: 200 });
+  let admin_file_name: string | null = null;
+  const row = data as unknown as OperationsSupplierRow | null;
+  if (row?.admin_file_id) {
+    const names = await loadAdminFileNames(supabase, user.businessId, [
+      row.admin_file_id,
+    ]);
+    admin_file_name = names.get(row.admin_file_id) ?? null;
+  }
+
+  return NextResponse.json(
+    { ok: true, data: row ? { ...row, admin_file_name } : row },
+    { status: 200 },
+  );
 }
 
 export async function DELETE(

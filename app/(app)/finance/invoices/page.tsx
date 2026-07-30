@@ -1,15 +1,19 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { FinanceInvoicePanel } from "@/components/finance/FinanceInvoicePanel";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ListPagination } from "@/components/ui/list-pagination";
 import { parsePagination } from "@/lib/pagination";
 import { loadBusiness } from "@/lib/settings/business";
-import type { FinanceInvoiceRow } from "@/lib/finance/schemas";
-import { FINANCE_INVOICE_STATUSES } from "@/lib/finance/schemas";
+import { loadFinanceInvoicesSummary } from "@/lib/finance/invoices-summary";
+import {
+  FINANCE_INVOICE_STATUSES,
+  type FinanceInvoiceRow,
+} from "@/lib/finance/schemas";
 
 export const metadata = { title: "Invoices" };
 export const dynamic = "force-dynamic";
@@ -48,7 +52,7 @@ export default async function InvoicesPage({
   if (!business) redirect("/home");
 
   const params = await searchParams;
-  const pagination = parsePagination(params, { defaultPageSize: 20 });
+  const pagination = parsePagination(params, { defaultPageSize: 10 });
   const kindParam = typeof params.kind === "string" ? params.kind : undefined;
   const documentKind =
     kindParam === "quote" || kindParam === "invoice" ? kindParam : "all";
@@ -61,6 +65,7 @@ export default async function InvoicesPage({
     : "all";
 
   const supabase = await createSupabaseServerClient();
+
   let listQuery = supabase
     .from("finance_invoices")
     .select(
@@ -72,6 +77,7 @@ export default async function InvoicesPage({
     )
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
+    .neq("status", "void")
     .order("created_at", { ascending: false })
     .range(pagination.from, pagination.to);
 
@@ -82,7 +88,10 @@ export default async function InvoicesPage({
     listQuery = listQuery.eq("status", statusFilter);
   }
 
-  const { data, error, count } = await listQuery;
+  const [{ data, error, count }, summary] = await Promise.all([
+    listQuery,
+    loadFinanceInvoicesSummary(supabase, user.businessId),
+  ]);
   const total = count ?? data?.length ?? 0;
 
   const appUrl =
@@ -91,10 +100,18 @@ export default async function InvoicesPage({
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/finance"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-200"
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+        Money dashboard
+      </Link>
+
       <PageHeader
         eyebrow="Finance"
-        title="Invoices"
-        description="Create invoices with line items, pick saved customers, share via WhatsApp or email."
+        title="Invoices & quotes"
+        description="Bill customers, share a pay link, and chase what’s still unpaid."
       />
 
       {error ? (
@@ -107,22 +124,15 @@ export default async function InvoicesPage({
         <>
           <FinanceInvoicePanel
             initialInvoices={(data ?? []) as unknown as FinanceInvoiceRow[]}
+            summary={summary}
             idcompany={business.idcompany}
             businessName={business.name}
             appUrl={appUrl}
             documentKind={documentKind}
             statusFilter={statusFilter}
-          />
-          <ListPagination
             page={pagination.page}
             pageSize={pagination.pageSize}
             total={total}
-            basePath="/finance/invoices"
-            searchParams={{
-              ...(documentKind !== "all" ? { kind: documentKind } : {}),
-              ...(statusFilter !== "all" ? { status: statusFilter } : {}),
-            }}
-            className="rounded-xl border border-cream-300 bg-white shadow-card"
           />
         </>
       )}

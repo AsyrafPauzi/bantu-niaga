@@ -11,6 +11,12 @@ import {
   adminTaskCreateSchema,
   type AdminTaskRow,
 } from "@/lib/admin/task-compliance-schemas";
+import {
+  columnIsDone,
+  enrichAdminTasks,
+  resolveDefaultTaskColumnId,
+} from "@/lib/admin/tasks-enrich";
+import { assertAdminFileOwned } from "@/lib/admin/validate-admin-file";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +59,10 @@ async function requireTasksUser(): Promise<
   }
 }
 
+const TASK_SELECT =
+  "id, business_id, title, description, column_id, due_date, assignee_user_id, " +
+  "admin_file_id, created_by, sort_order, completed_at, created_at, updated_at";
+
 export async function GET() {
   const auth = await requireTasksUser();
   if (auth.response) return auth.response;
@@ -61,10 +71,7 @@ export async function GET() {
   const supabase = await createSupabaseServerClient();
   let query = supabase
     .from("admin_tasks")
-    .select(
-      "id, business_id, title, description, status, due_date, assignee_user_id, " +
-        "created_by, sort_order, completed_at, created_at, updated_at",
-    )
+    .select(TASK_SELECT)
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
     .order("sort_order", { ascending: true })
@@ -87,31 +94,7 @@ export async function GET() {
   }
 
   const rows = (data ?? []) as unknown as AdminTaskRow[];
-  const assigneeIds = Array.from(
-    new Set(rows.map((r) => r.assignee_user_id).filter(Boolean)),
-  ) as string[];
-
-  const nameLookup = new Map<string, string | null>();
-  if (assigneeIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("users")
-      .select("id, display_name, email")
-      .in("id", assigneeIds);
-    for (const p of (profiles ?? []) as Array<{
-      id: string;
-      display_name: string | null;
-      email: string | null;
-    }>) {
-      nameLookup.set(p.id, p.display_name || p.email);
-    }
-  }
-
-  const enriched = rows.map((r) => ({
-    ...r,
-    assignee_name: r.assignee_user_id
-      ? (nameLookup.get(r.assignee_user_id) ?? null)
-      : null,
-  }));
+  const enriched = await enrichAdminTasks(supabase, user.businessId, rows);
 
   return NextResponse.json({ ok: true, data: enriched }, { status: 200 });
 }
@@ -161,8 +144,27 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const completedAt =
-    parsed.status === "done" ? new Date().toISOString() : null;
+  const columnId =
+    parsed.column_id ??
+    (await resolveDefaultTaskColumnId(supabase, user.businessId));
+  const isDone = await columnIsDone(supabase, user.businessId, columnId);
+
+  if (parsed.admin_file_id) {
+    const owned = await assertAdminFileOwned(
+      supabase,
+      user.businessId,
+      parsed.admin_file_id,
+    );
+    if (!owned) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "file_not_found", message: "Storage file not found." },
+        },
+        { status: 404 },
+      );
+    }
+  }
 
   const { data, error } = await supabase
     .from("admin_tasks")
@@ -170,16 +172,14 @@ export async function POST(request: Request) {
       business_id: user.businessId,
       title: parsed.title,
       description: parsed.description ?? null,
-      status: parsed.status ?? "todo",
+      column_id: columnId,
       due_date: parsed.due_date ?? null,
       assignee_user_id: parsed.assignee_user_id ?? null,
+      admin_file_id: parsed.admin_file_id ?? null,
       created_by: user.id,
-      completed_at: completedAt,
+      completed_at: isDone ? new Date().toISOString() : null,
     })
-    .select(
-      "id, business_id, title, description, status, due_date, assignee_user_id, " +
-        "created_by, sort_order, completed_at, created_at, updated_at",
-    )
+    .select(TASK_SELECT)
     .single();
 
   if (error) {
@@ -192,5 +192,9 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, data }, { status: 201 });
+  const [enriched] = await enrichAdminTasks(supabase, user.businessId, [
+    data as unknown as AdminTaskRow,
+  ]);
+
+  return NextResponse.json({ ok: true, data: enriched }, { status: 201 });
 }

@@ -5,12 +5,15 @@ import {
   UnauthorizedError,
   type CurrentUser,
 } from "@/lib/auth/current-user";
+import {
+  COMPLIANCE_SELECT,
+  enrichComplianceRows,
+} from "@/lib/admin/compliance-server";
+import { DEFAULT_COMPLIANCE_REMIND_DAYS } from "@/lib/admin/compliance-shared";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   adminComplianceCreateSchema,
-  complianceUrgency,
-  daysUntil,
   type AdminComplianceRow,
 } from "@/lib/admin/task-compliance-schemas";
 
@@ -55,15 +58,6 @@ async function requireComplianceUser(): Promise<
   }
 }
 
-function enrich(row: AdminComplianceRow) {
-  const d = daysUntil(row.expires_on);
-  return {
-    ...row,
-    days_until_expiry: d,
-    urgency: complianceUrgency(row.expires_on),
-  };
-}
-
 export async function GET(request: Request) {
   const auth = await requireComplianceUser();
   if (auth.response) return auth.response;
@@ -75,10 +69,7 @@ export async function GET(request: Request) {
   const supabase = await createSupabaseServerClient();
   let query = supabase
     .from("admin_compliance_items")
-    .select(
-      "id, business_id, title, category, authority, reference_number, " +
-        "expires_on, remind_days, notes, status, last_renewed_at, created_at, updated_at",
-    )
+    .select(COMPLIANCE_SELECT)
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
     .order("expires_on", { ascending: true });
@@ -98,7 +89,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const rows = ((data ?? []) as unknown as AdminComplianceRow[]).map(enrich);
+  const rows = await enrichComplianceRows(
+    supabase,
+    (data ?? []) as unknown as AdminComplianceRow[],
+  );
   return NextResponse.json({ ok: true, data: rows }, { status: 200 });
 }
 
@@ -144,12 +138,11 @@ export async function POST(request: Request) {
       reference_number: parsed.reference_number ?? null,
       expires_on: parsed.expires_on,
       notes: parsed.notes ?? null,
+      remind_days: parsed.remind_days ?? [...DEFAULT_COMPLIANCE_REMIND_DAYS],
+      admin_file_id: parsed.admin_file_id ?? null,
       created_by: user.id,
     })
-    .select(
-      "id, business_id, title, category, authority, reference_number, " +
-        "expires_on, remind_days, notes, status, last_renewed_at, created_at, updated_at",
-    )
+    .select(COMPLIANCE_SELECT)
     .single();
 
   if (error) {
@@ -162,8 +155,9 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json(
-    { ok: true, data: enrich(data as unknown as AdminComplianceRow) },
-    { status: 201 },
-  );
+  const [enriched] = await enrichComplianceRows(supabase, [
+    data as unknown as AdminComplianceRow,
+  ]);
+
+  return NextResponse.json({ ok: true, data: enriched }, { status: 201 });
 }

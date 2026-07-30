@@ -179,6 +179,64 @@ export async function loadHrLeaveRecords(
   return (data ?? []) as unknown as HrLeaveRow[];
 }
 
+export async function loadStaffMeLeaveRecords(
+  businessId: string,
+  employeeId: string,
+): Promise<HrLeaveRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("hr_leave_records")
+    .select(
+      "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
+        "mc_document_path, mc_document_name, mc_document_mime",
+    )
+    .eq("business_id", businessId)
+    .eq("employee_id", employeeId)
+    .order("start_date", { ascending: false })
+    .limit(50);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as HrLeaveRow[];
+}
+
+export async function loadStaffMeLeaveRecord(
+  businessId: string,
+  employeeId: string,
+  leaveId: string,
+): Promise<HrLeaveRow | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("hr_leave_records")
+    .select(
+      "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
+        "mc_document_path, mc_document_name, mc_document_mime",
+    )
+    .eq("business_id", businessId)
+    .eq("employee_id", employeeId)
+    .eq("id", leaveId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return (data ?? null) as unknown as HrLeaveRow | null;
+}
+
+export async function loadStaffMeOnboardingItems(
+  businessId: string,
+  employeeId: string,
+): Promise<HrOnboardingRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("hr_onboarding_items")
+    .select("id, employee_id, label, is_done")
+    .eq("business_id", businessId)
+    .eq("employee_id", employeeId)
+    .order("created_at", { ascending: true })
+    .limit(50);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as HrOnboardingRow[];
+}
+
 export async function loadHrDocuments(
   businessId: string,
 ): Promise<HrDocumentRow[]> {

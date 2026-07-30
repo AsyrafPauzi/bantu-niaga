@@ -1,8 +1,10 @@
 # Bantu Niaga — Project Checklist
 
-> **Last updated:** 2026-07-30 (Phase 1 core settle)  
+> **Last updated:** 2026-07-31 (Cross-pillar Storage links, CROSS-MODULE.md)  
 > **Purpose:** Single place to see what is **done**, **pending** (partially shipped or needs deploy/config), and **not done yet** across the system.  
-> **Legend:** ✅ Done · 🟡 Pending · ⬜ Not done
+> **Legend:** ✅ Done · 🟡 Pending · ⬜ Not done · — N/A or removed by design
+
+**Module sections (§4–§9):** Each pillar uses the same shape — **Core** (included on plan) and **Add-ons** (Marketplace, paid or coming soon). Platform, Settings, Integrations, and Super Admin use a single table because they are not product pillars.
 
 ---
 
@@ -10,15 +12,15 @@
 
 | Area | Done | Pending | Not done |
 |------|------|---------|----------|
-| Platform & auth | 16 | 2 | 3 |
+| Platform & auth | 19 | 3 | 3 |
 | Settings & billing | 14 | 3 | 4 |
 | Marketplace & AI | 21 | 4 | 8 |
-| Admin module | 8 | 1 | 6 |
+| Admin module | 14 | 2 | 5 |
 | Finance module | 14 | 1 | 5 |
 | Operations module | 12 | 0 | 6 |
 | Sales module | 8 | 1 | 14 |
 | Marketing module | 14 | 2 | 9 |
-| HR module | 23 | 2 | 10 |
+| HR module | 28 | 1 | 9 |
 | Integrations & API | 8 | 3 | 5 |
 | Super Admin | 6 | 0 | 3 |
 
@@ -42,8 +44,10 @@
 | ✅ | `/more` hub and pillar registry |
 | ✅ | User sessions migration (`20260707230000`) |
 | 🟡 | Team invite email + `/accept-invite` password setup — `NEXT_PUBLIC_APP_URL` ✅ in prod; still needs Supabase Auth SMTP / invite email templates |
-| ⬜ | Staff login portal (`/hr/me`) |
-| ⬜ | SSO / social login |
+| ✅ | Staff login portal (`/hr/me`) — balance, apply leave, history, cancel pending, onboarding view; gated by `hr-staff-portal` add-on + linked `user_id` |
+| ✅ | Google social login (sign-in via Supabase OAuth) — existing accounts / invites only |
+| 🟡 | Google OAuth production config — enable Google provider in Supabase + Google Cloud OAuth client; redirect `https://<domain>/auth/callback` |
+| ⬜ | Enterprise SSO (SAML / OIDC per tenant) — out of scope Phase 1 |
 | ✅ | Organisation multi-company switching — sidebar dropdown, `/add-company`, `user_business_memberships` |
 | ✅ | Auth rate limiting — sign-up, forgot password, reset password (IP-based) |
 | ✅ | Free-first sign-up — default Free path + optional Starter trial |
@@ -69,7 +73,7 @@
 | ✅ | Standalone bootstrap — one-time sign-up when zero businesses |
 | ⬜ | Phase 2: Custom domain + Supabase SMTP + Resend |
 | ⬜ | Phase 2: Billplz single checkout for bundle plan + discounted add-ons |
-| ⬜ | Persist quiz for users who skip guide (default generic recommendation) |
+| ✅ | Persist quiz for users who skip guide — default `other` / `solo` / `invoices` saved on sign-up + recommendation backfill |
 
 ---
 
@@ -96,10 +100,10 @@
 | 🟡 | Billplz live checkout for top-ups — webhook + pending invoice wired; set `BILLPLZ_*` in prod |
 | 🟡 | Billplz auto-renew for subscription — renewal cron still issues invoices only (no charge yet) |
 | 🟡 | Recent migrations may need `supabase db push` on remote — see §12 migrations table |
-| ⬜ | Multiple payment methods stored in UI |
-| ⬜ | Accountant export pack |
-| ⬜ | Usage-based billing reports |
-| ⬜ | Invoice PDF email to customer |
+| ✅ | Multiple payment methods stored in UI |
+| ✅ | Accountant export pack |
+| ✅ | Usage-based billing reports |
+| ✅ | Invoice PDF email to customer |
 
 ---
 
@@ -135,20 +139,19 @@
 | ✅ | Finance AI chat page (`/finance/assistant`) |
 | ✅ | Operations AI chat page (`/operations/assistant`) |
 | ✅ | Sales AI chat page |
-| ⬜ | Admin AI chat page |
-| ⬜ | Weekly Boardroom digest email — cron + Resend wired; needs `RESEND_API_KEY` |
-| ⬜ | Auto reasoning mode (removed by design) |
-| ⬜ | Credit rollover policy enforcement UI |
+| ✅ | Admin AI chat page (`/admin/assistant`) |
+| 🟡 | Weekly Boardroom digest email — cron + Resend wired; needs `RESEND_API_KEY` |
+| ✅ | Credit rollover policy enforcement UI — top-up vs monthly bundle split; renewal resets bundle; Billing policy card |
 
 ### AI module agents (marketplace)
 
 | Agent | Add-on slug | Chat | Daily notice |
 |-------|-------------|------|--------------|
 | Hana (HR) | `hr-assistant` | ✅ `/hr/assistant` | ✅ |
-| Amir (Admin) | `admin-assistant` | ⬜ | ⬜ |
+| Amir (Admin) | `admin-assistant` | ✅ `/admin/assistant` | ✅ |
 | Maya (Marketing) | `marketing-assistant` | ✅ `/marketing/assistant` | ✅ |
-| Fayza (Finance) | `finance-assistant` | ✅ `/finance/assistant` | ⬜ |
-| Aiman (Operations) | `operations-assistant` | ✅ `/operations/assistant` | ⬜ |
+| Fayza (Finance) | `finance-assistant` | ✅ `/finance/assistant` | ✅ |
+| Aiman (Operations) | `operations-assistant` | ✅ `/operations/assistant` | ✅ |
 | Sufi (Sales) | `sales-assistant` | ✅ `/sales/assistant` | ✅ |
 | Boardroom | `boardroom-weekly` | ✅ `/boardroom` | ✅ cron (Sunday) |
 
@@ -156,48 +159,108 @@
 
 ## 4. Admin module
 
+> **Unlock:** Starter+ (see entitlements).  
+> **Rule:** Core = tasks, compliance, and document storage. Add-ons = AI, automation, and advanced compliance (see pillar docs).
+
+### 4.1 Core Admin (included)
+
 | Status | Item |
 |--------|------|
-| ✅ | Admin overview |
-| ✅ | Tasks board (create, update, status) |
-| ✅ | Compliance calendar (reminders) |
-| ✅ | Document storage (upload, list, download) |
-| ✅ | Storage folders / file metadata |
-| ✅ | Secure share links for files |
-| ✅ | RLS for admin roles |
-| ✅ | Admin AI add-on in marketplace (Amir) |
-| 🟡 | Smart compliance alerts add-on — coming soon |
-| ⬜ | Digital signature add-on |
-| ⬜ | Custom document builder |
-| ⬜ | Approval workflow add-on |
-| ⬜ | Admin audit export report |
-| ⬜ | Auto document categorization |
-| ⬜ | Extra storage packs |
+| ✅ | Admin overview (tasks, renewals, storage KPIs) |
+| ✅ | Tasks board — columns, drag-and-drop, detail modal, delete |
+| ✅ | Tasks ↔ Storage — attach any vault file to a task (`admin_file_id`) |
+| ✅ | Compliance tracker — licences, renewals, calendar, export CSV/PDF |
+| ✅ | Compliance ↔ Storage — certificate upload links to vault file |
+| ✅ | Compliance → Tasks — create prep task after renewal |
+| ✅ | Storage vault — upload (bulk), edit metadata, tags, sort, pagination |
+| ✅ | Storage — quota bar (tier + `storage-10gb` add-on), preview (PDF/image) |
+| ✅ | Storage ↔ HR — HR doc category + staff picker; links to employee records |
+| ✅ | Storage “Used by” — compliance licence, HR employee, task links |
+| ✅ | In-app compliance reminders (cron; no email in Phase 1) |
+| ✅ | `/admin/documents` redirects to Storage (Documents add-on stub hidden) |
+| ✅ | RLS + role gates (owner/manager/hr_officer storage scoping) |
+
+### 4.2 Admin add-ons (Marketplace)
+
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ✅ | Admin AI (Amir) | `admin-assistant` | RM 20/mo · `/admin/assistant` · missing certs + storage gaps |
+| 🟡 | Smart compliance alerts | `admin-compliance-alerts` | In-app alerts shipped; Marketplace listing coming soon |
+| ⬜ | Digital signature | `admin-digital-signature` | |
+| ⬜ | Custom document builder | `admin-doc-builder` | |
+| ⬜ | Approval workflow | `admin-approval-workflow` | |
+| ⬜ | Admin audit export report | — | Core report, not a paid add-on |
+| ⬜ | Auto document categorization | — | |
+| 🟡 | Extra storage packs | `storage-10gb` | Quota logic in app; Marketplace pack UX TBD |
+
+### 4.3 Admin ↔ other modules (cross-pillar)
+
+> Full matrix: [`docs/CROSS-MODULE.md`](./CROSS-MODULE.md)
+
+| Module | Connection | How | Status |
+|--------|------------|-----|--------|
+| **HR** | Staff documents | `hr_employee_documents.admin_file_id` → Storage; upload from HR or Admin Storage (HR doc + staff picker) | ✅ |
+| **HR** | Profile completion | Missing IC / bank / contract docs flagged from HR employee records | ✅ |
+| **Finance** | Expense receipts | `finance_transactions.admin_file_id` → Storage; attach on `/finance/expenses` | ✅ |
+| **Operations** | Supplier contracts | `operations_suppliers.admin_file_id` | ✅ |
+| **Operations** | Order documents | `operations_orders.admin_file_id` | ✅ |
+| **Sales** | Lead proposals | `sales_leads.admin_file_id` | ✅ |
+| **Marketing** | Content assets | Separate `marketing-media` bucket — bridge link from Storage UI | ✅ |
+| **Settings** | Plan tier | Storage quota from `businesses.tier` + active `storage-10gb` add-ons | ✅ |
+| **Settings** | Team / RBAC | `hr_officer` → Storage HR-docs only; task assignees from `users` | ✅ |
+| **Marketplace** | Amir add-on | `admin-assistant` unlocks `/admin/assistant` | ✅ |
+| **Home** | Overview | Admin pillar snapshot on dashboard | ✅ |
+| **Platform** | Audit log | Admin actions logged (`audit_log`) for Amir context | ✅ |
+| **Finance** | Invoice supporting docs | `finance_invoices.admin_file_id` → Storage | ✅ |
 
 ---
 
 ## 5. Finance module
 
+> **Unlock:** Starter+ (Free tier: invoicing basics).  
+> **Rule:** Core = ledger, invoices, quotes, export, DuitNow. **Add-ons wait until core is 100%.**  
+> **Gate:** Do not build §5.2 marketplace items until every §5.1 row is ✅ and verified on staging.
+
+### 5.1 Core Finance (included) — finish these first
+
 | Status | Item |
 |--------|------|
-| ✅ | Finance overview |
-| ✅ | Income / expense transactions |
-| ✅ | Ledger view |
-| ✅ | Invoices v2 (create, edit, list, statuses, void, filters) |
+| ✅ | Finance overview — month picker, MoM compare, expense breakdown, chase list, POS tile |
+| ✅ | Expenses — quick log, categories, edit/delete, receipt attach |
+| ✅ | Invoices — create, send, draft/sent/paid/void, line items |
+| ✅ | Customers — save once, reuse on invoices |
+| ✅ | Ledger — full cash flow history (income + expense) |
 | ✅ | Quotes — create, list, convert to invoice |
-| ✅ | DuitNow panel on public invoices (`show_duitnow` toggle) |
-| ✅ | Finance AI chat (`/finance/assistant`) |
-| ⬜ | LHDN e-Invoice connector add-on |
-| ⬜ | SST advanced reporting |
-| ⬜ | Cashflow forecast |
-| ⬜ | Recurring invoices |
-| ⬜ | Payment gateway webhooks (Billplz live) |
-| ⬜ | Auto bank reconciliation |
-| ⬜ | Accountant export pack |
+| ✅ | Share + chase — WhatsApp/email link, who owes you on overview |
+| ✅ | DuitNow on public invoice (`show_duitnow` toggle) |
+| ✅ | Accountant export pack — `/api/finance/export-pack` |
+| ✅ | POS tie-in — counter sales on overview + posts to ledger |
+| ✅ | Invoice supporting docs — `admin_file_id` on invoices |
+| ✅ | Quote → invoice polish — confirm dialog + due date |
+| ✅ | Email send fallback — mailto when Resend not configured |
+
+**Core verify before add-ons:** run `supabase db push` (incl. `20260731010000_finance_billplz_and_invoice_attachments.sql`), then smoke: log expense → send invoice → share link → export CSV.
+
+### 5.2 Finance add-ons (Marketplace) — **frozen until §5.1 verified**
+
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ✅ | Finance AI (Fayza) | `finance-assistant` | RM 20/mo · ship only after core gate · `/finance/assistant` |
+| 🟡 | Billplz invoice checkout | — | Wired · live when `BILLPLZ_*` env set · **add-on, not core** |
+| ⬜ | LHDN e-Invoice connector | `finance-lhdn-einvoice` | |
+| ⬜ | SST advanced reporting | `finance-sst-reporting` | |
+| ⬜ | Cashflow forecast | — | |
+| ⬜ | Recurring invoices | — | |
+| ⬜ | Auto bank reconciliation | — | |
 
 ---
 
 ## 6. Operations module
+
+> **Unlock:** Growth+ (see entitlements).  
+> **Rule:** Core = products, orders, bookings, stock alerts. Add-ons = AI, public booking, and advanced inventory.
+
+### 6.1 Core Operations (included)
 
 | Status | Item |
 |--------|------|
@@ -208,14 +271,18 @@
 | ✅ | Bookings calendar + resources |
 | ✅ | Booking buffer + conflict check (create + PATCH) |
 | ✅ | Low-stock tracking + overview alerts |
-| ✅ | Operations AI chat (`/operations/assistant`) |
-| ⬜ | Product variants add-on |
-| ⬜ | Public customer booking page |
-| ⬜ | Advanced inventory / stock movements |
-| ⬜ | Auto stock deduction from POS |
-| ⬜ | Multi-location stock |
-| ⬜ | Purchase order generator |
-| ⬜ | Operations AI chat |
+
+### 6.2 Operations add-ons (Marketplace)
+
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ✅ | Operations AI (Aiman) | `operations-assistant` | RM 20/mo · `/operations/assistant` · daily notice on Home |
+| ⬜ | Product variants | `operations-product-variants` | |
+| ⬜ | Public customer booking page | `operations-public-booking` | |
+| ⬜ | Advanced inventory / stock movements | — | |
+| ⬜ | Auto stock deduction from POS | — | Cross-pillar with Sales |
+| ⬜ | Multi-location stock | — | |
+| ⬜ | Purchase order generator | — | |
 
 ---
 
@@ -284,7 +351,7 @@
 | ✅ | Customer analytics views (spend, last purchase) |
 | ✅ | First-visit Marketing guide (skip/cancel = done) |
 | ✅ | Nightly auto-tag refresh cron (`/api/cron/marketing-tag-refresh`) |
-| 🟡 | POS line-item history on customer (beyond Finance invoices) |
+| ✅ | POS + invoice line items on customer Orders tab |
 
 ### 8.2 Marketing add-ons (Marketplace · coming soon)
 
@@ -323,6 +390,11 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_comi
 | ✅ | Pending leave approve/reject |
 | ✅ | Manager record leave + MC upload |
 | ✅ | Share-link leave form (staff, no login) |
+| ✅ | Staff self-service portal (`/hr/me`) — staff role; requires `hr-staff-portal` add-on + `hr_employees.user_id` link |
+| ✅ | Staff portal: view AL balance + apply leave (annual / emergency / MC upload) |
+| ✅ | Staff portal: leave history + cancel pending requests |
+| ✅ | Staff portal: read-only onboarding checklist |
+| ✅ | Staff portal RLS (`20260730130000_hr_staff_self_service_rls.sql`) |
 | ✅ | Leave history |
 | ✅ | Limited AL balance (entitlement − taken, working days excl. weekends + holidays) |
 | ✅ | Balance updates on approve/reject |
@@ -341,14 +413,14 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_comi
 | ✅ | HR AI Assistant (Hana) | `hr-assistant` | RM 20/mo · staff planner + leave tools · 100 credits |
 | ✅ | Public Holiday Calendar | `hr-public-holidays` | Free · MyCal import · state-aware |
 | ✅ | Staff Appraisal Checker | `hr-staff-appraisal` | RM 29/mo · schedule reviews · overdue tracking |
-| 🟡 | Self-Service Leave Forms | — | Share link works; full portal add-on not built |
-| ⬜ | Advanced Leave Policy | `hr-advanced-leave-policy` | ✅ Marketplace placeholder · UI at `/hr/leave/policy` |
+| ✅ | Self-Service Leave Forms | — | Share link (`/staff/leave/[token]`) + logged-in portal (`/hr/me`) |
+| ⬜ | Advanced Leave Policy | `hr-advanced-leave-policy` | Marketplace placeholder · UI at `/hr/leave/policy` |
 | ⬜ | Contract & Letter Generator | `hr-contract-letters` | Coming soon in marketplace |
 | ⬜ | Shift Roster | `hr-shift-roster` | Coming soon |
 | ⬜ | Time Clock | `hr-time-clock` | Coming soon |
 | ⬜ | Payroll & Statutory Pack | `hr-payroll-pack` | Coming soon |
 | ⬜ | HR Reminder Pack | `hr-reminder-pack` | Coming soon |
-| ⬜ | Staff Self-Service Portal | `hr-staff-portal` | ✅ Marketplace placeholder · UI at `/hr/staff-portal` |
+| ✅ | Staff Self-Service Portal | `hr-staff-portal` | Staff app at `/hr/me`; owner upsell page at `/hr/staff-portal` |
 | ⬜ | AL carry-forward automation | — | Ships with Advanced Leave Policy add-on |
 | ⬜ | Per-business holiday overrides | — | Phase 2 HR feature · feeds Operations calendar (see §9.4) |
 | ⬜ | Operations integration (block bookings on PH) | — | Phase 2 · consumes HR effective calendar (see §9.4) |
@@ -423,12 +495,13 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_comi
 
 | Status | Action |
 |--------|--------|
-| ✅ | Run `supabase db push` if remote behind local — through `20260708120000` applied |
+| ✅ | Run `supabase db push` if remote behind local — 65 local migrations (includes `20260730130000`; verify remote after push) |
 | ✅ | `NEXT_PUBLIC_APP_URL` set in production |
 | ✅ | `CRON_SECRET` set in Vercel production |
 | 🟡 | Set production env: `INTEGRATION_ENCRYPTION_KEY`, `ILMU_API_KEY` (or configure ILMU in super-admin integrations) — `ILMU_API_KEY` ✅ if set in Vercel |
 | 🟡 | Configure Supabase Auth email templates / SMTP for team invites — see `docs/DEPLOY-SMTP.md` |
-| ✅ | Vercel crons configured: `privacy-sweep`, `hr-daily-notice`, `hr-assistant-renewal`, `subscription-renewal`, `tenant-health` |
+| 🟡 | Google social login — Supabase Auth → Providers → Google; add OAuth client + `/auth/callback` redirect |
+| ✅ | Vercel crons configured: `privacy-sweep`, `hr-daily-notice`, `marketing-daily-notice`, `sales-daily-notice`, `finance-daily-notice`, `operations-daily-notice`, `admin-daily-notice`, `hr-assistant-renewal`, `subscription-renewal`, `tenant-health` |
 | ⬜ | Billplz production keys + webhook URL |
 | ⬜ | E2E test suite in CI |
 | ⬜ | Staging environment parity |
@@ -448,6 +521,8 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_comi
 | `20260708120000_perf_security_indexes.sql` | Paid-invoice index + super-admin aggregation RPCs |
 | `20260708140000_onboarding_fields.sql` | Quiz answers + `onboarding_completed_at` on businesses |
 | `20260711090000_marketing_addons_coming_soon.sql` | Marketing add-ons coming soon + Meta/email/loyalty seeds |
+| `20260730130000_hr_staff_self_service_rls.sql` | Staff `/hr/me` RLS — self read employee, insert leave, read balances + onboarding |
+| `20260730200000_credit_rollover_policy.sql` | Top-up vs bundle credit split; monthly grant reset; bundle-first spend |
 
 ---
 
@@ -457,16 +532,15 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_comi
 
 ### Do next (core / platform settle)
 
-- Finance: DuitNow panel + quote-to-invoice polish; Billplz live checkout
+- **Finance core:** ✅ feature-complete — verify on staging (`db push` + smoke test); **no new Finance add-ons**
 - Operations: booking buffer; basic stock gaps
 - Sales: POS offline / refund gaps as needed for demo
-- Marketing: POS line-items on customer (beyond Finance invoices)
-- Auth: Supabase SMTP / Resend for invites + (later) email verification
-- Module AI chat UIs only after that module’s core is settled
+- Auth: Supabase SMTP / Resend for invites + (later) email verification; Google OAuth provider in Supabase for social sign-in
+- Module AI polish only after that module’s core is verified
 
 ### After cores settle (add-ons — do not start early)
 
-- Staff login self-service (`/hr/me`) / staff portal
+- Finance: Billplz live keys, LHDN, recurring invoices, SST reports, bank reconciliation
 - Per-business public holiday overrides
 - Operations ↔ HR holiday blocking
 - Cross-pillar event bus / outbox

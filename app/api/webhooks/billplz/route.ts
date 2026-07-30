@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
+import { completeBillplzPayment } from "@/lib/finance/billplz-checkout";
 import { verifyBillplzSignature } from "@/lib/integrations/billplz";
 import { logger } from "@/lib/logger";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** POST /api/webhooks/billplz — Billplz payment callback. */
+/** POST /api/webhooks/billplz — Billplz payment callback (finance invoices + top-ups). */
 export async function POST(request: Request) {
   const signatureKey = process.env.BILLPLZ_X_SIGNATURE_KEY?.trim();
   if (!signatureKey) {
@@ -28,18 +28,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, skipped: true });
   }
 
-  const admin = createServiceRoleClient();
-  const { error } = await admin.rpc("settings_complete_topup_billplz", {
-    p_billplz_id: payload.id,
-  });
-
-  if (error) {
+  try {
+    const kind = await completeBillplzPayment(payload.id);
+    return NextResponse.json({ ok: true, kind });
+  } catch (e) {
     logger.error("billplz.webhook.complete_failed", {
       billId: payload.id,
-      error: error.message,
+      error: e instanceof Error ? e.message : "unknown",
     });
     return NextResponse.json({ error: "complete_failed" }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true });
 }

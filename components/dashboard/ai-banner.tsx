@@ -31,7 +31,7 @@ export function AiBanner({
   disabledLabel = "Coming soon",
 }: AiBannerProps) {
   const enabledButton = cta ? (
-    <span className="inline-flex shrink-0 items-center justify-center rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600 active:bg-accent-700">
+    <span className="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600 active:bg-accent-700">
       {cta}
     </span>
   ) : null;
@@ -42,7 +42,7 @@ export function AiBanner({
       disabled
       title={disabledLabel}
       aria-label={`${cta} — ${disabledLabel}`}
-      className="inline-flex shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-cream-300 bg-cream-100 px-4 py-2 text-sm font-medium text-ink-muted dark:border-hairline-dark dark:bg-hairline-dark/40 dark:text-cream-400"
+      className="inline-flex shrink-0 cursor-not-allowed items-center justify-center whitespace-nowrap rounded-md border border-cream-300 bg-cream-100 px-4 py-2 text-sm font-medium text-ink-muted dark:border-hairline-dark dark:bg-hairline-dark/40 dark:text-cream-400"
     >
       {disabledLabel}
     </button>
@@ -71,7 +71,7 @@ export function AiBanner({
         disabledButton
       ) : enabledButton ? (
         href ? (
-          <Link href={href} className="self-start sm:self-auto">
+          <Link href={href} className="shrink-0 self-start sm:self-auto">
             {enabledButton}
           </Link>
         ) : (

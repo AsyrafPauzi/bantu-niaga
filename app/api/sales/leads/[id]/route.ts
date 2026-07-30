@@ -6,13 +6,14 @@ import { assertLeadAssignee } from "@/lib/sales/convert-lead";
 import { leadUpdateSchema, normalizeFollowUpAt } from "@/lib/sales/schemas";
 import { normalizeMyPhone } from "@/lib/marketing/phone";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveAdminFileIdPatch, loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 const LEAD_SELECT =
-  "id, name, phone_e164, channel, interest, estimated_value_myr, status, follow_up_at, assigned_to, customer_id, converted_at, lost_reason, created_by, created_at, updated_at";
+  "id, name, phone_e164, channel, interest, estimated_value_myr, status, follow_up_at, assigned_to, customer_id, converted_at, lost_reason, admin_file_id, created_by, created_at, updated_at";
 
 /** GET /api/sales/leads/[id] */
 export async function GET(_request: Request, context: RouteContext) {
@@ -124,6 +125,22 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
   if (parsed.lost_reason !== undefined) patch.lost_reason = parsed.lost_reason;
 
+  if (parsed.admin_file_id !== undefined) {
+    const supabase = await createSupabaseServerClient();
+    const fileCheck = await resolveAdminFileIdPatch(
+      supabase,
+      user.businessId,
+      parsed.admin_file_id,
+    );
+    if (!fileCheck.ok) {
+      return NextResponse.json(
+        { error: "invalid_file", message: fileCheck.message },
+        { status: 400 },
+      );
+    }
+    patch.admin_file_id = fileCheck.value;
+  }
+
   if (parsed.phone !== undefined) {
     const phoneE164 = normalizeMyPhone(parsed.phone);
     if (!phoneE164) {
@@ -178,6 +195,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  let admin_file_name: string | null = null;
+  if (data.admin_file_id) {
+    const names = await loadAdminFileNames(supabase, user.businessId, [
+      data.admin_file_id,
+    ]);
+    admin_file_name = names.get(data.admin_file_id) ?? null;
+  }
+
   await supabase.from("audit_log").insert({
     business_id: user.businessId,
     actor_user_id: user.id,
@@ -187,5 +212,5 @@ export async function PATCH(request: Request, context: RouteContext) {
     diff: patch,
   });
 
-  return NextResponse.json({ data }, { status: 200 });
+  return NextResponse.json({ data: { ...data, admin_file_name } }, { status: 200 });
 }

@@ -36,6 +36,28 @@ export async function nextFinanceInvoiceNumber(
   return `${pattern}${String(seq).padStart(4, "0")}`;
 }
 
+export async function isFinanceInvoiceNumberTaken(
+  admin: SupabaseClient,
+  businessId: string,
+  number: string,
+  excludeId?: string,
+): Promise<boolean> {
+  let query = admin
+    .from("finance_invoices")
+    .select("id")
+    .eq("business_id", businessId)
+    .eq("number", number)
+    .is("deleted_at", null)
+    .limit(1);
+
+  if (excludeId) {
+    query = query.neq("id", excludeId);
+  }
+
+  const { data } = await query;
+  return (data?.length ?? 0) > 0;
+}
+
 function monthBounds(month?: string): { start: string; end: string; label: string } {
   const now = new Date();
   const [y, m] = month

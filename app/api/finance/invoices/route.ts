@@ -10,6 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   generateShareHash,
+  isFinanceInvoiceNumberTaken,
   nextFinanceInvoiceNumber,
 } from "@/lib/finance/helpers";
 import {
@@ -19,6 +20,7 @@ import {
   replaceInvoiceItems,
   resolveCustomerSnapshot,
 } from "@/lib/finance/invoice-db";
+import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
 import {
   financeInvoiceCreateSchema,
   type FinanceInvoiceRow,
@@ -183,16 +185,54 @@ export async function POST(request: Request) {
   const totals = buildTotalsFromPayload(parsed);
   const admin = createServiceRoleClient();
   const documentKind = parsed.document_kind ?? "invoice";
-  const number = await nextFinanceInvoiceNumber(
-    admin,
-    user.businessId,
-    documentKind === "quote" ? "QUO" : "INV",
-  );
+  const prefix = documentKind === "quote" ? "QUO" : "INV";
+  let number =
+    parsed.number ??
+    (await nextFinanceInvoiceNumber(admin, user.businessId, prefix));
+
+  if (parsed.number) {
+    const taken = await isFinanceInvoiceNumberTaken(
+      admin,
+      user.businessId,
+      number,
+    );
+    if (taken) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "duplicate_number",
+            message: `“${number}” is already used. Pick a different number.`,
+          },
+        },
+        { status: 409 },
+      );
+    }
+  }
   const shareHash = generateShareHash();
   const now = new Date().toISOString();
   const status = parsed.status ?? "draft";
   const invoiceDate =
     parsed.invoice_date ?? new Date().toISOString().slice(0, 10);
+
+  let adminFileId: string | null = null;
+  if (parsed.admin_file_id) {
+    const fileCheck = await resolveAdminFileIdPatch(
+      supabase,
+      user.businessId,
+      parsed.admin_file_id,
+    );
+    if (!fileCheck.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "invalid_file", message: fileCheck.message },
+        },
+        { status: 400 },
+      );
+    }
+    adminFileId = fileCheck.value;
+  }
 
   const { data, error } = await supabase
     .from("finance_invoices")
@@ -219,6 +259,7 @@ export async function POST(request: Request) {
       notes: parsed.notes ?? null,
       document_kind: documentKind,
       show_duitnow: parsed.show_duitnow ?? true,
+      admin_file_id: adminFileId,
       sent_at: status === "sent" ? now : null,
       paid_at: status === "paid" ? now : null,
       created_by: user.id,

@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 import type {
   OperationsOrderRow,
   OperationsSupplierRow,
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 const ORDER_SELECT =
   "id, business_id, number, customer_name, customer_phone, title, description, " +
-  "status, due_date, amount_myr, supplier_id, notes, completed_at, " +
+  "status, due_date, amount_myr, supplier_id, notes, admin_file_id, completed_at, " +
   "created_by, created_at, updated_at";
 
 export default async function OrdersPage() {
@@ -45,7 +46,7 @@ export default async function OrdersPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("operations_suppliers")
-      .select("id, business_id, name, contact_name, phone, email, address, payment_terms, notes, created_by, created_at, updated_at")
+      .select("id, business_id, name, contact_name, phone, email, address, payment_terms, notes, admin_file_id, created_by, created_at, updated_at")
       .eq("business_id", user.businessId)
       .is("deleted_at", null)
       .order("name", { ascending: true }),
@@ -54,11 +55,20 @@ export default async function OrdersPage() {
   const rows = (orders ?? []) as unknown as OperationsOrderRow[];
   const supplierRows = (suppliers ?? []) as unknown as OperationsSupplierRow[];
 
+  const fileNames = await loadAdminFileNames(
+    supabase,
+    user.businessId,
+    rows.map((r) => r.admin_file_id).filter(Boolean) as string[],
+  );
+
   const nameLookup = new Map(supplierRows.map((s) => [s.id, s.name]));
   const enriched = rows.map((r) => ({
     ...r,
     supplier_name: r.supplier_id
       ? (nameLookup.get(r.supplier_id) ?? null)
+      : null,
+    admin_file_name: r.admin_file_id
+      ? (fileNames.get(r.admin_file_id) ?? null)
       : null,
   }));
 

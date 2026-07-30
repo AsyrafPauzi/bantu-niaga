@@ -1,21 +1,8 @@
-import { PillarStub } from "@/components/ui/pillar-stub";
+import { redirect } from "next/navigation";
 
 export const metadata = { title: "Documents" };
 
+/** Document templates are a marketplace add-on — not in core v1. Send users to Storage. */
 export default function DocumentsPage() {
-  return (
-    <PillarStub
-      pillar="Admin"
-      surface="Document Templates"
-      description="Interactive form templates for standard Malaysian business documents. Locked layouts, fill-in-the-blank fields, secure share link."
-      baseFeatures={[
-        "Tenancy Agreement",
-        "Letter of Offer",
-        "Quotation",
-        "Output: PDF + secure share link",
-        "Recipient signs via Digital Signature flow",
-      ]}
-      primaryMode="desktop"
-    />
-  );
+  redirect("/admin/storage");
 }

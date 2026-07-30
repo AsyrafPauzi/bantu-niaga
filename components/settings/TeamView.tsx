@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Crown,
+  History,
   Loader2,
   Mail,
   Plus,
@@ -35,11 +36,12 @@ interface TeamViewProps {
   members: TeamMemberRow[];
   invites: TeamInviteRow[];
   audit: TeamAuditEntry[];
+  auditTotal: number;
   seatQuota: number;
   seatUsed: number;
   canEdit: boolean;
   currentUserId: string;
-  tierLabel: string;
+  showBillingLink: boolean;
 }
 
 const PILLAR_LABELS: Record<(typeof PILLARS)[number], string> = {
@@ -70,13 +72,16 @@ function fmtDate(iso: string): string {
   });
 }
 
-function pillarAccessLabel(role: Role, pillar: (typeof PILLARS)[number]): string {
+function pillarAccessLabel(
+  role: Role,
+  pillar: (typeof PILLARS)[number],
+): string {
   const access = permissions[role][pillar];
-  if (access === "*") return "Full access";
+  if (access === "*") return "Full";
   if (access === undefined) return "—";
   const keys = Object.keys(access);
   if (keys.length === 0) return "Limited";
-  return keys.map((k) => `${k} (${(access as Record<string, string>)[k]})`).join(", ");
+  return "Limited";
 }
 
 function auditActionLabel(action: string): string {
@@ -96,7 +101,10 @@ function auditActionLabel(action: string): string {
   }
 }
 
-function memberStatus(member: TeamMemberRow): { label: string; tone: "success" | "warning" | "neutral" } {
+function memberStatus(member: TeamMemberRow): {
+  label: string;
+  tone: "success" | "warning" | "neutral";
+} {
   if (member.last_password_change_at) {
     return { label: "Active", tone: "success" };
   }
@@ -107,11 +115,12 @@ export function TeamView({
   members,
   invites,
   audit,
+  auditTotal,
   seatQuota: quota,
   seatUsed,
   canEdit,
   currentUserId,
-  tierLabel,
+  showBillingLink,
 }: TeamViewProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -122,9 +131,6 @@ export function TeamView({
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState<InviteableRole>("staff");
   const [previewRole, setPreviewRole] = useState<Role>("staff");
-
-  const seatsLabel =
-    quota >= 999 ? `${seatUsed} · unlimited` : `${seatUsed} / ${quota}`;
 
   const atSeatLimit = quota < 999 && seatUsed >= quota;
 
@@ -151,6 +157,7 @@ export function TeamView({
         const res = await fetch("/api/settings/team/invite", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({
             email: inviteEmail,
             role: inviteRole,
@@ -192,6 +199,7 @@ export function TeamView({
         const res = await fetch(`/api/settings/team/members/${memberId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({ role }),
         });
         const json = await res.json().catch(() => ({}));
@@ -208,7 +216,9 @@ export function TeamView({
   }
 
   async function removeMember(memberId: string, name: string) {
-    if (!confirm(`Remove ${name} from your team? They will lose access immediately.`)) {
+    if (
+      !confirm(`Remove ${name} from your team? They will lose access immediately.`)
+    ) {
       return;
     }
     clearMessages();
@@ -216,6 +226,7 @@ export function TeamView({
       try {
         const res = await fetch(`/api/settings/team/members/${memberId}`, {
           method: "DELETE",
+          credentials: "same-origin",
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -237,6 +248,7 @@ export function TeamView({
       try {
         const res = await fetch(`/api/settings/team/invites/${inviteId}`, {
           method: "DELETE",
+          credentials: "same-origin",
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -264,309 +276,295 @@ export function TeamView({
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <p className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-subtle">
-            Seats
-          </p>
-          <p className="mt-1 text-2xl font-bold text-brand-700 dark:text-brand-200">
-            {seatsLabel}
-          </p>
-          <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-            {tierLabel} plan
-            {invites.length > 0
-              ? ` · ${invites.length} invite${invites.length === 1 ? "" : "s"} pending`
-              : ""}
-          </p>
-        </div>
-        <div className="rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <p className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-subtle">
-            Active members
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink dark:text-cream-100">
-            {members.length}
-          </p>
-          <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-            {ROLES.length} roles — from Owner down to front-line Staff
-          </p>
-        </div>
-        <div className="rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <p className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-subtle">
-            Your access
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink dark:text-cream-100">
-            {canEdit ? "Owner" : "View only"}
-          </p>
-          <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-            {canEdit
-              ? "You can invite, change roles, and revoke access."
-              : "Only the owner can manage team members."}
-          </p>
-        </div>
-      </section>
+      {!canEdit ? (
+        <p className="text-sm text-ink-muted dark:text-cream-400">
+          Read-only — only the owner can invite, change roles, or revoke access.
+        </p>
+      ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
-          <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <div className="flex items-center justify-between gap-3 border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-brand-700 dark:text-brand-200" strokeWidth={2} />
-                <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
-                  Team members
-                </h2>
-              </div>
-              {canEdit ? (
-                <button
-                  type="button"
-                  disabled={pending || atSeatLimit}
-                  onClick={() => {
-                    clearMessages();
-                    setInviteOpen(true);
-                    setPreviewRole(inviteRole);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800 disabled:opacity-50 dark:bg-brand-600"
-                >
-                  {pending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Plus className="h-3.5 w-3.5" />
-                  )}
-                  Invite member
-                </button>
-              ) : null}
+      <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cream-200 p-4 dark:border-hairline-dark">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+              <Users className="h-4 w-4" strokeWidth={2} />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
+                Members
+              </h2>
+              <p className="text-xs text-ink-muted dark:text-cream-400">
+                {members.length} active
+              </p>
             </div>
-
-            <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
-              {sortedMembers.map((member) => {
-                const status = memberStatus(member);
-                const isSelf = member.id === currentUserId;
-                const isOwner = member.role === "owner";
-                const display =
-                  member.display_name ?? member.email ?? "Unknown";
-
-                return (
-                  <li
-                    key={member.id}
-                    className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-medium text-ink dark:text-cream-100">
-                          {display}
-                          {isSelf ? (
-                            <span className="ml-1.5 text-xs font-normal text-ink-muted">
-                              (you)
-                            </span>
-                          ) : null}
-                        </p>
-                        {isOwner ? (
-                          <Badge tone="accent">
-                            <Crown className="mr-1 inline h-3 w-3" />
-                            Owner
-                          </Badge>
-                        ) : (
-                          <Badge tone="brand">{ROLE_LABELS[member.role]}</Badge>
-                        )}
-                        <Badge tone={status.tone}>{status.label}</Badge>
-                      </div>
-                      <p className="mt-0.5 truncate text-xs text-ink-muted dark:text-cream-400">
-                        {member.email ?? "No email"} · Joined {fmtDate(member.created_at)}
-                      </p>
-                      <p className="mt-1 text-xs text-ink-subtle dark:text-cream-500">
-                        {roleSummary(member.role)}
-                      </p>
-                    </div>
-
-                    {canEdit && !isOwner && !isSelf ? (
-                      <div className="flex shrink-0 items-center gap-2">
-                        <select
-                          value={member.role}
-                          disabled={pending}
-                          onChange={(e) =>
-                            changeRole(member.id, e.target.value as InviteableRole)
-                          }
-                          className="rounded-lg border border-cream-300 bg-white px-2 py-1.5 text-xs dark:border-hairline-dark dark:bg-panel-dark"
-                          aria-label={`Role for ${display}`}
-                        >
-                          {INVITEABLE_ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {ROLE_LABELS[r]}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => removeMember(member.id, display)}
-                          className="rounded-lg border border-cream-300 p-1.5 text-ink-muted hover:border-status-danger/40 hover:text-status-danger dark:border-hairline-dark"
-                          aria-label={`Remove ${display}`}
-                        >
-                          <UserMinus className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-
-          {invites.length > 0 ? (
-            <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-              <div className="flex items-center gap-2 border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
-                <Mail className="h-5 w-5 text-brand-700 dark:text-brand-200" strokeWidth={2} />
-                <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
-                  Pending invites
-                </h2>
-              </div>
-              <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
-                {invites.map((invite) => (
-                  <li
-                    key={invite.id}
-                    className="flex items-center justify-between gap-3 px-5 py-4"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-ink dark:text-cream-100">
-                        {invite.display_name ?? invite.email}
-                      </p>
-                      <p className="text-xs text-ink-muted dark:text-cream-400">
-                        {invite.email} · {ROLE_LABELS[invite.role]} · Expires{" "}
-                        {fmtDate(invite.expires_at)}
-                      </p>
-                    </div>
-                    {canEdit ? (
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => cancelInvite(invite.id, invite.email)}
-                        className="shrink-0 rounded-lg border border-cream-300 px-2 py-1 text-xs text-ink-muted hover:border-status-danger/40 hover:text-status-danger dark:border-hairline-dark"
-                      >
-                        Cancel
-                      </button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
+          </div>
+          {canEdit ? (
+            <button
+              type="button"
+              disabled={pending || atSeatLimit}
+              onClick={() => {
+                clearMessages();
+                setInviteOpen(true);
+                setPreviewRole(inviteRole);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-600 disabled:opacity-60"
+            >
+              {pending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+              ) : (
+                <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+              )}
+              Invite member
+            </button>
           ) : null}
         </div>
 
-        <aside className="space-y-6">
-          <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <div className="flex items-center gap-2 border-b border-cream-200 px-4 py-3 dark:border-hairline-dark">
-              <Shield className="h-4 w-4 text-brand-700 dark:text-brand-200" strokeWidth={2} />
-              <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
-                Permission preview
-              </h2>
-            </div>
-            <div className="space-y-3 p-4">
-              <select
-                value={previewRole}
-                onChange={(e) => setPreviewRole(e.target.value as Role)}
-                className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark"
-                aria-label="Preview role permissions"
-              >
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_LABELS[r]}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-ink-muted dark:text-cream-400">
-                {ROLE_HINTS[previewRole]}
-              </p>
-              <p className="text-xs text-ink-muted dark:text-cream-400">
-                {roleSummary(previewRole)}
-              </p>
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-ink-subtle">
-                    <th className="pb-2 font-medium">Module</th>
-                    <th className="pb-2 font-medium">Access</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cream-100 dark:divide-hairline-dark">
-                  {PILLARS.map((pillar) => (
-                    <tr key={pillar}>
-                      <td className="py-1.5 text-ink dark:text-cream-200">
-                        {PILLAR_LABELS[pillar]}
-                      </td>
-                      <td className="py-1.5 text-ink-muted dark:text-cream-400">
-                        {pillarAccessLabel(previewRole, pillar)}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td className="py-1.5 text-ink dark:text-cream-200">Billing</td>
-                    <td className="py-1.5 text-ink-muted dark:text-cream-400">
-                      {permissions[previewRole].billing === "*"
-                        ? "Full access"
-                        : permissions[previewRole].billing === "r"
-                          ? "View only"
-                          : "—"}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-1.5 text-ink dark:text-cream-200">Team</td>
-                    <td className="py-1.5 text-ink-muted dark:text-cream-400">
-                      {permissions[previewRole].team === "*"
-                        ? "Manage team"
-                        : permissions[previewRole].team === "r"
-                          ? "View only"
-                          : "—"}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
+        <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+          {sortedMembers.map((member) => {
+            const status = memberStatus(member);
+            const isSelf = member.id === currentUserId;
+            const isOwner = member.role === "owner";
+            const display = member.display_name ?? member.email ?? "Unknown";
 
-          <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <div className="border-b border-cream-200 px-4 py-3 dark:border-hairline-dark">
+            return (
+              <li
+                key={member.id}
+                className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-medium text-ink dark:text-cream-100">
+                      {display}
+                      {isSelf ? (
+                        <span className="ml-1.5 text-xs font-normal text-ink-muted">
+                          (you)
+                        </span>
+                      ) : null}
+                    </p>
+                    {isOwner ? (
+                      <Badge tone="accent">
+                        <Crown className="mr-1 inline h-3 w-3" />
+                        Owner
+                      </Badge>
+                    ) : (
+                      <Badge tone="brand">{ROLE_LABELS[member.role]}</Badge>
+                    )}
+                    <Badge tone={status.tone}>{status.label}</Badge>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-ink-muted dark:text-cream-400">
+                    {member.email ?? "No email"} · joined{" "}
+                    {fmtDate(member.created_at)}
+                  </p>
+                </div>
+
+                {canEdit && !isOwner && !isSelf ? (
+                  <div className="flex shrink-0 items-center gap-2">
+                    <select
+                      value={member.role}
+                      disabled={pending}
+                      onChange={(e) =>
+                        changeRole(member.id, e.target.value as InviteableRole)
+                      }
+                      className="rounded-lg border border-cream-300 bg-white px-2 py-1.5 text-xs dark:border-hairline-dark dark:bg-panel-dark"
+                      aria-label={`Role for ${display}`}
+                    >
+                      {INVITEABLE_ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => removeMember(member.id, display)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-cream-300 text-ink-muted hover:border-status-danger/40 hover:text-status-danger dark:border-hairline-dark"
+                      aria-label={`Remove ${display}`}
+                    >
+                      <UserMinus className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {invites.length > 0 ? (
+        <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+          <div className="flex items-center gap-3 border-b border-cream-200 p-4 dark:border-hairline-dark">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+              <Mail className="h-4 w-4" strokeWidth={2} />
+            </span>
+            <div>
               <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
-                Activity log
+                Pending invites
               </h2>
-            </div>
-            {audit.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-ink-muted dark:text-cream-400">
-                No team activity yet.
+              <p className="text-xs text-ink-muted dark:text-cream-400">
+                {invites.length} waiting to accept
               </p>
-            ) : (
-              <ul className="max-h-64 divide-y divide-cream-200 overflow-y-auto dark:divide-hairline-dark">
-                {audit.map((entry) => (
-                  <li key={entry.id} className="px-4 py-2.5">
-                    <p className="text-xs font-medium text-ink dark:text-cream-200">
-                      {auditActionLabel(entry.action)}
-                    </p>
-                    <p className="text-[11px] text-ink-muted dark:text-cream-400">
-                      {fmtRelative(entry.created_at)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </aside>
-      </div>
+            </div>
+          </div>
+          <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+            {invites.map((invite) => (
+              <li
+                key={invite.id}
+                className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink dark:text-cream-100">
+                    {invite.display_name ?? invite.email}
+                  </p>
+                  <p className="text-xs text-ink-muted dark:text-cream-400">
+                    {invite.email} · {ROLE_LABELS[invite.role]} · expires{" "}
+                    {fmtDate(invite.expires_at)}
+                  </p>
+                </div>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => cancelInvite(invite.id, invite.email)}
+                    className="shrink-0 rounded-md border border-cream-300 px-2.5 py-1 text-[11px] font-semibold text-ink-muted hover:border-status-danger/40 hover:text-status-danger dark:border-hairline-dark"
+                  >
+                    Cancel
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+        <div className="flex items-center gap-3 border-b border-cream-200 p-4 dark:border-hairline-dark">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+            <Shield className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <div>
+            <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
+              Role permissions
+            </h2>
+            <p className="text-xs text-ink-muted dark:text-cream-400">
+              Preview what each role can access
+            </p>
+          </div>
+        </div>
+        <div className="space-y-3 p-4">
+          <select
+            value={previewRole}
+            onChange={(e) => setPreviewRole(e.target.value as Role)}
+            className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark"
+            aria-label="Preview role permissions"
+          >
+            {ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-ink-muted dark:text-cream-400">
+            {ROLE_HINTS[previewRole]} {roleSummary(previewRole)}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {PILLARS.map((pillar) => (
+              <span
+                key={pillar}
+                className="rounded-full bg-cream-100 px-2.5 py-1 text-[11px] font-medium text-ink dark:bg-hairline-dark dark:text-cream-200"
+              >
+                {PILLAR_LABELS[pillar]}: {pillarAccessLabel(previewRole, pillar)}
+              </span>
+            ))}
+            <span className="rounded-full bg-cream-100 px-2.5 py-1 text-[11px] font-medium text-ink dark:bg-hairline-dark dark:text-cream-200">
+              Billing:{" "}
+              {permissions[previewRole].billing === "*"
+                ? "Full"
+                : permissions[previewRole].billing === "r"
+                  ? "View"
+                  : "—"}
+            </span>
+            <span className="rounded-full bg-cream-100 px-2.5 py-1 text-[11px] font-medium text-ink dark:bg-hairline-dark dark:text-cream-200">
+              Team:{" "}
+              {permissions[previewRole].team === "*"
+                ? "Manage"
+                : permissions[previewRole].team === "r"
+                  ? "View"
+                  : "—"}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+        <div className="flex items-center gap-3 border-b border-cream-200 p-4 dark:border-hairline-dark">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+            <History className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <div>
+            <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
+              Activity
+            </h2>
+            <p className="text-xs text-ink-muted dark:text-cream-400">
+              {auditTotal === 0
+                ? "No activity yet"
+                : auditTotal > audit.length
+                  ? `Showing ${audit.length} of ${auditTotal}`
+                  : `${auditTotal} event${auditTotal === 1 ? "" : "s"}`}
+            </p>
+          </div>
+        </div>
+        {audit.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-ink-muted dark:text-cream-400">
+            Invites, role changes, and removals appear here.
+          </p>
+        ) : (
+          <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+            {audit.map((entry) => (
+              <li
+                key={entry.id}
+                className="flex items-center justify-between gap-3 px-4 py-3"
+              >
+                <p className="text-sm text-ink dark:text-cream-100">
+                  {auditActionLabel(entry.action)}
+                </p>
+                <p className="shrink-0 text-[11px] text-ink-muted dark:text-cream-400">
+                  {fmtRelative(entry.created_at)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {atSeatLimit && canEdit && showBillingLink ? (
+        <p className="text-center text-xs text-ink-muted dark:text-cream-400">
+          Seat limit reached.{" "}
+          <a href="/settings/subscription" className="font-semibold text-brand-700 dark:text-brand-200">
+            Upgrade your plan
+          </a>{" "}
+          to invite more people.
+        </p>
+      ) : null}
 
       {inviteOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="invite-dialog-title"
-            className="w-full max-w-md rounded-xl border border-cream-200 bg-white p-6 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark"
+            className="w-full max-w-md rounded-2xl border border-cream-200 bg-white p-6 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3
                   id="invite-dialog-title"
-                  className="text-base font-semibold text-ink dark:text-cream-100"
+                  className="text-lg font-bold text-ink dark:text-cream-100"
                 >
                   Invite team member
                 </h3>
                 <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-                  They&apos;ll get an email with a link to set their password and join your team.
+                  They&apos;ll get an email to set a password and join (valid 7
+                  days).
                 </p>
               </div>
               <button
@@ -575,13 +573,13 @@ export function TeamView({
                 className="rounded-lg p-1 text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark"
                 aria-label="Close"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
 
             <form onSubmit={handleInvite} className="mt-5 space-y-4">
-              <label className="block space-y-1">
-                <span className="text-xs font-medium text-ink dark:text-cream-200">
+              <label className="block space-y-1.5">
+                <span className="text-[13px] font-semibold text-ink dark:text-cream-100">
                   Email
                 </span>
                 <input
@@ -593,8 +591,8 @@ export function TeamView({
                   placeholder="staff@example.com"
                 />
               </label>
-              <label className="block space-y-1">
-                <span className="text-xs font-medium text-ink dark:text-cream-200">
+              <label className="block space-y-1.5">
+                <span className="text-[13px] font-semibold text-ink dark:text-cream-100">
                   Display name (optional)
                 </span>
                 <input
@@ -605,8 +603,8 @@ export function TeamView({
                   placeholder="Aina"
                 />
               </label>
-              <label className="block space-y-1">
-                <span className="text-xs font-medium text-ink dark:text-cream-200">
+              <label className="block space-y-1.5">
+                <span className="text-[13px] font-semibold text-ink dark:text-cream-100">
                   Role
                 </span>
                 <select
@@ -625,42 +623,31 @@ export function TeamView({
                   ))}
                 </select>
               </label>
-              <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800 dark:bg-brand-900/30 dark:text-brand-200">
-                {ROLE_HINTS[inviteRole]}
-              </p>
               <p className="text-xs text-ink-muted dark:text-cream-400">
-                {roleSummary(inviteRole)}
+                {ROLE_HINTS[inviteRole]}
               </p>
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setInviteOpen(false)}
-                  className="rounded-lg border border-cream-300 px-4 py-2 text-sm dark:border-hairline-dark"
+                  className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold dark:border-hairline-dark"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={pending}
-                  className="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                 >
-                  {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {pending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+                  ) : null}
                   Send invite
                 </button>
               </div>
             </form>
           </div>
         </div>
-      ) : null}
-
-      {atSeatLimit && canEdit ? (
-        <p className="text-center text-xs text-ink-muted dark:text-cream-400">
-          Seat limit reached.{" "}
-          <a href="/settings/subscription" className="text-brand-700 underline">
-            Upgrade your plan
-          </a>{" "}
-          to invite more people.
-        </p>
       ) : null}
     </div>
   );

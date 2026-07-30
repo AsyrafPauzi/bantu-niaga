@@ -15,7 +15,7 @@ import { HrPendingLeaveCard } from "@/components/hr/HrPendingLeaveCard";
 import { OnboardingProgressBar } from "@/components/hr/HrOnboardingProgress";
 import { KpiTileBig } from "@/components/marketing/dashboard/KpiTileBig";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
-import { canManageHrCore } from "@/lib/hr/access";
+import { canAccessStaffMe, canManageHrCore } from "@/lib/hr/access";
 import { loadHrDashboard, loadTodayHrNotice } from "@/lib/hr/load";
 import { formatOnboardingProgress, onboardingProgressFromCounts } from "@/lib/hr/onboarding-progress";
 import {
@@ -53,6 +53,9 @@ export default async function HrPage() {
   }
 
   if (!canManageHrCore(user.role)) {
+    if (canAccessStaffMe(user.role)) {
+      redirect("/hr/me");
+    }
     return (
       <Card>
         <CardBody className="py-10 text-center text-sm text-ink-muted dark:text-cream-400">

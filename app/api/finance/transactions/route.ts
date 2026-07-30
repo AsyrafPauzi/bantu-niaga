@@ -13,6 +13,7 @@ import {
   financeTransactionCreateSchema,
   type FinanceTransactionRow,
 } from "@/lib/finance/schemas";
+import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export async function GET(request: Request) {
     .from("finance_transactions")
     .select(
       "id, business_id, kind, amount_myr, category, description, counterparty, " +
-        "payment_method, txn_date, finance_invoice_id, created_by, created_at, updated_at",
+        "payment_method, txn_date, finance_invoice_id, admin_file_id, created_by, created_at, updated_at",
     )
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
@@ -153,6 +154,26 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+
+  let adminFileId: string | null = null;
+  if (parsed.admin_file_id) {
+    const fileCheck = await resolveAdminFileIdPatch(
+      supabase,
+      user.businessId,
+      parsed.admin_file_id,
+    );
+    if (!fileCheck.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "invalid_file", message: fileCheck.message },
+        },
+        { status: 400 },
+      );
+    }
+    adminFileId = fileCheck.value;
+  }
+
   const { data, error } = await supabase
     .from("finance_transactions")
     .insert({
@@ -164,11 +185,12 @@ export async function POST(request: Request) {
       counterparty: parsed.counterparty ?? null,
       payment_method: parsed.payment_method ?? null,
       txn_date: parsed.txn_date ?? new Date().toISOString().slice(0, 10),
+      admin_file_id: adminFileId,
       created_by: user.id,
     })
     .select(
       "id, business_id, kind, amount_myr, category, description, counterparty, " +
-        "payment_method, txn_date, finance_invoice_id, created_by, created_at, updated_at",
+        "payment_method, txn_date, finance_invoice_id, admin_file_id, created_by, created_at, updated_at",
     )
     .single();
 

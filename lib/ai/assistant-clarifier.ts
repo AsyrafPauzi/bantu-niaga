@@ -4,7 +4,13 @@
  * Substantive replies and actions still bill credits.
  */
 
-export type StaffAssistantKind = "hr" | "marketing" | "sales" | "finance" | "operations";
+export type StaffAssistantKind =
+  | "hr"
+  | "marketing"
+  | "sales"
+  | "finance"
+  | "operations"
+  | "admin";
 
 const CLARIFIER_HEADER_EN = "Before I plan, a few quick questions";
 const CLARIFIER_HEADER_BM = "Sebelum saya rancang, beberapa soalan ringkas";
@@ -32,6 +38,9 @@ const FINANCE_PLANNING =
 const OPERATIONS_PLANNING =
   /\b(help\s+(me\s+)?with\s+operations|low\s+stock|reorder|restock|bookings?\s+today|upcoming\s+bookings?|open\s+orders?|supplier|plan\s+(ops|operations)|bantu\s+operasi|stok\s+rendah|tempahan|pesanan\s+terbuka|rancang\s+operasi)\b/i;
 
+const ADMIN_PLANNING =
+  /\b(help\s+(me\s+)?with\s+admin|admin\s+today|open\s+tasks?|compliance\s+renewal|licen[cs]e\s+renewal|organise\s+(the\s+)?(storage|documents?|files?)|weekly\s+admin|back[\s-]?office|bantu\s+admin|tugas\s+terbuka|pembaharuan\s+lesen|susun\s+dokumen|rancang\s+admin)\b/i;
+
 export function isPlanningIntent(
   kind: StaffAssistantKind,
   message: string,
@@ -42,6 +51,7 @@ export function isPlanningIntent(
   if (kind === "sales") return SALES_PLANNING.test(text);
   if (kind === "finance") return FINANCE_PLANNING.test(text);
   if (kind === "operations") return OPERATIONS_PLANNING.test(text);
+  if (kind === "admin") return ADMIN_PLANNING.test(text);
   return HR_PLANNING.test(text);
 }
 
@@ -112,7 +122,42 @@ export function buildFreeClarifierReply(
           ? "Fayza"
           : kind === "operations"
             ? "Aiman"
-            : "Maya");
+            : kind === "admin"
+              ? "Amir"
+              : "Maya");
+
+  if (kind === "admin") {
+    if (bm) {
+      return [
+        `Saya **${name}**, staf Admin anda.`,
+        "",
+        `**${header}:**`,
+        "",
+        "1. Matlamat — selesaikan tugas terbuka, kejar pembaharuan lesen, atau susun storan dokumen?",
+        "2. Tempoh — hari ini, minggu ini, atau bulan ini?",
+        "3. Fokus — tugas, pematuhan, atau dokumen?",
+        "4. Keutamaan — lesen tertunggak atau kemas rutin?",
+        "",
+        "Jawab dalam satu mesej — atau tulis **anda decide**.",
+        "",
+        freeNote,
+      ].join("\n");
+    }
+    return [
+      `I'm **${name}**, your Admin staff.`,
+      "",
+      `**${header}:**`,
+      "",
+      "1. Goal — clear open tasks, chase licence renewals, or organise document storage?",
+      "2. Timeframe — today, this week, or this month?",
+      "3. Focus — tasks, compliance, or documents?",
+      "4. Priority — overdue renewals or routine tidy-up?",
+      "",
+      "Reply in one message — or say **you decide**.",
+      "",
+      freeNote,
+    ].join("\n");
+  }
 
   if (kind === "finance") {
     if (bm) {

@@ -3,6 +3,7 @@
 import { useCallback, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail, MapPin, Phone, Plus, Trash2, User } from "lucide-react";
+import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import type { OperationsSupplierRow } from "@/lib/operations/schemas";
 
 interface OperationsSupplierPanelProps {
@@ -94,6 +95,34 @@ export function OperationsSupplierPanel({
         });
         if (!res.ok) throw new Error("Delete failed.");
         setSuppliers((prev) => prev.filter((s) => s.id !== id));
+        refresh();
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [refresh],
+  );
+
+  const attachSupplierFile = useCallback(
+    async (id: string, fileId: string | null) => {
+      setBusyId(id);
+      try {
+        const res = await fetch(`/api/operations/suppliers/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ admin_file_id: fileId }),
+        });
+        const json = (await res.json()) as {
+          ok: boolean;
+          data?: OperationsSupplierRow;
+          error?: { message?: string };
+        };
+        if (!res.ok || !json.ok || !json.data) {
+          throw new Error(json.error?.message ?? "Could not attach file.");
+        }
+        setSuppliers((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, ...json.data! } : s)),
+        );
         refresh();
       } finally {
         setBusyId(null);
@@ -250,6 +279,13 @@ export function OperationsSupplierPanel({
                         </p>
                       ) : null}
                     </div>
+                    <AdminStorageFileAttach
+                      fileId={s.admin_file_id}
+                      fileName={s.admin_file_name}
+                      disabled={busy}
+                      label="Contract / agreement"
+                      onAttach={(fileId) => attachSupplierFile(s.id, fileId)}
+                    />
                   </div>
                   <button
                     type="button"

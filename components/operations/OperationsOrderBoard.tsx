@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Loader2, Phone, Plus, Trash2 } from "lucide-react";
+import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import { cn } from "@/lib/utils/cn";
 import {
   formatOrderAmount,
@@ -364,6 +365,18 @@ export function OperationsOrderBoard({
                           {orderStatusLabel(nextStatus(order.status))}
                         </p>
                       </button>
+                      <div className="mt-2 border-t border-cream-100 pt-2 dark:border-hairline-dark">
+                        <AdminStorageFileAttach
+                          compact
+                          fileId={order.admin_file_id}
+                          fileName={order.admin_file_name}
+                          disabled={busy}
+                          label="Document"
+                          onAttach={async (fileId) => {
+                            await patchOrder(order.id, { admin_file_id: fileId });
+                          }}
+                        />
+                      </div>
                       <div className="mt-2 flex justify-end border-t border-cream-100 pt-2 dark:border-hairline-dark">
                         <button
                           type="button"

@@ -40,7 +40,7 @@ export interface CatalogAddonSnapshot {
 export interface OnboardingRecommendationProps {
   businessName: string;
   currentTier: TierKey;
-  quizFromDb: PlanQuizAnswers | null;
+  quiz: PlanQuizAnswers;
   catalog: CatalogAddonSnapshot[];
   activeAddonSlugs: string[];
 }
@@ -54,7 +54,7 @@ function tierRank(tier: TierKey): number {
 export function OnboardingRecommendationView({
   businessName,
   currentTier,
-  quizFromDb,
+  quiz,
   catalog,
   activeAddonSlugs,
 }: OnboardingRecommendationProps) {
@@ -70,19 +70,19 @@ export function OnboardingRecommendationView({
     () => new Set(),
   );
 
-  const quiz = useMemo(() => {
-    if (quizFromDb) return quizFromDb;
-    return readQuizFromSession();
-  }, [quizFromDb]);
+  const quizAnswers = useMemo(() => {
+    const sessionQuiz = readQuizFromSession();
+    return sessionQuiz ?? quiz;
+  }, [quiz]);
 
   const planResult = useMemo(
-    () => (quiz ? recommendPlanFromQuiz(quiz) : null),
-    [quiz],
+    () => recommendPlanFromQuiz(quizAnswers),
+    [quizAnswers],
   );
 
   const bundle: BusinessBundle | null = useMemo(
-    () => bundleForQuizAnswers(quiz),
-    [quiz],
+    () => bundleForQuizAnswers(quizAnswers),
+    [quizAnswers],
   );
 
   const catalogBySlug = useMemo(
@@ -130,10 +130,10 @@ export function OnboardingRecommendationView({
 
   useEffect(() => {
     const sessionQuiz = readQuizFromSession();
-    if (sessionQuiz && !quizFromDb) {
+    if (sessionQuiz) {
       void persistQuiz(sessionQuiz);
     }
-  }, [quizFromDb, persistQuiz]);
+  }, [persistQuiz]);
 
   async function finishOnboarding(destination: string) {
     setError(null);

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+/** @deprecated Legacy statuses — use task columns (`column_id`) instead. */
 export const ADMIN_TASK_STATUSES = ["todo", "doing", "done"] as const;
 export type AdminTaskStatus = (typeof ADMIN_TASK_STATUSES)[number];
 
@@ -11,6 +12,8 @@ export const ADMIN_COMPLIANCE_CATEGORIES = [
   "insurance",
   "tenancy",
   "tax",
+  "bomba",
+  "local_council",
   "other",
 ] as const;
 export type AdminComplianceCategory =
@@ -24,44 +27,20 @@ export const ADMIN_COMPLIANCE_STATUSES = [
 export type AdminComplianceStatus =
   (typeof ADMIN_COMPLIANCE_STATUSES)[number];
 
-export const COMPLIANCE_PRESETS: Array<{
-  title: string;
-  category: AdminComplianceCategory;
-  authority: string;
-}> = [
-  {
-    title: "SSM Business Registration Renewal",
-    category: "ssm",
-    authority: "SSM",
-  },
-  {
-    title: "DBKL Signboard Licence (Papan Tanda)",
-    category: "dbkl",
-    authority: "DBKL",
-  },
-  {
-    title: "Halal Certification Renewal",
-    category: "halal",
-    authority: "JAKIM",
-  },
-  {
-    title: "Premises / Fire Insurance Policy",
-    category: "insurance",
-    authority: "Insurer",
-  },
-];
+export { COMPLIANCE_PRESETS, DEFAULT_COMPLIANCE_REMIND_DAYS } from "@/lib/admin/compliance-shared";
 
 export const adminTaskCreateSchema = z
   .object({
     title: z.string().trim().min(1, "Title is required.").max(200),
     description: z.string().trim().max(2000).optional().nullable(),
-    status: z.enum(ADMIN_TASK_STATUSES).optional().default("todo"),
+    column_id: z.string().uuid().optional(),
     due_date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
       .optional()
       .nullable(),
     assignee_user_id: z.string().uuid().optional().nullable(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -69,13 +48,14 @@ export const adminTaskUpdateSchema = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
     description: z.string().trim().max(2000).optional().nullable(),
-    status: z.enum(ADMIN_TASK_STATUSES).optional(),
+    column_id: z.string().uuid().optional(),
     due_date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional()
       .nullable(),
     assignee_user_id: z.string().uuid().optional().nullable(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -89,6 +69,12 @@ export const adminComplianceCreateSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Expiry date is required (YYYY-MM-DD)."),
     notes: z.string().trim().max(2000).optional().nullable(),
+    remind_days: z
+      .array(z.number().int().min(1).max(365))
+      .min(1)
+      .max(5)
+      .optional(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -110,6 +96,12 @@ export const adminComplianceUpdateSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional()
       .nullable(),
+    remind_days: z
+      .array(z.number().int().min(1).max(365))
+      .min(1)
+      .max(5)
+      .optional(),
+    admin_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -118,7 +110,7 @@ export interface AdminTaskRow {
   business_id: string;
   title: string;
   description: string | null;
-  status: AdminTaskStatus;
+  column_id: string;
   due_date: string | null;
   assignee_user_id: string | null;
   created_by: string;
@@ -127,6 +119,10 @@ export interface AdminTaskRow {
   created_at: string;
   updated_at: string;
   assignee_name?: string | null;
+  column_label?: string | null;
+  column_is_done?: boolean;
+  admin_file_id?: string | null;
+  admin_file_name?: string | null;
 }
 
 export interface AdminComplianceRow {
@@ -141,10 +137,34 @@ export interface AdminComplianceRow {
   notes: string | null;
   status: AdminComplianceStatus;
   last_renewed_at: string | null;
+  admin_file_id: string | null;
   created_at: string;
   updated_at: string;
   days_until_expiry?: number;
   urgency?: "overdue" | "soon" | "ok";
+  admin_file_name?: string | null;
+}
+
+export interface AdminComplianceRenewalEvent {
+  id: string;
+  compliance_item_id: string;
+  previous_expires_on: string;
+  new_expires_on: string;
+  renewed_by: string | null;
+  admin_file_id: string | null;
+  admin_file_name?: string | null;
+  created_at: string;
+}
+
+export interface ComplianceInAppAlert {
+  id: string;
+  business_id: string;
+  compliance_item_id: string;
+  notice_date: string;
+  days_before: number;
+  message: string;
+  dismissed_at: string | null;
+  created_at: string;
 }
 
 export function categoryLabel(category: AdminComplianceCategory): string {
@@ -156,6 +176,8 @@ export function categoryLabel(category: AdminComplianceCategory): string {
     insurance: "Insurance",
     tenancy: "Tenancy",
     tax: "Tax / LHDN",
+    bomba: "BOMBA / Fire",
+    local_council: "Local council",
     other: "Other",
   };
   return labels[category];

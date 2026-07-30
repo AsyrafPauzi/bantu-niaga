@@ -2,29 +2,18 @@ import { redirect } from "next/navigation";
 import { OnboardingRecommendationView } from "@/components/onboarding/OnboardingRecommendationView";
 import type { CatalogAddonSnapshot } from "@/components/onboarding/OnboardingRecommendationView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
-import type { PlanQuizAnswers, PriorityNeed } from "@/lib/onboarding/plan-quiz";
+import {
+  dbRowToPlanQuiz,
+  isOnboardingQuizPersisted,
+  planQuizToDbPayload,
+  resolveOnboardingQuizAnswers,
+} from "@/lib/onboarding/default-quiz";
 import { loadCatalog } from "@/lib/marketplace/load";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TierKey } from "@/lib/settings/plans";
 
 export const metadata = { title: "Your recommendation" };
 export const dynamic = "force-dynamic";
-
-function quizFromBusinessRow(row: {
-  business_type: string | null;
-  team_size_band: string | null;
-  onboarding_priorities: unknown;
-}): PlanQuizAnswers | null {
-  if (!row.business_type || !row.team_size_band) return null;
-  const priorities = Array.isArray(row.onboarding_priorities)
-    ? (row.onboarding_priorities as PriorityNeed[])
-    : [];
-  return {
-    businessType: row.business_type as PlanQuizAnswers["businessType"],
-    teamSize: row.team_size_band as PlanQuizAnswers["teamSize"],
-    priorities,
-  };
-}
 
 export default async function OnboardingRecommendationPage() {
   let user;
@@ -54,6 +43,21 @@ export default async function OnboardingRecommendationPage() {
   const business = businessRes.data;
   if (!business) redirect("/home");
 
+  if (!isOnboardingQuizPersisted(business)) {
+    const quizDb = planQuizToDbPayload(resolveOnboardingQuizAnswers(null));
+    await supabase
+      .from("businesses")
+      .update({
+        business_type: quizDb.business_type,
+        team_size_band: quizDb.team_size_band,
+        onboarding_priorities: quizDb.priorities,
+      })
+      .eq("id", user.businessId);
+    business.business_type = quizDb.business_type;
+    business.team_size_band = quizDb.team_size_band;
+    business.onboarding_priorities = quizDb.priorities;
+  }
+
   if (business.onboarding_completed_at) {
     redirect("/home");
   }
@@ -76,12 +80,14 @@ export default async function OnboardingRecommendationPage() {
     )
     .map((entry) => entry.addon.slug);
 
+  const quiz = resolveOnboardingQuizAnswers(dbRowToPlanQuiz(business));
+
   return (
     <div className="min-h-dvh bg-cream-100 px-4 py-10 dark:bg-canvas-dark">
       <OnboardingRecommendationView
         businessName={business.name}
         currentTier={business.tier as TierKey}
-        quizFromDb={quizFromBusinessRow(business)}
+        quiz={quiz}
         catalog={catalogSnapshot}
         activeAddonSlugs={activeAddonSlugs}
       />

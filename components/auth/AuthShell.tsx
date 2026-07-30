@@ -19,8 +19,8 @@ export function AuthShell({
   children,
 }: AuthShellProps) {
   return (
-    <main className="min-h-dvh bg-cream-100 text-ink dark:bg-surface-dark dark:text-cream-100">
-      <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+    <main className="h-dvh overflow-y-auto overscroll-y-contain bg-cream-100 text-ink dark:bg-surface-dark dark:text-cream-100">
+      <div className="grid min-h-full grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <aside className="relative hidden flex-col justify-between overflow-hidden bg-brand-500 px-14 py-12 text-white lg:flex">
           <Link
             href="/"

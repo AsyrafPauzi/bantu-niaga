@@ -12,7 +12,7 @@ import { Sparkles } from "lucide-react";
  */
 export default function LegalLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-dvh bg-cream-50 text-ink dark:bg-canvas-dark dark:text-cream-100">
+    <div className="h-dvh overflow-y-auto overscroll-y-contain bg-cream-50 text-ink dark:bg-canvas-dark dark:text-cream-100">
       <header className="border-b border-cream-200 bg-white/80 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
           <Link

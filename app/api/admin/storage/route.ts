@@ -232,35 +232,6 @@ export async function POST(request: Request) {
 // GET — list files
 // ─────────────────────────────────────────────────────────────────────────
 
-interface ListRowRaw {
-  id: string;
-  business_id: string;
-  uploaded_by: string;
-  storage_path: string;
-  file_name: string;
-  mime_type: string;
-  file_size_bytes: number;
-  category: string | null;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-function decodeCursor(raw: string): { createdAt: string; id: string } | null {
-  const idx = raw.lastIndexOf("__");
-  if (idx <= 0 || idx >= raw.length - 1) return null;
-  const createdAt = raw.slice(0, idx);
-  const id = raw.slice(idx + 2);
-  if (Number.isNaN(Date.parse(createdAt))) return null;
-  // very loose uuid sanity (just enough to refuse garbage)
-  if (!/^[0-9a-f-]{8,}$/i.test(id)) return null;
-  return { createdAt, id };
-}
-
-function encodeCursor(createdAt: string, id: string): string {
-  return `${createdAt}__${id}`;
-}
-
 export async function GET(request: Request) {
   const auth = await requireStorageUser();
   if (auth.response) return auth.response;
@@ -290,49 +261,47 @@ export async function GET(request: Request) {
     throw e;
   }
 
-  // HR Officer scoping — pin category to hr_doc no matter what they asked.
   const effectiveCategory = isHrDocOnly(user.role)
     ? "hr_doc"
     : (parsed.category ?? null);
 
   const supabase = await createSupabaseServerClient();
-  let q = supabase
-    .from("admin_files")
-    .select(
-      "id, business_id, uploaded_by, storage_path, file_name, mime_type, " +
-        "file_size_bytes, category, description, created_at, updated_at",
-    )
-    .eq("business_id", user.businessId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false });
 
-  if (effectiveCategory) {
-    q = q.eq("category", effectiveCategory);
-  }
-  if (parsed.q) {
-    // PostgREST treats `*` as a wildcard in ilike; strip the chars that
-    // would break the .or= expression for safety.
-    const safe = parsed.q.replace(/[\\*,()]/g, "");
-    q = q.ilike("file_name", `%${safe}%`);
-  }
+  try {
+    const { listAdminFiles, hydrateUploaderNames } = await import(
+      "@/lib/admin/storage-server"
+    );
+    const { rows: pageRows, nextCursor } = await listAdminFiles(supabase, {
+      businessId: user.businessId,
+      category: effectiveCategory,
+      q: parsed.q,
+      sort: parsed.sort,
+      limit: parsed.limit,
+      cursor: parsed.cursor,
+    });
 
-  if (parsed.cursor) {
-    const decoded = decodeCursor(parsed.cursor);
-    if (decoded) {
-      // Keyset paging on (created_at desc, id desc): the next page is
-      // every row strictly less than the cursor row.
-      q = q.or(
-        `created_at.lt.${decoded.createdAt},and(created_at.eq.${decoded.createdAt},id.lt.${decoded.id})`,
-      );
-    }
-  }
+    const nameLookup = await hydrateUploaderNames(supabase, pageRows);
 
-  // Fetch limit+1 so we can tell whether another page exists.
-  q = q.limit(parsed.limit + 1);
+    const enriched: AdminFileRow[] = pageRows.map((r) => ({
+      ...r,
+      uploaded_by_name: nameLookup.get(r.uploaded_by) ?? null,
+    }));
 
-  const { data, error } = await q;
-  if (error) {
+    const { loadFileUsageLinks } = await import("@/lib/admin/storage-usage");
+    const usageByFileId = await loadFileUsageLinks(
+      supabase,
+      user.businessId,
+      pageRows.map((r) => r.id),
+    );
+
+    const body: AdminFileListResponse = {
+      data: enriched,
+      next_cursor: nextCursor,
+      usage_by_file_id: usageByFileId,
+    };
+
+    return NextResponse.json({ ok: true, data: body }, { status: 200 });
+  } catch (error) {
     log.error("list_failed", { businessId: user.businessId }, error);
     return NextResponse.json(
       {
@@ -342,37 +311,4 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
-
-  const allRows = (data ?? []) as unknown as ListRowRaw[];
-  const hasNext = allRows.length > parsed.limit;
-  const pageRows = hasNext ? allRows.slice(0, parsed.limit) : allRows;
-
-  // Hydrate uploader display names in one round-trip.
-  const uploaderIds = Array.from(new Set(pageRows.map((r) => r.uploaded_by)));
-  const nameLookup = new Map<string, string | null>();
-  if (uploaderIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("users")
-      .select("id, display_name")
-      .in("id", uploaderIds);
-    for (const p of (profiles ?? []) as Array<{
-      id: string;
-      display_name: string | null;
-    }>) {
-      nameLookup.set(p.id, p.display_name);
-    }
-  }
-
-  const enriched: AdminFileRow[] = pageRows.map((r) => ({
-    ...r,
-    uploaded_by_name: nameLookup.get(r.uploaded_by) ?? null,
-  }));
-
-  const last = pageRows[pageRows.length - 1];
-  const body: AdminFileListResponse = {
-    data: enriched,
-    next_cursor: hasNext && last ? encodeCursor(last.created_at, last.id) : null,
-  };
-
-  return NextResponse.json({ ok: true, data: body }, { status: 200 });
 }

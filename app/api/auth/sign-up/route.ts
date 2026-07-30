@@ -3,6 +3,12 @@ import { ZodError } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { signUpSchema } from "@/lib/auth/schemas";
 import { authCallbackUrl } from "@/lib/auth/site-url";
+import {
+  DEFAULT_GENERIC_QUIZ_ANSWERS,
+  planQuizToDbPayload,
+} from "@/lib/onboarding/default-quiz";
+import type { PlanQuizAnswers } from "@/lib/onboarding/plan-quiz";
+import type { OnboardingQuizInput } from "@/lib/onboarding/schemas";
 import { isEmailVerificationRequired } from "@/lib/auth/email-verification-policy";
 import { sendSignupVerificationEmail } from "@/lib/auth/send-verification-email";
 import { ensureMembership } from "@/lib/auth/memberships";
@@ -18,6 +24,19 @@ import { canAcceptPublicSignup } from "@/lib/platform/standalone-bootstrap";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+function quizAnswersForSignUp(
+  onboardingQuiz: OnboardingQuizInput | undefined,
+): PlanQuizAnswers {
+  if (onboardingQuiz) {
+    return {
+      businessType: onboardingQuiz.business_type,
+      teamSize: onboardingQuiz.team_size_band,
+      priorities: onboardingQuiz.priorities,
+    };
+  }
+  return DEFAULT_GENERIC_QUIZ_ANSWERS;
+}
 
 /**
  * POST /api/auth/sign-up — open self-serve registration.
@@ -118,6 +137,7 @@ export async function POST(request: Request) {
   // Step 2: business + users + first invoice (single transaction via RPC)
   const idcompany = slugifyBusiness(parsed.business_name) + "-" + randomShort();
   const isFreePath = parsed.signup_path === "free";
+  const quizDb = planQuizToDbPayload(quizAnswersForSignUp(parsed.onboarding_quiz));
 
   const { data: businessRow, error: businessError } = await admin
     .from("businesses")
@@ -131,6 +151,9 @@ export async function POST(request: Request) {
       brand_primary_hex: "#5B8C5A",
       brand_accent_hex: "#F4A340",
       credit_balance: isFreePath ? 0 : 50,
+      business_type: quizDb.business_type,
+      team_size_band: quizDb.team_size_band,
+      onboarding_priorities: quizDb.priorities,
     })
     .select("id, idcompany, name")
     .single();

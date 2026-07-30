@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { createAgentScopedClient, verifyRows } from "./client";
 import type {
   AgentContext,
@@ -17,8 +19,9 @@ import type {
  */
 export async function buildFinanceSnapshot(
   ctx: AgentContext,
+  client?: SupabaseClient,
 ): Promise<PillarSnapshot> {
-  const supabase = await createAgentScopedClient(ctx);
+  const supabase = client ?? (await createAgentScopedClient(ctx));
 
   const startOfMonth = new Date();
   startOfMonth.setUTCDate(1);

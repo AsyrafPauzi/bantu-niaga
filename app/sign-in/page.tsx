@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { socialAuthErrorMessage } from "@/lib/auth/social-login";
 import { isPublicStandaloneDeployment } from "@/lib/platform/deployment";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -33,11 +35,7 @@ function SignInInner() {
       setError(null);
     }
     if (flash) {
-      setError(
-        flash === "missing_code"
-          ? "That sign-in link is missing its security code. Try signing in directly."
-          : `Sign-in link could not be used: ${flash}`,
-      );
+      setError(socialAuthErrorMessage(flash));
     }
   }, [params]);
 
@@ -107,19 +105,20 @@ function SignInInner() {
         </p>
       </div>
 
-      <button
-        type="button"
-        className="flex w-full items-center justify-center gap-3 rounded-lg border border-cream-300 bg-white px-4 py-3 text-sm font-semibold text-ink shadow-card transition-colors hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-      >
-        <GoogleIcon className="h-4 w-4" />
-        Continue with Google
-      </button>
+      {!isPublicStandaloneDeployment() ? (
+        <>
+          <GoogleSignInButton
+            nextPath={params.get("next") || "/home"}
+            onError={setError}
+          />
 
-      <div className="flex items-center gap-3 text-xs text-ink-subtle dark:text-cream-400">
-        <span className="h-px flex-1 bg-cream-300 dark:bg-hairline-dark" />
-        OR SIGN IN WITH EMAIL
-        <span className="h-px flex-1 bg-cream-300 dark:bg-hairline-dark" />
-      </div>
+          <div className="flex items-center gap-3 text-xs text-ink-subtle dark:text-cream-400">
+            <span className="h-px flex-1 bg-cream-300 dark:bg-hairline-dark" />
+            OR SIGN IN WITH EMAIL
+            <span className="h-px flex-1 bg-cream-300 dark:bg-hairline-dark" />
+          </div>
+        </>
+      ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block text-sm">
@@ -217,33 +216,5 @@ function SignInInner() {
         )}
       </p>
     </AuthShell>
-  );
-}
-
-function GoogleIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 48 48"
-      aria-hidden
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        fill="#FFC107"
-        d="M43.6 20.5H42V20H24v8h11.3c-1.7 4.7-6.2 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.3-.4-3.5z"
-      />
-      <path
-        fill="#FF3D00"
-        d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 5.1 29.3 3 24 3 16.2 3 9.4 7.5 6.3 14.7z"
-      />
-      <path
-        fill="#4CAF50"
-        d="M24 45c5.3 0 10-2 13.5-5.3l-6.2-5.2C29.3 36.1 26.8 37 24 37c-5.1 0-9.5-3.2-11.2-7.7l-6.5 5C9.4 40.4 16.2 45 24 45z"
-      />
-      <path
-        fill="#1976D2"
-        d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4 5.8l6.2 5.2C40.9 35.6 44 30.2 44 24c0-1.2-.1-2.3-.4-3.5z"
-      />
-    </svg>
   );
 }

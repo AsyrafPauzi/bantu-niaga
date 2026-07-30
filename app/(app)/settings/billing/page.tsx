@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { BillingView } from "@/components/settings/BillingView";
@@ -11,6 +10,7 @@ import {
   ensureBillplzPaymentMethod,
   isBillplzConfigured,
 } from "@/lib/settings/billing";
+import { loadCreditRolloverPolicy } from "@/lib/settings/credit-rollover";
 
 export const metadata = { title: "Billing & payment" };
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function BillingSettingsPage() {
   }
 
   const supabase = await createSupabaseServerClient();
-  const [businessRes, invoicesRes] = await Promise.all([
+  const [businessRes, invoicesRes, creditPolicy] = await Promise.all([
     supabase
       .from("businesses")
       .select("tier, subscription_renewal_at, credit_balance")
@@ -40,6 +40,7 @@ export default async function BillingSettingsPage() {
       .eq("business_id", user.businessId)
       .order("created_at", { ascending: false })
       .range(0, 9),
+    loadCreditRolloverPolicy(user.businessId, supabase),
   ]);
 
   if (!businessRes.data) redirect("/settings");
@@ -53,23 +54,17 @@ export default async function BillingSettingsPage() {
   }
   const tier = tierBy(businessRes.data.tier);
   const nextCharge = tier?.priceMyr ?? 0;
-  const monthlyQuota = tier?.quotas.fastCreditsMonthly ?? 0;
   const canEdit = user.role === "owner";
+  const billplzBypass = !isBillplzConfigured();
+  const showBillplzDevNotice =
+    billplzBypass && process.env.NODE_ENV === "development";
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/settings"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Back to settings
-      </Link>
-
+    <>
       <PageHeader
         eyebrow="Settings · Account"
         title="Billing & payment"
-        description="Billplz payments, invoices, and Fast Credits top-ups."
+        description="Invoices, payment methods, and Fast Credits."
         action={
           canEdit ? (
             <Link
@@ -87,13 +82,14 @@ export default async function BillingSettingsPage() {
       <BillingView
         initialInvoices={invoicesRes.data ?? []}
         initialInvoiceTotal={invoicesRes.count ?? 0}
-        creditBalance={businessRes.data.credit_balance}
-        monthlyCreditQuota={Number.isFinite(monthlyQuota) ? monthlyQuota : 0}
+        creditPolicy={creditPolicy}
+        tierLabel={tier?.label ?? "Free"}
         nextChargeMyr={nextCharge}
         nextRenewalAt={businessRes.data.subscription_renewal_at}
         canEdit={canEdit}
-        billplzBypass={!isBillplzConfigured()}
+        billplzBypass={billplzBypass}
+        showBillplzDevNotice={showBillplzDevNotice}
       />
-    </div>
+    </>
   );
 }

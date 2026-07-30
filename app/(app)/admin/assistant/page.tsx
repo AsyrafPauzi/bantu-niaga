@@ -1,0 +1,81 @@
+import { redirect } from "next/navigation";
+import { AdminAssistantChat } from "@/components/admin/AdminAssistantChat";
+import { SufiAssistantShell } from "@/components/sales/layout/sufi-assistant-shell";
+import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { canUseAdminAssistant } from "@/lib/admin/access";
+import {
+  getCreditBalance,
+  hasAdminAssistantAddon,
+  loadBusinessAgentSettings,
+} from "@/lib/marketplace/entitlements";
+import { ADMIN_AGENT_SLUG } from "@/lib/marketplace/agent-types";
+import { chatCreditsForReasoning } from "@/lib/settings/reasoning-credits";
+import { loadShortMemory } from "@/lib/ai/short-memory";
+
+export const metadata = { title: "Amir · Admin AI" };
+export const dynamic = "force-dynamic";
+
+export default async function AdminAssistantPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q: initialPrompt } = await searchParams;
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) redirect("/sign-in");
+    throw error;
+  }
+
+  if (!canUseAdminAssistant(user.role)) {
+    redirect("/admin");
+  }
+
+  const [addonActive, settings, balance, recentTurns] = await Promise.all([
+    hasAdminAssistantAddon(user.businessId),
+    loadBusinessAgentSettings(user.businessId, ADMIN_AGENT_SLUG),
+    getCreditBalance(user.businessId),
+    loadShortMemory({
+      businessId: user.businessId,
+      userId: user.id,
+      agentSlug: ADMIN_AGENT_SLUG,
+    }),
+  ]);
+
+  return (
+    <SufiAssistantShell
+      header={
+        <div className="shrink-0 border-b border-[#E5E0D8] px-4 py-4 dark:border-hairline-dark lg:px-8">
+          <h1 className="text-lg font-bold text-ink dark:text-cream-100">
+            {settings.displayName} · Admin AI
+          </h1>
+          <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
+            Ask in plain language — Amir plans like back-office staff using your
+            tasks, renewals, and document storage
+          </p>
+        </div>
+      }
+    >
+      <div className="flex min-h-0 flex-1 flex-col px-4 py-3 lg:px-8 lg:py-4">
+        <AdminAssistantChat
+          businessId={user.businessId}
+          initialPrompt={initialPrompt ?? null}
+          initialStatus={{
+            addon_active: addonActive,
+            assistant_enabled: settings.assistantEnabled,
+            display_name: settings.displayName,
+            credit_balance: balance,
+            credits_paused:
+              balance < chatCreditsForReasoning(settings.reasoningMode),
+            reasoning_mode: settings.reasoningMode,
+            credit_cost_chat: chatCreditsForReasoning(settings.reasoningMode),
+            business_id: user.businessId,
+            recent_turns: recentTurns,
+          }}
+        />
+      </div>
+    </SufiAssistantShell>
+  );
+}
