@@ -47,8 +47,9 @@ export default async function OperationsAssistantPage() {
             {settings.displayName} · Operations AI
           </h1>
           <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
-            Ask in plain language — Aiman plans like ops staff using your
-            products, orders, and bookings
+            Ask in plain language — Aiman reads live ops data, updates orders and
+            bookings, and stays in Operations (redirects Finance/HR/Marketing
+            questions to the right AI).
           </p>
         </div>
       }

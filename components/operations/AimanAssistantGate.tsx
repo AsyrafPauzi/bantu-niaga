@@ -13,9 +13,9 @@ export function AimanAssistantGate() {
         Meet Aiman — your Operations helper
       </h2>
       <p className="mt-2 max-w-md text-sm text-ink-muted dark:text-cream-400">
-        Ask about products, orders, and bookings in plain language. Aiman plans
-        like ops staff and advises from your records. Adds 100 credits/mo to
-        your shared AI pool.
+        Ask about stock, orders, bookings, and suppliers. Aiman can update
+        orders and stock in chat — and will send Finance or HR questions to the
+        right assistant.
       </p>
       <Link
         href="/marketplace"

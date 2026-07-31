@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { FinanceGuideJourney } from "@/components/finance/FinanceGuideJourney";
+import { FinanceMobileExpenseFab } from "@/components/finance/FinanceMobileExpenseFab";
 import { FinanceOverview } from "@/components/finance/FinanceOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
@@ -49,17 +50,13 @@ export default async function FinancePage({
   });
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Finance"
-        title="Money dashboard"
-        description="Your month at a glance — cash in, cash out, and what needs chasing."
-      />
+    <div className="space-y-4">
+      <FinanceGuideJourney businessId={user.businessId} />
       <FinanceOverview
         data={data}
-        businessId={user.businessId}
         businessName={business?.name ?? "us"}
       />
+      <FinanceMobileExpenseFab />
     </div>
   );
 }

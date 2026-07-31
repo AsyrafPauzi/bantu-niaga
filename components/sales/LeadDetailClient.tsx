@@ -364,6 +364,7 @@ export function LeadDetailClient({
         <AdminStorageFileAttach
           fileId={lead.admin_file_id}
           fileName={lead.admin_file_name}
+          category="contract"
           label="Proposal / brochure"
           onAttach={attachFile}
         />

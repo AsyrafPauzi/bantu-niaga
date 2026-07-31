@@ -22,7 +22,7 @@ export async function buildOperationsSnapshot(
   const today = new Date().toISOString().slice(0, 10);
   const nowIso = new Date().toISOString();
 
-  const [productsRes, ordersRes, bookingsRes, suppliersRes] = await Promise.all([
+  const [productsRes, ordersRes, bookingsRes, suppliersRes, servicesRes, stockRes] = await Promise.all([
     supabase
       .from("operations_products")
       .select("id, sku, name, category, price_myr, is_active")
@@ -55,20 +55,44 @@ export async function buildOperationsSnapshot(
       .is("deleted_at", null)
       .order("name", { ascending: true })
       .limit(10),
+    supabase
+      .from("operations_services")
+      .select("id, name, is_active")
+      .eq("business_id", ctx.businessId)
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .limit(20),
+    supabase
+      .from("operations_products")
+      .select("stock_qty, low_stock_threshold")
+      .eq("business_id", ctx.businessId)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .not("stock_qty", "is", null),
   ]);
 
   const products = productsRes.data ?? [];
   const orders = ordersRes.data ?? [];
   const bookings = bookingsRes.data ?? [];
   const suppliers = suppliersRes.data ?? [];
+  const services = servicesRes.data ?? [];
+  const activeServices = services.filter((s) => s.is_active);
+
+  let lowStockCount = 0;
+  for (const row of stockRes.data ?? []) {
+    const qty = row.stock_qty as number;
+    const threshold = (row.low_stock_threshold as number) ?? 5;
+    if (qty <= threshold) lowStockCount++;
+  }
 
   const activeProducts = products.filter((p) => p.is_active);
   const inactiveProducts = products.filter((p) => !p.is_active);
 
   const todoOrders = orders.filter((o) => o.status === "todo");
   const inProgressOrders = orders.filter((o) => o.status === "in_progress");
+  const readyOrders = orders.filter((o) => o.status === "ready");
   const doneOrders = orders.filter((o) => o.status === "done");
-  const overdueOrders = [...todoOrders, ...inProgressOrders].filter(
+  const overdueOrders = [...todoOrders, ...inProgressOrders, ...readyOrders].filter(
     (o) => o.due_date && String(o.due_date) < today,
   );
 
@@ -78,6 +102,13 @@ export async function buildOperationsSnapshot(
       id: "overdue_orders",
       label: `${overdueOrders.length} open order(s) past due`,
       severity: "high",
+    });
+  }
+  if (lowStockCount > 0) {
+    attention.push({
+      id: "low_stock",
+      label: `${lowStockCount} product(s) at or below low-stock threshold`,
+      severity: "medium",
     });
   }
   if (activeProducts.length === 0 && products.length > 0) {
@@ -126,12 +157,15 @@ export async function buildOperationsSnapshot(
   const kpis: SnapshotKpi[] = [
     { key: "products_active", label: "Active products", value: activeProducts.length },
     { key: "products_total", label: "Products (loaded)", value: products.length },
-    { key: "orders_open", label: "Open orders", value: todoOrders.length + inProgressOrders.length },
+    { key: "orders_open", label: "Open orders", value: todoOrders.length + inProgressOrders.length + readyOrders.length },
     { key: "orders_todo", label: "To do", value: todoOrders.length },
     { key: "orders_in_progress", label: "In progress", value: inProgressOrders.length },
+    { key: "orders_ready", label: "Ready", value: readyOrders.length },
     { key: "orders_done", label: "Done (recent)", value: doneOrders.length },
     { key: "orders_overdue", label: "Overdue orders", value: overdueOrders.length },
+    { key: "low_stock", label: "Low stock SKUs", value: lowStockCount },
     { key: "bookings_upcoming", label: "Upcoming bookings", value: bookings.length },
+    { key: "services_active", label: "Active services", value: activeServices.length },
     { key: "suppliers", label: "Suppliers", value: suppliers.length },
   ];
 
@@ -149,7 +183,7 @@ export async function buildOperationsSnapshot(
     generatedAt: new Date().toISOString(),
     available,
     headline: available
-      ? `Operations: ${activeProducts.length} active products · ${todoOrders.length + inProgressOrders.length} open orders · ${bookings.length} upcoming bookings`
+      ? `Operations: ${activeProducts.length} active products · ${activeServices.length} services · ${todoOrders.length + inProgressOrders.length + readyOrders.length} open orders · ${bookings.length} upcoming bookings${lowStockCount > 0 ? ` · ${lowStockCount} low stock` : ""}`
       : "No operations data yet — add products, orders, or bookings.",
     kpis,
     recent,

@@ -58,8 +58,9 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
     description: "Move work from order to delivery; suppliers, products, bookings.",
     surfaces: [
       { href: "/operations/orders", label: "Orders", primary: "both" },
-      { href: "/operations/bookings", label: "Bookings", primary: "both" },
       { href: "/operations/products", label: "Products", primary: "desktop" },
+      { href: "/operations/services", label: "Services", primary: "desktop" },
+      { href: "/operations/bookings", label: "Bookings", primary: "both" },
       { href: "/operations/suppliers", label: "Suppliers", primary: "desktop" },
     ],
   },

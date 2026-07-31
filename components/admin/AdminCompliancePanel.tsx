@@ -9,6 +9,7 @@ import {
   Download,
   LayoutGrid,
   Loader2,
+  Paperclip,
   Plus,
   ShieldCheck,
   Sparkles,
@@ -20,6 +21,17 @@ import {
 import {
   AdminComplianceDetailModal,
 } from "@/components/admin/AdminComplianceDetailModal";
+import {
+  AdminCatalogEmpty,
+  AdminCatalogList,
+  AdminCatalogThumb,
+} from "@/components/admin/AdminCatalogUi";
+import {
+  QuickActionBar,
+  QuickCreateActions,
+  QuickCreatePanel,
+} from "@/components/ui/quick-create";
+import { useQuickCreate } from "@/hooks/use-quick-create";
 import {
   ADMIN_COMPLIANCE_CATEGORIES,
   categoryLabel,
@@ -43,15 +55,6 @@ interface AdminCompliancePanelProps {
 
 type ViewMode = "list" | "calendar";
 type SortKey = "expiry" | "title" | "category";
-
-function urgencyAccent(
-  urgency: AdminComplianceRow["urgency"],
-  category: AdminComplianceCategory,
-): string {
-  if (urgency === "overdue") return "border-l-status-danger";
-  if (urgency === "soon") return "border-l-status-warning";
-  return CATEGORY_STYLE[category].accent;
-}
 
 function fmtExpiry(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString("en-MY", {
@@ -90,7 +93,8 @@ export function AdminCompliancePanel({
 }: AdminCompliancePanelProps) {
   const [items, setItems] = useState(initialItems);
   const [alerts, setAlerts] = useState(initialAlerts);
-  const [showForm, setShowForm] = useState(false);
+  const { open: showForm, toggle: toggleForm, close: closeForm, openPanel } =
+    useQuickCreate();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<AdminComplianceCategory>("other");
   const [authority, setAuthority] = useState("");
@@ -138,10 +142,10 @@ export function AdminCompliancePanel({
       setTitle(preset.title);
       setCategory(preset.category);
       setAuthority(preset.authority);
-      setShowForm(true);
+      openPanel();
       setFormError(null);
     },
-    [],
+    [openPanel],
   );
 
   const patchItem = useCallback(
@@ -206,7 +210,7 @@ export function AdminCompliancePanel({
         setReferenceNumber("");
         setExpiresOn("");
         setNotes("");
-        setShowForm(false);
+        closeForm();
       } catch (err) {
         setFormError(err instanceof Error ? err.message : "Save failed.");
       } finally {
@@ -313,44 +317,6 @@ export function AdminCompliancePanel({
 
   return (
     <div className="space-y-5">
-      <section
-        aria-label="Compliance summary"
-        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-      >
-        <div className="rounded-xl border border-cream-300 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-            Tracked
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink dark:text-cream-100">
-            {stats.total}
-          </p>
-        </div>
-        <div className="rounded-xl border border-status-danger/30 bg-status-danger/5 p-4 shadow-card dark:bg-status-danger/10">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-status-danger">
-            Overdue
-          </p>
-          <p className="mt-1 text-2xl font-bold text-status-danger">
-            {stats.overdue}
-          </p>
-        </div>
-        <div className="rounded-xl border border-status-warning/35 bg-status-warning/10 p-4 shadow-card">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#8C5C0A] dark:text-[#F5C97A]">
-            Due in 30 days
-          </p>
-          <p className="mt-1 text-2xl font-bold text-[#8C5C0A] dark:text-[#F5C97A]">
-            {stats.soon}
-          </p>
-        </div>
-        <div className="rounded-xl border border-status-success/30 bg-status-success/10 p-4 shadow-card">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-status-success">
-            All good
-          </p>
-          <p className="mt-1 text-2xl font-bold text-status-success">
-            {stats.ok}
-          </p>
-        </div>
-      </section>
-
       {alerts.length > 0 ? (
         <div className="space-y-2">
           {alerts.map((alert) => (
@@ -456,7 +422,7 @@ export function AdminCompliancePanel({
             )}
           >
             <LayoutGrid className="h-4 w-4" />
-            Cards
+            List
           </button>
           <button
             type="button"
@@ -506,28 +472,15 @@ export function AdminCompliancePanel({
       </div>
 
       <div className="rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-white p-4 dark:border-brand-800 dark:from-brand-950/40 dark:to-panel-dark">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-ink dark:text-cream-100">
-              <Sparkles className="h-4 w-4 text-brand-600 dark:text-brand-300" />
-              Quick add a renewal
-            </p>
-            <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
-              Tap a preset or add your own licence — we&apos;ll track the expiry
-              for you.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setShowForm((v) => !v);
-              setFormError(null);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-600"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            {showForm ? "Close form" : "Custom entry"}
-          </button>
+        <div>
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-ink dark:text-cream-100">
+            <Sparkles className="h-4 w-4 text-brand-600 dark:text-brand-300" />
+            Quick add a renewal
+          </p>
+          <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+            Tap a preset or add your own licence — we&apos;ll track the expiry
+            for you.
+          </p>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {COMPLIANCE_PRESETS.map((preset) => {
@@ -551,14 +504,23 @@ export function AdminCompliancePanel({
         </div>
       </div>
 
-      {showForm ? (
-        <form
-          onSubmit={onCreate}
-          className="space-y-4 rounded-xl border border-brand-200 bg-white p-5 shadow-card dark:border-brand-800 dark:bg-panel-dark"
-        >
-          <p className="text-sm font-semibold text-ink dark:text-cream-100">
-            New licence or permit
-          </p>
+      <QuickActionBar
+        open={showForm}
+        onToggle={() => {
+          setFormError(null);
+          toggleForm();
+        }}
+        actionLabel="Custom entry"
+      />
+
+      <QuickCreatePanel
+        open={showForm}
+        onSubmit={onCreate}
+        title="New licence or permit"
+        subtitle="We'll remind you before expiry."
+        icon={ShieldCheck}
+        accent="amber"
+      >
           <div className="space-y-1.5">
             <label
               htmlFor="compliance-title"
@@ -665,64 +627,41 @@ export function AdminCompliancePanel({
           {formError ? (
             <p className="text-sm text-status-danger">{formError}</p>
           ) : null}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={creating}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-            >
-              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save licence
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted dark:border-hairline-dark"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
+          <QuickCreateActions
+            submitLabel="Save licence"
+            loading={creating}
+            onCancel={closeForm}
+          />
+      </QuickCreatePanel>
 
       {items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-cream-300 bg-cream-50/50 py-16 text-center dark:border-hairline-dark dark:bg-panel-dark/30">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-100 dark:bg-brand-900/40">
-            <ShieldCheck
-              className="h-7 w-7 text-brand-700 dark:text-brand-200"
-              strokeWidth={1.5}
-            />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-ink dark:text-cream-100">
-              No licences tracked yet
-            </p>
-            <p className="mt-1 max-w-sm text-xs text-ink-muted dark:text-cream-400">
-              Start with a common renewal — we&apos;ll remind you in-app before
-              it expires.
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {COMPLIANCE_PRESETS.slice(0, 4).map((preset) => {
-              const style = CATEGORY_STYLE[preset.category];
-              const Icon = style.icon;
-              return (
-                <button
-                  key={preset.title}
-                  type="button"
-                  onClick={() => applyPreset(preset)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-sm",
-                    style.chip,
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  Add {preset.authority}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <AdminCatalogEmpty
+          icon={ShieldCheck}
+          title="No licences tracked yet"
+          hint="Start with a common renewal — we'll remind you in-app before it expires."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              {COMPLIANCE_PRESETS.slice(0, 4).map((preset) => {
+                const style = CATEGORY_STYLE[preset.category];
+                const Icon = style.icon;
+                return (
+                  <button
+                    key={preset.title}
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-sm",
+                      style.chip,
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    Add {preset.authority}
+                  </button>
+                );
+              })}
+            </div>
+          }
+        />
       ) : viewMode === "calendar" ? (
         <AdminComplianceCalendar items={filteredItems} onSelect={openItem} />
       ) : filteredItems.length === 0 ? (
@@ -730,87 +669,85 @@ export function AdminCompliancePanel({
           No licences match this filter.
         </p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {filteredItems.map((item) => {
-            const busy = busyId === item.id;
-            const days = item.days_until_expiry ?? 0;
-            const style = CATEGORY_STYLE[item.category];
-            const Icon = style.icon;
+        <AdminCatalogList title="Renewal tracker" total={filteredItems.length}>
+          <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+            {filteredItems.map((item) => {
+              const busy = busyId === item.id;
+              const days = item.days_until_expiry ?? 0;
+              const style = CATEGORY_STYLE[item.category];
+              const Icon = style.icon;
+              const tone =
+                item.urgency === "overdue"
+                  ? "rose"
+                  : item.urgency === "soon"
+                    ? "amber"
+                    : "emerald";
 
-            return (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => openItem(item)}
+              return (
+                <li
+                  key={item.id}
                   className={cn(
-                    "w-full overflow-hidden rounded-2xl border border-cream-200/90 bg-white text-left shadow-card transition-shadow dark:border-hairline-dark dark:bg-panel-dark",
-                    "border-l-4",
-                    urgencyAccent(item.urgency, item.category),
+                    "group transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60",
+                    item.urgency === "overdue" &&
+                      "bg-rose-50/30 dark:bg-rose-950/10",
                     busy && "opacity-60",
-                    !busy && "hover:shadow-elevated",
                   )}
                 >
-                  <div className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                          item.urgency === "overdue"
-                            ? "bg-status-danger/10 text-status-danger"
-                            : item.urgency === "soon"
-                              ? "bg-status-warning/15 text-[#8C5C0A] dark:text-[#F5C97A]"
-                              : "bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200",
-                        )}
-                      >
-                        <Icon className="h-5 w-5" strokeWidth={2} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold leading-snug text-ink dark:text-cream-100">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => openItem(item)}
+                    className="flex w-full items-start gap-3 px-3 py-3 text-left sm:px-4"
+                  >
+                    <AdminCatalogThumb icon={Icon} tone={tone} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-ink dark:text-cream-100">
                           {item.title}
                         </p>
-                        <span className="mt-1.5 inline-block rounded-md bg-cream-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-muted dark:bg-hairline-dark dark:text-cream-400">
+                        <span className="rounded-full bg-cream-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-muted dark:bg-hairline-dark dark:text-cream-400">
                           {categoryLabel(item.category)}
                         </span>
-                        <p className="mt-2 text-xs text-ink-muted dark:text-cream-400">
-                          {item.authority ? `${item.authority} · ` : ""}
-                          Expires {fmtExpiry(item.expires_on)}
-                        </p>
-                        {item.last_renewed_at ? (
-                          <p className="mt-1 text-[11px] text-ink-muted dark:text-cream-400">
-                            Last renewed {fmtRenewed(item.last_renewed_at)}
-                          </p>
-                        ) : null}
-                        {item.admin_file_name ? (
-                          <p className="mt-1 truncate text-[11px] text-brand-700 dark:text-brand-200">
-                            📎 {item.admin_file_name}
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-[11px] font-medium text-[#8C5C0A] dark:text-[#F5C97A]">
-                            No certificate uploaded
-                          </p>
-                        )}
                       </div>
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold",
-                          item.urgency === "overdue" &&
-                            "bg-status-danger/10 text-status-danger",
-                          item.urgency === "soon" &&
-                            "bg-status-warning/15 text-[#8C5C0A] dark:text-[#F5C97A]",
-                          item.urgency === "ok" &&
-                            "bg-status-success/10 text-status-success",
-                        )}
-                      >
-                        {daysLabel(days)}
-                      </span>
+                      <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                        {item.authority ? `${item.authority} · ` : ""}
+                        Expires {fmtExpiry(item.expires_on)}
+                      </p>
+                      {item.last_renewed_at ? (
+                        <p className="mt-0.5 text-[11px] text-ink-muted dark:text-cream-400">
+                          Last renewed {fmtRenewed(item.last_renewed_at)}
+                        </p>
+                      ) : null}
+                      {item.admin_file_name ? (
+                        <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-brand-700 dark:text-brand-200">
+                          <Paperclip className="h-3 w-3 shrink-0" />
+                          {item.admin_file_name}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-[11px] font-medium text-amber-800 dark:text-amber-200">
+                          No certificate uploaded
+                        </p>
+                      )}
                     </div>
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold",
+                        item.urgency === "overdue" &&
+                          "bg-status-danger/10 text-status-danger",
+                        item.urgency === "soon" &&
+                          "bg-status-warning/15 text-amber-900 dark:text-amber-100",
+                        item.urgency === "ok" &&
+                          "bg-status-success/10 text-status-success",
+                      )}
+                    >
+                      {daysLabel(days)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </AdminCatalogList>
       )}
 
       {selected ? (

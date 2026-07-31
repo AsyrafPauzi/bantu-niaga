@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
-import { Card, CardBody } from "@/components/ui/card";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
+import { AdminSubpageShell } from "@/components/admin/AdminSubpageShell";
 import {
   AdminStoragePanel,
   type AdminStorageFileRow,
   type AdminStorageStats,
 } from "@/components/admin/AdminStoragePanel";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
+import { Card, CardBody } from "@/components/ui/card";
 import {
   getCurrentUser,
   UnauthorizedError,
@@ -26,6 +28,7 @@ import {
 } from "@/lib/admin/storage-server";
 import { loadStorageQuota } from "@/lib/admin/storage-quota";
 import { loadFileUsageLinks } from "@/lib/admin/storage-usage";
+import { formatStorageBytes } from "@/lib/admin/storage-shared";
 import { tierBy } from "@/lib/settings/plans";
 
 export const metadata = { title: "Storage" };
@@ -65,12 +68,8 @@ export default async function StoragePage({ searchParams }: PageProps) {
 
   if (!canSurface(user.role, "admin", "storage")) {
     return (
-      <div className="space-y-6">
-        <PageHeader
-          eyebrow="Admin"
-          title="Your business file vault"
-          description="Securely store receipts, contracts, and licence PDFs."
-        />
+      <div className="space-y-4">
+        <AdminBackLink />
         <Card>
           <CardBody className="py-10 text-center">
             <p className="text-sm text-ink-muted dark:text-cream-400">
@@ -190,26 +189,87 @@ export default async function StoragePage({ searchParams }: PageProps) {
     }
   }
 
+  const quotaNearFull =
+    !quota.isUnlimited &&
+    quota.usagePct !== null &&
+    quota.usagePct >= 75;
+
+  const heroHeadline =
+    stats.totalFiles === 0
+      ? "Upload your first document"
+      : `${stats.totalFiles} file${stats.totalFiles === 1 ? "" : "s"} in your vault`;
+
+  const heroSub =
+    stats.totalFiles === 0
+      ? "Receipts, contracts, licence PDFs — private to your team, up to 25 MB each."
+      : hrDocsOnly
+        ? "HR documents only — attach scans to employee profiles from here."
+        : "Filter by category, search by name, and link files to compliance or tasks.";
+
+  if (statsRes.error) {
+    return (
+      <div className="space-y-4">
+        <AdminBackLink />
+        <Card>
+          <CardBody className="text-sm text-status-danger">
+            Failed to load storage: {statsRes.error.message}
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <AdminStoragePanel
-      rows={rows}
-      nextCursor={listResult.nextCursor}
-      stats={stats}
-      quota={{
-        usedBytes: quota.usedBytes,
-        quotaGb: quota.quotaGb,
-        usagePct: quota.usagePct,
-        isUnlimited: quota.isUnlimited || tier?.quotas.storageGb === Number.POSITIVE_INFINITY,
-      }}
-      usageByFileId={usageByFileId}
-      hrDocsOnly={hrDocsOnly}
-      query={q}
-      activeCategory={effectiveCategory}
-      activeSort={activeSort}
-      errorMessage={statsRes.error?.message ?? null}
-      defaultUploadCategory={defaultUploadCategory}
-      employees={employees}
-      employeeDocumentTypesByEmployeeId={employeeDocumentTypesByEmployeeId}
-    />
+    <AdminSubpageShell
+      headline={heroHeadline}
+      subcopy={heroSub}
+      variant={quotaNearFull ? "attention" : "calm"}
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="Files"
+            value={stats.totalFiles}
+            iconClassName="text-violet-700 dark:text-violet-300"
+          />
+          <ModuleHeroStat
+            label="Space used"
+            value={formatStorageBytes(stats.totalBytes)}
+            iconClassName="text-sky-700 dark:text-sky-300"
+          />
+          <ModuleHeroStat
+            label="Categories"
+            value={stats.categoryCount}
+            iconClassName="text-emerald-700 dark:text-emerald-300"
+          />
+          <ModuleHeroStat
+            label="This week"
+            value={stats.uploadedThisWeek}
+            iconClassName="text-amber-700 dark:text-amber-300"
+          />
+        </div>
+      }
+    >
+      <AdminStoragePanel
+        rows={rows}
+        nextCursor={listResult.nextCursor}
+        quota={{
+          usedBytes: quota.usedBytes,
+          quotaGb: quota.quotaGb,
+          usagePct: quota.usagePct,
+          isUnlimited:
+            quota.isUnlimited ||
+            tier?.quotas.storageGb === Number.POSITIVE_INFINITY,
+        }}
+        usageByFileId={usageByFileId}
+        hrDocsOnly={hrDocsOnly}
+        query={q}
+        activeCategory={effectiveCategory}
+        activeSort={activeSort}
+        errorMessage={null}
+        defaultUploadCategory={defaultUploadCategory}
+        employees={employees}
+        employeeDocumentTypesByEmployeeId={employeeDocumentTypesByEmployeeId}
+      />
+    </AdminSubpageShell>
   );
 }

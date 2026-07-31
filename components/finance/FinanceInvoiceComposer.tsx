@@ -1462,6 +1462,7 @@ export function FinanceInvoiceComposer({
             <AdminStorageFileAttach
               fileId={adminFileId}
               fileName={adminFileName}
+              category="finance"
               compact
               className="min-w-0 flex-1"
               onAttach={async (fileId) => {

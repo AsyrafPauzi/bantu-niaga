@@ -12,9 +12,16 @@ import {
   Plus,
   Search,
   Trash2,
+  User,
   Wallet,
 } from "lucide-react";
 import { ListPagination } from "@/components/ui/list-pagination";
+import {
+  QuickActionBar,
+  QuickCreateActions,
+  QuickCreatePanel,
+} from "@/components/ui/quick-create";
+import { useQuickCreate } from "@/hooks/use-quick-create";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import type {
   FinanceCustomerWithStats,
@@ -30,6 +37,7 @@ interface FinanceCustomerPanelProps {
   pageSize: number;
   total: number;
   searchQuery: string;
+  shellMode?: boolean;
 }
 
 const AVATAR_PALETTES = [
@@ -75,11 +83,13 @@ export function FinanceCustomerPanel({
   pageSize,
   total,
   searchQuery,
+  shellMode = false,
 }: FinanceCustomerPanelProps) {
   const router = useRouter();
   const [customers, setCustomers] = useState(initialCustomers);
   const [search, setSearch] = useState(searchQuery);
-  const [showForm, setShowForm] = useState(false);
+  const { open: showForm, toggle: toggleForm, close: closeForm, openPanel } =
+    useQuickCreate();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -131,7 +141,7 @@ export function FinanceCustomerPanel({
         setName("");
         setPhone("");
         setEmail("");
-        setShowForm(false);
+        closeForm();
         router.push("/finance/customers");
         refresh();
       } catch (err) {
@@ -169,6 +179,7 @@ export function FinanceCustomerPanel({
 
   return (
     <div className="space-y-4">
+      {!shellMode ? (
       <section className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 p-5 shadow-card dark:border-amber-900/40 dark:from-amber-950/40 dark:via-orange-950/20 dark:to-rose-950/20">
         <div className="pointer-events-none absolute -right-4 -top-4 text-6xl opacity-20">
           👥
@@ -215,8 +226,16 @@ export function FinanceCustomerPanel({
           </div>
         </div>
       </section>
+      ) : null}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <QuickActionBar
+        open={showForm}
+        onToggle={() => {
+          if (showForm) closeForm();
+          else toggleForm();
+        }}
+        actionLabel="Add customer"
+      >
         <form
           onSubmit={onSearch}
           className="relative min-w-0 flex-1 sm:max-w-xs"
@@ -230,38 +249,16 @@ export function FinanceCustomerPanel({
             className="w-full rounded-full border border-cream-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
         </form>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className={cn(
-            "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-            showForm
-              ? "border border-cream-300 bg-white text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-              : "bg-brand-500 text-white hover:bg-brand-600",
-          )}
-        >
-          {showForm ? (
-            <>
-              <ChevronDown className="h-4 w-4 rotate-180" />
-              Close
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4" />
-              Add customer
-            </>
-          )}
-        </button>
-      </div>
+      </QuickActionBar>
 
-      {showForm ? (
-        <form
-          onSubmit={onCreate}
-          className="space-y-3 rounded-2xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark"
-        >
-          <p className="text-sm font-semibold text-ink dark:text-cream-100">
-            New billing contact
-          </p>
+      <QuickCreatePanel
+        open={showForm}
+        onSubmit={onCreate}
+        title="New billing contact"
+        subtitle="Reuse on every invoice and quote."
+        icon={User}
+        accent="violet"
+      >
           <div className="grid gap-3 sm:grid-cols-3">
             <input
               type="text"
@@ -289,25 +286,12 @@ export function FinanceCustomerPanel({
           {formError ? (
             <p className="text-sm text-status-danger">{formError}</p>
           ) : null}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={creating}
-              className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-            >
-              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="rounded-full border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
+          <QuickCreateActions
+            submitLabel="Save"
+            loading={creating}
+            onCancel={closeForm}
+          />
+      </QuickCreatePanel>
 
       {customers.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-cream-300 bg-white/50 py-14 text-center dark:border-hairline-dark dark:bg-panel-dark/40">
@@ -325,7 +309,7 @@ export function FinanceCustomerPanel({
           {!searchQuery ? (
             <button
               type="button"
-              onClick={() => setShowForm(true)}
+              onClick={openPanel}
               className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
             >
               <Plus className="h-4 w-4" />
@@ -392,7 +376,7 @@ export function FinanceCustomerPanel({
 
                       <div className="flex shrink-0 items-center gap-1.5">
                         <Link
-                          href={`/finance/invoices/new?customer_id=${encodeURIComponent(c.id)}`}
+                          href={`/finance/invoices?customer_id=${encodeURIComponent(c.id)}`}
                           className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600"
                         >
                           <FileText className="h-3 w-3" />

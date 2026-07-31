@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, MessageSquarePlus, PauseCircle, Send, Sparkles } from "lucide-react";
 import { OPERATIONS_ASSISTANT_SUGGESTIONS } from "@/lib/ai/operations-assistant-prompt";
 import { AimanAssistantGate } from "@/components/operations/AimanAssistantGate";
+import { AimanAssistantMessage } from "@/components/operations/AimanAssistantMessage";
 import { HR_CREDIT_COST_CHAT } from "@/lib/marketplace/agent-types";
 import { cn } from "@/lib/utils/cn";
 
@@ -219,6 +220,12 @@ export function AimanAssistantChat({
     void sendMessage(input);
   }
 
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    void sendMessage(input);
+  }
+
   if (statusLoading) {
     return (
       <div className="flex min-h-[200px] items-center justify-center text-sm text-ink-muted">
@@ -339,7 +346,11 @@ export function AimanAssistantChat({
                   : "mr-auto border border-[#E5E0D8] bg-[#FFFEFB] text-ink dark:border-hairline-dark dark:bg-surface-dark dark:text-cream-100",
               )}
             >
-              <p className="whitespace-pre-wrap leading-relaxed">{turn.content}</p>
+              {turn.role === "user" ? (
+                <p className="whitespace-pre-wrap leading-relaxed">{turn.content}</p>
+              ) : (
+                <AimanAssistantMessage content={turn.content} />
+              )}
             </div>
           ))
         )}
@@ -361,15 +372,16 @@ export function AimanAssistantChat({
         onSubmit={handleSubmit}
         className="shrink-0 border-t border-[#E5E0D8] bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark"
       >
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
+        <div className="flex items-end gap-2">
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleInputKeyDown}
             placeholder={`Message ${displayName}…`}
             maxLength={2000}
+            rows={2}
             disabled={loading}
-            className="flex-1 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            className="flex-1 resize-none rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
           <button
             type="submit"
@@ -384,8 +396,8 @@ export function AimanAssistantChat({
           </button>
         </div>
         <p className="mt-2 text-[11px] text-ink-muted dark:text-cream-500">
-          Clarifying questions are free. Advice uses credits. Advise-only — no
-          auto-updates yet.
+          Enter to send · Shift+Enter for new line. Clarifying questions are
+          free; advice and actions use credits.
         </p>
       </form>
     </div>

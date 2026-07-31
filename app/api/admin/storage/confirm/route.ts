@@ -5,7 +5,10 @@ import {
   UnauthorizedError,
   type CurrentUser,
 } from "@/lib/auth/current-user";
-import { canSurface } from "@/lib/permissions";
+import {
+  canUploadAdminStorageCategory,
+  hasFullAdminStorageAccess,
+} from "@/lib/admin/storage-cross-access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { logger } from "@/lib/logger";
@@ -56,19 +59,6 @@ export async function POST(request: Request) {
       );
     }
     throw e;
-  }
-
-  if (!canSurface(user.role, "admin", "storage")) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: "forbidden",
-          message: "You don't have permission to access Admin storage.",
-        },
-      },
-      { status: 403 },
-    );
   }
 
   let body: unknown;
@@ -141,6 +131,41 @@ export async function POST(request: Request) {
         },
       },
       { status: parsed.file_size_bytes > ADMIN_FILE_MAX_BYTES ? 413 : 400 },
+    );
+  }
+
+  if (isHrDocOnly(user.role)) {
+    parsed.category = "hr_doc";
+  }
+
+  const fullAccess = hasFullAdminStorageAccess(user.role);
+  const moduleUpload =
+    parsed.category != null &&
+    canUploadAdminStorageCategory(user.role, parsed.category);
+
+  if (!fullAccess && !moduleUpload) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "forbidden",
+          message: "You don't have permission to upload to Admin storage.",
+        },
+      },
+      { status: 403 },
+    );
+  }
+
+  if (!fullAccess && !parsed.category) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "category_required",
+          message: "A storage category is required for this upload.",
+        },
+      },
+      { status: 422 },
     );
   }
 

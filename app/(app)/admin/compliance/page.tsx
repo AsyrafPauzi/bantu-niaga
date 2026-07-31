@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { AdminSubpageShell } from "@/components/admin/AdminSubpageShell";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
 import { AdminCompliancePanel } from "@/components/admin/AdminCompliancePanel";
 import {
@@ -32,13 +33,8 @@ export default async function CompliancePage() {
 
   if (!canSurface(user.role, "admin", "compliance")) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <AdminBackLink />
-        <PageHeader
-          eyebrow="Admin"
-          title="Licence & permit tracker"
-          description="Never miss an SSM, DBKL, or insurance renewal again."
-        />
         <Card>
           <CardBody className="py-10 text-center">
             <p className="text-sm text-ink-muted dark:text-cream-400">
@@ -79,28 +75,72 @@ export default async function CompliancePage() {
   const alerts = (alertsRes.data ?? []) as ComplianceInAppAlert[];
   const error = itemsRes.error;
 
-  return (
-    <div className="space-y-6">
-      <AdminBackLink />
+  const overdue = items.filter((i) => i.urgency === "overdue").length;
+  const dueSoon = items.filter((i) => i.urgency === "soon").length;
+  const withDocs = items.filter((i) => i.admin_file_id).length;
 
-      <PageHeader
-        eyebrow="Admin · Compliance"
-        title="Licence & permit tracker"
-        description="Track SSM, DBKL signboard licences, insurance, and other renewals before they expire."
-      />
+  const heroHeadline =
+    overdue > 0
+      ? `${overdue} renewal${overdue === 1 ? "" : "s"} overdue`
+      : dueSoon > 0
+        ? `${dueSoon} due within 30 days`
+        : items.length > 0
+          ? `${items.length} licence${items.length === 1 ? "" : "s"} on track`
+          : "Log your first renewal";
 
-      {error ? (
+  const heroSub =
+    overdue > 0
+      ? "Update expiry dates or upload proof before an inspection catches you off guard."
+      : dueSoon > 0
+        ? "Renew SSM, DBKL signboards, insurance, and permits before they lapse."
+        : items.length > 0
+          ? "Switch list or calendar view — attach PDFs and set reminder windows."
+          : "Start with SSM or your most critical permit — Amir can coach you later.";
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <AdminBackLink />
         <Card>
           <CardBody className="text-sm text-status-danger">
             Failed to load compliance items: {error.message}
           </CardBody>
         </Card>
-      ) : (
-        <AdminCompliancePanel
-          initialItems={items}
-          initialAlerts={alerts}
-        />
-      )}
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <AdminSubpageShell
+      headline={heroHeadline}
+      subcopy={heroSub}
+      variant={overdue > 0 ? "attention" : dueSoon > 0 ? "attention" : "calm"}
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="Active"
+            value={items.length}
+            iconClassName="text-violet-700 dark:text-violet-300"
+          />
+          <ModuleHeroStat
+            label="Due soon"
+            value={dueSoon}
+            iconClassName="text-amber-700 dark:text-amber-300"
+          />
+          <ModuleHeroStat
+            label="Overdue"
+            value={overdue}
+            iconClassName="text-rose-700 dark:text-rose-300"
+          />
+          <ModuleHeroStat
+            label="With file"
+            value={withDocs}
+            iconClassName="text-sky-700 dark:text-sky-300"
+          />
+        </div>
+      }
+    >
+      <AdminCompliancePanel initialItems={items} initialAlerts={alerts} />
+    </AdminSubpageShell>
   );
 }

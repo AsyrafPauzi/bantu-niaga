@@ -8,17 +8,15 @@ import {
   HandCoins,
   Landmark,
   Loader2,
-  Pencil,
   PiggyBank,
   RotateCcw,
   ShoppingBag,
   Sparkles,
-  Trash2,
   TrendingUp,
   Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
+import { FinanceTxnCompactList } from "@/components/finance/FinanceTxnCompactList";
 import { cn } from "@/lib/utils/cn";
 import type { CategoryInsight } from "@/lib/finance/helpers";
 import {
@@ -90,13 +88,6 @@ const CATEGORY_META: Record<
   },
 };
 
-function fmtDate(iso: string): string {
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-MY", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
 function fmtMonthLabel(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString("en-MY", {
@@ -121,6 +112,7 @@ interface FinanceIncomePanelProps {
   monthLabel: string;
   incomeCount: number;
   categories: CategoryInsight[];
+  shellMode?: boolean;
 }
 
 export function FinanceIncomePanel({
@@ -129,6 +121,7 @@ export function FinanceIncomePanel({
   monthLabel,
   incomeCount,
   categories,
+  shellMode = false,
 }: FinanceIncomePanelProps) {
   const router = useRouter();
   const [transactions, setTransactions] = useState(initialTransactions);
@@ -350,6 +343,7 @@ export function FinanceIncomePanel({
 
   return (
     <div className="space-y-4">
+      {!shellMode ? (
       <section className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-5 shadow-card dark:border-emerald-900/40 dark:from-emerald-950/40 dark:via-teal-950/20 dark:to-cyan-950/20">
         <div className="pointer-events-none absolute -right-6 -top-6 text-6xl opacity-20">
           💵
@@ -372,6 +366,7 @@ export function FinanceIncomePanel({
             : null}
         </p>
       </section>
+      ) : null}
 
       {categories.length > 0 ? (
         <div className="rounded-xl border border-cream-200 bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark">
@@ -578,99 +573,20 @@ export function FinanceIncomePanel({
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-xl border border-cream-200 bg-white dark:border-hairline-dark dark:bg-panel-dark">
-        <div className="border-b border-cream-200 px-4 py-2.5 dark:border-hairline-dark">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
-            Recent income
-          </p>
-        </div>
-
-        {transactions.length === 0 ? (
-          <div className="px-4 py-10 text-center">
-            <p className="text-3xl">📥</p>
-            <p className="mt-2 text-sm font-medium text-ink dark:text-cream-100">
-              Nothing logged yet
-            </p>
-            <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-              Invoice payments appear here automatically when customers pay.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
-            {transactions.map((row) => {
-              const amt = Number(row.amount_myr);
-              const meta = categoryMeta(row.category ?? "other");
-              const editable = isEditableTxn(row);
-              const busy = busyId === row.id;
-              return (
-                <li
-                  key={row.id}
-                  className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60"
-                >
-                  <span
-                    className={cn(
-                      "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base",
-                      meta.chip,
-                    )}
-                  >
-                    {meta.emoji}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-ink dark:text-cream-100">
-                      {row.description}
-                    </p>
-                    <p className="text-xs text-ink-muted dark:text-cream-400">
-                      {fmtDate(row.txn_date)}
-                      {row.counterparty ? ` · ${row.counterparty}` : ""}
-                      {!editable ? " · auto" : ""}
-                    </p>
-                    {editable ? (
-                      <div className="mt-1.5">
-                        <AdminStorageFileAttach
-                          fileId={row.admin_file_id}
-                          fileName={row.admin_file_name}
-                          compact
-                          onAttach={(fileId) => attachReceipt(row.id, fileId)}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
-                      +{formatMyr(amt)}
-                    </p>
-                    {editable ? (
-                      <div className="mt-1 flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(row)}
-                          className="text-ink-muted hover:text-emerald-700 dark:text-cream-400"
-                          aria-label="Edit"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void removeTxn(row.id, amt)}
-                          className="text-ink-muted hover:text-status-danger dark:text-cream-400"
-                          aria-label="Remove"
-                        >
-                          {busy ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+      <FinanceTxnCompactList
+        title="Recent income"
+        emptyIcon="📥"
+        emptyTitle="Nothing logged yet"
+        emptyHint="Invoice payments appear here automatically when customers pay."
+        transactions={transactions}
+        kind="income"
+        categoryMeta={categoryMeta}
+        busyId={busyId}
+        isEditable={isEditableTxn}
+        onEdit={startEdit}
+        onRemove={(id, amt) => void removeTxn(id, amt)}
+        onAttachReceipt={attachReceipt}
+      />
     </div>
   );
 }

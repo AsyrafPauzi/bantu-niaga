@@ -74,31 +74,32 @@ export function columnShellStyle(
   if (isDone) {
     return {
       shell:
-        "border-status-success/30 bg-gradient-to-b from-status-success/10 to-status-success/5 dark:border-status-success/25 dark:from-status-success/15 dark:to-transparent",
+        "border-emerald-200 bg-gradient-to-b from-emerald-50 to-white dark:border-emerald-900/40 dark:from-emerald-950/30 dark:to-panel-dark",
       header:
-        "border-status-success/25 bg-status-success/10 dark:border-status-success/20 dark:bg-status-success/10",
+        "border-emerald-200/80 bg-gradient-to-b from-emerald-50/90 to-transparent dark:border-emerald-900/40 dark:from-emerald-950/40",
       badge:
-        "bg-status-success/15 text-status-success dark:bg-status-success/20 dark:text-status-success",
-      accent: "border-l-status-success",
+        "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100",
+      accent: "border-l-emerald-500",
     };
   }
   if (index === 0) {
     return {
       shell:
-        "border-cream-300/80 bg-gradient-to-b from-cream-100/90 to-cream-50/50 dark:border-hairline-dark dark:from-panel-dark/80 dark:to-panel-dark/40",
+        "border-slate-200 bg-gradient-to-b from-slate-50 to-white dark:border-hairline-dark dark:from-slate-950/40 dark:to-panel-dark",
       header:
-        "border-cream-300/80 bg-white/80 dark:border-hairline-dark dark:bg-panel-dark/90",
+        "border-slate-200/80 bg-gradient-to-b from-slate-50/90 to-transparent dark:border-hairline-dark dark:from-slate-950/40",
       badge:
-        "bg-cream-200 text-ink-muted dark:bg-hairline-dark dark:text-cream-300",
-      accent: "border-l-ink-subtle",
+        "bg-slate-100 text-slate-700 dark:bg-slate-900/50 dark:text-slate-200",
+      accent: "border-l-slate-400",
     };
   }
   return {
     shell:
-      "border-brand-300/70 bg-gradient-to-b from-brand-50 to-brand-50/30 dark:border-brand-800 dark:from-brand-950/50 dark:to-brand-900/20",
+      "border-violet-200 bg-gradient-to-b from-violet-50 to-white dark:border-violet-900/40 dark:from-violet-950/30 dark:to-panel-dark",
     header:
-      "border-brand-200 bg-brand-50/90 dark:border-brand-800 dark:bg-brand-900/40",
-    badge: "bg-brand-100 text-brand-800 dark:bg-brand-900/60 dark:text-brand-100",
-    accent: "border-l-brand-500",
+      "border-violet-200/80 bg-gradient-to-b from-violet-50/90 to-transparent dark:border-violet-900/40 dark:from-violet-950/40",
+    badge:
+      "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-100",
+    accent: "border-l-violet-500",
   };
 }

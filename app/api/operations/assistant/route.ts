@@ -11,6 +11,20 @@ import {
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildOperationsAssistantRules } from "@/lib/ai/operations-assistant-prompt";
 import {
+  buildOperationsOutOfScopeReply,
+  detectOperationsAssistantOutOfScope,
+} from "@/lib/ai/assistant-pillar-guard";
+import {
+  detectUserLanguage,
+  userLanguageInstruction,
+} from "@/lib/ai/user-language";
+import {
+  OPERATIONS_ASSISTANT_TOOLS,
+  executeOperationsAssistantTool,
+  isOperationsActionTool,
+  malaysiaTodayIso,
+} from "@/lib/ai/operations-assistant-tools";
+import {
   extractChatAssistantText,
   openaiChat,
   type AgentChatMessage,
@@ -36,7 +50,6 @@ import {
 } from "@/lib/ai/short-memory";
 import { consume, rateLimitHeaders } from "@/lib/api/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { malaysiaTodayYmd } from "@/lib/sales/schemas";
 import type { PillarSnapshot } from "@/lib/ai/context/types";
 
 export const dynamic = "force-dynamic";
@@ -94,21 +107,23 @@ async function runOperationsAssistantChat(
   businessName: string | null,
   settings: Awaited<ReturnType<typeof loadBusinessAgentSettings>>,
   operationsPacketText: string,
-): Promise<string> {
+): Promise<{ reply: string; usedActionTool: boolean }> {
   const model = resolveAgentModel({
     reasoningMode: settings.reasoningMode,
     modelOverride: settings.modelOverride,
   });
-  const messages: AgentChatMessage[] = [
+  const lang = detectUserLanguage(userMessage);
+  const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
       content:
         buildOperationsAssistantRules({
           displayName,
           businessName: businessName ?? undefined,
-          todayIso: malaysiaTodayYmd(),
+          todayIso: malaysiaTodayIso(),
+          userLanguageInstruction: userLanguageInstruction(lang),
         }) +
-        "\n\nDATA PACKET — OPERATIONS (products + orders + bookings):\n" +
+        "\n\nDATA PACKET — OPERATIONS (products, services, orders, bookings, suppliers):\n" +
         operationsPacketText,
     },
     ...history.map((turn) => ({
@@ -118,16 +133,76 @@ async function runOperationsAssistantChat(
     { role: "user", content: userMessage },
   ];
 
-  const completion = await openaiChat<ChatCompletionResponse>({
+  let completion = await openaiChat<ChatCompletionResponse>({
     model,
     briefingFor: "operations",
     context: ctx,
     temperature: 0.2,
-    messages,
+    max_tokens: 900,
+    messages: baseMessages,
+    tools: OPERATIONS_ASSISTANT_TOOLS,
+    tool_choice: "auto",
+  });
+
+  const assistantMessage = completion.choices?.[0]?.message;
+  const toolCalls = assistantMessage?.tool_calls ?? [];
+
+  if (toolCalls.length === 0) {
+    return {
+      reply: extractChatAssistantText(completion),
+      usedActionTool: false,
+    };
+  }
+
+  const followUpMessages: AgentChatMessage[] = [
+    ...baseMessages,
+    {
+      role: "assistant",
+      content: assistantMessage?.content ?? null,
+      tool_calls: toolCalls,
+    },
+  ];
+
+  let usedActionTool = false;
+  for (const toolCall of toolCalls) {
+    let parsedArgs: unknown = {};
+    try {
+      parsedArgs = JSON.parse(toolCall.function.arguments || "{}");
+    } catch {
+      parsedArgs = {};
+    }
+
+    if (isOperationsActionTool(toolCall.function.name)) {
+      usedActionTool = true;
+    }
+
+    const result = await executeOperationsAssistantTool(
+      ctx,
+      toolCall.function.name,
+      parsedArgs,
+    );
+
+    followUpMessages.push({
+      role: "tool",
+      tool_call_id: toolCall.id,
+      content: JSON.stringify(result),
+    });
+  }
+
+  completion = await openaiChat<ChatCompletionResponse>({
+    model,
+    context: ctx,
+    temperature: 0.2,
+    max_tokens: 900,
+    messages: followUpMessages,
+    includeBriefing: false,
     tool_choice: "none",
   });
 
-  return extractChatAssistantText(completion);
+  return {
+    reply: extractChatAssistantText(completion),
+    usedActionTool,
+  };
 }
 
 export async function GET() {
@@ -340,6 +415,62 @@ export async function POST(request: Request) {
     );
   }
 
+  const outOfScope = detectOperationsAssistantOutOfScope(parsed.message);
+  if (outOfScope) {
+    const reply = buildOperationsOutOfScopeReply(
+      settings.displayName,
+      outOfScope,
+    );
+
+    try {
+      await saveShortMemory({
+        businessId: ctx.businessId,
+        userId: user.id,
+        agentSlug: OPERATIONS_AGENT_SLUG,
+        turns: [
+          ...historyForModel,
+          { role: "user", content: parsed.message },
+          { role: "assistant", content: reply },
+        ],
+      });
+    } catch (memoryError) {
+      logger.warn("operations.assistant.short_memory_failed", {
+        businessId: ctx.businessId,
+        error:
+          memoryError instanceof Error
+            ? memoryError.message
+            : String(memoryError),
+      });
+    }
+
+    await recordAiUsage({
+      businessId: ctx.businessId,
+      actorUserId: ctx.userId,
+      triggerType: "CHAT",
+      creditsCharged: 0,
+      mode: "fast",
+      costMyrEstimated: 0,
+      agentSlug: OPERATIONS_AGENT_SLUG,
+      metadata: {
+        out_of_scope_redirect: outOfScope.pillar,
+        reasoning_mode: settings.reasoningMode,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        reply,
+        credits: {
+          charged: 0,
+          balance: creditBalance,
+          mode: "fast" as const,
+          out_of_scope: true,
+        },
+      },
+      { status: 200 },
+    );
+  }
+
   if (creditBalance < chatCost) {
     return NextResponse.json(
       {
@@ -356,7 +487,7 @@ export async function POST(request: Request) {
   let totalCharged = 0;
 
   try {
-    const reply = await runOperationsAssistantChat(
+    const { reply, usedActionTool } = await runOperationsAssistantChat(
       ctx,
       parsed.message,
       historyForModel,
@@ -388,7 +519,7 @@ export async function POST(request: Request) {
     }
 
     const billable = shouldChargeAssistantTurn({
-      usedActionTool: false,
+      usedActionTool,
       reply,
     });
 

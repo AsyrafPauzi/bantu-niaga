@@ -7,6 +7,10 @@ import {
   type CurrentUser,
 } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
+import {
+  canUploadAdminStorageCategory,
+  hasFullAdminStorageAccess,
+} from "@/lib/admin/storage-cross-access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { logger } from "@/lib/logger";
@@ -52,10 +56,18 @@ interface AuthResult {
   response: NextResponse | null;
 }
 
-async function requireStorageUser(): Promise<AuthResult> {
+async function requireStorageUser(
+  category?: import("@/lib/admin/schemas").AdminFileCategory | null,
+): Promise<AuthResult> {
   try {
     const user = await getCurrentUser();
-    if (!canSurface(user.role, "admin", "storage")) {
+    const fullAccess = hasFullAdminStorageAccess(user.role);
+    const hrDocAccess =
+      user.role === "hr_officer" && canSurface(user.role, "admin", "storage");
+    const moduleUpload =
+      category != null && canUploadAdminStorageCategory(user.role, category);
+
+    if (!fullAccess && !hrDocAccess && !moduleUpload) {
       return {
         user: null,
         response: NextResponse.json(
@@ -98,10 +110,6 @@ function isHrDocOnly(role: CurrentUser["role"]): boolean {
 // ─────────────────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
-  const auth = await requireStorageUser();
-  if (auth.response) return auth.response;
-  const user = auth.user!;
-
   let body: unknown;
   try {
     body = await request.json();
@@ -186,10 +194,57 @@ export async function POST(request: Request) {
     );
   }
 
+  let user: CurrentUser;
+  try {
+    user = await getCurrentUser();
+  } catch (e) {
+    if (e instanceof UnauthorizedError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "unauthorized", message: "Authentication required." },
+        },
+        { status: 401 },
+      );
+    }
+    throw e;
+  }
+
   // HR Officer is server-side forced to the hr_doc category, regardless
   // of what the client posted. The category they sent is silently ignored.
   if (isHrDocOnly(user.role)) {
     parsed.category = "hr_doc";
+  }
+
+  const fullAccess = hasFullAdminStorageAccess(user.role);
+  const moduleUpload =
+    parsed.category != null &&
+    canUploadAdminStorageCategory(user.role, parsed.category);
+
+  if (!fullAccess && !moduleUpload) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "forbidden",
+          message: "You don't have permission to upload to Admin storage.",
+        },
+      },
+      { status: 403 },
+    );
+  }
+
+  if (!fullAccess && !parsed.category) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "category_required",
+          message: "A storage category is required for this upload.",
+        },
+      },
+      { status: 422 },
+    );
   }
 
   const sanitisedName = sanitiseAdminFileName(parsed.file_name);

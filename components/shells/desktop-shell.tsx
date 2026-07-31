@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useMemo, type ReactNode } from "react";
 import {
   LayoutDashboard,
   FileText,
@@ -20,7 +21,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import type { ReactNode } from "react";
+import type { BusinessType } from "@/lib/onboarding/plan-quiz";
+import { getOperationsNavSubItems } from "@/lib/operations/vertical";
 import { signOutAction } from "@/app/sign-in/actions";
 import type { TierKey } from "@/lib/settings/plans";
 import type { BusinessMembership } from "@/lib/auth/memberships";
@@ -94,6 +96,7 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
         subItems: [
           { href: "/operations/orders", label: "Orders" },
           { href: "/operations/products", label: "Products" },
+          { href: "/operations/services", label: "Services" },
           { href: "/operations/bookings", label: "Bookings" },
           { href: "/operations/suppliers", label: "Suppliers" },
         ],
@@ -150,15 +153,28 @@ export function DesktopShell({
   memberships,
   canCreateCompany,
   sidebarAssistants = {},
+  businessType = "other",
   children,
 }: {
   tier: TierKey;
   memberships: BusinessMembership[];
   canCreateCompany: boolean;
   sidebarAssistants?: SidebarAssistantsByModule;
+  businessType?: BusinessType;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const sidebarGroups = useMemo(() => {
+    const opsSubItems = getOperationsNavSubItems(businessType);
+    return SIDEBAR_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.map((item) =>
+        item.href === "/operations"
+          ? { ...item, subItems: opsSubItems }
+          : item,
+      ),
+    }));
+  }, [businessType]);
   const isHrRoute = pathname === "/hr" || pathname.startsWith("/hr/");
   const isSettingsRoute =
     pathname === "/settings" || pathname.startsWith("/settings/");
@@ -198,7 +214,7 @@ export function DesktopShell({
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">
-            {SIDEBAR_GROUPS.map((group) => (
+            {sidebarGroups.map((group) => (
               <div key={group.label} className="mb-4">
                 <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-700/70 dark:text-brand-200/70">
                   {group.label}

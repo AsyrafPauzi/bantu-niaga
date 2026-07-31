@@ -29,6 +29,7 @@ const sampleInvoice: FinanceInvoiceRow = {
   document_kind: "invoice",
   show_duitnow: false,
   converted_from_id: null,
+  admin_file_id: null,
   created_at: "2026-07-01T00:00:00.000Z",
   updated_at: "2026-07-01T00:00:00.000Z",
   items: [

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import {
   Calendar,
+  ClipboardList,
   Columns3,
   GripVertical,
   Loader2,
@@ -13,6 +14,12 @@ import {
 } from "lucide-react";
 import { AdminTaskDetailModal } from "@/components/admin/AdminTaskDetailModal";
 import { SimpleRichTextEditor } from "@/components/admin/SimpleRichTextEditor";
+import {
+  QuickActionBar,
+  QuickCreateActions,
+  QuickCreatePanel,
+} from "@/components/ui/quick-create";
+import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
 import {
   ADMIN_TASK_COLUMN_MAX,
@@ -79,7 +86,8 @@ export function AdminTaskBoard({
   const [columns, setColumns] = useState(initialColumns);
   const [tasks, setTasks] = useState(initialTasks);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const { open: showForm, toggle: toggleForm, close: closeForm } =
+    useQuickCreate({ listenForCreateParam: true });
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [newColumnLabel, setNewColumnLabel] = useState("");
   const [newColumnIsDone, setNewColumnIsDone] = useState(false);
@@ -113,18 +121,6 @@ export function AdminTaskBoard({
     }
     return map;
   }, [columns, tasks]);
-
-  const stats = useMemo(() => {
-    const open = tasks.filter((t) => !t.column_is_done);
-    const overdue = open.filter((t) =>
-      isOverdue(t.due_date, t.column_is_done ?? false),
-    ).length;
-    const dueToday = open.filter((t) =>
-      isDueToday(t.due_date, t.column_is_done ?? false),
-    ).length;
-    const done = tasks.filter((t) => t.column_is_done).length;
-    return { open: open.length, overdue, dueToday, done };
-  }, [tasks]);
 
   const patchTask = useCallback(
     async (id: string, body: Record<string, unknown>) => {
@@ -430,7 +426,7 @@ export function AdminTaskBoard({
         setDescription("");
         setDueDate("");
         setAssigneeId("");
-        setShowForm(false);
+        closeForm();
       } catch (err) {
         setFormError(err instanceof Error ? err.message : "Create failed.");
       } finally {
@@ -442,74 +438,24 @@ export function AdminTaskBoard({
 
   return (
     <div className="space-y-5">
-      <section
-        aria-label="Task summary"
-        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-      >
-        <div className="rounded-xl border border-cream-300 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-            Open
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink dark:text-cream-100">
-            {stats.open}
-          </p>
-        </div>
-        <div className="rounded-xl border border-status-danger/30 bg-status-danger/5 p-4 shadow-card dark:bg-status-danger/10">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-status-danger">
-            Overdue
-          </p>
-          <p className="mt-1 text-2xl font-bold text-status-danger">
-            {stats.overdue}
-          </p>
-        </div>
-        <div className="rounded-xl border border-status-warning/35 bg-status-warning/10 p-4 shadow-card">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#8C5C0A] dark:text-[#F5C97A]">
-            Due today
-          </p>
-          <p className="mt-1 text-2xl font-bold text-[#8C5C0A] dark:text-[#F5C97A]">
-            {stats.dueToday}
-          </p>
-        </div>
-        <div className="rounded-xl border border-status-success/30 bg-status-success/10 p-4 shadow-card">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-status-success">
-            Completed
-          </p>
-          <p className="mt-1 text-2xl font-bold text-status-success">
-            {stats.done}
-          </p>
-        </div>
-      </section>
-
       {canManage ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-white p-4 dark:border-brand-800 dark:from-brand-950/40 dark:to-panel-dark">
-          <div>
-            <p className="text-sm font-semibold text-ink dark:text-cream-100">
-              Add a task for today
-            </p>
-            <p className="text-xs text-ink-muted dark:text-cream-400">
-              Due dates and assignees optional — drag cards between columns.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowForm((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-600"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            {showForm ? "Close form" : "Add task"}
-          </button>
-        </div>
+        <QuickActionBar
+          open={showForm}
+          onToggle={toggleForm}
+          actionLabel="Add task"
+          hint="Due dates and assignees optional — drag cards between columns."
+        />
       ) : null}
 
       {showForm && canManage ? (
-        <form
+        <QuickCreatePanel
+          open={showForm}
           onSubmit={onCreate}
-          className="space-y-4 rounded-xl border border-brand-200 bg-white p-5 shadow-card dark:border-brand-800 dark:bg-panel-dark"
+          title="New task"
+          subtitle="Lands in your first column — drag to progress."
+          icon={ClipboardList}
+          accent="brand"
         >
-          <p className="text-sm font-semibold text-ink dark:text-cream-100">
-            New task
-          </p>
-
           <div className="space-y-1.5">
             <label
               htmlFor="admin-task-title"
@@ -583,26 +529,12 @@ export function AdminTaskBoard({
           {formError ? (
             <p className="text-sm text-status-danger">{formError}</p>
           ) : null}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={creating}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-            >
-              {creating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : null}
-              Save task
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+          <QuickCreateActions
+            submitLabel="Save task"
+            loading={creating}
+            onCancel={closeForm}
+          />
+        </QuickCreatePanel>
       ) : null}
 
       {columnError ? (
@@ -612,28 +544,30 @@ export function AdminTaskBoard({
       <div
         role="region"
         aria-label="Task board"
-        className="-mx-2 flex items-start gap-3 overflow-x-auto overscroll-x-contain px-2 pb-2 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cream-300 dark:[&::-webkit-scrollbar-thumb]:bg-hairline-dark"
+        className="-mx-1 flex items-start gap-3 overflow-x-auto overscroll-x-contain px-1 pb-2 snap-x snap-mandatory scroll-smooth [scrollbar-width:thin] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cream-300 dark:[&::-webkit-scrollbar-thumb]:bg-hairline-dark"
       >
         {columns.map((col, index) => {
           const styles = columnShellStyle(index, col.is_done);
           const items = byColumn.get(col.id) ?? [];
           const isEditing = editingColumnId === col.id;
+          const isDropTarget = dragOverColumnId === col.id;
 
           return (
             <section
               key={col.id}
               className={cn(
-                "flex h-[min(70vh,640px)] w-72 shrink-0 flex-col overflow-hidden rounded-2xl border shadow-card transition-shadow",
+                "flex h-[min(70vh,640px)] w-[min(88vw,18rem)] shrink-0 snap-center flex-col overflow-hidden rounded-2xl border-2 transition-all sm:w-72",
                 styles.shell,
-                dragOverColumnId === col.id &&
-                  "ring-2 ring-brand-400 ring-offset-2 dark:ring-brand-500 dark:ring-offset-panel-dark",
+                isDropTarget
+                  ? "scale-[1.01] shadow-lg ring-2 ring-brand-400 ring-offset-2 dark:ring-brand-500 dark:ring-offset-panel-dark"
+                  : "border-transparent shadow-sm",
               )}
               onDragOver={(e) => handleColumnDragOver(e, col.id)}
               onDrop={(e) => handleColumnDrop(e, col.id)}
             >
               <header
                 className={cn(
-                  "flex items-start justify-between gap-2 border-b px-4 py-3.5",
+                  "flex items-start justify-between gap-2 border-b px-4 py-3 dark:border-white/5",
                   styles.header,
                 )}
               >
@@ -660,7 +594,7 @@ export function AdminTaskBoard({
                     </h2>
                   )}
                   <p className="text-[11px] text-ink-muted dark:text-cream-400">
-                    Drag cards here
+                    {isDropTarget ? "Drop here" : "Drag cards here"}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
@@ -742,19 +676,15 @@ export function AdminTaskBoard({
                       <li
                         key={task.id}
                         className={cn(
-                          "overflow-hidden rounded-xl border border-cream-200/90 bg-white shadow-card transition-all dark:border-hairline-dark dark:bg-panel-dark",
-                          "border-l-4",
+                          "group rounded-xl border bg-white shadow-sm transition-all dark:bg-panel-dark",
                           overdue
-                            ? "border-l-status-danger"
-                            : dueToday
-                              ? "border-l-status-warning"
-                              : styles.accent,
+                            ? "border-rose-300 ring-1 ring-rose-200 dark:border-rose-900 dark:ring-rose-950"
+                            : "border-cream-200 dark:border-hairline-dark",
                           busy && "opacity-60",
-                          isDragging && "scale-[0.98] opacity-40",
-                          !busy && "hover:shadow-elevated",
+                          isDragging && "scale-[0.98] opacity-50",
                         )}
                       >
-                        <div className="flex gap-2 px-3 py-3">
+                        <div className="flex items-start gap-2 p-3">
                           <button
                             type="button"
                             draggable={!busy}
@@ -762,41 +692,41 @@ export function AdminTaskBoard({
                             onDragEnd={handleDragEnd}
                             disabled={busy}
                             aria-label={`Drag ${task.title} to another column`}
-                            className="mt-0.5 shrink-0 cursor-grab rounded-md p-0.5 text-ink-subtle active:cursor-grabbing hover:bg-cream-100 disabled:cursor-not-allowed dark:text-cream-500 dark:hover:bg-hairline-dark/60"
+                            className="mt-0.5 shrink-0 cursor-grab rounded-md p-0.5 text-ink-subtle opacity-40 hover:opacity-100 active:cursor-grabbing disabled:cursor-not-allowed dark:text-cream-500"
                           >
                             <GripVertical className="h-4 w-4" strokeWidth={2} />
                           </button>
                           <button
                             type="button"
                             onClick={() => setSelectedTaskId(task.id)}
-                            className="min-w-0 flex-1 rounded-lg text-left transition-colors hover:bg-cream-50/80 dark:hover:bg-hairline-dark/30"
+                            className="min-w-0 flex-1 text-left"
                           >
-                            <p className="text-sm font-semibold leading-snug text-ink dark:text-cream-100">
+                            <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink dark:text-cream-100">
                               {task.title}
                             </p>
                             <div className="mt-2 flex flex-wrap items-center gap-2">
                               {task.due_date ? (
                                 <span
                                   className={cn(
-                                    "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px]",
                                     overdue
-                                      ? "bg-status-danger/10 text-status-danger"
+                                      ? "bg-rose-50 font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200"
                                       : dueToday
-                                        ? "bg-status-warning/15 text-[#8C5C0A] dark:text-[#F5C97A]"
-                                        : "bg-cream-100 text-ink-muted dark:bg-hairline-dark dark:text-cream-400",
+                                        ? "bg-amber-50 font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+                                        : "text-ink-muted dark:text-cream-400",
                                   )}
                                 >
                                   <Calendar className="h-3 w-3" />
                                   {fmtDue(task.due_date)}
                                   {overdue
-                                    ? " · overdue"
+                                    ? " · late"
                                     : dueToday
                                       ? " · today"
                                       : ""}
                                 </span>
                               ) : null}
                               {task.assignee_name ? (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-800 dark:bg-brand-900/40 dark:text-brand-100">
+                                <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-800 dark:bg-violet-950/40 dark:text-violet-100">
                                   <User className="h-3 w-3" />
                                   {task.assignee_name}
                                 </span>
@@ -807,9 +737,6 @@ export function AdminTaskBoard({
                                 {plainTextFromTaskDescription(task.description)}
                               </p>
                             ) : null}
-                            <span className="mt-2 inline-block text-[10px] font-semibold text-brand-700 dark:text-brand-200">
-                              View task
-                            </span>
                           </button>
                         </div>
                       </li>

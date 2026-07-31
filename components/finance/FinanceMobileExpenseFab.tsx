@@ -7,7 +7,7 @@ import { Plus } from "lucide-react";
 export function FinanceMobileExpenseFab() {
   return (
     <Link
-      href="/finance/expenses"
+      href="/finance/expenses?create=1"
       className="fixed bottom-20 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-elevated transition-transform hover:bg-brand-600 active:scale-95 lg:hidden"
     >
       <Plus className="h-5 w-5" strokeWidth={2.5} />

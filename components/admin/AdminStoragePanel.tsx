@@ -6,19 +6,20 @@ import {
   CloudUpload,
   FolderOpen,
   HardDrive,
-  Layers,
   Link2,
   Loader2,
   Search,
   Sparkles,
-  Upload,
 } from "lucide-react";
-import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { AdminFileRowActions } from "@/components/admin/AdminFileRowActions";
 import { AdminFileUploader, type AdminStorageEmployeeOption } from "@/components/admin/AdminFileUploader";
+import {
+  AdminCatalogEmpty,
+  AdminCatalogList,
+  AdminCatalogThumb,
+} from "@/components/admin/AdminCatalogUi";
 import { AdminStorageEditModal } from "@/components/admin/AdminStorageEditModal";
 import { AdminStorageThumbnail } from "@/components/admin/AdminStorageThumbnail";
-import { PageHeader } from "@/components/dashboard/page-header";
 import {
   ADMIN_FILE_CATEGORIES,
   ADMIN_FILE_MAX_BYTES,
@@ -68,7 +69,6 @@ export interface AdminStorageQuota {
 interface AdminStoragePanelProps {
   rows: AdminStorageFileRow[];
   nextCursor: string | null;
-  stats: AdminStorageStats;
   quota: AdminStorageQuota;
   usageByFileId: Record<string, AdminFileUsageLink[]>;
   hrDocsOnly: boolean;
@@ -107,7 +107,6 @@ const SORT_LABELS: Record<AdminFileSort, string> = {
 export function AdminStoragePanel({
   rows: initialRows,
   nextCursor: initialCursor,
-  stats,
   quota,
   usageByFileId: usageByFileIdProp,
   hrDocsOnly,
@@ -217,15 +216,7 @@ export function AdminStoragePanel({
     : `${formatStorageBytes(quota.usedBytes)} of ${quota.quotaGb} GB`;
 
   return (
-    <div className="space-y-6">
-      <AdminBackLink />
-
-      <PageHeader
-        eyebrow="Admin · Storage"
-        title="Your business file vault"
-        description={`Private to your team — receipts, contracts, licence PDFs, and more. Up to ${maxMb} MB per file.`}
-      />
-
+    <div className="space-y-5">
       {!quota.isUnlimited && quota.quotaGb !== null ? (
         <section
           aria-label="Storage quota"
@@ -271,48 +262,6 @@ export function AdminStoragePanel({
         >
           Open Marketing Content →
         </Link>
-      </section>
-
-      <section
-        aria-label="Storage summary"
-        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-      >
-        <div className="rounded-xl border border-brand-200/80 bg-gradient-to-br from-brand-50 to-white p-4 shadow-card dark:border-brand-800 dark:from-brand-950/40 dark:to-panel-dark">
-          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-700/80 dark:text-brand-200/80">
-            <FolderOpen className="h-3.5 w-3.5" />
-            Files
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink dark:text-cream-100">
-            {stats.totalFiles}
-          </p>
-        </div>
-        <div className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 to-white p-4 shadow-card dark:border-violet-800 dark:from-violet-950/30 dark:to-panel-dark">
-          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-violet-700/80 dark:text-violet-200/80">
-            <HardDrive className="h-3.5 w-3.5" />
-            Space used
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink dark:text-cream-100">
-            {formatStorageBytes(stats.totalBytes)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-card dark:border-emerald-800 dark:from-emerald-950/30 dark:to-panel-dark">
-          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800/80 dark:text-emerald-200/80">
-            <Layers className="h-3.5 w-3.5" />
-            Categories
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink dark:text-cream-100">
-            {stats.categoryCount}
-          </p>
-        </div>
-        <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-white p-4 shadow-card dark:border-amber-800 dark:from-amber-950/30 dark:to-panel-dark">
-          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8C5C0A] dark:text-[#F5C97A]">
-            <Upload className="h-3.5 w-3.5" />
-            This week
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink dark:text-cream-100">
-            {stats.uploadedThisWeek}
-          </p>
-        </div>
       </section>
 
       <div className="overflow-hidden rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-violet-50/40 p-5 shadow-card dark:border-brand-800 dark:from-brand-950/40 dark:via-panel-dark dark:to-violet-950/20">
@@ -428,28 +377,25 @@ export function AdminStoragePanel({
         ) : null}
 
         {rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-4 px-4 py-16 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-violet-100 dark:from-brand-900/50 dark:to-violet-900/30">
-              <FolderOpen
-                className="h-8 w-8 text-brand-700 dark:text-brand-200"
-                strokeWidth={1.5}
-              />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                {query || activeCategory
+          <div className="px-4 py-8">
+            <AdminCatalogEmpty
+              icon={FolderOpen}
+              title={
+                query || activeCategory
                   ? "No files match your filters"
-                  : "Your vault is empty — let's fix that"}
-              </p>
-              <p className="mt-1 max-w-sm text-xs text-ink-muted dark:text-cream-400">
-                Upload a receipt, contract, or SSM PDF above. Everything stays
-                private to your business.
-              </p>
-            </div>
+                  : "Your vault is empty"
+              }
+              hint={
+                query || activeCategory
+                  ? "Try another search or category."
+                  : "Upload a receipt, contract, or SSM PDF above."
+              }
+              className="border-none bg-transparent py-8 dark:bg-transparent"
+            />
           </div>
         ) : (
-          <>
-            <ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+          <AdminCatalogList title="File vault" total={rows.length}>
+            <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
               {rows.map((row) => {
                 const cat = categoryKey(row.category);
                 const style =
@@ -466,44 +412,32 @@ export function AdminStoragePanel({
                 return (
                   <li
                     key={row.id}
-                    className={cn(
-                      "flex flex-col overflow-hidden rounded-2xl border border-cream-200/90 bg-gradient-to-br shadow-card transition-shadow hover:shadow-elevated dark:border-hairline-dark",
-                      style.card,
-                      "border-l-4",
-                      style.accent,
-                    )}
+                    className="group px-3 py-3 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60 sm:px-4"
                   >
-                    {showThumb ? (
-                      <div className="relative h-28 w-full overflow-hidden border-b border-cream-200/80 dark:border-hairline-dark">
-                        <AdminStorageThumbnail
-                          fileId={row.id}
-                          mimeType={row.mime_type}
-                          fileName={row.file_name}
-                          className="absolute inset-0"
-                        />
-                      </div>
-                    ) : null}
-
-                    <div className="flex flex-1 flex-col p-4">
-                      <div className="flex items-start gap-3">
-                        {!showThumb ? (
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/80 shadow-sm dark:bg-panel-dark/80">
-                            <TypeIcon
-                              className="h-5 w-5 text-brand-700 dark:text-brand-200"
-                              strokeWidth={2}
-                            />
-                          </div>
-                        ) : null}
-                        <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-3">
+                      {showThumb ? (
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-cream-200 dark:border-hairline-dark">
+                          <AdminStorageThumbnail
+                            fileId={row.id}
+                            mimeType={row.mime_type}
+                            fileName={row.file_name}
+                            className="absolute inset-0"
+                          />
+                        </div>
+                      ) : (
+                        <AdminCatalogThumb icon={TypeIcon} tone="sky" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p
-                            className="line-clamp-2 text-sm font-semibold leading-snug text-ink dark:text-cream-100"
+                            className="truncate text-sm font-semibold text-ink dark:text-cream-100"
                             title={row.file_name}
                           >
                             {row.file_name}
                           </p>
                           <span
                             className={cn(
-                              "mt-1.5 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                              "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
                               cat !== "uncategorized"
                                 ? style.chip
                                 : "bg-cream-100 text-ink-muted dark:bg-hairline-dark",
@@ -515,91 +449,49 @@ export function AdminStoragePanel({
                               : STORAGE_CATEGORY_LABELS[cat]}
                           </span>
                         </div>
-                      </div>
-
-                      {row.tags && row.tags.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {row.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full bg-cream-100 px-2 py-0.5 text-[10px] font-semibold text-ink-muted dark:bg-hairline-dark dark:text-cream-300"
-                            >
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {row.description ? (
-                        <p className="mt-2 line-clamp-2 text-xs text-ink-muted dark:text-cream-400">
-                          {row.description}
+                        <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                          {formatStorageBytes(row.file_size_bytes)} ·{" "}
+                          {fmtRelUpload(row.created_at)}
+                          {row.uploader_name ? ` · ${row.uploader_name}` : ""}
                         </p>
-                      ) : null}
-
-                      {usage.length > 0 ? (
-                        <div className="mt-2 space-y-1">
-                          <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-ink-muted dark:text-cream-500">
-                            <Link2 className="h-3 w-3" />
-                            Used by
+                        {row.description ? (
+                          <p className="mt-1 line-clamp-1 text-[11px] text-ink-muted dark:text-cream-400">
+                            {row.description}
                           </p>
-                          <ul className="space-y-0.5">
+                        ) : null}
+                        {usage.length > 0 ? (
+                          <div className="mt-1 flex flex-wrap gap-2">
                             {usage.map((link) => (
-                              <li key={`${link.type}-${link.id}`}>
-                                <Link
-                                  href={link.href}
-                                  className="text-xs font-medium text-brand-700 hover:underline dark:text-brand-200"
-                                >
-                                  {USAGE_LINK_TYPE_LABELS[link.type]}: {link.label}
-                                </Link>
-                              </li>
+                              <Link
+                                key={`${link.type}-${link.id}`}
+                                href={link.href}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:underline dark:text-brand-200"
+                              >
+                                <Link2 className="h-3 w-3" />
+                                {USAGE_LINK_TYPE_LABELS[link.type]}: {link.label}
+                              </Link>
                             ))}
-                          </ul>
-                        </div>
-                      ) : null}
-
-                      <dl className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
-                        <div>
-                          <dt className="font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-500">
-                            Size
-                          </dt>
-                          <dd className="font-medium text-ink dark:text-cream-200">
-                            {formatStorageBytes(row.file_size_bytes)}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-500">
-                            Uploaded
-                          </dt>
-                          <dd className="font-medium text-ink dark:text-cream-200">
-                            {fmtRelUpload(row.created_at)}
-                          </dd>
-                        </div>
-                        <div className="col-span-2">
-                          <dt className="font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-500">
-                            By
-                          </dt>
-                          <dd className="truncate font-medium text-ink dark:text-cream-200">
-                            {row.uploader_name ?? "—"}
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    <div className="border-t border-cream-200/80 bg-white/50 px-4 py-3 dark:border-hairline-dark dark:bg-panel-dark/40">
-                      <AdminFileRowActions
-                        id={row.id}
-                        fileName={row.file_name}
-                        mimeType={row.mime_type}
-                        showLabels={false}
-                        onEdit={() => setEditingFile(row)}
-                      />
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                        <AdminFileRowActions
+                          id={row.id}
+                          fileName={row.file_name}
+                          mimeType={row.mime_type}
+                          showLabels={false}
+                          onEdit={() => setEditingFile(row)}
+                        />
+                      </div>
                     </div>
                   </li>
                 );
               })}
             </ul>
+          </AdminCatalogList>
+        )}
 
-            {nextCursor ? (
+        {rows.length > 0 && nextCursor ? (
               <div className="border-t border-cream-200 px-4 py-4 text-center dark:border-hairline-dark">
                 <button
                   type="button"
@@ -620,9 +512,7 @@ export function AdminStoragePanel({
                   <p className="mt-2 text-xs text-status-danger">{loadMoreError}</p>
                 ) : null}
               </div>
-            ) : null}
-          </>
-        )}
+        ) : null}
       </div>
 
       {editingFile ? (

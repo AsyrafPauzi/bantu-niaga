@@ -15,6 +15,8 @@ import type { TierKey } from "@/lib/settings/plans";
 import { ImpersonationBanner } from "@/components/super-admin/ImpersonationBanner";
 import { loadSidebarAssistantsByModule } from "@/lib/navigation/sidebar-assistants";
 import type { SidebarAssistantsByModule } from "@/lib/navigation/sidebar-assistants";
+import { normalizeBusinessType } from "@/lib/operations/vertical";
+import type { BusinessType } from "@/lib/onboarding/plan-quiz";
 
 // Authenticated app surface — keep it out of search engines + previews.
 export const metadata: Metadata = {
@@ -41,6 +43,7 @@ export default async function AppLayout({
   let canCreateCompany = true;
   let analyticsConsent = false;
   let sidebarAssistants: SidebarAssistantsByModule = {};
+  let businessType: BusinessType = "other";
   try {
     const user = await getCurrentUser();
     const supabase = await createSupabaseServerClient();
@@ -48,7 +51,7 @@ export default async function AppLayout({
       await Promise.all([
       supabase
         .from("businesses")
-        .select("tier")
+        .select("tier, business_type")
         .eq("id", user.businessId)
         .maybeSingle(),
       loadUserMemberships(user.id, user.businessId),
@@ -57,6 +60,7 @@ export default async function AppLayout({
       loadSidebarAssistantsByModule(user.businessId),
     ]);
     if (data?.tier) tier = data.tier as TierKey;
+    businessType = normalizeBusinessType(data?.business_type);
     memberships = loadedMemberships;
     canCreateCompany =
       !isStandaloneDeployment() && canCreateOwnedBusiness(ownedCount);
@@ -72,6 +76,7 @@ export default async function AppLayout({
       memberships={memberships}
       canCreateCompany={canCreateCompany}
       sidebarAssistants={sidebarAssistants}
+      businessType={businessType}
     >
       <SessionRegistrar />
       <ProductAnalytics enabled={analyticsConsent} />

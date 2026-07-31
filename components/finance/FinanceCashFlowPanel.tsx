@@ -2,8 +2,14 @@
 
 import { useCallback, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDownRight, ArrowUpRight, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Loader2, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
+import {
+  QuickActionBar,
+  QuickCreateActions,
+  QuickCreatePanel,
+} from "@/components/ui/quick-create";
+import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
 import {
   FINANCE_EXPENSE_CATEGORIES,
@@ -65,7 +71,7 @@ export function FinanceCashFlowPanel({
   const router = useRouter();
   const [transactions, setTransactions] = useState(initialTransactions);
   const [summary, setSummary] = useState(initialSummary);
-  const [showForm, setShowForm] = useState(false);
+  const { open: showForm, close: closeForm, openPanel } = useQuickCreate();
   const [kind, setKind] = useState<FinanceTxnKind>(defaultKind);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -91,9 +97,9 @@ export function FinanceCashFlowPanel({
     setPaymentMethod("");
     setTxnDate(new Date().toISOString().slice(0, 10));
     setEditingId(null);
-    setShowForm(false);
+    closeForm();
     setFormError(null);
-  }, []);
+  }, [closeForm]);
 
   const startEdit = useCallback((row: FinanceTransactionRow) => {
     setEditingId(row.id);
@@ -104,9 +110,9 @@ export function FinanceCashFlowPanel({
     setCounterparty(row.counterparty ?? "");
     setPaymentMethod(row.payment_method ?? "");
     setTxnDate(row.txn_date);
-    setShowForm(true);
+    openPanel();
     setFormError(null);
-  }, []);
+  }, [openPanel]);
 
   const onSave = useCallback(
     async (e: FormEvent) => {
@@ -305,15 +311,22 @@ export function FinanceCashFlowPanel({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <QuickActionBar
+        open={showForm}
+        onToggle={() => {
+          if (showForm) resetForm();
+        }}
+        actionLabel="Log entry"
+        showPrimaryButton={false}
+      >
         <button
           type="button"
           onClick={() => {
             resetForm();
             setKind("income");
-            setShowForm(true);
+            openPanel();
           }}
-          className="inline-flex items-center gap-1.5 rounded-md bg-status-success/90 px-3 py-2 text-sm font-semibold text-white hover:bg-status-success"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-status-success/90 px-4 py-2 text-sm font-semibold text-white hover:bg-status-success"
         >
           <Plus className="h-4 w-4" />
           Log income
@@ -323,23 +336,23 @@ export function FinanceCashFlowPanel({
           onClick={() => {
             resetForm();
             setKind("expense");
-            setShowForm(true);
+            openPanel();
           }}
-          className="inline-flex items-center gap-1.5 rounded-md bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
         >
           <Plus className="h-4 w-4" />
           Log expense
         </button>
-      </div>
+      </QuickActionBar>
 
-      {showForm ? (
-        <form
-          onSubmit={onSave}
-          className="space-y-3 rounded-lg border border-cream-200 bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark"
-        >
-          <p className="text-sm font-semibold text-ink dark:text-cream-100">
-            {editingId ? "Edit" : "New"} {kind === "income" ? "income" : "expense"} · {title}
-          </p>
+      <QuickCreatePanel
+        open={showForm}
+        onSubmit={onSave}
+        title={`${editingId ? "Edit" : "New"} ${kind === "income" ? "income" : "expense"}`}
+        subtitle={title}
+        icon={Wallet}
+        accent={kind === "income" ? "emerald" : "rose"}
+      >
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               type="number"
@@ -402,25 +415,12 @@ export function FinanceCashFlowPanel({
           {formError ? (
             <p className="text-sm text-status-danger">{formError}</p>
           ) : null}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={creating}
-              className="inline-flex items-center gap-1.5 rounded-md bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-            >
-              {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              {editingId ? "Update" : "Save"}
-            </button>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="rounded-md border border-cream-300 px-3 py-1.5 text-xs font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
+          <QuickCreateActions
+            submitLabel={editingId ? "Update" : "Save"}
+            loading={creating}
+            onCancel={resetForm}
+          />
+      </QuickCreatePanel>
 
       {transactions.length === 0 ? (
         <div className="rounded-lg border border-dashed border-cream-300 py-10 text-center dark:border-hairline-dark">
@@ -466,6 +466,7 @@ export function FinanceCashFlowPanel({
                       <AdminStorageFileAttach
                         fileId={row.admin_file_id}
                         fileName={row.admin_file_name}
+                        category="receipt"
                         label="Receipt"
                         onAttach={(fileId) => attachReceipt(row.id, fileId)}
                       />

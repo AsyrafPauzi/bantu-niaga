@@ -1,15 +1,16 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { Card, CardBody } from "@/components/ui/card";
+import { FinanceBackLink } from "@/components/finance/FinanceBackLink";
 import {
   FinanceReportsPanel,
   type FinanceReportTab,
 } from "@/components/finance/FinanceReportsPanel";
+import { FinanceSubpageShell } from "@/components/finance/FinanceSubpageShell";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
+import { Card, CardBody } from "@/components/ui/card";
+import { ListPagination } from "@/components/ui/list-pagination";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ListPagination } from "@/components/ui/list-pagination";
 import { parsePagination } from "@/lib/pagination";
 import {
   formatFinancePeriodLabel,
@@ -17,6 +18,8 @@ import {
   parseReportDateRange,
 } from "@/lib/finance/analytics";
 import { computeFinancePnLStatementForRange } from "@/lib/finance/helpers";
+import { reportsSubpageHero } from "@/lib/finance/subpage-hero";
+import { formatMyr } from "@/lib/finance/schemas";
 import { loadBusiness } from "@/lib/settings/business";
 import type { FinanceTransactionRow } from "@/lib/finance/schemas";
 
@@ -44,10 +47,15 @@ export default async function FinanceReportsPage({
 
   if (!can(user.role, "finance")) {
     return (
-      <div className="space-y-6">
-        <p className="text-sm text-ink-muted dark:text-cream-400">
-          You don&apos;t have access to Finance.
-        </p>
+      <div className="space-y-4">
+        <FinanceBackLink />
+        <Card>
+          <CardBody className="py-10 text-center">
+            <p className="text-sm text-ink-muted dark:text-cream-400">
+              You don&apos;t have access to Finance.
+            </p>
+          </CardBody>
+        </Card>
       </div>
     );
   }
@@ -102,45 +110,74 @@ export default async function FinanceReportsPage({
   const { data, error, count } = txnResult;
   const total = count ?? data?.length ?? 0;
   const transactions = (data ?? []) as unknown as FinanceTransactionRow[];
+  const hero = reportsSubpageHero(analytics);
 
-  return (
-    <div className="space-y-4 pb-20 lg:pb-0">
-      <Link
-        href="/finance"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Finance dashboard
-      </Link>
-
-      {error ? (
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <FinanceBackLink />
         <Card>
           <CardBody className="text-sm text-status-danger">
             Failed to load reports: {error.message}
           </CardBody>
         </Card>
-      ) : (
-        <>
-          <FinanceReportsPanel
-            tab={tab}
-            range={range}
-            analytics={analytics}
-            pnl={pnl}
-            transactions={transactions}
-            businessName={business?.name}
+      </div>
+    );
+  }
+
+  return (
+    <FinanceSubpageShell
+      headline={hero.headline}
+      subcopy={hero.subcopy}
+      variant={hero.variant}
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="Money in"
+            value={formatMyr(analytics.total_income_myr)}
+            iconClassName="text-emerald-700 dark:text-emerald-300"
           />
-          {tab === "ledger" && total > pagination.pageSize ? (
-            <ListPagination
-              page={pagination.page}
-              pageSize={pagination.pageSize}
-              total={total}
-              basePath="/finance/reports"
-              searchParams={paginationParams}
-              className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark"
-            />
-          ) : null}
-        </>
-      )}
-    </div>
+          <ModuleHeroStat
+            label="Money out"
+            value={formatMyr(analytics.total_expense_myr)}
+            iconClassName="text-rose-700 dark:text-rose-300"
+          />
+          <ModuleHeroStat
+            label="Net"
+            value={formatMyr(analytics.net_myr)}
+            iconClassName={
+              analytics.net_myr >= 0
+                ? "text-emerald-700 dark:text-emerald-300"
+                : "text-rose-700 dark:text-rose-300"
+            }
+          />
+          <ModuleHeroStat
+            label="Transactions"
+            value={analytics.txn_count}
+            iconClassName="text-sky-700 dark:text-sky-300"
+          />
+        </div>
+      }
+    >
+      <FinanceReportsPanel
+        tab={tab}
+        range={range}
+        analytics={analytics}
+        pnl={pnl}
+        transactions={transactions}
+        businessName={business?.name}
+        shellMode
+      />
+      {tab === "ledger" && total > pagination.pageSize ? (
+        <ListPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={total}
+          basePath="/finance/reports"
+          searchParams={paginationParams}
+          className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark"
+        />
+      ) : null}
+    </FinanceSubpageShell>
   );
 }

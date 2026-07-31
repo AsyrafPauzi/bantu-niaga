@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
+import { AdminSubpageShell } from "@/components/admin/AdminSubpageShell";
 import { AdminTaskBoard } from "@/components/admin/AdminTaskBoard";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
 import {
   getCurrentUser,
@@ -31,6 +32,12 @@ function flattenParams(
   return out;
 }
 
+function malaysiaTodayIso(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kuala_Lumpur",
+  }).format(new Date());
+}
+
 export default async function TasksPage({ searchParams }: PageProps) {
   let user;
   try {
@@ -42,13 +49,8 @@ export default async function TasksPage({ searchParams }: PageProps) {
 
   if (!canSurface(user.role, "admin", "tasks")) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <AdminBackLink />
-        <PageHeader
-          eyebrow="Admin"
-          title="To-do list"
-          description="Track daily tasks so nothing slips through the cracks."
-        />
         <Card>
           <CardBody className="py-10 text-center">
             <p className="text-sm text-ink-muted dark:text-cream-400">
@@ -66,6 +68,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
   const canAttachStorage = canSurface(user.role, "admin", "storage");
   const params = flattenParams(await searchParams);
   const initialOpenTaskId = params.task?.trim() || null;
+  const today = malaysiaTodayIso();
 
   const [initialColumns, tasksRes, teamRaw] = await Promise.all([
     loadTaskColumns(supabase, user.businessId),
@@ -97,6 +100,30 @@ export default async function TasksPage({ searchParams }: PageProps) {
   const rows = (tasks ?? []) as unknown as AdminTaskRow[];
   const enriched = await enrichAdminTasks(supabase, user.businessId, rows);
 
+  const openCount = enriched.filter((t) => !t.completed_at).length;
+  const dueToday = enriched.filter(
+    (t) => !t.completed_at && t.due_date === today,
+  ).length;
+  const overdue = enriched.filter(
+    (t) => !t.completed_at && t.due_date && t.due_date < today,
+  ).length;
+
+  const doneCount = enriched.filter((t) => t.completed_at).length;
+
+  const heroHeadline =
+    overdue > 0
+      ? `${overdue} task${overdue === 1 ? "" : "s"} past due`
+      : openCount > 0
+        ? `${openCount} open on the board`
+        : "Clear board — add your first task";
+
+  const heroSub =
+    overdue > 0
+      ? "Drag cards forward or set a new due date before things slip."
+      : openCount > 0
+        ? "Columns match your workflow — drag, rename, or add tasks inline."
+        : "Capture daily admin work so renewals and filings stay on track.";
+
   const teamMembers = (teamRaw.data ?? []).map(
     (m: { id: string; display_name: string | null; email: string | null }) => ({
       id: m.id,
@@ -104,32 +131,57 @@ export default async function TasksPage({ searchParams }: PageProps) {
     }),
   );
 
-  return (
-    <div className="space-y-6">
-      <AdminBackLink />
-
-      <PageHeader
-        eyebrow="Admin · Tasks"
-        title="To-do list"
-        description="Drag cards between columns. Add, rename, or remove columns to match your workflow."
-      />
-
-      {error ? (
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <AdminBackLink />
         <Card>
           <CardBody className="text-sm text-status-danger">
             Failed to load tasks: {error.message}
           </CardBody>
         </Card>
-      ) : (
-        <AdminTaskBoard
-          initialTasks={enriched}
-          initialColumns={initialColumns}
-          teamMembers={teamMembers}
-          canManage={canManage}
-          canAttachStorage={canAttachStorage}
-          initialOpenTaskId={initialOpenTaskId}
-        />
-      )}
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <AdminSubpageShell
+      headline={heroHeadline}
+      subcopy={heroSub}
+      variant={overdue > 0 ? "attention" : "calm"}
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="Open"
+            value={openCount}
+            iconClassName="text-violet-700 dark:text-violet-300"
+          />
+          <ModuleHeroStat
+            label="Due today"
+            value={dueToday}
+            iconClassName="text-amber-700 dark:text-amber-300"
+          />
+          <ModuleHeroStat
+            label="Overdue"
+            value={overdue}
+            iconClassName="text-rose-700 dark:text-rose-300"
+          />
+          <ModuleHeroStat
+            label="Completed"
+            value={doneCount}
+            iconClassName="text-emerald-700 dark:text-emerald-300"
+          />
+        </div>
+      }
+    >
+      <AdminTaskBoard
+        initialTasks={enriched}
+        initialColumns={initialColumns}
+        teamMembers={teamMembers}
+        canManage={canManage}
+        canAttachStorage={canAttachStorage}
+        initialOpenTaskId={initialOpenTaskId}
+      />
+    </AdminSubpageShell>
   );
 }

@@ -57,7 +57,7 @@ async function requireOperationsUser(): Promise<
 
 const ORDER_SELECT =
   "id, business_id, number, customer_name, customer_phone, title, description, " +
-  "status, due_date, amount_myr, supplier_id, notes, completed_at, " +
+  "status, fulfillment_type, fulfillment_status, due_date, amount_myr, supplier_id, notes, completed_at, " +
   "created_by, created_at, updated_at";
 
 export async function GET() {
@@ -160,6 +160,8 @@ export async function POST(request: Request) {
       amount_myr: parsed.amount_myr ?? null,
       supplier_id: parsed.supplier_id ?? null,
       notes: parsed.notes ?? null,
+      fulfillment_type: parsed.fulfillment_type ?? "pickup",
+      fulfillment_status: parsed.fulfillment_status ?? "pending",
       completed_at: completedAt,
       created_by: user.id,
     })

@@ -3,10 +3,24 @@ import { z } from "zod";
 export const OPERATIONS_ORDER_STATUSES = [
   "todo",
   "in_progress",
+  "ready",
   "done",
 ] as const;
 export type OperationsOrderStatus =
   (typeof OPERATIONS_ORDER_STATUSES)[number];
+
+export const OPERATIONS_FULFILLMENT_TYPES = ["pickup", "delivery"] as const;
+export type OperationsFulfillmentType =
+  (typeof OPERATIONS_FULFILLMENT_TYPES)[number];
+
+export const OPERATIONS_FULFILLMENT_STATUSES = [
+  "pending",
+  "ready_for_pickup",
+  "out_for_delivery",
+  "delivered",
+] as const;
+export type OperationsFulfillmentStatus =
+  (typeof OPERATIONS_FULFILLMENT_STATUSES)[number];
 
 export const operationsOrderCreateSchema = z
   .object({
@@ -28,6 +42,14 @@ export const operationsOrderCreateSchema = z
     supplier_id: z.string().uuid().optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
     admin_file_id: z.string().uuid().optional().nullable(),
+    fulfillment_type: z
+      .enum(OPERATIONS_FULFILLMENT_TYPES)
+      .optional()
+      .default("pickup"),
+    fulfillment_status: z
+      .enum(OPERATIONS_FULFILLMENT_STATUSES)
+      .optional()
+      .default("pending"),
   })
   .strict();
 
@@ -47,6 +69,8 @@ export const operationsOrderUpdateSchema = z
     supplier_id: z.string().uuid().optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
     admin_file_id: z.string().uuid().optional().nullable(),
+    fulfillment_type: z.enum(OPERATIONS_FULFILLMENT_TYPES).optional(),
+    fulfillment_status: z.enum(OPERATIONS_FULFILLMENT_STATUSES).optional(),
   })
   .strict();
 
@@ -59,6 +83,8 @@ export interface OperationsOrderRow {
   title: string;
   description: string | null;
   status: OperationsOrderStatus;
+  fulfillment_type: OperationsFulfillmentType;
+  fulfillment_status: OperationsFulfillmentStatus;
   due_date: string | null;
   amount_myr: number | null;
   supplier_id: string | null;
@@ -131,11 +157,13 @@ export interface OperationsSummary {
   open_orders: number;
   todo_count: number;
   in_progress_count: number;
+  ready_count: number;
   done_this_month: number;
   supplier_count: number;
   overdue_count: number;
   product_count: number;
   active_product_count: number;
+  active_service_count: number;
   upcoming_bookings: number;
   resource_count: number;
   low_stock_count: number;
@@ -161,6 +189,7 @@ export const operationsProductCreateSchema = z
     stock_qty: z.coerce.number().int().min(0).optional().nullable(),
     low_stock_threshold: z.coerce.number().int().min(0).optional().default(5),
     notes: z.string().trim().max(2000).optional().nullable(),
+    image_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -175,6 +204,7 @@ export const operationsProductUpdateSchema = z
     stock_qty: z.coerce.number().int().min(0).optional().nullable(),
     low_stock_threshold: z.coerce.number().int().min(0).optional(),
     notes: z.string().trim().max(2000).optional().nullable(),
+    image_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -190,6 +220,8 @@ export interface OperationsProductRow {
   stock_qty: number | null;
   low_stock_threshold: number;
   notes: string | null;
+  image_file_id: string | null;
+  image_file_name?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -228,6 +260,7 @@ export interface OperationsBookingResourceRow {
 export const operationsBookingCreateSchema = z
   .object({
     resource_id: z.string().uuid().optional().nullable(),
+    service_id: z.string().uuid().optional().nullable(),
     customer_name: z
       .string()
       .trim()
@@ -250,6 +283,7 @@ export const operationsBookingCreateSchema = z
 export const operationsBookingUpdateSchema = z
   .object({
     resource_id: z.string().uuid().optional().nullable(),
+    service_id: z.string().uuid().optional().nullable(),
     customer_name: z.string().trim().min(1).max(200).optional(),
     customer_phone: z.string().trim().max(40).optional().nullable(),
     service_title: z.string().trim().min(1).max(300).optional(),
@@ -266,6 +300,7 @@ export interface OperationsBookingRow {
   business_id: string;
   number: string;
   resource_id: string | null;
+  service_id: string | null;
   customer_name: string;
   customer_phone: string | null;
   service_title: string;
@@ -279,6 +314,46 @@ export interface OperationsBookingRow {
   created_at: string;
   updated_at: string;
   resource_name?: string | null;
+}
+
+export const operationsServiceCreateSchema = z
+  .object({
+    name: z.string().trim().min(1, "Service name is required.").max(200),
+    description: z.string().trim().max(2000).optional().nullable(),
+    duration_minutes: z.coerce.number().int().min(5).max(480).optional().default(60),
+    price_myr: z.coerce.number().min(0).optional().nullable(),
+    is_active: z.boolean().optional().default(true),
+    notes: z.string().trim().max(2000).optional().nullable(),
+    image_file_id: z.string().uuid().optional().nullable(),
+  })
+  .strict();
+
+export const operationsServiceUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(2000).optional().nullable(),
+    duration_minutes: z.coerce.number().int().min(5).max(480).optional(),
+    price_myr: z.coerce.number().min(0).optional().nullable(),
+    is_active: z.boolean().optional(),
+    notes: z.string().trim().max(2000).optional().nullable(),
+    image_file_id: z.string().uuid().optional().nullable(),
+  })
+  .strict();
+
+export interface OperationsServiceRow {
+  id: string;
+  business_id: string;
+  name: string;
+  description: string | null;
+  duration_minutes: number;
+  price_myr: number | null;
+  is_active: boolean;
+  notes: string | null;
+  image_file_id: string | null;
+  image_file_name?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export function formatOrderAmount(amount: number | null): string | null {
@@ -297,9 +372,31 @@ export function orderStatusLabel(status: OperationsOrderStatus): string {
       return "To do";
     case "in_progress":
       return "In progress";
+    case "ready":
+      return "Ready";
     case "done":
-      return "Done";
+      return "Delivered";
   }
+}
+
+export function fulfillmentStatusLabel(
+  status: OperationsFulfillmentStatus,
+  type: OperationsFulfillmentType,
+): string {
+  if (status === "pending") return "Pending";
+  if (status === "delivered") return "Delivered";
+  if (status === "ready_for_pickup") return "Ready for pickup";
+  if (status === "out_for_delivery") return "Out for delivery";
+  return type === "pickup" ? "Pickup" : "Delivery";
+}
+
+export function nextOrderStatus(
+  status: OperationsOrderStatus,
+): OperationsOrderStatus {
+  if (status === "todo") return "in_progress";
+  if (status === "in_progress") return "ready";
+  if (status === "ready") return "done";
+  return "todo";
 }
 
 export function bookingStatusLabel(status: OperationsBookingStatus): string {

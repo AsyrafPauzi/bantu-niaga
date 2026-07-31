@@ -47,7 +47,7 @@ const SUCCESS_LINE =
   /^(?:✅\s*)?(?:Entri berjaya dicatatkan|Berjaya dicatat|Successfully (?:logged|recorded)|Recorded successfully)/i;
 
 const INTERNAL_PATH =
-  /\/(?:finance|sales|settings|marketplace|home|more)(?:\/[a-z][a-z0-9/-]*)?/i;
+  /\/(?:finance|operations|sales|settings|marketplace|home|more|admin|hr|marketing)(?:\/[a-z][a-z0-9/-]*)?/i;
 
 const MARKDOWN_LINK = /\[[^\]]*\]\([^)]*\)/g;
 
@@ -86,13 +86,95 @@ export function normalizeAssistantLinks(text: string): string {
   return parts.join("");
 }
 
+/** Remove empty or broken ** markers the model sometimes emits. */
+export function fixBrokenBoldMarkdown(text: string): string {
+  let result = text;
+  result = result.replace(/\*\*\s*\*\*/g, "");
+  result = result.replace(/\s\*\*\s+(?=[a-z])/gi, " ");
+  result = result.replace(/\*\*\s+(?=[,.;:!?)])/g, "");
+  result = result.replace(/(^|[\s(])\*\*(?=\s|$)/g, "$1");
+  return result.replace(/[ \t]{2,}/g, " ").trim();
+}
+
+function parseMarkdownTableBlock(block: string): {
+  headers: string[];
+  rows: string[][];
+} | null {
+  const lines = block
+    .trim()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.includes("|"));
+
+  if (lines.length < 2) return null;
+
+  const parseRow = (line: string) =>
+    line
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .split("|")
+      .map((cell) => cell.trim());
+
+  const headers = parseRow(lines[0]!);
+  if (headers.length < 2 || headers.every((h) => !h)) return null;
+
+  const bodyLines = lines.slice(1).filter((line) => !/^[\s|:-]+$/.test(line));
+  if (bodyLines.length === 0) return null;
+
+  const rows = bodyLines.map(parseRow).filter((row) => row.some((cell) => cell));
+  if (rows.length === 0) return null;
+
+  return { headers, rows };
+}
+
+/** Turn markdown tables into scannable bullet lines for assistants that emit pipes. */
+export function convertMarkdownTablesToBullets(text: string): string {
+  const blocks = text.split(/\n{2,}/);
+  const out: string[] = [];
+
+  for (const block of blocks) {
+    const table = parseMarkdownTableBlock(block);
+    if (!table) {
+      out.push(block);
+      continue;
+    }
+
+    const { headers, rows } = table;
+    const bullets = rows.map((row) => {
+      const parts = headers
+        .map((header, index) => {
+          const value = row[index]?.trim();
+          if (!value) return null;
+          const label = header.toLowerCase();
+          if (label.includes("name") || label.includes("title")) {
+            return `**${value}**`;
+          }
+          if (label.includes("price") || label.includes("amount")) {
+            return value.startsWith("RM") ? value : `RM ${value}`;
+          }
+          if (label.includes("sku") || label.includes("id")) {
+            return `\`${value}\``;
+          }
+          return `${header}: ${value}`;
+        })
+        .filter(Boolean);
+      return `- ${parts.join(" · ")}`;
+    });
+
+    out.push(bullets.join("\n"));
+  }
+
+  return out.join("\n\n");
+}
+
 /**
  * Insert paragraph breaks and links so cramped model output renders cleanly.
  */
 export function beautifyAssistantMarkdown(raw: string): string {
-  let text = raw.trim();
+  let text = fixBrokenBoldMarkdown(raw.trim());
   if (!text) return text;
 
+  text = convertMarkdownTablesToBullets(text);
   text = text.replace(
     /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s+(\*\*)/gi,
     "$1\n\n$2",
@@ -113,11 +195,11 @@ export function beautifyAssistantMarkdown(raw: string): string {
   text = normalizeAssistantLinks(text);
 
   text = text.replace(
-    /\s*\*\*(Langkah seterusnyo?|Seterusnya|Next steps?|下一步|后续步骤|அடுத்த படி|அடுத்த நடவடிக்கை):\*\*/gi,
+    /\s*\*\*(Langkah seterusnyo?|Seterusnya|Next steps?|Next step|下一步|后续步骤|அடுத்த படி|அடுத்த நடவடிக்கை):\*\*/gi,
     "\n\n---\n\n**$1:**",
   );
 
-  return text.replace(/\n{3,}/g, "\n\n").trim();
+  return fixBrokenBoldMarkdown(text.replace(/\n{3,}/g, "\n\n").trim());
 }
 
 /** Sanitize leaked reasoning, then beautify markdown structure. */

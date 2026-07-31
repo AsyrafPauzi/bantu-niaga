@@ -5,19 +5,20 @@ import { useRouter } from "next/navigation";
 import {
   Car,
   ChevronDown,
-  Loader2,
   Megaphone,
-  Pencil,
   Receipt,
   ShoppingBag,
   Sparkles,
-  Trash2,
   Users,
   Wrench,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
+import { FinanceTxnCompactList } from "@/components/finance/FinanceTxnCompactList";
+import {
+  QuickCreateActions,
+  QuickCreatePanel,
+} from "@/components/ui/quick-create";
 import { cn } from "@/lib/utils/cn";
 import type { ExpenseCategoryInsight } from "@/lib/finance/helpers";
 import {
@@ -83,13 +84,6 @@ const CATEGORY_META: Record<
   },
 };
 
-function fmtDate(iso: string): string {
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-MY", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
 function fmtMonthLabel(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString("en-MY", {
@@ -114,6 +108,7 @@ interface FinanceExpensesPanelProps {
   monthLabel: string;
   expenseCount: number;
   categories: ExpenseCategoryInsight[];
+  shellMode?: boolean;
 }
 
 export function FinanceExpensesPanel({
@@ -122,6 +117,7 @@ export function FinanceExpensesPanel({
   monthLabel,
   expenseCount,
   categories,
+  shellMode = false,
 }: FinanceExpensesPanelProps) {
   const router = useRouter();
   const [transactions, setTransactions] = useState(initialTransactions);
@@ -324,7 +320,7 @@ export function FinanceExpensesPanel({
 
   return (
     <div className="space-y-4">
-      {/* Hero — this month only */}
+      {!shellMode ? (
       <section className="relative overflow-hidden rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50 p-5 shadow-card dark:border-rose-900/40 dark:from-rose-950/40 dark:via-orange-950/20 dark:to-amber-950/20">
         <div className="pointer-events-none absolute -right-6 -top-6 text-6xl opacity-20">
           💸
@@ -347,6 +343,7 @@ export function FinanceExpensesPanel({
             : null}
         </p>
       </section>
+      ) : null}
 
       {/* Category breakdown */}
       {categories.length > 0 ? (
@@ -384,21 +381,14 @@ export function FinanceExpensesPanel({
         </div>
       ) : null}
 
-      {/* Quick log */}
-      <form
+      <QuickCreatePanel
+        open
         onSubmit={onSave}
-        className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark"
+        title={editingId ? "Edit expense" : "Quick log"}
+        subtitle="Amount → what → category. Done in seconds."
+        icon={Receipt}
+        accent="rose"
       >
-        <div className="border-b border-cream-200 bg-gradient-to-r from-brand-50/80 to-cream-50 px-4 py-3 dark:border-hairline-dark dark:from-brand-950/30 dark:to-panel-dark">
-          <p className="text-sm font-semibold text-ink dark:text-cream-100">
-            {editingId ? "Edit expense" : "Quick log"}
-          </p>
-          <p className="text-xs text-ink-muted dark:text-cream-400">
-            Amount → what → category. Done in seconds.
-          </p>
-        </div>
-
-        <div className="space-y-3 p-4">
           <div className="flex flex-wrap gap-1.5">
             {QUICK_AMOUNTS.map((n) => (
               <button
@@ -527,126 +517,27 @@ export function FinanceExpensesPanel({
             <p className="text-sm text-status-danger">{formError}</p>
           ) : null}
 
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={creating}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-            >
-              {creating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Receipt className="h-4 w-4" />
-              )}
-              {editingId ? "Update expense" : "Log expense"}
-            </button>
-            {editingId ? (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-xl border border-cream-300 px-4 py-2.5 text-sm font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
-              >
-                Cancel
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </form>
+          <QuickCreateActions
+            submitLabel={editingId ? "Update expense" : "Log expense"}
+            loading={creating}
+            onCancel={resetForm}
+          />
+      </QuickCreatePanel>
 
-      {/* List */}
-      <div className="overflow-hidden rounded-xl border border-cream-200 bg-white dark:border-hairline-dark dark:bg-panel-dark">
-        <div className="border-b border-cream-200 px-4 py-2.5 dark:border-hairline-dark">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
-            Recent expenses
-          </p>
-        </div>
-
-        {transactions.length === 0 ? (
-          <div className="px-4 py-10 text-center">
-            <p className="text-3xl">🕵️</p>
-            <p className="mt-2 text-sm font-medium text-ink dark:text-cream-100">
-              Nothing logged yet
-            </p>
-            <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-              Your first expense goes above — future you will thank you at tax time.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
-            {transactions.map((row) => {
-              const amt = Number(row.amount_myr);
-              const meta = categoryMeta(row.category ?? "other");
-              const editable = isEditableTxn(row);
-              const busy = busyId === row.id;
-              return (
-                <li
-                  key={row.id}
-                  className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60"
-                >
-                  <span
-                    className={cn(
-                      "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base",
-                      meta.chip,
-                    )}
-                  >
-                    {meta.emoji}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-ink dark:text-cream-100">
-                      {row.description}
-                    </p>
-                    <p className="text-xs text-ink-muted dark:text-cream-400">
-                      {fmtDate(row.txn_date)}
-                      {row.counterparty ? ` · ${row.counterparty}` : ""}
-                      {!editable ? " · auto" : ""}
-                    </p>
-                    {editable ? (
-                      <div className="mt-1.5">
-                        <AdminStorageFileAttach
-                          fileId={row.admin_file_id}
-                          fileName={row.admin_file_name}
-                          compact
-                          onAttach={(fileId) => attachReceipt(row.id, fileId)}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="font-semibold tabular-nums text-rose-700 dark:text-rose-300">
-                      −{formatMyr(amt)}
-                    </p>
-                    {editable ? (
-                      <div className="mt-1 flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(row)}
-                          className="text-ink-muted hover:text-brand-700 dark:text-cream-400"
-                          aria-label="Edit"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void removeTxn(row.id, amt)}
-                          className="text-ink-muted hover:text-status-danger dark:text-cream-400"
-                          aria-label="Remove"
-                        >
-                          {busy ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+      <FinanceTxnCompactList
+        title="Recent expenses"
+        emptyIcon="🕵️"
+        emptyTitle="Nothing logged yet"
+        emptyHint="Your first expense goes above — future you will thank you at tax time."
+        transactions={transactions}
+        kind="expense"
+        categoryMeta={categoryMeta}
+        busyId={busyId}
+        isEditable={isEditableTxn}
+        onEdit={startEdit}
+        onRemove={(id, amt) => void removeTxn(id, amt)}
+        onAttachReceipt={attachReceipt}
+      />
     </div>
   );
 }

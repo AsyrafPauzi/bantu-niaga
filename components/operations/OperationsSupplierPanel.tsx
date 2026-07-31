@@ -1,13 +1,52 @@
 "use client";
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, MapPin, Phone, Plus, Trash2, User } from "lucide-react";
+import {
+  FileText,
+  Loader2,
+  Mail,
+  Pencil,
+  Phone,
+  Search,
+  Trash2,
+  Truck,
+  User,
+} from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
+import {
+  OperationsCatalogEditShell,
+  OperationsCatalogEmpty,
+  OperationsCatalogList,
+  OperationsCatalogThumb,
+} from "@/components/operations/OperationsCatalogUi";
+import {
+  QuickActionBar,
+  QuickCreateActions,
+  QuickCreatePanel,
+} from "@/components/ui/quick-create";
+import { useQuickCreate } from "@/hooks/use-quick-create";
+import { cn } from "@/lib/utils/cn";
 import type { OperationsSupplierRow } from "@/lib/operations/schemas";
 
 interface OperationsSupplierPanelProps {
   initialSuppliers: OperationsSupplierRow[];
+}
+
+const PAYMENT_TERM_PRESETS = ["COD", "Net 7", "Net 14", "Net 30", "Net 60"];
+
+function supplierMatchesSearch(s: OperationsSupplierRow, needle: string): boolean {
+  const haystack = [
+    s.name,
+    s.contact_name,
+    s.phone,
+    s.email,
+    s.payment_terms,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
 }
 
 export function OperationsSupplierPanel({
@@ -15,7 +54,10 @@ export function OperationsSupplierPanel({
 }: OperationsSupplierPanelProps) {
   const router = useRouter();
   const [suppliers, setSuppliers] = useState(initialSuppliers);
-  const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const { open: showForm, toggle: toggleForm, close: closeForm } =
+    useQuickCreate();
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("");
@@ -23,11 +65,48 @@ export function OperationsSupplierPanel({
   const [address, setAddress] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [notes, setNotes] = useState("");
+  const [adminFileId, setAdminFileId] = useState<string | null>(null);
+  const [adminFileName, setAdminFileName] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const refresh = useCallback(() => router.refresh(), [router]);
+
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return suppliers;
+    return suppliers.filter((s) => supplierMatchesSearch(s, needle));
+  }, [search, suppliers]);
+
+  const resetForm = useCallback(() => {
+    setName("");
+    setContactName("");
+    setPhone("");
+    setEmail("");
+    setAddress("");
+    setPaymentTerms("");
+    setNotes("");
+    setAdminFileId(null);
+    setAdminFileName(null);
+    setEditingId(null);
+    setFormError(null);
+  }, []);
+
+  const startEdit = useCallback((supplier: OperationsSupplierRow) => {
+    setEditingId(supplier.id);
+    setName(supplier.name);
+    setContactName(supplier.contact_name ?? "");
+    setPhone(supplier.phone ?? "");
+    setEmail(supplier.email ?? "");
+    setAddress(supplier.address ?? "");
+    setPaymentTerms(supplier.payment_terms ?? "");
+    setNotes(supplier.notes ?? "");
+    setAdminFileId(supplier.admin_file_id);
+    setAdminFileName(supplier.admin_file_name ?? null);
+    closeForm();
+    setFormError(null);
+  }, [closeForm]);
 
   const onCreate = useCallback(
     async (e: FormEvent) => {
@@ -46,6 +125,7 @@ export function OperationsSupplierPanel({
             address: address || null,
             payment_terms: paymentTerms || null,
             notes: notes || null,
+            admin_file_id: adminFileId,
           }),
         });
         const json = (await res.json()) as {
@@ -59,14 +139,8 @@ export function OperationsSupplierPanel({
         setSuppliers((prev) =>
           [...prev, json.data!].sort((a, b) => a.name.localeCompare(b.name)),
         );
-        setName("");
-        setContactName("");
-        setPhone("");
-        setEmail("");
-        setAddress("");
-        setPaymentTerms("");
-        setNotes("");
-        setShowForm(false);
+        resetForm();
+        closeForm();
         refresh();
       } catch (err) {
         setFormError(err instanceof Error ? err.message : "Save failed.");
@@ -76,6 +150,8 @@ export function OperationsSupplierPanel({
     },
     [
       address,
+      adminFileId,
+      closeForm,
       contactName,
       email,
       name,
@@ -83,6 +159,64 @@ export function OperationsSupplierPanel({
       paymentTerms,
       phone,
       refresh,
+      resetForm,
+    ],
+  );
+
+  const onUpdate = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!editingId) return;
+      setFormError(null);
+      setCreating(true);
+      try {
+        const res = await fetch(`/api/operations/suppliers/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            contact_name: contactName || null,
+            phone: phone || null,
+            email: email || null,
+            address: address || null,
+            payment_terms: paymentTerms || null,
+            notes: notes || null,
+            admin_file_id: adminFileId,
+          }),
+        });
+        const json = (await res.json()) as {
+          ok: boolean;
+          data?: OperationsSupplierRow;
+          error?: { message?: string };
+        };
+        if (!res.ok || !json.ok || !json.data) {
+          throw new Error(json.error?.message ?? "Could not update supplier.");
+        }
+        setSuppliers((prev) =>
+          prev
+            .map((s) => (s.id === editingId ? json.data! : s))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        );
+        resetForm();
+        refresh();
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : "Update failed.");
+      } finally {
+        setCreating(false);
+      }
+    },
+    [
+      address,
+      adminFileId,
+      contactName,
+      editingId,
+      email,
+      name,
+      notes,
+      paymentTerms,
+      phone,
+      refresh,
+      resetForm,
     ],
   );
 
@@ -95,216 +229,303 @@ export function OperationsSupplierPanel({
         });
         if (!res.ok) throw new Error("Delete failed.");
         setSuppliers((prev) => prev.filter((s) => s.id !== id));
+        if (editingId === id) resetForm();
         refresh();
       } finally {
         setBusyId(null);
       }
     },
-    [refresh],
+    [editingId, refresh, resetForm],
   );
 
-  const attachSupplierFile = useCallback(
-    async (id: string, fileId: string | null) => {
-      setBusyId(id);
-      try {
-        const res = await fetch(`/api/operations/suppliers/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ admin_file_id: fileId }),
-        });
-        const json = (await res.json()) as {
-          ok: boolean;
-          data?: OperationsSupplierRow;
-          error?: { message?: string };
-        };
-        if (!res.ok || !json.ok || !json.data) {
-          throw new Error(json.error?.message ?? "Could not attach file.");
-        }
-        setSuppliers((prev) =>
-          prev.map((s) => (s.id === id ? { ...s, ...json.data! } : s)),
-        );
-        refresh();
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [refresh],
+  const editingSupplier = editingId
+    ? suppliers.find((s) => s.id === editingId)
+    : null;
+
+  const contractPicker = (
+    <AdminStorageFileAttach
+      fileId={adminFileId}
+      fileName={adminFileName}
+      category="contract"
+      disabled={creating || Boolean(busyId)}
+      label="Contract / agreement"
+      onAttach={async (fileId) => {
+        setAdminFileId(fileId);
+        setAdminFileName(null);
+      }}
+    />
   );
+
+  const paymentTermsPicker = (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {PAYMENT_TERM_PRESETS.map((term) => (
+          <button
+            key={term}
+            type="button"
+            onClick={() => setPaymentTerms(term)}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors",
+              paymentTerms === term
+                ? "border-amber-400 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
+                : "border-cream-300 text-ink-muted hover:bg-cream-50 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-panel-dark",
+            )}
+          >
+            {term}
+          </button>
+        ))}
+      </div>
+      <input
+        type="text"
+        value={paymentTerms}
+        onChange={(e) => setPaymentTerms(e.target.value)}
+        placeholder="Payment terms (e.g. Net 30, COD)"
+        className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+      />
+    </div>
+  );
+
+  const formFields = (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Supplier / vendor name *"
+          required
+          className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+        />
+        <input
+          type="text"
+          value={contactName}
+          onChange={(e) => setContactName(e.target.value)}
+          placeholder="Contact person"
+          className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Phone / WhatsApp"
+          className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+        />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+        />
+      </div>
+      <input
+        type="text"
+        value={address}
+        onChange={(e) => setAddress(e.target.value)}
+        placeholder="Address (optional)"
+        className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+      />
+      {paymentTermsPicker}
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Internal notes (optional)"
+        rows={2}
+        className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+      />
+      {formError ? (
+        <p className="text-sm text-status-danger">{formError}</p>
+      ) : null}
+    </>
+  );
+
+  const hasSearch = Boolean(search.trim());
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2} />
-          Add supplier
-        </button>
-      </div>
+      <QuickActionBar
+        open={showForm}
+        onToggle={() => {
+          if (showForm) {
+            closeForm();
+            resetForm();
+          } else {
+            resetForm();
+            toggleForm();
+          }
+        }}
+        actionLabel="Add supplier"
+      >
+        <div className="relative min-w-[12rem] flex-1 sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search vendors…"
+            className="w-full rounded-lg border border-cream-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+          />
+        </div>
+      </QuickActionBar>
 
-      {showForm ? (
-        <form
-          onSubmit={onCreate}
-          className="space-y-3 rounded-lg border border-cream-200 bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark"
+      <QuickCreatePanel
+        open={showForm}
+        onSubmit={onCreate}
+        title="New supplier"
+        subtitle="Who you buy from — reach them fast when stock runs low."
+        icon={Truck}
+        accent="amber"
+      >
+        {formFields}
+        {contractPicker}
+        <QuickCreateActions
+          submitLabel="Save supplier"
+          loading={creating}
+          onCancel={() => {
+            closeForm();
+            resetForm();
+          }}
+        />
+      </QuickCreatePanel>
+
+      {editingId && editingSupplier ? (
+        <OperationsCatalogEditShell
+          title={`Editing ${editingSupplier.name}`}
+          accent="brand"
         >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Supplier / vendor name *"
-              required
-              className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            />
-            <input
-              type="text"
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
-              placeholder="Contact person"
-              className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Phone / WhatsApp"
-              className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            />
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
-              className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            />
-          </div>
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Address"
-            className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          />
-          <input
-            type="text"
-            value={paymentTerms}
-            onChange={(e) => setPaymentTerms(e.target.value)}
-            placeholder="Payment terms (e.g. Net 30, COD)"
-            className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          />
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notes"
-            rows={2}
-            className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          />
-          {formError ? (
-            <p className="text-sm text-status-danger">{formError}</p>
-          ) : null}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={creating}
-              className="inline-flex items-center gap-1.5 rounded-md bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-            >
-              {creating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              Save supplier
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="rounded-md border border-cream-300 px-3 py-1.5 text-xs font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+          <form onSubmit={onUpdate} className="space-y-3">
+            {formFields}
+            {contractPicker}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={creating}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+              >
+                {creating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                Save changes
+              </button>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </OperationsCatalogEditShell>
       ) : null}
 
-      {suppliers.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-cream-300 py-12 text-center dark:border-hairline-dark">
-          <p className="text-sm text-ink-muted dark:text-cream-400">
-            No suppliers yet. Add your first vendor contact.
-          </p>
-        </div>
+      {filtered.length === 0 ? (
+        <OperationsCatalogEmpty
+          icon={hasSearch ? "🔍" : "🚚"}
+          title={
+            hasSearch ? "No suppliers match your search" : "No suppliers yet"
+          }
+          hint={
+            hasSearch
+              ? "Try another name, phone, or payment term."
+              : "Tap Add supplier — your vendor rolodex starts here."
+          }
+        />
       ) : (
-        <ul className="divide-y divide-cream-200 rounded-lg border border-cream-200 bg-white dark:divide-hairline-dark dark:border-hairline-dark dark:bg-panel-dark">
-          {suppliers.map((s) => {
-            const busy = busyId === s.id;
-            return (
-              <li key={s.id} className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-ink dark:text-cream-100">
-                      {s.name}
-                    </h3>
-                    <div className="mt-2 space-y-1 text-xs text-ink-muted dark:text-cream-400">
+        <OperationsCatalogList title="Vendor list" total={filtered.length}>
+          <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
+            {filtered.map((s) => {
+              if (editingId === s.id) return null;
+              const busy = busyId === s.id;
+
+              return (
+                <li
+                  key={s.id}
+                  className="group px-3 py-2.5 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60"
+                >
+                  <div className="flex items-start gap-3">
+                    <OperationsCatalogThumb emoji="🚚" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-semibold text-ink dark:text-cream-100">
+                          {s.name}
+                        </h3>
+                        {s.payment_terms ? (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-950/50 dark:text-amber-100">
+                            {s.payment_terms}
+                          </span>
+                        ) : null}
+                        {s.admin_file_id ? (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-900 dark:bg-sky-950/50 dark:text-sky-100">
+                            <FileText className="h-2.5 w-2.5" />
+                            Contract
+                          </span>
+                        ) : null}
+                      </div>
                       {s.contact_name ? (
-                        <p className="flex items-center gap-1.5">
+                        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-muted dark:text-cream-400">
                           <User className="h-3 w-3 shrink-0" />
                           {s.contact_name}
                         </p>
                       ) : null}
-                      {s.phone ? (
-                        <p className="flex items-center gap-1.5">
-                          <Phone className="h-3 w-3 shrink-0" />
-                          {s.phone}
-                        </p>
-                      ) : null}
-                      {s.email ? (
-                        <p className="flex items-center gap-1.5">
-                          <Mail className="h-3 w-3 shrink-0" />
-                          {s.email}
-                        </p>
-                      ) : null}
-                      {s.address ? (
-                        <p className="flex items-start gap-1.5">
-                          <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
-                          {s.address}
-                        </p>
-                      ) : null}
-                      {s.payment_terms ? (
-                        <p>Terms: {s.payment_terms}</p>
-                      ) : null}
-                      {s.notes ? (
-                        <p className="italic text-ink-subtle dark:text-cream-500">
-                          {s.notes}
-                        </p>
-                      ) : null}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-muted dark:text-cream-400">
+                        {s.phone ? (
+                          <a
+                            href={`tel:${s.phone.replace(/\s/g, "")}`}
+                            className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline dark:text-brand-300"
+                          >
+                            <Phone className="h-3 w-3 shrink-0" />
+                            {s.phone}
+                          </a>
+                        ) : null}
+                        {s.email ? (
+                          <a
+                            href={`mailto:${s.email}`}
+                            className="inline-flex items-center gap-1 hover:underline"
+                          >
+                            <Mail className="h-3 w-3 shrink-0" />
+                            {s.email}
+                          </a>
+                        ) : null}
+                        {!s.phone && !s.email && !s.contact_name ? (
+                          <span className="italic text-ink-subtle dark:text-cream-500">
+                            No contact details yet
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
-                    <AdminStorageFileAttach
-                      fileId={s.admin_file_id}
-                      fileName={s.admin_file_name}
-                      disabled={busy}
-                      label="Contract / agreement"
-                      onAttach={(fileId) => attachSupplierFile(s.id, fileId)}
-                    />
+                    <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => startEdit(s)}
+                        className="rounded-md p-1.5 text-brand-700 hover:bg-brand-50 disabled:opacity-50 dark:text-brand-300 dark:hover:bg-brand-950/30"
+                        aria-label={`Edit ${s.name}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void deleteSupplier(s.id)}
+                        className="rounded-md p-1.5 text-status-danger hover:bg-rose-50 disabled:opacity-50 dark:hover:bg-rose-950/20"
+                        aria-label={`Remove ${s.name}`}
+                      >
+                        {busy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void deleteSupplier(s.id)}
-                    className="inline-flex shrink-0 items-center gap-1 text-xs text-status-danger hover:underline disabled:opacity-50"
-                  >
-                    {busy ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3 w-3" />
-                    )}
-                    Remove
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </OperationsCatalogList>
       )}
     </div>
   );

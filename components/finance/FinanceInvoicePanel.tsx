@@ -39,9 +39,12 @@ interface FinanceInvoicePanelProps {
   appUrl: string;
   documentKind?: "invoice" | "quote" | "all";
   statusFilter?: FinanceInvoiceStatus | "all";
+  customerIdFilter?: string;
+  customerFilterName?: string | null;
   page?: number;
   pageSize?: number;
   total?: number;
+  shellMode?: boolean;
 }
 
 function malaysiaTodayYmd(): string {
@@ -93,13 +96,19 @@ function invoiceStatusLabel(
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
-function buildFilterHref(opts: {
-  kind?: "invoice" | "quote" | "all";
-  status?: FinanceInvoiceStatus | "all";
-}): string {
+function buildFilterHref(
+  opts: {
+    kind?: "invoice" | "quote" | "all";
+    status?: FinanceInvoiceStatus | "all";
+    customerId?: string;
+  },
+  customerIdFilter?: string,
+): string {
   const params = new URLSearchParams();
   if (opts.kind && opts.kind !== "all") params.set("kind", opts.kind);
   if (opts.status && opts.status !== "all") params.set("status", opts.status);
+  const customerId = opts.customerId ?? customerIdFilter;
+  if (customerId) params.set("customer_id", customerId);
   const qs = params.toString();
   return qs ? `/finance/invoices?${qs}` : "/finance/invoices";
 }
@@ -112,9 +121,12 @@ export function FinanceInvoicePanel({
   appUrl,
   documentKind = "all",
   statusFilter = "all",
+  customerIdFilter,
+  customerFilterName,
   page = 1,
   pageSize = 10,
   total = initialInvoices.length,
+  shellMode = false,
 }: FinanceInvoicePanelProps) {
   const router = useRouter();
   const [invoices, setInvoices] = useState(initialInvoices);
@@ -131,6 +143,15 @@ export function FinanceInvoicePanel({
   }, [initialInvoices]);
 
   const refresh = useCallback(() => router.refresh(), [router]);
+
+  const withCustomerFilter = useCallback(
+    (opts: {
+      kind?: "invoice" | "quote" | "all";
+      status?: FinanceInvoiceStatus | "all";
+      customerId?: string;
+    }) => buildFilterHref(opts, customerIdFilter),
+    [customerIdFilter],
+  );
 
   const patchInvoice = useCallback(
     async (id: string, status: FinanceInvoiceStatus) => {
@@ -291,42 +312,42 @@ export function FinanceInvoicePanel({
   }> = [
     {
       label: "All",
-      href: buildFilterHref({}),
+      href: withCustomerFilter({}),
       active: documentKind === "all" && statusFilter === "all",
     },
     {
       label: "Invoices",
-      href: buildFilterHref({ kind: "invoice" }),
+      href: withCustomerFilter({ kind: "invoice" }),
       active: documentKind === "invoice" && statusFilter === "all",
       count: summary.invoice_count,
     },
     {
       label: "Quotes",
-      href: buildFilterHref({ kind: "quote" }),
+      href: withCustomerFilter({ kind: "quote" }),
       active: documentKind === "quote" && statusFilter === "all",
       count: summary.quote_count,
     },
     {
       label: "Draft",
-      href: buildFilterHref({ kind: "invoice", status: "draft" }),
+      href: withCustomerFilter({ kind: "invoice", status: "draft" }),
       active: statusFilter === "draft",
       count: summary.draft_count,
     },
     {
       label: "Awaiting pay",
-      href: buildFilterHref({ kind: "invoice", status: "sent" }),
+      href: withCustomerFilter({ kind: "invoice", status: "sent" }),
       active: statusFilter === "sent" && documentKind !== "quote",
       count: summary.sent_count,
     },
     {
       label: "Overdue",
-      href: "/finance/invoices?status=sent&kind=invoice",
+      href: withCustomerFilter({ kind: "invoice", status: "sent" }),
       active: false,
       count: summary.overdue_count,
     },
     {
       label: "Paid",
-      href: buildFilterHref({ kind: "invoice", status: "paid" }),
+      href: withCustomerFilter({ kind: "invoice", status: "paid" }),
       active: statusFilter === "paid",
       count: summary.paid_count,
     },
@@ -343,21 +364,21 @@ export function FinanceInvoicePanel({
     summary.overdue_count > 0
       ? {
           label: `${summary.overdue_count} overdue — chase on WhatsApp`,
-          href: buildFilterHref({ kind: "invoice", status: "sent" }),
+          href: withCustomerFilter({ kind: "invoice", status: "sent" }),
           tone: "danger" as const,
         }
       : null,
     summary.draft_count > 0
       ? {
           label: `${summary.draft_count} draft${summary.draft_count === 1 ? "" : "s"} ready to send`,
-          href: buildFilterHref({ kind: "invoice", status: "draft" }),
+          href: withCustomerFilter({ kind: "invoice", status: "draft" }),
           tone: "neutral" as const,
         }
       : null,
     summary.quote_count > 0 && documentKind !== "invoice"
       ? {
           label: `${summary.quote_count} open quote${summary.quote_count === 1 ? "" : "s"}`,
-          href: buildFilterHref({ kind: "quote" }),
+          href: withCustomerFilter({ kind: "quote" }),
           tone: "accent" as const,
         }
       : null,
@@ -374,6 +395,28 @@ export function FinanceInvoicePanel({
 
   return (
     <div className="space-y-4">
+      {shellMode ? (
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={
+              customerIdFilter
+                ? `/finance/invoices/new?customer_id=${encodeURIComponent(customerIdFilter)}`
+                : "/finance/invoices/new"
+            }
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-600"
+          >
+            <Plus className="h-4 w-4" />
+            New invoice
+          </Link>
+          <Link
+            href="/finance/invoices/new?kind=quote"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50 dark:border-violet-800 dark:bg-panel-dark dark:text-violet-100"
+          >
+            <MessageSquareQuote className="h-4 w-4" />
+            New quote
+          </Link>
+        </div>
+      ) : (
       <section
         className={cn(
           "relative overflow-hidden rounded-2xl border p-5 shadow-card",
@@ -401,7 +444,11 @@ export function FinanceInvoicePanel({
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             <Link
-              href="/finance/invoices/new"
+              href={
+                customerIdFilter
+                  ? `/finance/invoices/new?customer_id=${encodeURIComponent(customerIdFilter)}`
+                  : "/finance/invoices/new"
+              }
               className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-600"
             >
               <Plus className="h-4 w-4" />
@@ -452,6 +499,32 @@ export function FinanceInvoicePanel({
           </div>
         </div>
       </section>
+      )}
+
+      {customerIdFilter ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-200 bg-sky-50/80 px-3 py-2.5 dark:border-sky-900 dark:bg-sky-950/30">
+          <p className="text-sm text-ink dark:text-cream-100">
+            Showing invoices & quotes for{" "}
+            <span className="font-semibold">
+              {customerFilterName ?? "this customer"}
+            </span>
+          </p>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/finance/invoices/new?customer_id=${encodeURIComponent(customerIdFilter)}`}
+              className="text-xs font-semibold text-brand-700 hover:underline dark:text-brand-200"
+            >
+              + New invoice
+            </Link>
+            <Link
+              href="/finance/invoices"
+              className="text-xs font-semibold text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-200"
+            >
+              Clear filter
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       {nudges.length > 0 ? (
         <div className="flex flex-wrap gap-2">
@@ -760,6 +833,7 @@ export function FinanceInvoicePanel({
             searchParams={{
               ...(documentKind !== "all" ? { kind: documentKind } : {}),
               ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+              ...(customerIdFilter ? { customer_id: customerIdFilter } : {}),
             }}
           />
         </div>

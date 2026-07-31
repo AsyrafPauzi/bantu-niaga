@@ -2,13 +2,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { CheckCircle2 } from "lucide-react";
 import {
-  beautifyAssistantMarkdown,
+  formatAssistantReply,
   SUCCESS_LINE,
 } from "@/lib/ai/assistant-reply";
 import { cn } from "@/lib/utils/cn";
 
 const ALLOWED_PATH_PREFIXES = [
   "/finance",
+  "/operations",
   "/settings",
   "/marketplace",
   "/home",
@@ -55,7 +56,7 @@ function parseMarkdownLink(
 
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const pattern = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let part = 0;
@@ -70,6 +71,15 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
         <strong key={`${keyPrefix}-b-${part++}`} className="font-semibold text-ink dark:text-cream-50">
           {token.slice(2, -2)}
         </strong>,
+      );
+    } else if (token.startsWith("`")) {
+      nodes.push(
+        <code
+          key={`${keyPrefix}-c-${part++}`}
+          className="rounded bg-cream-100 px-1 py-0.5 font-mono text-[0.85em] text-ink dark:bg-panel-dark dark:text-cream-100"
+        >
+          {token.slice(1, -1)}
+        </code>,
       );
     } else {
       const parsed = parseMarkdownLink(token);
@@ -138,7 +148,7 @@ function isSectionHeading(line: string): boolean {
 }
 
 function isNextStepBlock(block: string): boolean {
-  return /^\*\*(?:Langkah seterusnyo?|Seterusnya|Next steps?|下一步|后续步骤|அடுத்த படி|அடுத்த நடவடிக்கை)[^*]*:\*\*/i.test(
+  return /^\*\*(?:Langkah seterusnyo?|Seterusnya|Next steps?|Next step|下一步|后续步骤|அடுத்த படி|அடுத்த நடவடிக்கை)[^*]*:\*\*/i.test(
     block.trim().split("\n")[0] ?? "",
   );
 }
@@ -258,7 +268,7 @@ export function FayzaAssistantMessage({
   content,
   className,
 }: FayzaAssistantMessageProps) {
-  const normalized = beautifyAssistantMarkdown(content.trim());
+  const normalized = formatAssistantReply(content.trim());
   const blocks = normalized.split(/\n{2,}/).filter((b) => b.trim());
 
   if (blocks.length === 0) {

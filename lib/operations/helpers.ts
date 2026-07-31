@@ -69,6 +69,7 @@ export async function computeOperationsSummary(
 
   let todo_count = 0;
   let in_progress_count = 0;
+  let ready_count = 0;
   let done_this_month = 0;
   let overdue_count = 0;
 
@@ -82,6 +83,9 @@ export async function computeOperationsSummary(
       if (row.due_date && row.due_date < today) overdue_count++;
     } else if (row.status === "in_progress") {
       in_progress_count++;
+      if (row.due_date && row.due_date < today) overdue_count++;
+    } else if (row.status === "ready") {
+      ready_count++;
       if (row.due_date && row.due_date < today) overdue_count++;
     } else if (row.status === "done") {
       const doneAt = row.completed_at?.slice(0, 10);
@@ -103,6 +107,13 @@ export async function computeOperationsSummary(
 
   const { count: active_product_count } = await admin
     .from("operations_products")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .eq("is_active", true)
+    .is("deleted_at", null);
+
+  const { count: active_service_count } = await admin
+    .from("operations_services")
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
     .eq("is_active", true)
@@ -139,14 +150,16 @@ export async function computeOperationsSummary(
   }
 
   return {
-    open_orders: todo_count + in_progress_count,
+    open_orders: todo_count + in_progress_count + ready_count,
     todo_count,
     in_progress_count,
+    ready_count,
     done_this_month,
     supplier_count: supplier_count ?? 0,
     overdue_count,
     product_count: product_count ?? 0,
     active_product_count: active_product_count ?? 0,
+    active_service_count: active_service_count ?? 0,
     upcoming_bookings: upcoming_bookings ?? 0,
     resource_count: resource_count ?? 0,
     low_stock_count,

@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Calendar, Columns3, FileText, Loader2, Paperclip, Trash2, User, X } from "lucide-react";
+import { useEffect } from "react";
+import { Calendar, Columns3, Loader2, Trash2, User, X } from "lucide-react";
+import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import { TaskDescriptionHtml } from "@/components/admin/TaskDescriptionHtml";
 import type { AdminTaskColumn } from "@/lib/admin/task-columns-shared";
 import { isEmptyTaskDescription } from "@/lib/admin/task-html";
-import type { AdminFileListResponse } from "@/lib/admin/schemas";
 import type { AdminTaskRow } from "@/lib/admin/task-compliance-schemas";
 import { cn } from "@/lib/utils/cn";
 
@@ -49,13 +48,6 @@ export function AdminTaskDetailModal({
   overdue,
   dueToday,
 }: AdminTaskDetailModalProps) {
-  const [storageFiles, setStorageFiles] = useState<
-    Array<{ id: string; file_name: string }>
-  >([]);
-  const [storageLoading, setStorageLoading] = useState(false);
-  const [pickFileId, setPickFileId] = useState("");
-  const [attachError, setAttachError] = useState<string | null>(null);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -64,39 +56,7 @@ export function AdminTaskDetailModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  useEffect(() => {
-    if (!canAttachStorage || !canManage) return;
-    let cancelled = false;
-    setStorageLoading(true);
-    void fetch("/api/admin/storage?limit=100&sort=newest")
-      .then((r) => r.json())
-      .then((json: { ok: boolean; data?: AdminFileListResponse }) => {
-        if (!cancelled && json.ok && json.data) {
-          setStorageFiles(
-            json.data.data.map((f) => ({ id: f.id, file_name: f.file_name })),
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setStorageLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canAttachStorage, canManage]);
-
   const hasDetails = !isEmptyTaskDescription(task.description);
-
-  const handleAttach = async () => {
-    if (!pickFileId) return;
-    setAttachError(null);
-    try {
-      await onAttachFile(pickFileId);
-      setPickFileId("");
-    } catch (e) {
-      setAttachError(e instanceof Error ? e.message : "Could not attach file.");
-    }
-  };
 
   return (
     <div
@@ -181,90 +141,13 @@ export function AdminTaskDetailModal({
             </div>
           </dl>
 
-          <div>
-            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-              <Paperclip className="h-3.5 w-3.5" />
-              Attached file
-            </h3>
-            {task.admin_file_id && task.admin_file_name ? (
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cream-200 bg-cream-50/80 px-3 py-2.5 dark:border-hairline-dark dark:bg-hairline-dark/30">
-                <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-ink dark:text-cream-100">
-                  <FileText className="h-4 w-4 shrink-0 text-brand-600" />
-                  <span className="truncate">{task.admin_file_name}</span>
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      void fetch(`/api/admin/storage/${task.admin_file_id}/download`)
-                        .then((r) => r.json())
-                        .then((json: { ok: boolean; data?: { download_url: string } }) => {
-                          if (json.ok && json.data?.download_url) {
-                            window.location.href = json.data.download_url;
-                          }
-                        })
-                    }
-                    className="text-xs font-semibold text-brand-700 hover:underline dark:text-brand-200"
-                  >
-                    Download
-                  </button>
-                  {canManage && canAttachStorage ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void onAttachFile(null)}
-                      className="text-xs font-semibold text-status-danger hover:underline"
-                    >
-                      Remove
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-                No file attached.
-              </p>
-            )}
-            {canManage && canAttachStorage && !task.admin_file_id ? (
-              <div className="mt-3 space-y-2">
-                <select
-                  value={pickFileId}
-                  disabled={busy || storageLoading}
-                  onChange={(e) => setPickFileId(e.target.value)}
-                  className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-                >
-                  <option value="">
-                    {storageLoading ? "Loading files…" : "Choose from Storage…"}
-                  </option>
-                  {storageFiles.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.file_name}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={busy || !pickFileId}
-                    onClick={() => void handleAttach()}
-                    className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
-                  >
-                    Attach file
-                  </button>
-                  <Link
-                    href="/admin/storage"
-                    className="text-xs font-semibold text-brand-700 hover:underline dark:text-brand-200"
-                  >
-                    Upload in Storage
-                  </Link>
-                </div>
-                {attachError ? (
-                  <p className="text-xs text-status-danger">{attachError}</p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          <AdminStorageFileAttach
+            fileId={task.admin_file_id ?? null}
+            fileName={task.admin_file_name}
+            disabled={busy || !canManage || !canAttachStorage}
+            label="Attached file"
+            onAttach={onAttachFile}
+          />
 
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">

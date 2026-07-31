@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   beautifyAssistantMarkdown,
+  convertMarkdownTablesToBullets,
+  fixBrokenBoldMarkdown,
   normalizeAssistantLinks,
   sanitizeAssistantReply,
 } from "@/lib/ai/assistant-reply";
@@ -55,6 +57,28 @@ describe("beautifyAssistantMarkdown", () => {
   it("does not double-wrap existing markdown links", () => {
     const raw = "Lihat [/finance/customers](/finance/customers) untuk senarai.";
     expect(normalizeAssistantLinks(raw)).toBe(raw);
+  });
+
+  it("fixes empty bold markers", () => {
+    expect(fixBrokenBoldMarkdown("Good news — there are ** in your operations.")).toBe(
+      "Good news — there are in your operations.",
+    );
+    expect(fixBrokenBoldMarkdown("**4 active products** ready")).toBe(
+      "**4 active products** ready",
+    );
+  });
+
+  it("converts markdown tables to bullet lines", () => {
+    const table = `| Product ID | Product Name | Price | Category |
+|------------|--------------|-------|----------|
+| SNACK-KUIH | Kuih Lapis (2 pcs) | RM 4.00 | Snacks |
+| NL-REG | Nasi Lemak Biasa | RM 8.50 | Food |`;
+
+    const out = convertMarkdownTablesToBullets(table);
+    expect(out).toContain("- `SNACK-KUIH`");
+    expect(out).toContain("**Kuih Lapis (2 pcs)**");
+    expect(out).toContain("RM 4.00");
+    expect(out).not.toContain("|");
   });
 });
 

@@ -1,14 +1,17 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { Card, CardBody } from "@/components/ui/card";
+import { FinanceBackLink } from "@/components/finance/FinanceBackLink";
 import { FinanceInvoicePanel } from "@/components/finance/FinanceInvoicePanel";
+import { FinanceSubpageShell } from "@/components/finance/FinanceSubpageShell";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
+import { Card, CardBody } from "@/components/ui/card";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parsePagination } from "@/lib/pagination";
 import { loadBusiness } from "@/lib/settings/business";
 import { loadFinanceInvoicesSummary } from "@/lib/finance/invoices-summary";
+import { invoiceSubpageHero } from "@/lib/finance/subpage-hero";
+import { formatMyr } from "@/lib/finance/schemas";
 import {
   FINANCE_INVOICE_STATUSES,
   type FinanceInvoiceRow,
@@ -32,10 +35,15 @@ export default async function InvoicesPage({
 
   if (!can(user.role, "finance")) {
     return (
-      <div className="space-y-4 pb-20 lg:pb-0">
-        <p className="text-sm text-ink-muted dark:text-cream-400">
-          You don&apos;t have access to Finance.
-        </p>
+      <div className="space-y-4">
+        <FinanceBackLink />
+        <Card>
+          <CardBody className="py-10 text-center">
+            <p className="text-sm text-ink-muted dark:text-cream-400">
+              You don&apos;t have access to Finance.
+            </p>
+          </CardBody>
+        </Card>
       </div>
     );
   }
@@ -55,8 +63,22 @@ export default async function InvoicesPage({
   )
     ? (statusParam as (typeof FINANCE_INVOICE_STATUSES)[number])
     : "all";
+  const customerIdFilter =
+    typeof params.customer_id === "string" ? params.customer_id.trim() : "";
 
   const supabase = await createSupabaseServerClient();
+
+  let customerFilterName: string | null = null;
+  if (customerIdFilter) {
+    const { data: customerRow } = await supabase
+      .from("customers")
+      .select("name")
+      .eq("business_id", user.businessId)
+      .eq("id", customerIdFilter)
+      .maybeSingle();
+    customerFilterName =
+      typeof customerRow?.name === "string" ? customerRow.name : null;
+  }
 
   let listQuery = supabase
     .from("finance_invoices")
@@ -79,6 +101,9 @@ export default async function InvoicesPage({
   if (statusFilter !== "all") {
     listQuery = listQuery.eq("status", statusFilter);
   }
+  if (customerIdFilter) {
+    listQuery = listQuery.eq("customer_id", customerIdFilter);
+  }
 
   const [{ data, error, count }, summary] = await Promise.all([
     listQuery,
@@ -90,38 +115,66 @@ export default async function InvoicesPage({
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
     "http://localhost:3000";
 
-  return (
-    <div className="space-y-4 pb-20 lg:pb-0">
-      <Link
-        href="/finance"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Finance dashboard
-      </Link>
+  const hero = invoiceSubpageHero(summary);
 
-      {error ? (
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <FinanceBackLink />
         <Card>
           <CardBody className="text-sm text-status-danger">
             Failed to load invoices: {error.message}
           </CardBody>
         </Card>
-      ) : (
-        <>
-          <FinanceInvoicePanel
-            initialInvoices={(data ?? []) as unknown as FinanceInvoiceRow[]}
-            summary={summary}
-            idcompany={business.idcompany}
-            businessName={business.name}
-            appUrl={appUrl}
-            documentKind={documentKind}
-            statusFilter={statusFilter}
-            page={pagination.page}
-            pageSize={pagination.pageSize}
-            total={total}
+      </div>
+    );
+  }
+
+  return (
+    <FinanceSubpageShell
+      headline={hero.headline}
+      subcopy={hero.subcopy}
+      variant={hero.variant}
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="Outstanding"
+            value={formatMyr(summary.outstanding_myr)}
+            iconClassName="text-amber-700 dark:text-amber-300"
           />
-        </>
-      )}
-    </div>
+          <ModuleHeroStat
+            label="Awaiting pay"
+            value={summary.sent_count}
+            iconClassName="text-rose-700 dark:text-rose-300"
+          />
+          <ModuleHeroStat
+            label="Drafts"
+            value={summary.draft_count}
+            iconClassName="text-sky-700 dark:text-sky-300"
+          />
+          <ModuleHeroStat
+            label="Open quotes"
+            value={summary.quote_count}
+            iconClassName="text-violet-700 dark:text-violet-300"
+          />
+        </div>
+      }
+    >
+      <FinanceInvoicePanel
+        initialInvoices={(data ?? []) as unknown as FinanceInvoiceRow[]}
+        summary={summary}
+        idcompany={business.idcompany}
+        businessName={business.name}
+        appUrl={appUrl}
+        documentKind={documentKind}
+        statusFilter={statusFilter}
+        customerIdFilter={customerIdFilter || undefined}
+        customerFilterName={customerFilterName}
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={total}
+        shellMode
+      />
+    </FinanceSubpageShell>
   );
 }

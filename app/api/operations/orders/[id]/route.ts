@@ -53,7 +53,7 @@ async function requireOperationsUser(): Promise<
 
 const ORDER_SELECT =
   "id, business_id, number, customer_name, customer_phone, title, description, " +
-  "status, due_date, amount_myr, supplier_id, notes, admin_file_id, completed_at, " +
+  "status, fulfillment_type, fulfillment_status, due_date, amount_myr, supplier_id, notes, admin_file_id, completed_at, " +
   "created_by, created_at, updated_at";
 
 export async function PATCH(

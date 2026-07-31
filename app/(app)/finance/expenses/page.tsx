@@ -1,17 +1,20 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { Card, CardBody } from "@/components/ui/card";
+import { FinanceBackLink } from "@/components/finance/FinanceBackLink";
 import { FinanceExpensesPanel } from "@/components/finance/FinanceExpensesPanel";
+import { FinanceSubpageShell } from "@/components/finance/FinanceSubpageShell";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
+import { Card, CardBody } from "@/components/ui/card";
+import { ListPagination } from "@/components/ui/list-pagination";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ListPagination } from "@/components/ui/list-pagination";
 import { parsePagination } from "@/lib/pagination";
 import {
   computeFinanceMonthSummary,
   loadExpenseMonthInsights,
 } from "@/lib/finance/helpers";
+import { expensesSubpageHero } from "@/lib/finance/subpage-hero";
+import { formatMyr } from "@/lib/finance/schemas";
 import { loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 import type { FinanceTransactionRow } from "@/lib/finance/schemas";
 
@@ -33,10 +36,15 @@ export default async function ExpensesPage({
 
   if (!can(user.role, "finance")) {
     return (
-      <div className="space-y-6">
-        <p className="text-sm text-ink-muted dark:text-cream-400">
-          You don&apos;t have access to Finance.
-        </p>
+      <div className="space-y-4">
+        <FinanceBackLink />
+        <Card>
+          <CardBody className="py-10 text-center">
+            <p className="text-sm text-ink-muted dark:text-cream-400">
+              You don&apos;t have access to Finance.
+            </p>
+          </CardBody>
+        </Card>
       </div>
     );
   }
@@ -77,42 +85,76 @@ export default async function ExpensesPage({
       : null,
   }));
 
-  return (
-    <div className="space-y-4 pb-20 lg:pb-0">
-      <Link
-        href="/finance"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Finance dashboard
-      </Link>
+  const topCategory = insights.categories[0] ?? null;
+  const hero = expensesSubpageHero({
+    monthExpenseMyr: summary.expense_myr,
+    expenseCount: insights.expenseCount,
+    monthLabel: insights.monthLabel,
+    topCategory,
+  });
 
-      {error ? (
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <FinanceBackLink />
         <Card>
           <CardBody className="text-sm text-status-danger">
             Failed to load expenses: {error.message}
           </CardBody>
         </Card>
-      ) : (
-        <>
-          <FinanceExpensesPanel
-            initialTransactions={transactions}
-            monthExpenseMyr={summary.expense_myr}
-            monthLabel={insights.monthLabel}
-            expenseCount={insights.expenseCount}
-            categories={insights.categories}
+      </div>
+    );
+  }
+
+  return (
+    <FinanceSubpageShell
+      headline={hero.headline}
+      subcopy={hero.subcopy}
+      variant={hero.variant}
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="This month"
+            value={formatMyr(summary.expense_myr)}
+            iconClassName="text-rose-700 dark:text-rose-300"
           />
-          {total > pagination.pageSize ? (
-            <ListPagination
-              page={pagination.page}
-              pageSize={pagination.pageSize}
-              total={total}
-              basePath="/finance/expenses"
-              className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark"
-            />
-          ) : null}
-        </>
-      )}
-    </div>
+          <ModuleHeroStat
+            label="Logged"
+            value={insights.expenseCount}
+            iconClassName="text-amber-700 dark:text-amber-300"
+          />
+          <ModuleHeroStat
+            label="Categories"
+            value={insights.categories.length}
+            iconClassName="text-sky-700 dark:text-sky-300"
+          />
+          <ModuleHeroStat
+            label="Top spend"
+            value={
+              topCategory ? formatMyr(topCategory.amount_myr) : "—"
+            }
+            iconClassName="text-violet-700 dark:text-violet-300"
+          />
+        </div>
+      }
+    >
+      <FinanceExpensesPanel
+        initialTransactions={transactions}
+        monthExpenseMyr={summary.expense_myr}
+        monthLabel={insights.monthLabel}
+        expenseCount={insights.expenseCount}
+        categories={insights.categories}
+        shellMode
+      />
+      {total > pagination.pageSize ? (
+        <ListPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={total}
+          basePath="/finance/expenses"
+          className="rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark"
+        />
+      ) : null}
+    </FinanceSubpageShell>
   );
 }

@@ -34,6 +34,7 @@ interface FinanceReportsPanelProps {
   pnl: FinancePnLStatement;
   transactions: FinanceTransactionRow[];
   businessName?: string;
+  shellMode?: boolean;
 }
 
 function buildReportsUrl(
@@ -57,6 +58,7 @@ export function FinanceReportsPanel({
   pnl,
   transactions,
   businessName,
+  shellMode = false,
 }: FinanceReportsPanelProps) {
   const router = useRouter();
   const isProfit = analytics.net_myr >= 0;
@@ -103,18 +105,33 @@ export function FinanceReportsPanel({
 
   return (
     <div className="space-y-4">
-      <section className="relative overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-indigo-50 to-violet-50 p-5 shadow-card dark:border-sky-900/40 dark:from-sky-950/40 dark:via-indigo-950/20 dark:to-violet-950/20">
-        <div className="pointer-events-none absolute -right-4 -top-4 text-6xl opacity-20">
-          📊
-        </div>
-        <h2 className="text-2xl font-bold tracking-tight text-ink dark:text-cream-100">
-          Finance reports
-        </h2>
-        <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
-          Ledger, profit &amp; loss, and analytics — {formatFinancePeriodLabel(analytics.start, analytics.end)}.
-        </p>
+      <section
+        className={cn(
+          "rounded-2xl border border-sky-200/80 bg-white p-4 shadow-card dark:border-sky-900/40 dark:bg-panel-dark sm:p-5",
+          !shellMode &&
+            "relative overflow-hidden bg-gradient-to-br from-sky-50 via-indigo-50 to-violet-50 dark:from-sky-950/40 dark:via-indigo-950/20 dark:to-violet-950/20",
+        )}
+      >
+        {!shellMode ? (
+          <>
+            <div className="pointer-events-none absolute -right-4 -top-4 text-6xl opacity-20">
+              📊
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-ink dark:text-cream-100">
+              Finance reports
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
+              Ledger, profit &amp; loss, and analytics —{" "}
+              {formatFinancePeriodLabel(analytics.start, analytics.end)}.
+            </p>
+          </>
+        ) : (
+          <p className="text-sm font-semibold text-ink dark:text-cream-100">
+            Period: {formatFinancePeriodLabel(analytics.start, analytics.end)}
+          </p>
+        )}
 
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className={cn("flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center", shellMode ? "mt-0" : "mt-4")}>
           <div className="flex flex-wrap gap-1.5">
             {FINANCE_ANALYTICS_DAY_FILTERS.map((d) => {
               const active = !isCustom && range.days === d;
@@ -186,6 +203,8 @@ export function FinanceReportsPanel({
           <p className="mt-1 text-xs text-status-danger">{rangeError}</p>
         ) : null}
 
+        {!shellMode ? (
+        <>
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
           <div className="rounded-xl border border-emerald-200/60 bg-white/70 p-3 dark:border-emerald-900/40 dark:bg-panel-dark/60">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
@@ -224,6 +243,8 @@ export function FinanceReportsPanel({
           {analytics.txn_count} transaction{analytics.txn_count === 1 ? "" : "s"} ·{" "}
           {analyticsFilterLabel(analytics.days, analytics.range_mode, analytics.start, analytics.end)}
         </p>
+        </>
+        ) : null}
       </section>
 
       <div className="flex flex-wrap items-center gap-2">
