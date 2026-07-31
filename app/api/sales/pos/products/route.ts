@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canUsePos } from "@/lib/sales/access";
+import { resolveProductImageUrls } from "@/lib/operations/product-image-urls";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("operations_products")
     .select(
-      "id, sku, name, category, price_myr, is_active, stock_qty, low_stock_threshold",
+      "id, sku, name, category, price_myr, is_active, stock_qty, low_stock_threshold, image_file_id",
     )
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
@@ -43,5 +44,16 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json({ data: data ?? [] }, { status: 200 });
+  const rows = data ?? [];
+  const imageUrls = await resolveProductImageUrls(
+    supabase,
+    rows.map((r) => r.image_file_id).filter(Boolean) as string[],
+  );
+
+  const enriched = rows.map((r) => ({
+    ...r,
+    image_url: r.image_file_id ? (imageUrls.get(r.image_file_id) ?? null) : null,
+  }));
+
+  return NextResponse.json({ data: enriched }, { status: 200 });
 }

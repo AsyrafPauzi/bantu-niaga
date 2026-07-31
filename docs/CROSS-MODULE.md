@@ -124,14 +124,12 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | Marketing coupon → POS checkout | `coupon_code` on checkout · `validateCoupon` / `redeemCoupon` | ✅ |
 | Operations products → POS grid | `GET /api/sales/pos/products` | ✅ |
 | Operations services → POS grid | `GET /api/sales/pos/services` | ✅ |
-| Product stock decrement on sale | `decrementProductStock` at checkout | 🟡 direct · event bus later |
-| Product stock restore on void | `restoreProductStock` on void | 🟡 direct · event bus later |
+| Product stock decrement on sale | `sale.completed` event handler | ✅ |
+| Product stock restore on void | `sale.voided` event handler | ✅ |
 | POS customer search / link | `GET /api/sales/pos/customer-search` · `customer_id` on sale | ✅ |
-| Quote document | Via Finance quotes (not Storage on lead) | 🟡 |
-| POS → Finance txn | `postPosSaleToFinance` on checkout | ✅ |
-| POS void → Finance reversal | Soft-delete linked `finance_transactions` row | ✅ |
-
-> **Deferred (later phase):** `sale.completed` / `sale.voided` event-bus dispatch to Finance and Operations instead of direct writes. See `docs/architecture/cross-pillar-sync.md`.
+| Quote document | Via Finance quotes on lead detail | ✅ |
+| POS → Finance txn | `sale.completed` event handler | ✅ |
+| POS void → Finance reversal | `sale.voided` event handler | ✅ |
 
 ---
 

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { validateCoupon, redeemCoupon } from "@/lib/marketing/coupons";
-import { nextSaleNumber, postPosSaleToFinance } from "@/lib/sales/checkout";
+import { dispatchSaleCompleted } from "@/lib/events/dispatch-sale";
+import type { SaleCompletedPayload } from "@/lib/events/sale-payloads";
+import { nextSaleNumber } from "@/lib/sales/checkout";
 import { canUsePos } from "@/lib/sales/access";
 import { computePosTotals, posCheckoutSchema } from "@/lib/sales/schemas";
-import { decrementProductStock } from "@/lib/sales/stock";
 import { loadBusiness } from "@/lib/settings/business";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
@@ -343,38 +344,6 @@ export async function POST(request: Request) {
     );
   }
 
-  try {
-    const stockLines = lines
-      .filter((l) => l.product_id)
-      .map((l) => ({
-        product_id: l.product_id as string,
-        quantity: l.quantity,
-      }));
-    if (stockLines.length > 0) {
-      await decrementProductStock(supabase, user.businessId, stockLines);
-    }
-  } catch (stockErr) {
-    logger.error("sales.pos.checkout.stock_failed", {
-      businessId: user.businessId,
-      saleId: sale.id,
-      error: stockErr instanceof Error ? stockErr.message : String(stockErr),
-    });
-    await supabase.from("pos_sale_items").delete().eq("sale_id", sale.id);
-    await supabase
-      .from("pos_sales")
-      .delete()
-      .eq("id", sale.id)
-      .eq("business_id", user.businessId);
-    return NextResponse.json(
-      {
-        error: "insufficient_stock",
-        message:
-          stockErr instanceof Error ? stockErr.message : "Stock update failed",
-      },
-      { status: 400 },
-    );
-  }
-
   if (couponCode) {
     try {
       await redeemCoupon({
@@ -396,24 +365,56 @@ export async function POST(request: Request) {
     }
   }
 
+  const eventPayload: SaleCompletedPayload = {
+    sale_id: sale.id as string,
+    sale_number: saleNumber,
+    business_id: user.businessId,
+    cashier_user_id: user.id,
+    customer_id: parsed.customer_id ?? null,
+    customer_name: resolvedCustomerName,
+    total_myr: totals.total_myr,
+    payment_method: parsed.payment_method,
+    completed_at: sale.created_at as string,
+    line_items: lines.map((l) => ({
+      product_id: l.product_id,
+      service_id: l.service_id,
+      product_name: l.product_name,
+      quantity: l.quantity,
+      line_total_myr: l.line_total_myr,
+    })),
+  };
+
   let financeTransactionId: string | null = null;
   try {
-    financeTransactionId = await postPosSaleToFinance({
+    const dispatched = await dispatchSaleCompleted({
       supabase,
-      businessId: user.businessId,
+      payload: eventPayload,
       userId: user.id,
-      saleId: sale.id as string,
-      saleNumber,
-      totalMyr: totals.total_myr,
-      paymentMethod: parsed.payment_method,
-      customerName: resolvedCustomerName,
     });
+    financeTransactionId = dispatched.finance_transaction_id;
   } catch (err) {
-    logger.error("sales.pos.checkout.finance_failed", {
+    const isStock =
+      err instanceof Error && /insufficient stock/i.test(err.message);
+    logger.error("sales.pos.checkout.event_failed", {
       businessId: user.businessId,
       saleId: sale.id,
       error: err instanceof Error ? err.message : String(err),
     });
+    if (isStock) {
+      await supabase.from("pos_sale_items").delete().eq("sale_id", sale.id);
+      await supabase
+        .from("pos_sales")
+        .delete()
+        .eq("id", sale.id)
+        .eq("business_id", user.businessId);
+      return NextResponse.json(
+        {
+          error: "insufficient_stock",
+          message: err instanceof Error ? err.message : "Stock update failed",
+        },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
       {
         data: {
@@ -421,7 +422,7 @@ export async function POST(request: Request) {
           items: lines,
           finance_transaction_id: null,
           finance_warning:
-            "Sale saved but Finance income failed. Check Finance → Transactions.",
+            "Sale saved but cross-pillar sync failed. Check Finance → Transactions.",
         },
       },
       { status: 201 },

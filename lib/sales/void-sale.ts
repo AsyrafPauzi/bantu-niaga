@@ -1,7 +1,8 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { restoreProductStock, type StockLine } from "@/lib/sales/stock";
+import { dispatchSaleVoided } from "@/lib/events/dispatch-sale";
+import type { SaleVoidedPayload } from "@/lib/events/sale-payloads";
 
 export async function voidPosSale(opts: {
   supabase: SupabaseClient;
@@ -13,7 +14,7 @@ export async function voidPosSale(opts: {
   const { data: sale, error: saleErr } = await opts.supabase
     .from("pos_sales")
     .select(
-      "id, sale_number, status, finance_transaction_id, business_id",
+      "id, sale_number, status, finance_transaction_id, business_id, payment_method",
     )
     .eq("id", opts.saleId)
     .eq("business_id", opts.businessId)
@@ -31,13 +32,6 @@ export async function voidPosSale(opts: {
     .select("product_id, quantity")
     .eq("sale_id", opts.saleId)
     .eq("business_id", opts.businessId);
-
-  const stockLines: StockLine[] = (items ?? [])
-    .filter((i) => i.product_id)
-    .map((i) => ({
-      product_id: i.product_id as string,
-      quantity: Number(i.quantity),
-    }));
 
   const now = new Date().toISOString();
 
@@ -57,16 +51,30 @@ export async function voidPosSale(opts: {
     return { ok: false, error: voidErr.message };
   }
 
-  if (sale.finance_transaction_id) {
-    await opts.supabase
-      .from("finance_transactions")
-      .update({ deleted_at: now })
-      .eq("id", sale.finance_transaction_id)
-      .eq("business_id", opts.businessId);
-  }
+  const payload: SaleVoidedPayload = {
+    sale_id: opts.saleId,
+    sale_number: sale.sale_number,
+    business_id: opts.businessId,
+    voided_by_user_id: opts.userId,
+    voided_at: now,
+    finance_transaction_id: sale.finance_transaction_id,
+    line_items: (items ?? []).map((i) => ({
+      product_id: i.product_id,
+      quantity: Number(i.quantity),
+    })),
+  };
 
-  if (stockLines.length > 0) {
-    await restoreProductStock(opts.supabase, opts.businessId, stockLines);
+  try {
+    await dispatchSaleVoided({
+      supabase: opts.supabase,
+      payload,
+      userId: opts.userId,
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "void_dispatch_failed",
+    };
   }
 
   return { ok: true };

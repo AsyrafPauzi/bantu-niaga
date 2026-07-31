@@ -13,6 +13,8 @@ import {
   type LeadStatus,
 } from "@/lib/sales/schemas";
 import { formatMyr } from "@/lib/marketing/metrics";
+import type { LeadQuoteRow } from "@/lib/sales/lead-quotes";
+import { publicQuoteUrl } from "@/lib/sales/lead-quotes";
 import { buildWhatsAppChaseUrl } from "@/lib/sales/whatsapp-chase";
 import { buildPosPrefillUrl } from "@/lib/sales/pos-prefill";
 
@@ -75,11 +77,15 @@ export function LeadDetailClient({
   notes: initialNotes,
   assignees,
   businessName,
+  idcompany,
+  quotes = [],
 }: {
   lead: Lead;
   notes: Note[];
   assignees: Assignee[];
   businessName?: string;
+  idcompany?: string;
+  quotes?: LeadQuoteRow[];
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initial);
@@ -398,6 +404,57 @@ export function LeadDetailClient({
           Save changes
         </button>
       </form>
+
+      <section className="rounded-xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark sm:p-5">
+        <h2 className="text-sm font-bold text-ink dark:text-cream-100">
+          Finance quotes
+        </h2>
+        {quotes.length === 0 ? (
+          <p className="mt-2 text-sm text-ink-muted">
+            No matching quotes.{" "}
+            <Link
+              href="/finance/invoices?kind=quote"
+              className="font-semibold text-brand-700 dark:text-brand-200"
+            >
+              Create quote in Finance
+            </Link>
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {quotes.map((q) => (
+              <li
+                key={q.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cream-200 px-3 py-2 text-sm dark:border-hairline-dark"
+              >
+                <div>
+                  <p className="font-semibold">{q.number}</p>
+                  <p className="text-xs text-ink-muted">
+                    {formatMyr(Number(q.total_myr))} · {q.status}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {idcompany ? (
+                    <a
+                      href={publicQuoteUrl(idcompany, q.share_hash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+                    >
+                      View PDF
+                    </a>
+                  ) : null}
+                  <Link
+                    href={`/finance/invoices/${q.id}`}
+                    className="text-xs font-semibold text-ink-muted hover:text-brand-700"
+                  >
+                    Open in Finance
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="rounded-xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark sm:p-5">
         <AdminStorageFileAttach

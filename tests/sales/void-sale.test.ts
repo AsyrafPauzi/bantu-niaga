@@ -1,11 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { voidPosSale } from "@/lib/sales/void-sale";
+
+const dispatchSaleVoided = vi.fn();
+
+vi.mock("@/lib/events/dispatch-sale", () => ({
+  dispatchSaleVoided: (...args: unknown[]) => dispatchSaleVoided(...args),
+}));
 
 const BIZ = "00000000-0000-0000-0000-000000000aaa";
 const USER = "50000000-0000-4000-8000-000000000005";
 const SALE_ID = "60000000-0000-4000-8000-000000000006";
 const TXN_ID = "70000000-0000-4000-8000-000000000007";
-const PRODUCT_ID = "10000000-0000-4000-8000-000000000001";
 
 type SaleRow = {
   id: string;
@@ -21,8 +26,6 @@ function createVoidMock(opts: {
   saleError?: string;
 }) {
   let saleStatus = opts.sale?.status ?? "completed";
-  let txnDeleted = false;
-  let stockQty = 10;
 
   const supabase = {
     from: (table: string) => {
@@ -68,55 +71,22 @@ function createVoidMock(opts: {
           }),
         };
       }
-      if (table === "finance_transactions") {
-        return {
-          update: () => ({
-            eq: () => ({
-              eq: async () => {
-                txnDeleted = true;
-                return { error: null };
-              },
-            }),
-          }),
-        };
-      }
-      if (table === "operations_products") {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({
-                  data: { id: PRODUCT_ID, stock_qty: stockQty },
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-          update: (patch: { stock_qty: number }) => ({
-            eq: () => ({
-              eq: async () => {
-                stockQty = patch.stock_qty;
-                return { error: null };
-              },
-            }),
-          }),
-        };
-      }
       throw new Error(`unexpected table ${table}`);
     },
-    _txnDeleted: () => txnDeleted,
     _saleStatus: () => saleStatus,
-    _stockQty: () => stockQty,
   };
 
   return supabase as unknown as Parameters<typeof voidPosSale>[0]["supabase"] & {
-    _txnDeleted: () => boolean;
     _saleStatus: () => string;
-    _stockQty: () => number;
   };
 }
 
 describe("voidPosSale", () => {
+  beforeEach(() => {
+    dispatchSaleVoided.mockReset();
+    dispatchSaleVoided.mockResolvedValue(undefined);
+  });
+
   it("returns not_found when sale missing", async () => {
     const supabase = createVoidMock({ sale: null });
     const r = await voidPosSale({
@@ -126,6 +96,7 @@ describe("voidPosSale", () => {
       saleId: SALE_ID,
     });
     expect(r).toEqual({ ok: false, error: "sale_not_found" });
+    expect(dispatchSaleVoided).not.toHaveBeenCalled();
   });
 
   it("returns already_voided for voided sale", async () => {
@@ -145,9 +116,10 @@ describe("voidPosSale", () => {
       saleId: SALE_ID,
     });
     expect(r).toEqual({ ok: false, error: "already_voided" });
+    expect(dispatchSaleVoided).not.toHaveBeenCalled();
   });
 
-  it("voids sale, soft-deletes finance txn, restores stock", async () => {
+  it("voids sale and dispatches sale.voided event", async () => {
     const mock = createVoidMock({
       sale: {
         id: SALE_ID,
@@ -156,7 +128,7 @@ describe("voidPosSale", () => {
         finance_transaction_id: TXN_ID,
         business_id: BIZ,
       },
-      items: [{ product_id: PRODUCT_ID, quantity: 2 }],
+      items: [{ product_id: "10000000-0000-4000-8000-000000000001", quantity: 2 }],
     });
     const r = await voidPosSale({
       supabase: mock,
@@ -167,7 +139,15 @@ describe("voidPosSale", () => {
     });
     expect(r).toEqual({ ok: true });
     expect(mock._saleStatus()).toBe("voided");
-    expect(mock._txnDeleted()).toBe(true);
-    expect(mock._stockQty()).toBe(12);
+    expect(dispatchSaleVoided).toHaveBeenCalledOnce();
+    expect(dispatchSaleVoided).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: USER,
+        payload: expect.objectContaining({
+          sale_id: SALE_ID,
+          finance_transaction_id: TXN_ID,
+        }),
+      }),
+    );
   });
 });

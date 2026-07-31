@@ -57,6 +57,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   const q = param(raw, "q").trim();
   const status = param(raw, "status");
   const followUp = param(raw, "follow_up");
+  const assigned = param(raw, "assigned");
   const mine = param(raw, "mine") === "1";
   const view = param(raw, "view") === "kanban" ? "kanban" : "list";
   const pagination = parsePagination(raw, { defaultPageSize: 20 });
@@ -84,6 +85,10 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   }
   if (mine) {
     query = query.eq("assigned_to", user.id);
+  } else if (assigned === "__unassigned__") {
+    query = query.is("assigned_to", null);
+  } else if (assigned) {
+    query = query.eq("assigned_to", assigned);
   }
 
   if (followUp === "due_today") {
@@ -137,12 +142,14 @@ export default async function LeadsPage({ searchParams }: PageProps) {
       status: overrides.status !== undefined ? overrides.status : status,
       follow_up:
         overrides.follow_up !== undefined ? overrides.follow_up : followUp,
+      assigned: overrides.assigned !== undefined ? overrides.assigned : assigned,
       mine: overrides.mine !== undefined ? overrides.mine : mine ? "1" : "",
       view: overrides.view !== undefined ? overrides.view : view,
     };
     if (next.q) sp.set("q", next.q);
     if (next.status) sp.set("status", next.status);
     if (next.follow_up) sp.set("follow_up", next.follow_up);
+    if (next.assigned) sp.set("assigned", next.assigned);
     if (next.mine === "1") sp.set("mine", "1");
     if (next.view === "kanban") sp.set("view", "kanban");
     const s = sp.toString();
@@ -153,6 +160,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
     q: q || undefined,
     status: status || undefined,
     follow_up: followUp || undefined,
+    assigned: assigned || undefined,
     mine: mine ? "1" : undefined,
   };
 
@@ -271,6 +279,31 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         <FilterChip href={href({ mine: mine ? null : "1" })} active={mine}>
           Mine
         </FilterChip>
+        {assignees.length > 0 ? (
+          <>
+            <FilterChip
+              href={href({
+                assigned: assigned === "__unassigned__" ? null : "__unassigned__",
+                mine: null,
+              })}
+              active={assigned === "__unassigned__"}
+            >
+              Unassigned
+            </FilterChip>
+            {assignees.map((a) => (
+              <FilterChip
+                key={a.user_id}
+                href={href({
+                  assigned: assigned === a.user_id ? null : a.user_id,
+                  mine: null,
+                })}
+                active={assigned === a.user_id}
+              >
+                {a.display_name || a.role}
+              </FilterChip>
+            ))}
+          </>
+        ) : null}
       </div>
 
       {view === "kanban" ? (

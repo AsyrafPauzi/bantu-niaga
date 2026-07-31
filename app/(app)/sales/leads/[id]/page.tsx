@@ -4,6 +4,7 @@ import { SalesSubpageShell } from "@/components/sales/SalesSubpageShell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canUseLeads, LEAD_ASSIGNEE_ROLES } from "@/lib/sales/access";
 import type { LeadChannel, LeadStatus } from "@/lib/sales/schemas";
+import { loadLeadQuotes } from "@/lib/sales/lead-quotes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 import { loadBusiness } from "@/lib/settings/business";
@@ -69,6 +70,11 @@ export default async function LeadDetailPage({ params }: PageProps) {
       : null,
   };
 
+  const quotes = await loadLeadQuotes(supabase, user.businessId, {
+    name: lead.name,
+    phone_e164: lead.phone_e164,
+  });
+
   return (
     <SalesSubpageShell
       headline={lead.name}
@@ -90,6 +96,8 @@ export default async function LeadDetailPage({ params }: PageProps) {
           role: m.role,
         }))}
         businessName={business?.name ?? undefined}
+        idcompany={business?.idcompany ?? ""}
+        quotes={quotes}
       />
     </SalesSubpageShell>
   );

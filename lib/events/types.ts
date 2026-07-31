@@ -32,7 +32,9 @@ export type EventName =
   | "payroll.approved"
   // Admin
   | "task.due_soon"
-  | "compliance.due_soon";
+  | "compliance.due_soon"
+  | "sale.completed"
+  | "sale.voided";
 
 export interface DomainEvent<TPayload = unknown> {
   id: string;
