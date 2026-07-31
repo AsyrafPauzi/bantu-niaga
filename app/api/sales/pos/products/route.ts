@@ -28,7 +28,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("operations_products")
     .select(
-      "id, sku, name, category, price_myr, is_active",
+      "id, sku, name, category, price_myr, is_active, stock_qty, low_stock_threshold",
     )
     .eq("business_id", user.businessId)
     .is("deleted_at", null)

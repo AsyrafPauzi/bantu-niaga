@@ -1,0 +1,323 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, Users } from "lucide-react";
+import { AdminCatalogEmpty } from "@/components/admin/AdminCatalogUi";
+import {
+  AdminOverviewPanel,
+  AdminOverviewRow,
+} from "@/components/admin/AdminOverviewPanel";
+import { StatusPill } from "@/components/dashboard/status-pill";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { formatMyr } from "@/lib/marketing/metrics";
+import {
+  LEAD_STATUSES,
+  type LeadStatus,
+} from "@/lib/sales/schemas";
+import { cn } from "@/lib/utils/cn";
+
+export type LeadListRow = {
+  id: string;
+  name: string;
+  phone_e164: string;
+  status: LeadStatus;
+  follow_up_at: string | null;
+  assigned_to: string | null;
+  estimated_value_myr: number | string | null;
+};
+
+type Assignee = { user_id: string; display_name: string | null; role: string };
+
+const STATUS_TONE: Record<
+  LeadStatus,
+  "neutral" | "brand" | "success" | "warning" | "accent"
+> = {
+  new: "neutral",
+  contacted: "brand",
+  interested: "accent",
+  won: "success",
+  lost: "warning",
+};
+
+const STATUS_LABEL: Record<LeadStatus, string> = {
+  new: "New",
+  contacted: "Contacted",
+  interested: "Interested",
+  won: "Won",
+  lost: "Lost",
+};
+
+interface LeadsListSelectableProps {
+  leads: LeadListRow[];
+  total: number;
+  assigneeNames: Map<string, string>;
+  assignees: Assignee[];
+  overdueBeforeIso: string;
+  pagination: { page: number; pageSize: number };
+  searchParamsForPagination: Record<string, string | undefined>;
+}
+
+function toDateInput(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kuala_Lumpur",
+    }).format(new Date(iso));
+  } catch {
+    return "";
+  }
+}
+
+export function LeadsListSelectable({
+  leads,
+  total,
+  assigneeNames,
+  assignees,
+  overdueBeforeIso,
+  pagination,
+  searchParamsForPagination,
+}: LeadsListSelectableProps) {
+  const router = useRouter();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<LeadStatus | "">("");
+  const [bulkAssignee, setBulkAssignee] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const pageIds = useMemo(() => leads.map((l) => l.id), [leads]);
+  const allOnPageSelected =
+    pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const someSelected = selected.size > 0;
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function togglePage() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) {
+        for (const id of pageIds) next.delete(id);
+      } else {
+        for (const id of pageIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+    setBulkStatus("");
+    setBulkAssignee("");
+    setError(null);
+  }
+
+  async function applyBulk() {
+    const lead_ids = [...selected];
+    if (lead_ids.length === 0) return;
+
+    const body: Record<string, unknown> = { lead_ids };
+    if (bulkStatus) body.status = bulkStatus;
+    if (bulkAssignee === "__unassign__") body.unassign = true;
+    else if (bulkAssignee) body.assigned_to = bulkAssignee;
+
+    if (!body.status && !body.assigned_to && !body.unassign) {
+      setError("Choose a status or assignee to apply.");
+      return;
+    }
+
+    setError(null);
+    try {
+      const res = await fetch("/api/sales/leads/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+        updated?: number;
+      } | null;
+
+      if (!res.ok) {
+        setError(json?.message ?? json?.error ?? `Update failed (${res.status})`);
+        return;
+      }
+
+      startTransition(() => {
+        clearSelection();
+        router.refresh();
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    }
+  }
+
+  if (leads.length === 0) {
+    return (
+      <AdminOverviewPanel title="Leads" subtitle={`${total} total`}>
+        <div className="p-4 sm:p-5">
+          <AdminCatalogEmpty
+            icon={Users}
+            title="No leads yet"
+            hint="Create one to start chasing prospects."
+            className="border-orange-200/80 bg-orange-50/30 dark:border-orange-900/40 dark:bg-orange-950/15"
+          />
+        </div>
+      </AdminOverviewPanel>
+    );
+  }
+
+  return (
+    <AdminOverviewPanel title="Leads" subtitle={`${total} total`}>
+      {someSelected ? (
+        <div className="flex flex-col gap-3 border-b border-brand-200 bg-brand-50/60 px-4 py-3 dark:border-brand-800 dark:bg-brand-900/20 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-brand-900 dark:text-brand-100">
+              {selected.size} selected
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="ml-2 text-xs font-medium text-brand-700 underline-offset-2 hover:underline dark:text-brand-300"
+              >
+                Clear
+              </button>
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-xs">
+              <span className="font-medium text-ink-muted">Status</span>
+              <select
+                value={bulkStatus}
+                onChange={(e) => setBulkStatus(e.target.value as LeadStatus | "")}
+                className="mt-1 block rounded-lg border border-cream-300 px-2 py-1.5 text-sm dark:border-hairline-dark dark:bg-panel-dark"
+              >
+                <option value="">No change</option>
+                {LEAD_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs">
+              <span className="font-medium text-ink-muted">Assignee</span>
+              <select
+                value={bulkAssignee}
+                onChange={(e) => setBulkAssignee(e.target.value)}
+                className="mt-1 block rounded-lg border border-cream-300 px-2 py-1.5 text-sm dark:border-hairline-dark dark:bg-panel-dark"
+              >
+                <option value="">No change</option>
+                <option value="__unassign__">Unassigned</option>
+                {assignees.map((a) => (
+                  <option key={a.user_id} value={a.user_id}>
+                    {a.display_name || a.role}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => void applyBulk()}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+            >
+              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Apply to selected
+            </button>
+          </div>
+          {error ? (
+            <p className="text-xs font-medium text-red-600 dark:text-red-400">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="flex items-center gap-2 border-b border-cream-200 px-4 py-2 dark:border-hairline-dark sm:px-5">
+        <input
+          type="checkbox"
+          checked={allOnPageSelected}
+          onChange={togglePage}
+          aria-label="Select all on this page"
+          className="h-4 w-4 rounded border-cream-300"
+        />
+        <span className="text-xs text-ink-muted">Select page</span>
+      </div>
+
+      <ul>
+        {leads.map((lead) => {
+          const overdue =
+            lead.follow_up_at &&
+            lead.status !== "won" &&
+            lead.status !== "lost" &&
+            new Date(lead.follow_up_at) < new Date(overdueBeforeIso);
+          const checked = selected.has(lead.id);
+          return (
+            <li
+              key={lead.id}
+              className={cn(
+                "flex items-stretch border-b border-cream-100 last:border-0 dark:border-hairline-dark/50",
+                checked && "bg-brand-50/40 dark:bg-brand-900/10",
+              )}
+            >
+              <label className="flex shrink-0 cursor-pointer items-center px-4 sm:px-5">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleOne(lead.id)}
+                  aria-label={`Select ${lead.name}`}
+                  className="h-4 w-4 rounded border-cream-300"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </label>
+              <div className="min-w-0 flex-1">
+                <AdminOverviewRow
+                  href={`/sales/leads/${lead.id}`}
+                  title={lead.name}
+                  subtitle={[
+                    lead.phone_e164,
+                    lead.assigned_to
+                      ? (assigneeNames.get(lead.assigned_to) ?? "Assigned")
+                      : null,
+                    lead.follow_up_at
+                      ? `Follow-up ${toDateInput(lead.follow_up_at)}`
+                      : null,
+                    overdue ? "Overdue" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  badge={
+                    <StatusPill tone={STATUS_TONE[lead.status]}>
+                      {lead.status}
+                    </StatusPill>
+                  }
+                  trailing={
+                    lead.estimated_value_myr != null ? (
+                      <span className="text-sm font-semibold tabular-nums text-ink-muted">
+                        {formatMyr(Number(lead.estimated_value_myr))}
+                      </span>
+                    ) : undefined
+                  }
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <ListPagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={total}
+        basePath="/sales/leads"
+        searchParams={searchParamsForPagination}
+      />
+    </AdminOverviewPanel>
+  );
+}

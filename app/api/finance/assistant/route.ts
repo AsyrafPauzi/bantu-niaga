@@ -10,6 +10,7 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildFinanceAssistantRules } from "@/lib/ai/finance-assistant-prompt";
+import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
 import {
   detectUserLanguage,
   userLanguageInstruction,
@@ -138,7 +139,7 @@ async function runFinanceAssistantChat(
     briefingFor: "finance",
     context: ctx,
     temperature: 0.2,
-    max_tokens: 900,
+    max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
     messages: baseMessages,
     tools: FINANCE_ASSISTANT_TOOLS,
     tool_choice: "auto",
@@ -193,7 +194,7 @@ async function runFinanceAssistantChat(
     model,
     context: ctx,
     temperature: 0.2,
-    max_tokens: 900,
+    max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
     messages: followUpMessages,
     includeBriefing: false,
     tool_choice: "none",

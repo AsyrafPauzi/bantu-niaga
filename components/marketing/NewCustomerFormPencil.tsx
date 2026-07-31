@@ -2,20 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Info, X } from "lucide-react";
+import { Phone, X } from "lucide-react";
 import { MergePromptBanner } from "@/components/marketing/MergePromptBanner";
 import { cn } from "@/lib/utils/cn";
 
-/**
- * Pencil-aligned New Customer form. Two-column rows, section eyebrows,
- * pill-input tags, custom footer. Calls the same
- * POST /api/marketing/customers + merge-prompt logic as the legacy
- * CustomerForm (mode="create").
- */
-
 interface FormState {
   name: string;
-  source: string;
   phone: string;
   email: string;
   address: string;
@@ -27,22 +19,12 @@ interface PromptState {
   existingName: string;
 }
 
-const SOURCES = [
-  { value: "manual", label: "Manual" },
-  { value: "pos", label: "POS" },
-  { value: "booking", label: "Booking" },
-  { value: "lead_conversion", label: "Lead conversion" },
-  { value: "csv_import", label: "CSV import" },
-  { value: "public_booking_page", label: "Public booking page" },
-];
-
-const SUGGESTED_TAGS = ["Halal-conscious", "Bulk buyer", "Walk-in"];
+const SUGGESTED_TAGS = ["Wholesale", "Regular", "Walk-in"];
 
 export function NewCustomerFormPencil() {
   const router = useRouter();
   const [form, setForm] = useState<FormState>({
     name: "",
-    source: "manual",
     phone: "",
     email: "",
     address: "",
@@ -53,7 +35,6 @@ export function NewCustomerFormPencil() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<PromptState | null>(null);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((s) => ({ ...s, [key]: value }));
@@ -68,7 +49,7 @@ export function NewCustomerFormPencil() {
       return;
     }
     if (trimmed.length > 40) {
-      setError("Each tag must be ≤ 40 chars.");
+      setError("Each tag must be 40 characters or fewer.");
       return;
     }
     setTags((s) => [...s, trimmed]);
@@ -93,7 +74,7 @@ export function NewCustomerFormPencil() {
           address: form.address || undefined,
           manual_tags: tags,
           notes: form.notes || undefined,
-          source: form.source,
+          source: "manual",
           force_create: force,
         }),
       });
@@ -117,7 +98,6 @@ export function NewCustomerFormPencil() {
         return { ok: false };
       }
       setPrompt(null);
-      setSavedAt(Date.now());
       return { ok: true, created: body?.customer_id };
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
@@ -141,14 +121,7 @@ export function NewCustomerFormPencil() {
     if (busy) return;
     const result = await submit(false);
     if (result.ok) {
-      setForm({
-        name: "",
-        source: form.source,
-        phone: "",
-        email: "",
-        address: "",
-        notes: "",
-      });
+      setForm({ name: "", phone: "", email: "", address: "", notes: "" });
       setTags([]);
       setTagInput("");
       router.refresh();
@@ -168,13 +141,9 @@ export function NewCustomerFormPencil() {
     }
   }
 
-  const savedAgo = savedAt
-    ? `Auto-saved as draft ${Math.max(1, Math.round((Date.now() - savedAt) / 1000))}s ago`
-    : null;
-
   return (
-    <form onSubmit={handleSave} className="space-y-5">
-      {prompt && (
+    <form onSubmit={handleSave} className="space-y-4">
+      {prompt ? (
         <MergePromptBanner
           existingCustomerId={prompt.existingCustomerId}
           existingName={prompt.existingName}
@@ -182,192 +151,176 @@ export function NewCustomerFormPencil() {
           onKeepSeparate={handleKeepSeparate}
           disabled={busy}
         />
-      )}
+      ) : null}
 
-      <div className="space-y-6 rounded-xl border border-cream-200 bg-white p-6 shadow-card dark:border-hairline-dark dark:bg-panel-dark sm:p-7">
-        {/* BASIC INFO */}
-        <section className="space-y-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-subtle">
-            Basic info
+      <div className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+        <div className="border-b border-cream-200 bg-violet-50/50 px-5 py-3 dark:border-hairline-dark dark:bg-violet-950/20 sm:px-6">
+          <p className="text-sm font-semibold text-ink dark:text-cream-100">
+            Contact details
           </p>
+          <p className="text-xs text-ink-muted dark:text-cream-400">
+            Name is required. Phone helps WhatsApp broadcasts and dedupe.
+          </p>
+        </div>
 
-          {/* Row 1 — Name + Source */}
-          <div className="grid gap-3.5 sm:grid-cols-2">
-            <Field label="Full name" required>
+        <div className="space-y-5 p-5 sm:p-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Full name" required className="sm:col-span-2">
               <input
                 type="text"
                 required
                 autoFocus
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
-                placeholder="e.g. Nur Aishah Binti Rahman"
+                placeholder="e.g. Nur Aishah Rahman"
                 className={inputCx}
               />
             </Field>
-            <Field label="Source">
-              <select
-                value={form.source}
-                onChange={(e) => update("source", e.target.value)}
-                className={inputCx}
-              >
-                {SOURCES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
 
-          {/* Row 2 — Phone + Email */}
-          <div className="grid gap-3.5 sm:grid-cols-2">
             <Field
-              label="Phone (Malaysian)"
-              help="Saved as +60 format · used for WhatsApp & dedupe"
+              label="Phone"
+              help="Malaysian numbers saved as +60 · used for dedupe"
             >
-              <input
-                type="tel"
-                inputMode="tel"
-                value={form.phone}
-                onChange={(e) => update("phone", e.target.value)}
-                placeholder="012-345 6789 or +60123456789"
-                className={inputCx}
-              />
+              <div className="relative">
+                <Phone
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
+                  strokeWidth={2}
+                />
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={form.phone}
+                  onChange={(e) => update("phone", e.target.value)}
+                  placeholder="012-345 6789"
+                  className={cn(inputCx, "pl-10")}
+                />
+              </div>
             </Field>
+
             <Field label="Email">
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => update("email", e.target.value)}
-                placeholder="customer@example.com"
+                placeholder="optional@email.com"
                 className={inputCx}
               />
             </Field>
+
+            <Field label="Address" className="sm:col-span-2">
+              <textarea
+                value={form.address}
+                onChange={(e) => update("address", e.target.value)}
+                placeholder="Street, city, postcode"
+                rows={2}
+                className={cn(inputCx, "resize-y")}
+              />
+            </Field>
           </div>
+        </div>
 
-          {/* Row 3 — Address */}
-          <Field label="Address">
-            <textarea
-              value={form.address}
-              onChange={(e) => update("address", e.target.value)}
-              placeholder="Street, city, state, postcode"
-              rows={2}
-              className={`${inputCx} resize-y`}
-            />
-          </Field>
-        </section>
-
-        {/* TAGS & NOTES */}
-        <section className="space-y-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-subtle">
-            Tags &amp; notes
+        <div className="border-t border-cream-200 bg-cream-50/40 px-5 py-4 dark:border-hairline-dark dark:bg-panel-dark/60 sm:px-6">
+          <p className="mb-4 text-sm font-semibold text-ink dark:text-cream-100">
+            Your labels
           </p>
 
-          <Field
-            label="Manual tags"
-            help="AI auto-tags (VIP, Churn risk, etc.) are applied separately based on order history."
-          >
-            <div
-              className={`${inputCx} flex flex-wrap items-center gap-1.5`}
-              onClick={() =>
-                document.getElementById("new-cust-tag-input")?.focus()
-              }
+          <div className="space-y-4">
+            <Field
+              label="Manual tags"
+              help="Optional — VIP and dormant are computed from purchases, not typed here."
             >
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
-                >
-                  {tag}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeTag(tag);
-                    }}
-                    aria-label={`Remove ${tag}`}
-                    className="rounded-full hover:bg-brand-100 dark:hover:bg-brand-800/40"
-                  >
-                    <X className="h-3 w-3" strokeWidth={2.5} />
-                  </button>
-                </span>
-              ))}
-              <input
-                id="new-cust-tag-input"
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    addTag(tagInput);
-                  } else if (
-                    e.key === "Backspace" &&
-                    tagInput.length === 0 &&
-                    tags.length > 0
-                  ) {
-                    removeTag(tags[tags.length - 1]);
-                  }
-                }}
-                onBlur={() => {
-                  if (tagInput.trim()) addTag(tagInput);
-                }}
-                placeholder={tags.length === 0 ? "Type to add…" : ""}
-                className="min-w-[120px] flex-1 bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100 dark:placeholder:text-cream-400"
-              />
-            </div>
-            {tags.length === 0 ? (
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                <span className="text-ink-subtle">Suggested:</span>
-                {SUGGESTED_TAGS.map((tag) => (
-                  <button
+              <div
+                className={cn(inputCx, "flex min-h-[42px] flex-wrap items-center gap-1.5")}
+                onClick={() =>
+                  document.getElementById("new-cust-tag-input")?.focus()
+                }
+              >
+                {tags.map((tag) => (
+                  <span
                     key={tag}
-                    type="button"
-                    onClick={() => addTag(tag)}
-                    className="inline-flex items-center rounded-full border border-dashed border-cream-300 px-2 py-0.5 text-[11px] text-ink-muted hover:border-brand-300 hover:text-brand-700 dark:border-hairline-dark dark:hover:border-brand-700"
+                    className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-800 dark:bg-violet-900/40 dark:text-violet-200"
                   >
-                    + {tag}
-                  </button>
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeTag(tag);
+                      }}
+                      aria-label={`Remove ${tag}`}
+                      className="rounded-full hover:bg-violet-200/80 dark:hover:bg-violet-800/40"
+                    >
+                      <X className="h-3 w-3" strokeWidth={2.5} />
+                    </button>
+                  </span>
                 ))}
+                <input
+                  id="new-cust-tag-input"
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      addTag(tagInput);
+                    } else if (
+                      e.key === "Backspace" &&
+                      tagInput.length === 0 &&
+                      tags.length > 0
+                    ) {
+                      removeTag(tags[tags.length - 1]);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (tagInput.trim()) addTag(tagInput);
+                  }}
+                  placeholder={tags.length === 0 ? "Type and press Enter…" : ""}
+                  className="min-w-[100px] flex-1 bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100"
+                />
               </div>
-            ) : null}
-          </Field>
+              {tags.length === 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {SUGGESTED_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => addTag(tag)}
+                      className="rounded-full border border-dashed border-violet-300 px-2.5 py-0.5 text-[11px] font-medium text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/30"
+                    >
+                      + {tag}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </Field>
 
-          <Field label="Notes">
-            <textarea
-              value={form.notes}
-              onChange={(e) => update("notes", e.target.value)}
-              rows={4}
-              placeholder="e.g. Prefers delivery before 5pm. Allergic to peanuts."
-              className={`${inputCx} resize-y`}
-            />
-          </Field>
-        </section>
+            <Field label="Notes">
+              <textarea
+                value={form.notes}
+                onChange={(e) => update("notes", e.target.value)}
+                rows={3}
+                placeholder="Preferences, allergies, how they found you…"
+                className={cn(inputCx, "resize-y")}
+              />
+            </Field>
+          </div>
+        </div>
 
         {error ? (
           <p
             role="alert"
-            className="rounded-md bg-[#F8DDD9] px-3 py-2 text-sm text-[#8B2418] dark:bg-[#3A1714] dark:text-[#F0B0A6]"
+            className="mx-5 mb-4 rounded-lg bg-status-danger/10 px-3 py-2 text-sm text-status-danger sm:mx-6"
           >
             {error}
           </p>
         ) : null}
-      </div>
 
-      {/* Footer */}
-      <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
-        <p className="inline-flex min-w-0 items-center gap-1.5 text-xs text-ink-subtle">
-          <Info className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-          <span className="truncate">
-            {savedAgo ?? "Phone or email triggers dedup against your CRM"}
-          </span>
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
+        <div className="flex flex-col gap-3 border-t border-cream-200 px-5 py-4 dark:border-hairline-dark sm:flex-row sm:items-center sm:justify-end sm:px-6">
           <button
             type="button"
             onClick={() => router.push("/marketing/customers")}
             disabled={busy}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+            className="order-3 inline-flex items-center justify-center rounded-xl border border-cream-300 bg-white px-4 py-2.5 text-sm font-semibold text-ink hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 sm:order-1 sm:mr-auto"
           >
             Cancel
           </button>
@@ -375,16 +328,16 @@ export function NewCustomerFormPencil() {
             type="button"
             onClick={handleSaveAndAddAnother}
             disabled={busy || form.name.trim().length === 0}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+            className="inline-flex items-center justify-center rounded-xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-violet-800 hover:bg-violet-50 disabled:opacity-50 dark:border-violet-900/50 dark:bg-panel-dark dark:text-violet-200 dark:hover:bg-violet-950/30"
           >
             Save &amp; add another
           </button>
           <button
             type="submit"
             disabled={busy || form.name.trim().length === 0}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-accent-600 disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-60"
           >
-            {busy ? "Saving…" : "Save & schedule"}
+            {busy ? "Saving…" : "Save customer"}
           </button>
         </div>
       </div>
@@ -393,28 +346,32 @@ export function NewCustomerFormPencil() {
 }
 
 const inputCx =
-  "w-full rounded-lg border border-cream-300 bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-400/40 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:placeholder:text-cream-400";
+  "w-full rounded-xl border border-cream-300 bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-400/30 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
 
 function Field({
   label,
   required,
   help,
   children,
+  className,
 }: {
   label: string;
   required?: boolean;
   help?: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <label className={cn("block space-y-1.5")}>
+    <label className={cn("block space-y-1.5", className)}>
       <span className="block text-[13px] font-semibold text-ink dark:text-cream-100">
         {label}
         {required ? <span className="text-status-danger"> *</span> : null}
       </span>
       {children}
       {help ? (
-        <span className="block text-[11px] text-ink-subtle">{help}</span>
+        <span className="block text-[11px] text-ink-muted dark:text-cream-400">
+          {help}
+        </span>
       ) : null}
     </label>
   );

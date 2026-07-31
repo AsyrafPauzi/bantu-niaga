@@ -3,7 +3,15 @@ import "server-only";
 import { z } from "zod";
 import type { AgentContext } from "@/lib/ai/context/types";
 import { generateCouponCode } from "@/lib/marketing/coupon-code";
+import { getKpiSnapshot } from "@/lib/marketing/dashboard-queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import {
+  EXTRA_ACTION_TOOLS,
+  EXTRA_READ_TOOLS,
+  executeMarketingExtraTool,
+  MARKETING_ASSISTANT_EXTRA_TOOLS,
+} from "@/lib/ai/marketing-assistant-extra-tools";
 
 export const MARKETING_ASSISTANT_TOOLS = [
   {
@@ -134,6 +142,77 @@ export const MARKETING_ASSISTANT_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_marketing_overview",
+      description:
+        "Read CRM KPIs: customer counts, VIP, dormant, at-risk, segments, coupons, content drafts.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "list_customers",
+      description:
+        "List customers, optionally filtered by auto tag (vip, dormant, at-risk, repeat, new) or search name.",
+      parameters: {
+        type: "object",
+        properties: {
+          auto_tag: {
+            type: "string",
+            enum: ["vip", "dormant", "at-risk", "repeat", "new"],
+            description: "Filter by auto-tag.",
+          },
+          search: {
+            type: "string",
+            description: "Partial name search.",
+          },
+          limit: {
+            type: "number",
+            description: "Max rows (default 15, max 30).",
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "list_segments",
+      description: "List customer segments with member counts for broadcast targeting.",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: {
+            type: "number",
+            description: "Max rows (default 20, max 40).",
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "refresh_auto_tags",
+      description:
+        "Recompute VIP, repeat, new, at-risk, and dormant auto-tags from latest purchase data when the user asks to refresh tags.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  ...MARKETING_ASSISTANT_EXTRA_TOOLS,
 ];
 
 const createBroadcastArgsSchema = z.object({
@@ -247,6 +326,10 @@ async function resolveSegmentByName(
   return { kind: "many", names: matches.map((m) => m.name) };
 }
 
+function sanitizeLike(raw: string): string {
+  return raw.replace(/[%_\\]/g, "");
+}
+
 async function resolveCustomerByName(
   businessId: string,
   nameQuery: string,
@@ -256,23 +339,21 @@ async function resolveCustomerByName(
   | { kind: "many"; names: string[] }
 > {
   const supabase = await createSupabaseServerClient();
+  const safe = sanitizeLike(nameQuery);
   const { data, error } = await supabase
     .from("customers")
     .select("id, name, notes, manual_tags")
     .eq("business_id", businessId)
     .is("deleted_at", null)
+    .ilike("name", `%${safe}%`)
     .order("name", { ascending: true })
-    .limit(200);
+    .limit(10);
 
   if (error) {
     throw new Error("Could not load customers.");
   }
 
-  const query = normalizeName(nameQuery);
-  const matches = (data ?? []).filter((row) =>
-    normalizeName(row.name).includes(query),
-  );
-
+  const matches = data ?? [];
   if (matches.length === 0) return { kind: "none" };
   if (matches.length === 1) {
     const row = matches[0];
@@ -590,15 +671,224 @@ const ALLOWED_TOOLS = new Set([
   "create_coupon",
   "create_content_draft",
   "update_customer_note_or_tag",
+  "get_marketing_overview",
+  "list_customers",
+  "list_segments",
+  "refresh_auto_tags",
+  ...EXTRA_READ_TOOLS,
+  ...EXTRA_ACTION_TOOLS,
 ]);
+
+const ACTION_TOOLS = new Set([
+  "create_broadcast_draft",
+  "create_coupon",
+  "create_content_draft",
+  "update_customer_note_or_tag",
+  "refresh_auto_tags",
+  ...EXTRA_ACTION_TOOLS,
+]);
+
+export async function executeGetMarketingOverview(
+  ctx: AgentContext,
+): Promise<Record<string, unknown>> {
+  const supabase = await createSupabaseServerClient();
+  const snapshot = await getKpiSnapshot(supabase, ctx.businessId);
+
+  const [segmentsRes, couponsRes, broadcastsRes, contentRes] = await Promise.all([
+    supabase
+      .from("customer_segments")
+      .select("id, name, member_count, kind")
+      .eq("business_id", ctx.businessId)
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .limit(10),
+    supabase
+      .from("coupons")
+      .select("id, code, status, redeemed_count")
+      .eq("business_id", ctx.businessId)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .limit(10),
+    supabase
+      .from("broadcasts")
+      .select("id, name, status, channel")
+      .eq("business_id", ctx.businessId)
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("content_plan")
+      .select("id, channel, status, hook")
+      .eq("business_id", ctx.businessId)
+      .in("status", ["drafted", "scheduled"])
+      .order("updated_at", { ascending: false })
+      .limit(5),
+  ]);
+
+  return {
+    ok: true,
+    action: "get_marketing_overview",
+    customers: {
+      total: snapshot.totalCustomers,
+      new_mtd: snapshot.newThisMonth,
+      vip: snapshot.vipCount,
+      dormant: snapshot.dormantCount,
+      at_risk: snapshot.atRiskCount,
+      repeat: snapshot.repeatCount,
+      total_spend_myr: snapshot.totalSpendMyr,
+    },
+    segments: segmentsRes.data ?? [],
+    active_coupons: couponsRes.data ?? [],
+    recent_broadcasts: broadcastsRes.data ?? [],
+    content_drafts: contentRes.data ?? [],
+  };
+}
+
+export async function executeListCustomers(
+  ctx: AgentContext,
+  rawArgs: unknown,
+): Promise<Record<string, unknown>> {
+  const parsed = z
+    .object({
+      auto_tag: z
+        .enum(["vip", "dormant", "at-risk", "repeat", "new"])
+        .optional(),
+      search: z.string().trim().min(1).max(80).optional(),
+      limit: z.number().int().min(1).max(30).optional().default(15),
+    })
+    .parse(rawArgs ?? {});
+
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from("customers")
+    .select(
+      "id, name, phone_e164, email, auto_tags, manual_tags, total_spend_myr, order_count, last_purchase_at",
+    )
+    .eq("business_id", ctx.businessId)
+    .is("deleted_at", null)
+    .order("total_spend_myr", { ascending: false })
+    .limit(parsed.limit);
+
+  if (parsed.auto_tag) {
+    query = query.contains("auto_tags", [parsed.auto_tag]);
+  }
+  if (parsed.search) {
+    const safe = sanitizeLike(parsed.search);
+    query = query.ilike("name", `%${safe}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    return { ok: false, action: "list_customers", message: "Could not load customers." };
+  }
+
+  return {
+    ok: true,
+    action: "list_customers",
+    customers: (data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      phone_e164: row.phone_e164,
+      email: row.email,
+      auto_tags: row.auto_tags,
+      manual_tags: row.manual_tags,
+      total_spend_myr: row.total_spend_myr,
+      order_count: row.order_count,
+      last_purchase_at: row.last_purchase_at,
+      href: `/marketing/customers/${row.id}`,
+    })),
+  };
+}
+
+export async function executeListSegments(
+  ctx: AgentContext,
+  rawArgs: unknown,
+): Promise<Record<string, unknown>> {
+  const parsed = z
+    .object({
+      limit: z.number().int().min(1).max(40).optional().default(20),
+    })
+    .parse(rawArgs ?? {});
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("customer_segments")
+    .select("id, name, kind, auto_key, member_count")
+    .eq("business_id", ctx.businessId)
+    .is("deleted_at", null)
+    .order("name", { ascending: true })
+    .limit(parsed.limit);
+
+  if (error) {
+    return { ok: false, action: "list_segments", message: "Could not load segments." };
+  }
+
+  return {
+    ok: true,
+    action: "list_segments",
+    segments: (data ?? []).map((row) => ({
+      ...row,
+      href: `/marketing/segments/${row.id}`,
+    })),
+  };
+}
+
+export async function executeRefreshAutoTags(
+  ctx: AgentContext,
+): Promise<Record<string, unknown>> {
+  const admin = createServiceRoleClient();
+  const { data, error } = await admin.rpc("marketing_apply_auto_tags", {
+    p_business_id: ctx.businessId,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      action: "refresh_auto_tags",
+      message: "Could not refresh auto-tags.",
+    };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  const updated =
+    row && typeof row === "object" && "updated_count" in row
+      ? Number((row as { updated_count: unknown }).updated_count)
+      : null;
+
+  return {
+    ok: true,
+    action: "refresh_auto_tags",
+    updated_count: Number.isFinite(updated) ? updated : null,
+    href: "/marketing/customers",
+  };
+}
 
 export async function executeMarketingAssistantTool(
   ctx: AgentContext,
   name: string,
   rawArgs: unknown,
-): Promise<MarketingToolResult> {
+): Promise<MarketingToolResult | Record<string, unknown>> {
   if (!ALLOWED_TOOLS.has(name)) {
     return { ok: false, action: name, message: "That action is not allowed." };
+  }
+  if (name === "get_marketing_overview") {
+    return executeGetMarketingOverview(ctx);
+  }
+  if (name === "list_customers") {
+    try {
+      return await executeListCustomers(ctx, rawArgs);
+    } catch {
+      return { ok: false, action: "list_customers", message: "Invalid list filters." };
+    }
+  }
+  if (name === "list_segments") {
+    try {
+      return await executeListSegments(ctx, rawArgs);
+    } catch {
+      return { ok: false, action: "list_segments", message: "Invalid segment list request." };
+    }
+  }
+  if (name === "refresh_auto_tags") {
+    return executeRefreshAutoTags(ctx);
   }
   if (name === "create_broadcast_draft") {
     return executeCreateBroadcastDraft(ctx, rawArgs);
@@ -612,6 +902,13 @@ export async function executeMarketingAssistantTool(
   if (name === "update_customer_note_or_tag") {
     return executeUpdateCustomerNoteOrTag(ctx, rawArgs);
   }
+  if (EXTRA_READ_TOOLS.has(name) || EXTRA_ACTION_TOOLS.has(name)) {
+    try {
+      return await executeMarketingExtraTool(ctx, name, rawArgs);
+    } catch {
+      return { ok: false, action: name, message: "Invalid request." };
+    }
+  }
   return { ok: false, action: name, message: "Unknown action." };
 }
 
@@ -622,5 +919,5 @@ export function malaysiaTodayIso(): string {
 }
 
 export function isMarketingActionTool(name: string): boolean {
-  return ALLOWED_TOOLS.has(name);
+  return ACTION_TOOLS.has(name);
 }

@@ -8,6 +8,7 @@ import {
   detectUserLanguage,
   type UserLanguage,
 } from "@/lib/ai/user-language";
+import { pillarClarifierLines } from "@/lib/ai/pillar-clarifier";
 
 export type StaffAssistantKind =
   | "hr"
@@ -201,7 +202,7 @@ function financeClarifierForLanguage(
 }
 
 const MARKETING_PLANNING =
-  /\b(boost\s+sales|increase\s+sales|sales\s+this\s+month|campaign|win[- ]?back|plan\s+(a\s+)?(promo|campaign|month)|bantu\s+jualan|naikkan\s+jualan|kempen|rancang\s+(jualan|promo|bulan))\b/i;
+  /\b(boost\s+sales|increase\s+sales|sales\s+this\s+month|campaign|win[- ]?back|plan\s+(a\s+)?(promo|campaign|month)|bantu\s+jualan|naikkan\s+jualan|kempen|rancang\s+(jualan|promo|bulan)|segment|segmen|coupon|kupon|broadcast|siaran|content\s+calendar|kalendar|caption|post\s+idea|dormant|at[- ]?risk|vip\s+customer)\b/i;
 
 const HR_PLANNING =
   /\b(help\s+(me\s+)?with\s+hr|hr\s+this\s+month|who\s+needs\s+(my\s+)?attention|plan\s+cover|organise\s+(the\s+)?team|bantu\s+(dengan\s+)?hr|hr\s+bulan\s+ini|siapa\s+perlu\s+perhatian|rancang\s+cover|susun\s+pasukan)\b/i;
@@ -304,36 +305,11 @@ export function buildFreeClarifierReply(
               : "Maya");
 
   if (kind === "admin") {
-    if (bm) {
-      return [
-        `Saya **${name}**, staf Admin anda.`,
-        "",
-        `**${header}:**`,
-        "",
-        "1. Matlamat — selesaikan tugas terbuka, kejar pembaharuan lesen, atau susun storan dokumen?",
-        "2. Tempoh — hari ini, minggu ini, atau bulan ini?",
-        "3. Fokus — tugas, pematuhan, atau dokumen?",
-        "4. Keutamaan — lesen tertunggak atau kemas rutin?",
-        "",
-        "Jawab dalam satu mesej — atau tulis **anda decide**.",
-        "",
-        freeNote,
-      ].join("\n");
-    }
-    return [
-      `I'm **${name}**, your Admin staff.`,
-      "",
-      `**${header}:**`,
-      "",
-      "1. Goal — clear open tasks, chase licence renewals, or organise document storage?",
-      "2. Timeframe — today, this week, or this month?",
-      "3. Focus — tasks, compliance, or documents?",
-      "4. Priority — overdue renewals or routine tidy-up?",
-      "",
-      "Reply in one message — or say **you decide**.",
-      "",
-      freeNote,
-    ].join("\n");
+    return pillarClarifierLines(
+      "admin",
+      detectUserLanguage(userMessage),
+      name,
+    ).join("\n");
   }
 
   if (kind === "finance") {
@@ -410,36 +386,11 @@ export function buildFreeClarifierReply(
   }
 
   if (kind === "marketing") {
-    if (bm) {
-      return [
-        `Saya **${name}**, staf Marketing anda.`,
-        "",
-        `**${header}:**`,
-        "",
-        "1. Matlamat utama — lebih pelanggan, habiskan stok lambat, atau naikkan nilai beli?",
-        "2. Diskauan maksimum yang anda benarkan (contoh 10%)?",
-        "3. Fokus produk/kategori, atau biar saya pilih dari jualan & stok?",
-        "4. Sasaran — dormant, VIP, semua, atau segmen tertentu? Saluran — WhatsApp, email, atau kandungan sosial?",
-        "",
-        "Jawab dalam satu mesej — atau tulis **anda decide**.",
-        "",
-        freeNote,
-      ].join("\n");
-    }
-    return [
-      `I'm **${name}**, your Marketing staff.`,
-      "",
-      `**${header}:**`,
-      "",
-      "1. Main goal — more customers, clear slow stock, or higher ticket size?",
-      "2. What's the **max discount %** you'll allow?",
-      "3. Any product/category to push, or should I choose from sales & catalog?",
-      "4. Audience — dormant, VIP, everyone, or a segment? Channel — WhatsApp, email, or social content?",
-      "",
-      "Reply in one message — or say **you decide**.",
-      "",
-      freeNote,
-    ].join("\n");
+    return pillarClarifierLines(
+      "marketing",
+      detectUserLanguage(userMessage),
+      name,
+    ).join("\n");
   }
 
   if (bm) {

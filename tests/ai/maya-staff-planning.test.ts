@@ -13,13 +13,19 @@ describe("Maya staff planning prompt", () => {
     });
     expect(rules).toContain("STAFF PLANNING FLOW");
     expect(rules).toContain("clarifying questions FIRST");
+    expect(rules).toContain("ASK BEFORE YOU ACT");
+    expect(rules).toContain("under 120 words");
     expect(rules).toContain("COMMERCE");
     expect(rules).toContain("Max discount");
     expect(rules).toContain("Kedai Demo");
   });
 
-  it("offers a boost-sales suggestion chip", () => {
+  it("offers module-aware suggestion chips", () => {
     expect(MARKETING_ASSISTANT_SUGGESTIONS.some((s) => /boost sales/i.test(s)))
+      .toBe(true);
+    expect(MARKETING_ASSISTANT_SUGGESTIONS.some((s) => /segment/i.test(s)))
+      .toBe(true);
+    expect(MARKETING_ASSISTANT_SUGGESTIONS.some((s) => /content calendar/i.test(s)))
       .toBe(true);
   });
 });

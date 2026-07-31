@@ -10,6 +10,7 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildOperationsAssistantRules } from "@/lib/ai/operations-assistant-prompt";
+import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
 import {
   buildOperationsOutOfScopeReply,
   detectOperationsAssistantOutOfScope,
@@ -138,7 +139,7 @@ async function runOperationsAssistantChat(
     briefingFor: "operations",
     context: ctx,
     temperature: 0.2,
-    max_tokens: 900,
+    max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
     messages: baseMessages,
     tools: OPERATIONS_ASSISTANT_TOOLS,
     tool_choice: "auto",
@@ -193,7 +194,7 @@ async function runOperationsAssistantChat(
     model,
     context: ctx,
     temperature: 0.2,
-    max_tokens: 900,
+    max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
     messages: followUpMessages,
     includeBriefing: false,
     tool_choice: "none",

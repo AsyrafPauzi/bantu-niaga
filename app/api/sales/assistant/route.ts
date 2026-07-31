@@ -10,6 +10,11 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildSalesAssistantRules } from "@/lib/ai/sales-assistant-prompt";
+import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
+import {
+  detectUserLanguage,
+  userLanguageInstruction,
+} from "@/lib/ai/user-language";
 import {
   SALES_ASSISTANT_TOOLS,
   executeSalesAssistantTool,
@@ -25,7 +30,7 @@ import {
 } from "@/lib/ai/openai";
 import { resolveAgentModel } from "@/lib/settings/ai-agents-catalog";
 import { recordAiUsage } from "@/lib/ai/usage";
-import { canUseLeads } from "@/lib/sales/access";
+import { canUseSalesAssistant } from "@/lib/sales/access";
 import { SALES_AGENT_SLUG } from "@/lib/marketplace/agent-types";
 import {
   actionTopUpCreditsForReasoning,
@@ -56,7 +61,7 @@ const sufiAssistantSchema = z.object({
 async function requireSalesUser() {
   try {
     const user = await getCurrentUser();
-    if (!canUseLeads(user.role)) {
+    if (!canUseSalesAssistant(user.role)) {
       return {
         user: null,
         response: NextResponse.json(
@@ -98,6 +103,7 @@ async function runSufiAssistantChat(
     reasoningMode: settings.reasoningMode,
     modelOverride: settings.modelOverride,
   });
+  const lang = detectUserLanguage(userMessage);
   const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
@@ -106,6 +112,7 @@ async function runSufiAssistantChat(
           displayName,
           businessName: businessName ?? undefined,
           todayIso: malaysiaTodayIso(),
+          userLanguageInstruction: userLanguageInstruction(lang),
         }) +
         "\n\nDATA PACKET — SALES (leads + POS today):\n" +
         salesPacketText,
@@ -122,6 +129,7 @@ async function runSufiAssistantChat(
     briefingFor: "sales",
     context: ctx,
     temperature: 0.2,
+    max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
     messages: baseMessages,
     tools: SALES_ASSISTANT_TOOLS,
     tool_choice: "auto",
@@ -176,6 +184,7 @@ async function runSufiAssistantChat(
     model,
     context: ctx,
     temperature: 0.2,
+    max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
     messages: followUpMessages,
     includeBriefing: false,
     tool_choice: "none",

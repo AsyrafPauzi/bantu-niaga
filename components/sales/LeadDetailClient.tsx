@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageCircle } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import {
@@ -13,6 +13,8 @@ import {
   type LeadStatus,
 } from "@/lib/sales/schemas";
 import { formatMyr } from "@/lib/marketing/metrics";
+import { buildWhatsAppChaseUrl } from "@/lib/sales/whatsapp-chase";
+import { buildPosPrefillUrl } from "@/lib/sales/pos-prefill";
 
 type Lead = {
   id: string;
@@ -72,10 +74,12 @@ export function LeadDetailClient({
   lead: initial,
   notes: initialNotes,
   assignees,
+  businessName,
 }: {
   lead: Lead;
   notes: Note[];
   assignees: Assignee[];
+  businessName?: string;
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initial);
@@ -231,12 +235,47 @@ export function LeadDetailClient({
             Open customer
           </Link>
           <Link
-            href="/sales/pos"
+            href={buildPosPrefillUrl({
+              customerId: lead.customer_id,
+              customerName: lead.name,
+            })}
             className="font-semibold text-brand-700 dark:text-brand-200"
           >
-            Open POS
+            Ring up at POS
           </Link>
         </div>
+      ) : status !== "lost" ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-cream-200 bg-cream-50/60 px-4 py-3 text-sm dark:border-hairline-dark dark:bg-panel-dark/50">
+          <Link
+            href={buildPosPrefillUrl({
+              leadId: lead.id,
+              leadName: name.trim() || lead.name,
+              leadPhone: phone.trim() || lead.phone_e164,
+            })}
+            className="font-semibold text-brand-700 dark:text-brand-200"
+          >
+            Ring up at POS
+          </Link>
+          <span className="text-xs text-ink-muted">
+            Pre-fills name on checkout — convert to customer after the sale if needed.
+          </span>
+        </div>
+      ) : null}
+
+      {status !== "won" && status !== "lost" && phone.trim() ? (
+        <a
+          href={buildWhatsAppChaseUrl({
+            phoneE164: phone.trim(),
+            leadName: name.trim() || lead.name,
+            businessName,
+          })}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Draft WhatsApp chase
+        </a>
       ) : null}
 
       <form onSubmit={save} className="space-y-4 rounded-xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark sm:p-5">

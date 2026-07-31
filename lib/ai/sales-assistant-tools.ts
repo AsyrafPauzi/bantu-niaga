@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import type { AgentContext } from "@/lib/ai/context/types";
+import { buildSalesSnapshot } from "@/lib/ai/context/sales";
 import { normalizeMyPhone } from "@/lib/marketing/phone";
 import {
   assertLeadAssignee,
@@ -10,6 +11,8 @@ import {
 import {
   LEAD_CHANNELS,
   LEAD_STATUSES,
+  malaysiaDayBounds,
+  malaysiaTodayYmd,
   normalizeFollowUpAt,
 } from "@/lib/sales/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -21,6 +24,55 @@ export function malaysiaTodayIso(): string {
 }
 
 export const SALES_ASSISTANT_TOOLS = [
+  {
+    type: "function" as const,
+    function: {
+      name: "get_sales_overview",
+      description:
+        "Read today's POS summary, open leads, overdue follow-ups, and pipeline counts.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "list_leads",
+      description:
+        "List leads filtered by status, follow-up urgency, or search text.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: [...LEAD_STATUSES] },
+          follow_up: {
+            type: "string",
+            enum: ["overdue", "due_today"],
+          },
+          q: { type: "string", description: "Search name or phone" },
+          limit: { type: "number", minimum: 1, maximum: 20 },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_lead_detail",
+      description: "Get one lead by id or partial name match.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string" },
+          lead_name: { type: "string" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
   {
     type: "function" as const,
     function: {
@@ -159,6 +211,18 @@ const convertSchema = z.object({
   lead_id: z.string().uuid().optional(),
 });
 
+const listLeadsSchema = z.object({
+  status: z.enum(LEAD_STATUSES).optional(),
+  follow_up: z.enum(["overdue", "due_today"]).optional(),
+  q: z.string().trim().max(80).optional(),
+  limit: z.number().int().min(1).max(20).optional().default(10),
+});
+
+const getLeadDetailSchema = z.object({
+  lead_id: z.string().uuid().optional(),
+  lead_name: z.string().trim().min(1).max(200).optional(),
+});
+
 async function findLead(
   businessId: string,
   opts: { lead_id?: string; lead_name?: string },
@@ -200,6 +264,95 @@ export async function executeSalesAssistantTool(
   const supabase = await createSupabaseServerClient();
 
   try {
+    if (name === "get_sales_overview") {
+      const snapshot = await buildSalesSnapshot(ctx, supabase);
+      return {
+        ok: true,
+        headline: snapshot.headline,
+        kpis: snapshot.kpis,
+        attention: snapshot.attention,
+        recent: snapshot.recent,
+      };
+    }
+
+    if (name === "list_leads") {
+      const parsed = listLeadsSchema.parse(args);
+      const { dayStartIso, dayEndIso } = malaysiaDayBounds(malaysiaTodayYmd());
+      let query = supabase
+        .from("sales_leads")
+        .select(
+          "id, name, phone_e164, status, follow_up_at, estimated_value_myr, channel",
+        )
+        .eq("business_id", ctx.businessId)
+        .order("updated_at", { ascending: false })
+        .limit(parsed.limit);
+
+      if (parsed.status) query = query.eq("status", parsed.status);
+      if (parsed.follow_up === "due_today") {
+        query = query
+          .gte("follow_up_at", dayStartIso)
+          .lt("follow_up_at", dayEndIso);
+      } else if (parsed.follow_up === "overdue") {
+        query = query
+          .not("follow_up_at", "is", null)
+          .lt("follow_up_at", dayStartIso)
+          .not("status", "in", "(won,lost)");
+      }
+      if (parsed.q) {
+        const safe = parsed.q.replace(/[%_,]/g, "");
+        if (safe) {
+          query = query.or(`name.ilike.%${safe}%,phone_e164.ilike.%${safe}%`);
+        }
+      }
+
+      const { data, error } = await query;
+      if (error) return { ok: false, error: error.message };
+      return {
+        ok: true,
+        leads: (data ?? []).map((l) => ({
+          ...l,
+          href: `/sales/leads/${l.id}`,
+        })),
+      };
+    }
+
+    if (name === "get_lead_detail") {
+      const parsed = getLeadDetailSchema.parse(args);
+      if (!parsed.lead_id && !parsed.lead_name) {
+        return { ok: false, error: "lead_name_or_id_required" };
+      }
+      const found = await findLead(ctx.businessId, parsed);
+      if (!found) return { ok: false, error: "lead_not_found" };
+      if ("ambiguous" in found && found.ambiguous) {
+        return { ok: false, error: "ambiguous_lead", matches: found.matches };
+      }
+      const leadId = (found as { id: string }).id;
+      const { data: lead, error } = await supabase
+        .from("sales_leads")
+        .select(
+          "id, name, phone_e164, channel, interest, estimated_value_myr, status, follow_up_at, assigned_to, customer_id, lost_reason",
+        )
+        .eq("id", leadId)
+        .eq("business_id", ctx.businessId)
+        .single();
+      if (error || !lead) {
+        return { ok: false, error: error?.message ?? "lead_not_found" };
+      }
+      const { data: notes } = await supabase
+        .from("sales_lead_notes")
+        .select("body, created_at")
+        .eq("lead_id", leadId)
+        .eq("business_id", ctx.businessId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      return {
+        ok: true,
+        lead,
+        notes: notes ?? [],
+        href: `/sales/leads/${leadId}`,
+      };
+    }
+
     if (name === "create_lead") {
       const parsed = createLeadSchema.parse(args);
       const phone = normalizeMyPhone(parsed.phone);

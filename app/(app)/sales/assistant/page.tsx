@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { SufiAssistantChat } from "@/components/sales/SufiAssistantChat";
+import { SalesBackLink } from "@/components/sales/SalesBackLink";
 import { SufiAssistantShell } from "@/components/sales/layout/sufi-assistant-shell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
-import { canUseLeads } from "@/lib/sales/access";
+import { canUseSalesAssistant } from "@/lib/sales/access";
 import {
   getCreditBalance,
   hasSalesAssistantAddon,
@@ -24,7 +25,7 @@ export default async function SalesAssistantPage() {
     throw error;
   }
 
-  if (!canUseLeads(user.role)) {
+  if (!canUseSalesAssistant(user.role)) {
     redirect("/sales");
   }
 
@@ -43,7 +44,8 @@ export default async function SalesAssistantPage() {
     <SufiAssistantShell
       header={
         <div className="shrink-0 border-b border-[#E5E0D8] px-4 py-4 dark:border-hairline-dark lg:px-8">
-          <h1 className="text-lg font-bold text-ink dark:text-cream-100">
+          <SalesBackLink />
+          <h1 className="mt-2 text-lg font-bold text-ink dark:text-cream-100">
             {settings.displayName} · Sales AI
           </h1>
           <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">

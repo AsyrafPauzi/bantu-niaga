@@ -15,7 +15,7 @@
 | **Admin Storage** | ✅ Tasks, Compliance | ✅ Expense receipts | ✅ Suppliers, Orders | ✅ Leads | — Bridge link only | ✅ Employee docs | ✅ Quota tier | ✅ Snapshot |
 | **Finance** | ⬜ Invoice docs | — | ⬜ PO → expense | ✅ POS → txn | ✅ Customers | — | ✅ Billing | ✅ Snapshot |
 | **Operations** | ✅ File attach | ⬜ Order → expense | — | ⬜ Order → lead | — | — | — | ✅ Snapshot |
-| **Sales** | ✅ Lead file | ✅ Quote → invoice | — | — | ✅ Lead → customer | — | — | ✅ Snapshot |
+| **Sales** | ✅ Lead file | ✅ POS → txn · void | ✅ Catalog · stock | — | ✅ Lead → customer · coupon · POS link | — | — | ✅ Snapshot |
 | **Marketing** | — Separate bucket | — | — | ✅ Convert lead | — | — | — | ✅ Snapshot |
 | **HR** | ✅ Docs vault | — | — | — | — | — | ✅ Team roles | ✅ Snapshot |
 
@@ -104,7 +104,9 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 |------------|-----|--------|
 | Order → supplier | `operations_orders.supplier_id` | ✅ |
 | Supplier / order → Storage doc | `admin_file_id` | ✅ |
-| Product stock → POS | `operations_products` | ✅ |
+| Product stock → POS | `operations_products` catalog + `stock_qty` | ✅ |
+| Service catalog → POS | `operations_services` | ✅ |
+| Stock decrement on sale / restore on void | `lib/sales/stock.ts` (direct, not event bus) | 🟡 |
 | Booking → calendar | `operations_bookings` | ✅ |
 | Order amount → Finance expense | — | ⬜ |
 | Low stock → Amir / Aiman alert | Partial via AI context | 🟡 |
@@ -117,9 +119,19 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 |------------|-----|--------|
 | Lead → Storage proposal | `sales_leads.admin_file_id` | ✅ |
 | Lead won → Marketing customer | `POST /api/sales/leads/[id]/convert` | ✅ |
-| Lead → POS | Link from lead detail | ✅ |
+| Lead → POS (post-convert) | Lead detail → `/sales/pos?customer_id=…` | ✅ |
+| Marketing customer → POS | Customer detail → Ring up at POS | ✅ |
+| Marketing coupon → POS checkout | `coupon_code` on checkout · `validateCoupon` / `redeemCoupon` | ✅ |
+| Operations products → POS grid | `GET /api/sales/pos/products` | ✅ |
+| Operations services → POS grid | `GET /api/sales/pos/services` | ✅ |
+| Product stock decrement on sale | `decrementProductStock` at checkout | 🟡 direct · event bus later |
+| Product stock restore on void | `restoreProductStock` on void | 🟡 direct · event bus later |
+| POS customer search / link | `GET /api/sales/pos/customer-search` · `customer_id` on sale | ✅ |
 | Quote document | Via Finance quotes (not Storage on lead) | 🟡 |
-| POS → Finance txn | Checkout pipeline | ✅ |
+| POS → Finance txn | `postPosSaleToFinance` on checkout | ✅ |
+| POS void → Finance reversal | Soft-delete linked `finance_transactions` row | ✅ |
+
+> **Deferred (later phase):** `sale.completed` / `sale.voided` event-bus dispatch to Finance and Operations instead of direct writes. See `docs/architecture/cross-pillar-sync.md`.
 
 ---
 
@@ -130,6 +142,8 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | Content media bucket | Separate from `admin_files` | — |
 | Storage → Marketing bridge copy | Admin Storage panel | ✅ |
 | Lead convert → customer | Sales → `/marketing/customers/{id}` | ✅ |
+| Coupon redeem at POS | Sales checkout → `coupons` table | ✅ |
+| Customer → POS deep link | Marketing customer detail → `/sales/pos` | ✅ |
 | Broadcast → customer segments | Marketing core | ✅ |
 | Campaign asset in Admin Storage | Not planned | — |
 
@@ -180,6 +194,7 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | `20260730161220_admin_files_tags.sql` | Storage tags |
 | `20260730162942_admin_tasks_file_attachment.sql` | Tasks ↔ Storage |
 | `20260730280000_cross_pillar_admin_file_links.sql` | Finance, Ops, Sales ↔ Storage |
+| `20260731120000_sales_core_enhancements.sql` | POS void, coupon linkage, service line items |
 
 Apply on remote: `npx supabase db push`
 

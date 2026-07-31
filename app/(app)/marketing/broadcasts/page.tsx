@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Mail, MessageCircle, Plus, Send } from "lucide-react";
+import { Mail, MessageCircle, Plus, Send } from "lucide-react";
+import { MarketingSubpageShell } from "@/components/marketing/MarketingSubpageShell";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
-import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import {
   getCurrentUser,
@@ -11,6 +12,7 @@ import {
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { BroadcastRow } from "@/lib/marketing/broadcasts";
+import { broadcastsSubpageHero } from "@/lib/marketing/subpage-hero";
 
 export const metadata = { title: "Broadcasts" };
 export const dynamic = "force-dynamic";
@@ -80,31 +82,57 @@ export default async function MarketingBroadcastsPage() {
     .order("created_at", { ascending: false });
 
   const rows = (dataRaw ?? []) as unknown as ListRow[];
+  const draftCount = rows.filter((r) => r.status === "draft").length;
+  const sentCount = rows.filter(
+    (r) => r.status === "sent" || r.status === "partially_sent",
+  ).length;
+  const hero = broadcastsSubpageHero({
+    total: rows.length,
+    draftCount,
+    sentCount,
+  });
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/marketing"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
-        Back to Marketing
-      </Link>
+    <MarketingSubpageShell
+      headline={hero.headline}
+      subcopy={hero.subcopy}
+      variant={hero.variant}
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="Total"
+            value={rows.length}
+            iconClassName="text-violet-700 dark:text-violet-300"
+          />
+          <ModuleHeroStat
+            label="Drafts"
+            value={draftCount}
+            iconClassName="text-sky-700 dark:text-sky-300"
+          />
+          <ModuleHeroStat
+            label="Sent"
+            value={sentCount}
+            iconClassName="text-emerald-700 dark:text-emerald-300"
+          />
+          <ModuleHeroStat
+            label="Recipients"
+            value={rows.reduce((n, r) => n + (r.total_recipients ?? 0), 0)}
+            iconClassName="text-amber-700 dark:text-amber-300"
+          />
+        </div>
+      }
+    >
+      <div className="flex justify-end">
+        <Link
+          href="/marketing/broadcasts/new"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-brand-600"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.25} />
+          New broadcast
+        </Link>
+      </div>
 
-      <PageHeader
-        eyebrow="Marketing"
-        title="Broadcasts"
-        description="WhatsApp click-to-chat and email blasts to any customer segment. Compose, preview, send."
-        action={
-          <Link
-            href="/marketing/broadcasts/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-600 active:bg-accent-700"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.25} />
-            New broadcast
-          </Link>
-        }
-      />
+      <div className="space-y-4">
 
       {error ? (
         <Card>
@@ -206,6 +234,7 @@ export default async function MarketingBroadcastsPage() {
           </tbody>
         </table>
       </Card>
-    </div>
+      </div>
+    </MarketingSubpageShell>
   );
 }

@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { buildMayaCommerceContext } from "@/lib/ai/maya-commerce-context";
+import { getKpiSnapshot } from "@/lib/marketing/dashboard-queries";
 import { createAgentScopedClient, verifyRows } from "./client";
 import type {
   AgentContext,
@@ -23,15 +24,18 @@ export async function buildMarketingSnapshot(
 ): Promise<PillarSnapshot> {
   const supabase = client ?? (await createAgentScopedClient(ctx));
 
-  const customersRes = await supabase
-    .from("customers")
-    .select(
-      "id, business_id, name, total_spend_myr, order_count, last_purchase_at, manual_tags, auto_tags, created_at",
-    )
-    .eq("business_id", ctx.businessId)
-    .is("deleted_at", null)
-    .order("last_purchase_at", { ascending: false, nullsFirst: false })
-    .limit(50);
+  const [kpiSnapshot, customersRes] = await Promise.all([
+    getKpiSnapshot(supabase, ctx.businessId),
+    supabase
+      .from("customers")
+      .select(
+        "id, business_id, name, total_spend_myr, order_count, last_purchase_at, manual_tags, auto_tags, created_at",
+      )
+      .eq("business_id", ctx.businessId)
+      .is("deleted_at", null)
+      .order("last_purchase_at", { ascending: false, nullsFirst: false })
+      .limit(50),
+  ]);
   const customers = verifyRows(customersRes, ctx, "customers");
 
   const contentRes = await supabase
@@ -83,24 +87,12 @@ export async function buildMarketingSnapshot(
     /* table missing or RLS denied — degrade gracefully */
   }
 
-  const totalSpend = customers.reduce(
-    (acc, c) => acc + Number(c.total_spend_myr ?? 0),
-    0,
-  );
-  const averageSpend = customers.length ? totalSpend / customers.length : 0;
-
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const dormant7d = customers.filter((c) => {
-    const last = c.last_purchase_at
-      ? new Date(c.last_purchase_at as string).getTime()
-      : 0;
-    return last > 0 && last < sevenDaysAgo;
-  }).length;
-
-  const vipCount = customers.filter((c) => {
-    const auto = Array.isArray(c.auto_tags) ? c.auto_tags : [];
-    return auto.includes("vip");
-  }).length;
+  const totalSpend = kpiSnapshot.totalSpendMyr;
+  const averageSpend = kpiSnapshot.totalCustomers
+    ? totalSpend / kpiSnapshot.totalCustomers
+    : 0;
+  const vipCount = kpiSnapshot.vipCount;
+  const dormantCount = kpiSnapshot.dormantCount;
 
   const postsScheduled = content.filter((p) => p.status === "scheduled").length;
   const postsPosted = content.filter((p) => p.status === "posted").length;
@@ -151,10 +143,10 @@ export async function buildMarketingSnapshot(
       severity: "high",
     });
   }
-  if (dormant7d >= Math.max(3, Math.floor(customers.length * 0.4))) {
+  if (dormantCount >= Math.max(3, Math.floor(kpiSnapshot.totalCustomers * 0.2))) {
     attention.push({
       id: "dormant_pile",
-      label: `${dormant7d} customer(s) haven't purchased in 7+ days — reactivation campaign candidate.`,
+      label: `${dormantCount} dormant customer(s) — reactivation campaign candidate.`,
       severity: "medium",
     });
   }
@@ -193,7 +185,7 @@ export async function buildMarketingSnapshot(
     businessId: ctx.businessId,
     generatedAt: new Date().toISOString(),
     available: true,
-    headline: `Marketing snapshot: ${customers.length} customers, ${segments.length} segments, ${coupons.length} active coupons, ${content.length} content rows${
+    headline: `Marketing snapshot: ${kpiSnapshot.totalCustomers} customers, ${segments.length} segments, ${coupons.length} active coupons, ${content.length} content rows${
       commerce
         ? `, sales MTD RM ${commerce.combinedMtdMyr.toFixed(0)}`
         : ""
@@ -201,8 +193,8 @@ export async function buildMarketingSnapshot(
     kpis: [
       {
         key: "customers_total",
-        label: "Customers (visible)",
-        value: customers.length,
+        label: "Customers (total)",
+        value: kpiSnapshot.totalCustomers,
       },
       {
         key: "avg_spend",
@@ -217,7 +209,12 @@ export async function buildMarketingSnapshot(
         unit: "MYR",
       },
       { key: "vip_count", label: "VIP (auto-tag)", value: vipCount },
-      { key: "dormant_7d", label: "Dormant > 7 days", value: dormant7d },
+      { key: "dormant_count", label: "Dormant (auto-tag)", value: dormantCount },
+      {
+        key: "at_risk_count",
+        label: "At-risk (auto-tag)",
+        value: kpiSnapshot.atRiskCount,
+      },
       { key: "segments_total", label: "Segments", value: segments.length },
       { key: "coupons_active", label: "Active coupons", value: coupons.length },
       {

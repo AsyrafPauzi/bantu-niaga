@@ -1,13 +1,12 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { PageHeader } from "@/components/dashboard/page-header";
 import { LeadDetailClient } from "@/components/sales/LeadDetailClient";
+import { SalesSubpageShell } from "@/components/sales/SalesSubpageShell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canUseLeads, LEAD_ASSIGNEE_ROLES } from "@/lib/sales/access";
 import type { LeadChannel, LeadStatus } from "@/lib/sales/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadAdminFileNames } from "@/lib/admin/validate-admin-file";
+import { loadBusiness } from "@/lib/settings/business";
 
 export const metadata = { title: "Lead" };
 export const dynamic = "force-dynamic";
@@ -30,7 +29,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
 
-  const [leadRes, notesRes, membersRes] = await Promise.all([
+  const [leadRes, notesRes, membersRes, business] = await Promise.all([
     supabase
       .from("sales_leads")
       .select(
@@ -50,6 +49,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
       .select("user_id, display_name, role")
       .eq("business_id", user.businessId)
       .in("role", LEAD_ASSIGNEE_ROLES),
+    loadBusiness(user.businessId),
   ]);
 
   if (!leadRes.data) notFound();
@@ -70,21 +70,17 @@ export default async function LeadDetailPage({ params }: PageProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/sales/leads"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        All leads
-      </Link>
-
-      <PageHeader
-        eyebrow="Sales · Lead"
-        title={lead.name}
-        description={lead.phone_e164}
-      />
-
+    <SalesSubpageShell
+      headline={lead.name}
+      subcopy={lead.phone_e164}
+      variant={
+        lead.status === "won"
+          ? "calm"
+          : lead.status === "lost"
+            ? "attention"
+            : "sales"
+      }
+    >
       <LeadDetailClient
         lead={lead}
         notes={notesRes.data ?? []}
@@ -93,7 +89,8 @@ export default async function LeadDetailPage({ params }: PageProps) {
           display_name: m.display_name,
           role: m.role,
         }))}
+        businessName={business?.name ?? undefined}
       />
-    </div>
+    </SalesSubpageShell>
   );
 }

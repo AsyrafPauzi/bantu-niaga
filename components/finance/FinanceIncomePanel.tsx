@@ -7,7 +7,6 @@ import {
   ChevronDown,
   HandCoins,
   Landmark,
-  Loader2,
   PiggyBank,
   RotateCcw,
   ShoppingBag,
@@ -17,6 +16,12 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { FinanceTxnCompactList } from "@/components/finance/FinanceTxnCompactList";
+import { FinanceTxnDocumentField } from "@/components/finance/FinanceTxnDocumentField";
+import { useStagedReceipt } from "@/components/finance/use-staged-receipt";
+import {
+  QuickCreateActions,
+  QuickCreatePanel,
+} from "@/components/ui/quick-create";
 import { cn } from "@/lib/utils/cn";
 import type { CategoryInsight } from "@/lib/finance/helpers";
 import {
@@ -135,6 +140,13 @@ export function FinanceIncomePanel({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [txnDate, setTxnDate] = useState(new Date().toISOString().slice(0, 10));
   const [showMore, setShowMore] = useState(false);
+  const {
+    adminFileId,
+    adminFileName,
+    stageReceipt,
+    clearReceipt,
+    loadReceiptFromRow,
+  } = useStagedReceipt();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -166,10 +178,11 @@ export function FinanceIncomePanel({
     setCounterparty("");
     setPaymentMethod("");
     setTxnDate(new Date().toISOString().slice(0, 10));
+    clearReceipt();
     setEditingId(null);
     setShowMore(false);
     setFormError(null);
-  }, []);
+  }, [clearReceipt]);
 
   const startEdit = useCallback((row: FinanceTransactionRow) => {
     setEditingId(row.id);
@@ -179,9 +192,10 @@ export function FinanceIncomePanel({
     setCounterparty(row.counterparty ?? "");
     setPaymentMethod(row.payment_method ?? "");
     setTxnDate(row.txn_date);
+    loadReceiptFromRow(row);
     setShowMore(true);
     setFormError(null);
-  }, []);
+  }, [loadReceiptFromRow]);
 
   const onSave = useCallback(
     async (e: FormEvent) => {
@@ -211,6 +225,7 @@ export function FinanceIncomePanel({
               counterparty: counterparty || null,
               payment_method: paymentMethod || null,
               txn_date: txnDate,
+              admin_file_id: adminFileId,
             }),
           });
           const json = (await res.json()) as {
@@ -225,7 +240,11 @@ export function FinanceIncomePanel({
           setTransactions((prev) =>
             prev.map((t) =>
               t.id === editingId
-                ? { ...t, ...json.data!, admin_file_name: t.admin_file_name }
+                ? {
+                    ...t,
+                    ...json.data!,
+                    admin_file_name: adminFileName,
+                  }
                 : t,
             ),
           );
@@ -246,6 +265,7 @@ export function FinanceIncomePanel({
             counterparty: counterparty || null,
             payment_method: paymentMethod || null,
             txn_date: txnDate,
+            admin_file_id: adminFileId,
           }),
         });
         const json = (await res.json()) as {
@@ -256,7 +276,10 @@ export function FinanceIncomePanel({
         if (!res.ok || !json.ok || !json.data) {
           throw new Error(json.error?.message ?? "Could not save.");
         }
-        setTransactions((prev) => [json.data!, ...prev]);
+        setTransactions((prev) => [
+          { ...json.data!, admin_file_name: adminFileName },
+          ...prev,
+        ]);
         setMonthTotal((m) => m + amountNum);
         setLoggedCount((c) => c + 1);
         resetForm();
@@ -268,6 +291,8 @@ export function FinanceIncomePanel({
       }
     },
     [
+      adminFileId,
+      adminFileName,
       amount,
       category,
       counterparty,
@@ -403,20 +428,14 @@ export function FinanceIncomePanel({
         </div>
       ) : null}
 
-      <form
+      <QuickCreatePanel
+        open
         onSubmit={onSave}
-        className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark"
+        title={editingId ? "Edit income" : "Quick log"}
+        subtitle="Amount, description, category — add proof of payment if you have one."
+        icon={Banknote}
+        accent="emerald"
       >
-        <div className="border-b border-cream-200 bg-gradient-to-r from-emerald-50/80 to-cream-50 px-4 py-3 dark:border-hairline-dark dark:from-emerald-950/30 dark:to-panel-dark">
-          <p className="text-sm font-semibold text-ink dark:text-cream-100">
-            {editingId ? "Edit income" : "Quick log"}
-          </p>
-          <p className="text-xs text-ink-muted dark:text-cream-400">
-            Not from an invoice? Log sales, capital, loans, grants & more.
-          </p>
-        </div>
-
-        <div className="space-y-3 p-4">
           <div className="flex flex-wrap gap-1.5">
             {QUICK_AMOUNTS.map((n) => (
               <button
@@ -484,24 +503,6 @@ export function FinanceIncomePanel({
             </p>
           ) : null}
 
-          {recentSources.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
-                Recent:
-              </span>
-              {recentSources.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setCounterparty(v)}
-                  className="rounded-full border border-cream-300 px-2 py-0.5 text-[11px] font-medium text-ink-muted hover:border-emerald-200 dark:border-hairline-dark dark:text-cream-400"
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
           <button
             type="button"
             onClick={() => setShowMore((v) => !v)}
@@ -543,35 +544,42 @@ export function FinanceIncomePanel({
             </div>
           ) : null}
 
+          {recentSources.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+                Recent sources:
+              </span>
+              {recentSources.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setCounterparty(v)}
+                  className="rounded-full border border-cream-300 px-2 py-0.5 text-[11px] font-medium text-ink-muted hover:border-emerald-200 dark:border-hairline-dark dark:text-cream-400"
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <FinanceTxnDocumentField
+            fileId={adminFileId}
+            fileName={adminFileName}
+            onAttach={stageReceipt}
+            label="Supporting document (optional)"
+            hint="Transfer slip, loan letter, or receipt — saved with this income."
+          />
+
           {formError ? (
             <p className="text-sm text-status-danger">{formError}</p>
           ) : null}
 
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={creating}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {creating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Banknote className="h-4 w-4" />
-              )}
-              {editingId ? "Update income" : "Log income"}
-            </button>
-            {editingId ? (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-xl border border-cream-300 px-4 py-2.5 text-sm font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
-              >
-                Cancel
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </form>
+          <QuickCreateActions
+            submitLabel={editingId ? "Update income" : "Log income"}
+            loading={creating}
+            onCancel={resetForm}
+          />
+      </QuickCreatePanel>
 
       <FinanceTxnCompactList
         title="Recent income"
@@ -586,6 +594,8 @@ export function FinanceIncomePanel({
         onEdit={startEdit}
         onRemove={(id, amt) => void removeTxn(id, amt)}
         onAttachReceipt={attachReceipt}
+        exportMonth={monthLabel}
+        exportEntryCount={loggedCount}
       />
     </div>
   );

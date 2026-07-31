@@ -20,13 +20,22 @@ Core Sales covers **lead tracking** and **simple counter POS** — paid-in-full,
 |---------|--------|
 | Lead pipeline | Statuses: new → contacted → interested → won / lost |
 | Lead notes + follow-up | Chase list without losing WhatsApp / walk-in leads |
+| Leads Kanban | Drag cards between columns to update status |
+| Bulk lead actions | Multi-select → bulk status or assignee |
+| Channel analytics | Source breakdown on leads page |
 | Convert lead → customer | Writes into Marketing CRM (not a separate customer book) |
-| Mobile POS | Product grid from Operations catalog |
+| Lead / customer → POS | Deep link with name pre-fill (before or after convert) |
+| Mobile POS | Product + service grid from Operations catalog |
 | Payments (core) | Cash + **static** DuitNow QR only |
-| Basic receipt | Subtotal / SST (if enabled) / total |
-| Daily sales summary | Today’s take for the owner |
+| Discount + coupon | Manual discount or Marketing coupon (not both) |
+| Customer link at POS | Search Marketing customers or type walk-in name |
+| Stock awareness | Low-stock warning; decrement on sale, restore on void |
+| Basic receipt | Subtotal / SST (if enabled) / total · copy / WhatsApp / print |
+| Sales history + export | Period filters, CSV export, void from receipt |
+| Daily sales summary | Today’s take + week compare on overview |
+| Dashboard analytics | Top products, cashier breakdown (core overview) |
 
-**Not core:** Dynamic DuitNow, refund/void approval, close-out, staff reports, offline, hardware, storefront, stale-lead alerts, Sales AI (Sufi).
+**Not core:** Dynamic DuitNow, manager PIN approval workflow, daily close-out, dedicated staff report page, coupon ROI analytics, offline, hardware, storefront, stale-lead alerts. (Void without manager PIN is included in core for owner/manager roles.)
 
 ## 4. Add-on Features (Marketplace · efficiency & control)
 

@@ -1,18 +1,25 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { PageHeader } from "@/components/dashboard/page-header";
-import { StatusPill } from "@/components/dashboard/status-pill";
+import { Users } from "lucide-react";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { LeadCreateForm } from "@/components/sales/LeadCreateForm";
+import { LeadsKanban } from "@/components/sales/LeadsKanban";
+import { LeadsListSelectable } from "@/components/sales/LeadsListSelectable";
+import { LeadsViewToggle } from "@/components/sales/LeadsViewToggle";
+import { SalesSubpageShell } from "@/components/sales/SalesSubpageShell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { formatMyr } from "@/lib/marketing/metrics";
+import { parsePagination } from "@/lib/pagination";
 import { canUseLeads, LEAD_ASSIGNEE_ROLES } from "@/lib/sales/access";
+import { loadLeadsInsights } from "@/lib/sales/leads-insights";
+import { loadLeadChannelBreakdown } from "@/lib/sales/leads-channels";
 import {
   LEAD_STATUSES,
   malaysiaDayBounds,
   malaysiaTodayYmd,
   type LeadStatus,
 } from "@/lib/sales/schemas";
+import { leadsSubpageHero } from "@/lib/sales/subpage-hero";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils/cn";
 
@@ -33,17 +40,6 @@ function param(
   return "";
 }
 
-const STATUS_TONE: Record<
-  LeadStatus,
-  "neutral" | "brand" | "success" | "warning" | "accent"
-> = {
-  new: "neutral",
-  contacted: "brand",
-  interested: "accent",
-  won: "success",
-  lost: "warning",
-};
-
 export default async function LeadsPage({ searchParams }: PageProps) {
   let user;
   try {
@@ -62,17 +58,26 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   const status = param(raw, "status");
   const followUp = param(raw, "follow_up");
   const mine = param(raw, "mine") === "1";
+  const view = param(raw, "view") === "kanban" ? "kanban" : "list";
+  const pagination = parsePagination(raw, { defaultPageSize: 20 });
 
   const supabase = await createSupabaseServerClient();
+  const insights = await loadLeadsInsights(supabase, user.businessId);
+  const channelBreakdown = await loadLeadChannelBreakdown(
+    supabase,
+    user.businessId,
+  );
+  const hero = leadsSubpageHero(insights);
+  const { dayStartIso, dayEndIso } = malaysiaDayBounds(malaysiaTodayYmd());
 
   let query = supabase
     .from("sales_leads")
     .select(
       "id, name, phone_e164, channel, interest, estimated_value_myr, status, follow_up_at, assigned_to, customer_id, updated_at",
+      { count: "exact" },
     )
     .eq("business_id", user.businessId)
-    .order("updated_at", { ascending: false })
-    .limit(80);
+    .order("updated_at", { ascending: false });
 
   if (status && (LEAD_STATUSES as readonly string[]).includes(status)) {
     query = query.eq("status", status);
@@ -81,7 +86,6 @@ export default async function LeadsPage({ searchParams }: PageProps) {
     query = query.eq("assigned_to", user.id);
   }
 
-  const { dayStartIso, dayEndIso } = malaysiaDayBounds(malaysiaTodayYmd());
   if (followUp === "due_today") {
     query = query
       .gte("follow_up_at", dayStartIso)
@@ -100,6 +104,12 @@ export default async function LeadsPage({ searchParams }: PageProps) {
     }
   }
 
+  if (view === "list") {
+    query = query.range(pagination.from, pagination.to);
+  } else {
+    query = query.limit(200);
+  }
+
   const [leadsRes, membersRes] = await Promise.all([
     query,
     supabase
@@ -110,6 +120,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   ]);
 
   const leads = leadsRes.data ?? [];
+  const total = leadsRes.count ?? leads.length;
   const assignees = (membersRes.data ?? []).map((m) => ({
     user_id: m.user_id,
     display_name: m.display_name,
@@ -127,36 +138,89 @@ export default async function LeadsPage({ searchParams }: PageProps) {
       follow_up:
         overrides.follow_up !== undefined ? overrides.follow_up : followUp,
       mine: overrides.mine !== undefined ? overrides.mine : mine ? "1" : "",
+      view: overrides.view !== undefined ? overrides.view : view,
     };
     if (next.q) sp.set("q", next.q);
     if (next.status) sp.set("status", next.status);
     if (next.follow_up) sp.set("follow_up", next.follow_up);
     if (next.mine === "1") sp.set("mine", "1");
+    if (next.view === "kanban") sp.set("view", "kanban");
     const s = sp.toString();
     return s ? `/sales/leads?${s}` : "/sales/leads";
   }
 
-  return (
-    <div className="space-y-6">
-      <Link
-        href="/sales"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Sales
-      </Link>
+  const searchParamsForPagination: Record<string, string | undefined> = {
+    q: q || undefined,
+    status: status || undefined,
+    follow_up: followUp || undefined,
+    mine: mine ? "1" : undefined,
+  };
 
-      <PageHeader
-        eyebrow="Sales"
-        title="Leads"
-        description="Chase prospects, set follow-ups, convert won leads to customers."
-        action={
-          <LeadCreateForm
-            assignees={assignees}
-            currentUserId={user.id}
+  return (
+    <SalesSubpageShell
+      headline={hero.headline}
+      subcopy={hero.subcopy}
+      variant={hero.variant}
+      cta={
+        <LeadCreateForm assignees={assignees} currentUserId={user.id} />
+      }
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="Open"
+            value={String(insights.open)}
+            hint="In pipeline"
+            icon={Users}
+            iconClassName="text-sky-700 dark:text-sky-300"
           />
-        }
-      />
+          <ModuleHeroStat
+            label="Overdue"
+            value={String(insights.overdue)}
+            hint="Need chase"
+            icon={Users}
+            iconClassName="text-amber-700 dark:text-amber-300"
+          />
+          <ModuleHeroStat
+            label="Due today"
+            value={String(insights.dueToday)}
+            hint="Follow-ups"
+            icon={Users}
+            iconClassName="text-orange-700 dark:text-orange-300"
+          />
+          <ModuleHeroStat
+            label="Pipeline"
+            value={
+              insights.pipelineValueMyr > 0
+                ? formatMyr(insights.pipelineValueMyr)
+                : "—"
+            }
+            hint={
+              insights.topChannel
+                ? `Top: ${insights.topChannel}`
+                : "Est. value"
+            }
+            icon={Users}
+            iconClassName="text-emerald-700 dark:text-emerald-300"
+          />
+        </div>
+      }
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <LeadsViewToggle view={view} baseHref={href({})} />
+      </div>
+
+      {channelBreakdown.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {channelBreakdown.map((row) => (
+            <span
+              key={row.channel}
+              className="rounded-full border border-cream-300 px-3 py-1 text-xs font-semibold capitalize text-ink-muted dark:border-hairline-dark"
+            >
+              {row.channel.replace(/_/g, " ")} · {row.count}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <form className="flex flex-wrap gap-2" method="get">
         <input
@@ -169,6 +233,9 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         {status ? <input type="hidden" name="status" value={status} /> : null}
         {followUp ? (
           <input type="hidden" name="follow_up" value={followUp} />
+        ) : null}
+        {view === "kanban" ? (
+          <input type="hidden" name="view" value="kanban" />
         ) : null}
         <button
           type="submit"
@@ -183,16 +250,14 @@ export default async function LeadsPage({ searchParams }: PageProps) {
           All statuses
         </FilterChip>
         {LEAD_STATUSES.map((s) => (
-          <FilterChip
-            key={s}
-            href={href({ status: s })}
-            active={status === s}
-          >
+          <FilterChip key={s} href={href({ status: s })} active={status === s}>
             {s}
           </FilterChip>
         ))}
         <FilterChip
-          href={href({ follow_up: followUp === "due_today" ? null : "due_today" })}
+          href={href({
+            follow_up: followUp === "due_today" ? null : "due_today",
+          })}
           active={followUp === "due_today"}
         >
           Due today
@@ -203,68 +268,35 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         >
           Overdue
         </FilterChip>
-        <FilterChip
-          href={href({ mine: mine ? null : "1" })}
-          active={mine}
-        >
+        <FilterChip href={href({ mine: mine ? null : "1" })} active={mine}>
           Mine
         </FilterChip>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-        {leads.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-ink-muted">
-            No leads yet. Create one to start chasing.
-          </p>
-        ) : (
-          <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
-            {leads.map((lead) => {
-              const overdue =
-                lead.follow_up_at &&
-                lead.status !== "won" &&
-                lead.status !== "lost" &&
-                new Date(lead.follow_up_at) < new Date(dayStartIso);
-              return (
-                <li key={lead.id}>
-                  <Link
-                    href={`/sales/leads/${lead.id}`}
-                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-cream-50/80 dark:hover:bg-hairline-dark/40"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-ink dark:text-cream-100">
-                        {lead.name}
-                      </p>
-                      <p className="text-xs text-ink-muted">
-                        {lead.phone_e164}
-                        {lead.assigned_to
-                          ? ` · ${nameById.get(lead.assigned_to) ?? "Assigned"}`
-                          : ""}
-                        {lead.follow_up_at
-                          ? ` · Follow-up ${toDateInput(lead.follow_up_at)}`
-                          : ""}
-                        {overdue ? " · Overdue" : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {lead.estimated_value_myr != null ? (
-                        <span className="text-xs font-medium text-ink-muted">
-                          {formatMyr(Number(lead.estimated_value_myr))}
-                        </span>
-                      ) : null}
-                      <StatusPill
-                        tone={STATUS_TONE[lead.status as LeadStatus] ?? "neutral"}
-                      >
-                        {lead.status}
-                      </StatusPill>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </div>
+      {view === "kanban" ? (
+        <LeadsKanban
+          leads={leads.map((l) => ({
+            ...l,
+            status: l.status as LeadStatus,
+          }))}
+          assigneeNames={nameById}
+          overdueBeforeIso={dayStartIso}
+        />
+      ) : (
+        <LeadsListSelectable
+          leads={leads.map((l) => ({
+            ...l,
+            status: l.status as LeadStatus,
+          }))}
+          total={total}
+          assigneeNames={nameById}
+          assignees={assignees}
+          overdueBeforeIso={dayStartIso}
+          pagination={{ page: pagination.page, pageSize: pagination.pageSize }}
+          searchParamsForPagination={searchParamsForPagination}
+        />
+      )}
+    </SalesSubpageShell>
   );
 }
 
@@ -290,14 +322,4 @@ function FilterChip({
       {children}
     </Link>
   );
-}
-
-function toDateInput(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Kuala_Lumpur",
-    }).format(new Date(iso));
-  } catch {
-    return "";
-  }
 }

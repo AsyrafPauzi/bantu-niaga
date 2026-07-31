@@ -77,13 +77,15 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
     roleTitle: "Marketing AI",
     pillar: "Marketing",
     description:
-      "Answers CRM questions, drafts broadcasts and captions, and creates coupons.",
+      "Answers CRM questions, reads your full Marketing module, drafts broadcasts/captions, and creates segments and coupons.",
     tone: "accent",
     icon: Megaphone,
     capabilities: [
-      "CRM Q&A (VIP, dormant, segments)",
+      "CRM Q&A (VIP, dormant, segments, customer profiles)",
+      "Read coupons, broadcasts, and content calendar",
       "Draft WhatsApp / email broadcasts",
-      "Create coupons and content drafts",
+      "Create coupons, segments, and content drafts",
+      "Schedule posts and pause coupons",
       "Customer notes and tags",
       "Daily Marketing notice",
     ],

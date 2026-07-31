@@ -12,6 +12,7 @@ import {
   type BroadcastRow,
   type ResolvedRecipient,
 } from "@/lib/marketing/broadcasts";
+import { buildMarketingEmailHtml } from "@/lib/marketing/email-broadcast-template";
 
 export const dynamic = "force-dynamic";
 
@@ -304,11 +305,24 @@ export async function POST(_request: Request, ctx: RouteContext) {
   }
 
   // ─── Email path ──────────────────────────────────────────────────────
+  const { data: businessRow } = await lockSupabase
+    .from("businesses")
+    .select("name")
+    .eq("id", broadcast.business_id)
+    .maybeSingle();
+  const businessName =
+    typeof businessRow?.name === "string" ? businessRow.name : "Your business";
+
   const batchInput = inserted.map((row) => ({
     ref: row.id,
     to: row.channel_address,
     subject: row.rendered_subject ?? broadcast.subject ?? "",
     body: row.rendered_message,
+    html: buildMarketingEmailHtml({
+      subject: row.rendered_subject ?? broadcast.subject ?? "",
+      bodyText: row.rendered_message,
+      businessName,
+    }),
   }));
 
   const batchResult = await sendEmailBatch(batchInput, { apiKey, fromEmail });

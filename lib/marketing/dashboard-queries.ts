@@ -594,3 +594,72 @@ export async function getNewCustomersSparkline(
   }
   return out;
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// 10. Top posted content — real engagement from content_plan.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface TopContentRow {
+  id: string;
+  hook: string | null;
+  channel: "tiktok" | "instagram" | "facebook";
+  status: string;
+  views: number;
+  likes: number;
+  comments_count: number;
+  shares: number;
+  posted_at: string | null;
+}
+
+export async function getTopPostedContent(
+  supabase: Supabase,
+  businessId: string,
+  limit = 4,
+): Promise<TopContentRow[]> {
+  const { data, error } = await supabase
+    .from("content_plan")
+    .select(
+      "id, hook, channel, status, views, likes, comments_count, shares, posted_at",
+    )
+    .eq("business_id", businessId)
+    .eq("status", "posted")
+    .order("views", { ascending: false })
+    .order("posted_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data || data.length === 0) {
+    const { data: fallback } = await supabase
+      .from("content_plan")
+      .select(
+        "id, hook, channel, status, views, likes, comments_count, shares, posted_at",
+      )
+      .eq("business_id", businessId)
+      .in("status", ["scheduled", "drafted", "posted"])
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+
+    return (fallback ?? []).map((r) => ({
+      id: String(r.id),
+      hook: r.hook ? String(r.hook) : null,
+      channel: r.channel as TopContentRow["channel"],
+      status: String(r.status),
+      views: toNum(r.views),
+      likes: toNum(r.likes),
+      comments_count: toNum(r.comments_count),
+      shares: toNum(r.shares),
+      posted_at: r.posted_at ? String(r.posted_at) : null,
+    }));
+  }
+
+  return data.map((r) => ({
+    id: String(r.id),
+    hook: r.hook ? String(r.hook) : null,
+    channel: r.channel as TopContentRow["channel"],
+    status: String(r.status),
+    views: toNum(r.views),
+    likes: toNum(r.likes),
+    comments_count: toNum(r.comments_count),
+    shares: toNum(r.shares),
+    posted_at: r.posted_at ? String(r.posted_at) : null,
+  }));
+}

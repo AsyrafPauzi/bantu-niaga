@@ -15,7 +15,11 @@ import { loadShortMemory } from "@/lib/ai/short-memory";
 export const metadata = { title: "Maya · Marketing AI" };
 export const dynamic = "force-dynamic";
 
-export default async function MarketingAssistantPage() {
+export default async function MarketingAssistantPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   let user;
   try {
     user = await getCurrentUser();
@@ -27,6 +31,12 @@ export default async function MarketingAssistantPage() {
   if (!canManageMarketingCore(user.role)) {
     redirect("/marketing");
   }
+
+  const sp = await searchParams;
+  const seed =
+    typeof sp.seed === "string" && sp.seed.trim().length > 0
+      ? sp.seed.trim().slice(0, 2000)
+      : undefined;
 
   const [addonActive, settings, balance, recentTurns] = await Promise.all([
     hasMarketingAssistantAddon(user.businessId),
@@ -56,6 +66,7 @@ export default async function MarketingAssistantPage() {
       <div className="flex min-h-0 flex-1 flex-col px-4 py-3 lg:px-8 lg:py-4">
         <MayaAssistantChat
           businessId={user.businessId}
+          initialSeed={seed}
           initialStatus={{
             addon_active: addonActive,
             assistant_enabled: settings.assistantEnabled,

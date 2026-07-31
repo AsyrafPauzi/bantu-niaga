@@ -5,11 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Banknote,
+  Copy,
   Loader2,
   Minus,
   Plus,
   QrCode,
   Search,
+  Share2,
   ShoppingCart,
   Trash2,
 } from "lucide-react";
@@ -21,10 +23,31 @@ interface PosProduct {
   name: string;
   category: string | null;
   price_myr: number;
+  stock_qty?: number | null;
+  low_stock_threshold?: number | null;
+}
+
+interface CustomerHit {
+  id: string;
+  name: string;
+  phone_e164: string | null;
+}
+
+interface PosService {
+  id: string;
+  name: string;
+  price_myr: number;
+  duration_minutes: number | null;
 }
 
 interface CartLine {
-  product: PosProduct;
+  kind: "product" | "service";
+  id: string;
+  name: string;
+  sku: string | null;
+  price_myr: number;
+  stock_qty?: number | null;
+  low_stock_threshold?: number | null;
   quantity: number;
 }
 
@@ -58,6 +81,11 @@ interface PosCheckoutClientProps {
   duitnowId: string | null;
   duitnowQrUrl: string | null;
   canCheckout: boolean;
+  initialCustomerId?: string;
+  initialCustomerName?: string;
+  initialLeadId?: string;
+  initialLeadName?: string;
+  initialLeadPhone?: string;
 }
 
 function money(n: number) {
@@ -71,8 +99,17 @@ export function PosCheckoutClient({
   duitnowId,
   duitnowQrUrl,
   canCheckout,
+  initialCustomerId,
+  initialCustomerName,
+  initialLeadId,
+  initialLeadName,
+  initialLeadPhone,
 }: PosCheckoutClientProps) {
   const [products, setProducts] = useState<PosProduct[]>([]);
+  const [services, setServices] = useState<PosService[]>([]);
+  const [catalogMode, setCatalogMode] = useState<"products" | "services">(
+    "products",
+  );
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -80,11 +117,20 @@ export function PosCheckoutClient({
     null,
   );
   const [discountValue, setDiscountValue] = useState("");
+  const [couponCode, setCouponCode] = useState("");
   const [payMethod, setPayMethod] = useState<"cash" | "duitnow_qr_static">(
     "cash",
   );
   const [cashReceived, setCashReceived] = useState("");
-  const [customerName, setCustomerName] = useState("");
+  const [customerId, setCustomerId] = useState(initialCustomerId ?? "");
+  const [customerName, setCustomerName] = useState(
+    initialCustomerName ?? initialLeadName ?? "",
+  );
+  const [leadId] = useState(initialLeadId ?? "");
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [customerHits, setCustomerHits] = useState<CustomerHit[]>([]);
+  const [customerSearching, setCustomerSearching] = useState(false);
+  const [shareDone, setShareDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -93,17 +139,33 @@ export function PosCheckoutClient({
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/sales/pos/products");
-      const json = (await res.json()) as { data?: PosProduct[]; error?: string };
-      if (!res.ok) throw new Error(json.error ?? "Failed to load products");
+      const [prodRes, svcRes] = await Promise.all([
+        fetch("/api/sales/pos/products"),
+        fetch("/api/sales/pos/services"),
+      ]);
+      const prodJson = (await prodRes.json()) as {
+        data?: PosProduct[];
+        error?: string;
+      };
+      const svcJson = (await svcRes.json()) as {
+        data?: PosService[];
+        error?: string;
+      };
+      if (!prodRes.ok) throw new Error(prodJson.error ?? "Failed to load products");
       setProducts(
-        (json.data ?? []).map((p) => ({
+        (prodJson.data ?? []).map((p) => ({
           ...p,
           price_myr: Number(p.price_myr),
         })),
       );
+      setServices(
+        (svcJson.data ?? []).map((s) => ({
+          ...s,
+          price_myr: Number(s.price_myr),
+        })),
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load products");
+      setError(e instanceof Error ? e.message : "Failed to load catalog");
     } finally {
       setLoading(false);
     }
@@ -113,8 +175,77 @@ export function PosCheckoutClient({
     void loadProducts();
   }, [loadProducts]);
 
+  useEffect(() => {
+    const needle = customerQuery.trim();
+    if (needle.length < 2) {
+      setCustomerHits([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      void (async () => {
+        setCustomerSearching(true);
+        try {
+          const res = await fetch(
+            `/api/sales/pos/customer-search?q=${encodeURIComponent(needle)}`,
+          );
+          const json = (await res.json()) as { data?: CustomerHit[] };
+          setCustomerHits(json.data ?? []);
+        } catch {
+          setCustomerHits([]);
+        } finally {
+          setCustomerSearching(false);
+        }
+      })();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [customerQuery]);
+
+  function isLowStock(p: PosProduct): boolean {
+    if (p.stock_qty == null || p.low_stock_threshold == null) return false;
+    return p.stock_qty <= p.low_stock_threshold;
+  }
+
+  function receiptText(data: ReceiptData): string {
+    const lines = [
+      businessName,
+      data.sale.sale_number,
+      "",
+      ...data.items.map(
+        (it) =>
+          `${it.product_name} x${it.quantity} — ${money(Number(it.line_total_myr))}`,
+      ),
+      "",
+      `Total: ${money(Number(data.sale.total_myr))}`,
+      `Paid: ${data.sale.payment_method === "cash" ? "Cash" : "DuitNow QR"}`,
+    ];
+    return lines.join("\n");
+  }
+
+  async function copyReceipt(data: ReceiptData) {
+    try {
+      await navigator.clipboard.writeText(receiptText(data));
+      setShareDone(true);
+      setTimeout(() => setShareDone(false), 2000);
+    } catch {
+      // clipboard unavailable
+    }
+  }
+
+  function shareWhatsApp(data: ReceiptData) {
+    const text = receiptText(data);
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(text)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  }
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    if (catalogMode === "services") {
+      if (!needle) return services;
+      return services.filter((s) => s.name.toLowerCase().includes(needle));
+    }
     if (!needle) return products;
     return products.filter(
       (p) =>
@@ -122,10 +253,10 @@ export function PosCheckoutClient({
         p.sku.toLowerCase().includes(needle) ||
         (p.category ?? "").toLowerCase().includes(needle),
     );
-  }, [products, q]);
+  }, [products, services, q, catalogMode]);
 
   const lineSubtotal = cart.reduce(
-    (a, l) => a + l.product.price_myr * l.quantity,
+    (a, l) => a + l.price_myr * l.quantity,
     0,
   );
 
@@ -142,21 +273,56 @@ export function PosCheckoutClient({
 
   function addProduct(p: PosProduct) {
     setCart((prev) => {
-      const i = prev.findIndex((l) => l.product.id === p.id);
+      const key = `product:${p.id}`;
+      const i = prev.findIndex((l) => l.kind === "product" && l.id === p.id);
       if (i >= 0) {
         const next = [...prev];
         next[i] = { ...next[i], quantity: next[i].quantity + 1 };
         return next;
       }
-      return [...prev, { product: p, quantity: 1 }];
+      return [
+        ...prev,
+        {
+          kind: "product",
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          price_myr: p.price_myr,
+          stock_qty: p.stock_qty,
+          low_stock_threshold: p.low_stock_threshold,
+          quantity: 1,
+        },
+      ];
     });
   }
 
-  function setQty(productId: string, quantity: number) {
+  function addService(s: PosService) {
+    setCart((prev) => {
+      const i = prev.findIndex((l) => l.kind === "service" && l.id === s.id);
+      if (i >= 0) {
+        const next = [...prev];
+        next[i] = { ...next[i], quantity: next[i].quantity + 1 };
+        return next;
+      }
+      return [
+        ...prev,
+        {
+          kind: "service",
+          id: s.id,
+          name: s.name,
+          sku: null,
+          price_myr: s.price_myr,
+          quantity: 1,
+        },
+      ];
+    });
+  }
+
+  function setQty(lineKey: string, quantity: number) {
     setCart((prev) =>
       prev
         .map((l) =>
-          l.product.id === productId ? { ...l, quantity } : l,
+          `${l.kind}:${l.id}` === lineKey ? { ...l, quantity } : l,
         )
         .filter((l) => l.quantity > 0),
     );
@@ -168,22 +334,25 @@ export function PosCheckoutClient({
     setBusy(true);
     try {
       const body = {
-        items: cart.map((l) => ({
-          product_id: l.product.id,
-          quantity: l.quantity,
-        })),
+        items: cart.map((l) =>
+          l.kind === "product"
+            ? { product_id: l.id, quantity: l.quantity }
+            : { service_id: l.id, quantity: l.quantity },
+        ),
         payment_method: payMethod,
-        discount_type: discountType,
+        discount_type: couponCode.trim() ? null : discountType,
         discount_value:
-          discountType && discountValue !== ""
+          !couponCode.trim() && discountType && discountValue !== ""
             ? Number(discountValue)
             : null,
+        coupon_code: couponCode.trim() || null,
         payment_received_myr:
           payMethod === "cash"
             ? cashReceived !== ""
               ? Number(cashReceived)
               : total
             : null,
+        customer_id: customerId.trim() || null,
         customer_name: customerName.trim() || null,
       };
 
@@ -205,8 +374,11 @@ export function PosCheckoutClient({
       setCart([]);
       setDiscountType(null);
       setDiscountValue("");
+      setCouponCode("");
       setCashReceived("");
       setCustomerName("");
+      setCustomerId("");
+      setCustomerQuery("");
       setShowDuitnow(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed");
@@ -279,56 +451,165 @@ export function PosCheckoutClient({
         </div>
         <button
           type="button"
-          onClick={() => setReceipt(null)}
+          onClick={() => {
+            setReceipt(null);
+            setShareDone(false);
+          }}
           className="w-full rounded-xl bg-brand-500 py-3 text-sm font-semibold text-white hover:bg-brand-600"
         >
           New sale
         </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => void copyReceipt(receipt)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-cream-300 py-2.5 text-xs font-semibold dark:border-hairline-dark"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {shareDone ? "Copied" : "Copy"}
+          </button>
+          <button
+            type="button"
+            onClick={() => shareWhatsApp(receipt)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            Share
+          </button>
+        </div>
+        {receipt.sale.id ? (
+          <Link
+            href={`/sales/receipts/${receipt.sale.id}`}
+            className="block text-center text-xs font-semibold text-brand-700 dark:text-brand-200"
+          >
+            View receipt
+          </Link>
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      {leadId && (initialLeadName || initialLeadPhone) ? (
+        <div className="lg:col-span-2 rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-2.5 text-sm dark:border-brand-800 dark:bg-brand-900/20">
+          <span className="font-semibold text-brand-900 dark:text-brand-100">
+            Lead checkout
+          </span>
+          <span className="text-ink-muted">
+            {" "}
+            · {initialLeadName ?? customerName}
+            {initialLeadPhone ? ` · ${initialLeadPhone}` : ""}
+          </span>
+        </div>
+      ) : null}
       <section className="rounded-2xl border border-[#E5E0D8] bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark">
+        <div className="mb-3 flex gap-1 rounded-lg border border-cream-200 p-0.5 dark:border-hairline-dark">
+          <button
+            type="button"
+            onClick={() => setCatalogMode("products")}
+            className={cn(
+              "flex-1 rounded-md px-2 py-1.5 text-xs font-semibold",
+              catalogMode === "products"
+                ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40"
+                : "text-ink-muted",
+            )}
+          >
+            Products
+          </button>
+          <button
+            type="button"
+            onClick={() => setCatalogMode("services")}
+            className={cn(
+              "flex-1 rounded-md px-2 py-1.5 text-xs font-semibold",
+              catalogMode === "services"
+                ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40"
+                : "text-ink-muted",
+            )}
+          >
+            Services
+          </button>
+        </div>
         <div className="mb-3 flex items-center gap-2 rounded-xl border border-cream-200 px-3 py-2 dark:border-hairline-dark">
           <Search className="h-4 w-4 text-ink-muted" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search products…"
+            placeholder={
+              catalogMode === "products"
+                ? "Search products…"
+                : "Search services…"
+            }
             className="w-full bg-transparent text-sm outline-none"
           />
         </div>
         {loading ? (
           <div className="flex items-center gap-2 py-10 text-sm text-ink-muted">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading products…
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading catalog…
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-10 text-center text-sm text-ink-muted">
-            No active products.{" "}
+            No active {catalogMode}.{" "}
             <Link
-              href="/operations/products"
+              href={
+                catalogMode === "products"
+                  ? "/operations/products"
+                  : "/operations/services"
+              }
               className="font-semibold text-brand-700"
             >
-              Add products in Operations
+              Add in Operations
             </Link>
+          </div>
+        ) : catalogMode === "products" ? (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {(filtered as PosProduct[]).map((p) => {
+              const low = isLowStock(p);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => addProduct(p)}
+                  className={cn(
+                    "rounded-xl border p-3 text-left transition hover:border-brand-300 hover:bg-brand-50/40 dark:border-hairline-dark dark:hover:bg-brand-900/20",
+                    low && "border-amber-300 dark:border-amber-800",
+                  )}
+                >
+                  <p className="line-clamp-2 text-sm font-semibold text-ink dark:text-cream-100">
+                    {p.name}
+                  </p>
+                  <p className="mt-1 text-xs text-ink-muted">{p.sku}</p>
+                  {low ? (
+                    <p className="mt-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                      Low stock ({p.stock_qty})
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-sm font-bold tabular-nums text-brand-700 dark:text-brand-200">
+                    {money(p.price_myr)}
+                  </p>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {filtered.map((p) => (
+            {(filtered as PosService[]).map((s) => (
               <button
-                key={p.id}
+                key={s.id}
                 type="button"
-                onClick={() => addProduct(p)}
+                onClick={() => addService(s)}
                 className="rounded-xl border border-cream-200 p-3 text-left transition hover:border-brand-300 hover:bg-brand-50/40 dark:border-hairline-dark dark:hover:bg-brand-900/20"
               >
                 <p className="line-clamp-2 text-sm font-semibold text-ink dark:text-cream-100">
-                  {p.name}
+                  {s.name}
                 </p>
-                <p className="mt-1 text-xs text-ink-muted">{p.sku}</p>
+                {s.duration_minutes ? (
+                  <p className="mt-1 text-xs text-ink-muted">
+                    {s.duration_minutes} min
+                  </p>
+                ) : null}
                 <p className="mt-2 text-sm font-bold tabular-nums text-brand-700 dark:text-brand-200">
-                  {money(p.price_myr)}
+                  {money(s.price_myr)}
                 </p>
               </button>
             ))}
@@ -346,22 +627,22 @@ export function PosCheckoutClient({
           </p>
         ) : (
           <ul className="max-h-56 space-y-2 overflow-y-auto">
-            {cart.map((l) => (
-              <li
-                key={l.product.id}
-                className="flex items-center gap-2 text-sm"
-              >
+            {cart.map((l) => {
+              const lineKey = `${l.kind}:${l.id}`;
+              return (
+              <li key={lineKey} className="flex items-center gap-2 text-sm">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{l.product.name}</p>
+                  <p className="truncate font-medium">{l.name}</p>
                   <p className="text-xs text-ink-muted">
-                    {money(l.product.price_myr)}
+                    {money(l.price_myr)}
+                    {l.kind === "service" ? " · service" : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     className="rounded-md border p-1"
-                    onClick={() => setQty(l.product.id, l.quantity - 1)}
+                    onClick={() => setQty(lineKey, l.quantity - 1)}
                   >
                     <Minus className="h-3.5 w-3.5" />
                   </button>
@@ -371,20 +652,21 @@ export function PosCheckoutClient({
                   <button
                     type="button"
                     className="rounded-md border p-1"
-                    onClick={() => setQty(l.product.id, l.quantity + 1)}
+                    onClick={() => setQty(lineKey, l.quantity + 1)}
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
                     className="rounded-md p-1 text-ink-muted"
-                    onClick={() => setQty(l.product.id, 0)}
+                    onClick={() => setQty(lineKey, 0)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
 
@@ -392,11 +674,40 @@ export function PosCheckoutClient({
           <label className="block text-xs font-semibold text-ink-muted">
             Customer (optional)
             <input
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Walk-in or name"
+              value={customerQuery || customerName}
+              onChange={(e) => {
+                setCustomerQuery(e.target.value);
+                setCustomerName(e.target.value);
+              }}
+              placeholder="Search or type name"
               className="mt-1 w-full rounded-lg border border-cream-300 px-3 py-2 dark:border-hairline-dark dark:bg-panel-dark"
             />
+            {customerSearching ? (
+              <p className="mt-1 text-[10px] text-ink-muted">Searching…</p>
+            ) : null}
+            {customerHits.length > 0 ? (
+              <ul className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-cream-200 dark:border-hairline-dark">
+                {customerHits.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerId(c.id);
+                        setCustomerName(c.name);
+                        setCustomerQuery("");
+                        setCustomerHits([]);
+                      }}
+                      className="w-full px-3 py-2 text-left text-xs hover:bg-cream-50 dark:hover:bg-hairline-dark/40"
+                    >
+                      <span className="font-medium">{c.name}</span>
+                      {c.phone_e164 ? (
+                        <span className="text-ink-muted"> · {c.phone_e164}</span>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </label>
 
           <div className="flex gap-2">
@@ -409,7 +720,8 @@ export function PosCheckoutClient({
                     : (e.target.value as "amount" | "pct"),
                 )
               }
-              className="rounded-lg border border-cream-300 px-2 py-2 text-xs dark:border-hairline-dark dark:bg-panel-dark"
+              disabled={Boolean(couponCode.trim())}
+              className="rounded-lg border border-cream-300 px-2 py-2 text-xs disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark"
             >
               <option value="">No discount</option>
               <option value="amount">RM off</option>
@@ -419,13 +731,29 @@ export function PosCheckoutClient({
               type="number"
               min={0}
               step="0.01"
-              disabled={!discountType}
+              disabled={!discountType || Boolean(couponCode.trim())}
               value={discountValue}
               onChange={(e) => setDiscountValue(e.target.value)}
               placeholder="0"
               className="w-24 rounded-lg border border-cream-300 px-2 py-2 text-xs disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark"
             />
           </div>
+
+          <label className="block text-xs font-semibold text-ink-muted">
+            Coupon code
+            <input
+              value={couponCode}
+              onChange={(e) => {
+                setCouponCode(e.target.value.toUpperCase());
+                if (e.target.value.trim()) {
+                  setDiscountType(null);
+                  setDiscountValue("");
+                }
+              }}
+              placeholder="WELCOME10"
+              className="mt-1 w-full rounded-lg border border-cream-300 px-3 py-2 uppercase dark:border-hairline-dark dark:bg-panel-dark"
+            />
+          </label>
 
           <div className="flex justify-between">
             <span>Subtotal</span>

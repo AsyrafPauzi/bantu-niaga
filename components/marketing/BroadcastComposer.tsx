@@ -21,6 +21,7 @@ import {
   BROADCAST_MESSAGE_TEMPLATES,
   type BroadcastMessageTemplate,
 } from "@/lib/marketing/broadcast-templates";
+import { EmailBroadcastPreview } from "@/components/marketing/EmailBroadcastPreview";
 
 /**
  * 4-step broadcast composer.
@@ -67,15 +68,23 @@ const PLACEHOLDER_CHIPS: { token: string; label: string; icon: typeof User }[] =
   { token: "{coupon_code}", label: "Coupon code", icon: Tag },
 ];
 
-export function BroadcastComposer() {
+export function BroadcastComposer({
+  initialSegmentId,
+  businessName = "Your business",
+  fromEmailLabel = "hello@yourdomain.com",
+}: {
+  initialSegmentId?: string;
+  businessName?: string;
+  fromEmailLabel?: string;
+} = {}) {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(initialSegmentId ? 2 : 1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [channel, setChannel] = useState<Channel>("whatsapp_ctc");
   const [name, setName] = useState("");
-  const [segmentId, setSegmentId] = useState<string>("");
+  const [segmentId, setSegmentId] = useState<string>(initialSegmentId ?? "");
   const [subject, setSubject] = useState("");
   const [template, setTemplate] = useState("");
   const [couponId, setCouponId] = useState<string>("");
@@ -321,9 +330,10 @@ export function BroadcastComposer() {
   }, [busy, channel, couponId, name, router, segmentId, subject, template]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const previewRendered = useMemo(() => {
-    if (sampleMembers.length === 0) return [] as { name: string; text: string }[];
+    if (sampleMembers.length === 0) return [] as { name: string; text: string; email: string | null }[];
     return sampleMembers.slice(0, 3).map((m) => ({
       name: m.name,
+      email: m.email,
       text: renderTemplate(
         template,
         { name: m.name },
@@ -331,6 +341,16 @@ export function BroadcastComposer() {
       ),
     }));
   }, [sampleMembers, template, selectedCoupon]);
+
+  const previewSubjectRendered = useMemo(() => {
+    const sample = sampleMembers[0];
+    if (!sample || !subject.trim()) return subject;
+    return renderTemplate(
+      subject,
+      { name: sample.name },
+      selectedCoupon ? { code: selectedCoupon.code } : null,
+    );
+  }, [sampleMembers, subject, selectedCoupon]);
 
   return (
     <Card>
@@ -366,6 +386,12 @@ export function BroadcastComposer() {
             onTemplateChange={setTemplate}
             insertPlaceholder={insertPlaceholder}
             applyPreset={(preset) => {
+              if (template.trim() || subject.trim()) {
+                const ok = confirm(
+                  `Replace your current message with "${preset.label}"?`,
+                );
+                if (!ok) return;
+              }
               setTemplate(preset.body);
               if (preset.subject) setSubject(preset.subject);
             }}
@@ -374,6 +400,18 @@ export function BroadcastComposer() {
             couponsAvailable={couponsAvailable}
             couponId={couponId}
             onCouponChange={setCouponId}
+            businessName={businessName}
+            fromEmailLabel={fromEmailLabel}
+            previewSample={sampleMembers[0] ?? null}
+            previewSubjectRendered={previewSubjectRendered}
+            previewBodyRendered={
+              previewRendered[0]?.text ??
+              renderTemplate(
+                template,
+                { name: "Ahmad" },
+                selectedCoupon ? { code: selectedCoupon.code } : null,
+              )
+            }
           />
         ) : null}
 
@@ -383,10 +421,13 @@ export function BroadcastComposer() {
             name={name}
             segmentName={selectedSegment?.name ?? ""}
             subject={subject}
+            previewSubjectRendered={previewSubjectRendered}
             previewRendered={previewRendered}
             memberCount={memberCount}
             sampleMembers={sampleMembers}
             selectedCoupon={selectedCoupon}
+            businessName={businessName}
+            fromEmailLabel={fromEmailLabel}
           />
         ) : null}
 
@@ -658,6 +699,11 @@ function Step3Template({
   couponsAvailable,
   couponId,
   onCouponChange,
+  businessName,
+  fromEmailLabel,
+  previewSample,
+  previewSubjectRendered,
+  previewBodyRendered,
 }: {
   channel: Channel;
   subject: string;
@@ -671,15 +717,29 @@ function Step3Template({
   couponsAvailable: boolean;
   couponId: string;
   onCouponChange: (id: string) => void;
+  businessName: string;
+  fromEmailLabel: string;
+  previewSample: MemberSample | null;
+  previewSubjectRendered: string;
+  previewBodyRendered: string;
 }) {
-  return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <span className="block text-sm font-semibold text-ink dark:text-cream-100">
-          Ready templates (BM / EN)
-        </span>
+  const [emailTab, setEmailTab] = useState<"write" | "preview">("write");
+  const enTemplates = BROADCAST_MESSAGE_TEMPLATES.filter((t) => t.lang === "en");
+  const bmTemplates = BROADCAST_MESSAGE_TEMPLATES.filter((t) => t.lang === "bm");
+  const couponPlaceholderMissing =
+    template.includes("{coupon_code}") && !couponId;
+
+  function renderTemplateGroup(
+    title: string,
+    presets: typeof BROADCAST_MESSAGE_TEMPLATES,
+  ) {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+          {title}
+        </p>
         <div className="flex flex-wrap gap-1.5">
-          {BROADCAST_MESSAGE_TEMPLATES.map((preset) => (
+          {presets.map((preset) => (
             <button
               key={preset.id}
               type="button"
@@ -690,10 +750,71 @@ function Step3Template({
             </button>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {channel === "email" ? (
+        <div className="flex gap-1 rounded-lg bg-cream-100 p-0.5 text-xs font-semibold dark:bg-hairline-dark/40">
+          <button
+            type="button"
+            onClick={() => setEmailTab("write")}
+            className={cn(
+              "flex-1 rounded-md px-3 py-1.5",
+              emailTab === "write"
+                ? "bg-white text-ink shadow-card dark:bg-panel-dark dark:text-cream-100"
+                : "text-ink-muted dark:text-cream-400",
+            )}
+          >
+            Write
+          </button>
+          <button
+            type="button"
+            onClick={() => setEmailTab("preview")}
+            className={cn(
+              "flex-1 rounded-md px-3 py-1.5",
+              emailTab === "preview"
+                ? "bg-white text-ink shadow-card dark:bg-panel-dark dark:text-cream-100"
+                : "text-ink-muted dark:text-cream-400",
+            )}
+          >
+            Preview email
+          </button>
+        </div>
+      ) : null}
+
+      {channel === "email" && emailTab === "preview" ? (
+        <EmailBroadcastPreview
+          fromLabel={`${businessName} <${fromEmailLabel}>`}
+          toName={previewSample?.name ?? "Sample customer"}
+          toEmail={previewSample?.email}
+          subject={previewSubjectRendered}
+          bodyText={previewBodyRendered}
+          businessName={businessName}
+        />
+      ) : (
+        <>
+      <div className="space-y-3">
+        <span className="block text-sm font-semibold text-ink dark:text-cream-100">
+          Ready templates
+        </span>
+        {renderTemplateGroup("English", enTemplates)}
+        {renderTemplateGroup("Bahasa Malaysia", bmTemplates)}
         <p className="text-xs text-ink-muted dark:text-cream-400">
-          Tap a template to fill the message. Edit freely after.
+          Tap a template to fill the message. You will be asked before replacing
+          existing text.
         </p>
       </div>
+
+      {couponPlaceholderMissing ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+          This message uses <code className="font-mono">{"{coupon_code}"}</code>{" "}
+          but no coupon is selected. Pick a coupon below or remove the
+          placeholder.
+        </p>
+      ) : null}
 
       {channel === "email" ? (
         <label className="block space-y-1.5">
@@ -780,6 +901,8 @@ function Step3Template({
           </p>
         )}
       </label>
+        </>
+      )}
     </div>
   );
 }
@@ -789,19 +912,25 @@ function Step4Preview({
   name,
   segmentName,
   subject,
+  previewSubjectRendered,
   previewRendered,
   memberCount,
   sampleMembers,
   selectedCoupon,
+  businessName,
+  fromEmailLabel,
 }: {
   channel: Channel;
   name: string;
   segmentName: string;
   subject: string;
-  previewRendered: { name: string; text: string }[];
+  previewSubjectRendered: string;
+  previewRendered: { name: string; text: string; email: string | null }[];
   memberCount: number | null;
   sampleMembers: MemberSample[];
   selectedCoupon: CouponRow | null;
+  businessName: string;
+  fromEmailLabel: string;
 }) {
   return (
     <div className="space-y-5">
@@ -827,13 +956,22 @@ function Step4Preview({
 
       <div className="space-y-3">
         <p className="text-sm font-semibold text-ink dark:text-cream-100">
-          Sample renders (first 3 members)
+          {channel === "email" ? "Email preview" : "Sample renders (first 3 members)"}
         </p>
         {previewRendered.length === 0 ? (
           <p className="rounded-md bg-cream-100 px-3 py-2 text-xs text-ink-muted dark:bg-hairline-dark/40 dark:text-cream-400">
             No members to preview yet. Pick a segment with at least one
             customer.
           </p>
+        ) : channel === "email" ? (
+          <EmailBroadcastPreview
+            fromLabel={`${businessName} <${fromEmailLabel}>`}
+            toName={previewRendered[0].name}
+            toEmail={previewRendered[0].email}
+            subject={previewSubjectRendered}
+            bodyText={previewRendered[0].text}
+            businessName={businessName}
+          />
         ) : (
           <ul className="space-y-2">
             {previewRendered.map((row, i) => (
@@ -844,15 +982,10 @@ function Step4Preview({
                 <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
                   To: {row.name}
                 </p>
-                {channel === "email" && subject ? (
-                  <p className="mt-1 text-sm font-semibold text-ink dark:text-cream-100">
-                    Subject: {subject}
-                  </p>
-                ) : null}
                 <p className="mt-1 whitespace-pre-wrap text-sm text-ink dark:text-cream-100">
                   {row.text || "(empty)"}
                 </p>
-                {channel === "whatsapp_ctc" && sampleMembers[i]?.phone_e164 ? (
+                {sampleMembers[i]?.phone_e164 ? (
                   <p className="mt-2 break-all text-[11px] font-mono text-ink-muted dark:text-cream-400">
                     wa_url:{" "}
                     {buildCtcUrl(

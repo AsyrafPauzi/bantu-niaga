@@ -6,14 +6,16 @@ import {
   ChevronRight,
   Plus,
 } from "lucide-react";
+import { MarketingSubpageShell } from "@/components/marketing/MarketingSubpageShell";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
-import { PageHeader } from "@/components/dashboard/page-header";
 import {
   getCurrentUser,
   UnauthorizedError,
 } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { contentSubpageHero } from "@/lib/marketing/subpage-hero";
 
 export const metadata = { title: "Content calendar" };
 export const dynamic = "force-dynamic";
@@ -219,22 +221,57 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
     );
   }).length;
 
+  const scheduledCount = rows.filter((r) => r.status === "scheduled").length;
+  const draftCount = rows.filter((r) => r.status === "drafted").length;
+  const postedCount = rows.filter((r) => r.status === "posted").length;
+  const hero = contentSubpageHero({
+    monthLabel: `${MONTH_LABELS[month - 1]} ${year}`,
+    scheduledCount,
+    draftCount,
+    postedCount,
+  });
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Marketing"
-        title="Content calendar"
-        description={`${totalThisMonth} post${totalThisMonth === 1 ? "" : "s"} scheduled in ${MONTH_LABELS[month - 1]} ${year}.`}
-        action={
-          <Link
-            href={`/marketing/content/new?date=${todayKey}`}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-600 active:bg-accent-700"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.25} />
-            New post
-          </Link>
-        }
-      />
+    <MarketingSubpageShell
+      headline={hero.headline}
+      subcopy={hero.subcopy}
+      variant={hero.variant}
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="This month"
+            value={totalThisMonth}
+            iconClassName="text-violet-700 dark:text-violet-300"
+          />
+          <ModuleHeroStat
+            label="Scheduled"
+            value={scheduledCount}
+            iconClassName="text-emerald-700 dark:text-emerald-300"
+          />
+          <ModuleHeroStat
+            label="Drafts"
+            value={draftCount}
+            iconClassName="text-sky-700 dark:text-sky-300"
+          />
+          <ModuleHeroStat
+            label="Posted"
+            value={postedCount}
+            iconClassName="text-amber-700 dark:text-amber-300"
+          />
+        </div>
+      }
+    >
+      <div className="flex justify-end">
+        <Link
+          href={`/marketing/content/new?date=${todayKey}`}
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-brand-600"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.25} />
+          New post
+        </Link>
+      </div>
+
+      <div className="space-y-4">
 
       {error ? (
         <Card>
@@ -398,7 +435,8 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
           ))}
         </div>
       </Card>
-    </div>
+      </div>
+    </MarketingSubpageShell>
   );
 }
 

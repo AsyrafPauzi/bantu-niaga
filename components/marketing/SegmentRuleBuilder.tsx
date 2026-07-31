@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils/cn";
 import {
   AUTO_KEY_LABEL,
   AUTO_SEGMENT_KEYS,
+  isEmptyRules,
   type AutoSegmentKey,
   type SegmentRules,
 } from "@/lib/marketing/segments-rules";
@@ -170,8 +171,27 @@ export function SegmentRuleBuilder({
       extra,
     );
 
+  const rulesEmpty = editable && isEmptyRules(rules);
+  const spendRangeInvalid =
+    editable &&
+    rules.min_spend_myr !== undefined &&
+    rules.max_spend_myr !== undefined &&
+    rules.min_spend_myr > rules.max_spend_myr;
+
   return (
     <div className="space-y-6">
+      {rulesEmpty ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+          No filters yet — this segment will match <strong>all</strong> active
+          customers. Add at least one rule below, or pick auto-tags.
+        </p>
+      ) : null}
+
+      {spendRangeInvalid ? (
+        <p className="rounded-lg border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-sm text-status-danger">
+          Min spend cannot be higher than max spend.
+        </p>
+      ) : null}
       {/* Name row */}
       <Field label="Segment name" required>
         <input
@@ -188,7 +208,7 @@ export function SegmentRuleBuilder({
       {/* Tags any (mixed — matches manual + auto tag arrays). */}
       <Field
         label="Has any of these tags"
-        helper="Matches either manual or auto tags. Press Enter to add."
+        helper="Matches manual or auto tags (either array). For auto-only, use the Auto tags section below."
       >
         <ChipInput
           value={rules.tags_any ?? []}
@@ -216,7 +236,7 @@ export function SegmentRuleBuilder({
               });
             }}
             disabled={!editable}
-            className={inputClass()}
+            className={inputClass(spendRangeInvalid ? "border-status-danger" : undefined)}
             placeholder="0"
           />
         </Field>
@@ -233,7 +253,7 @@ export function SegmentRuleBuilder({
               });
             }}
             disabled={!editable}
-            className={inputClass()}
+            className={inputClass(spendRangeInvalid ? "border-status-danger" : undefined)}
             placeholder="No cap"
           />
         </Field>
@@ -293,7 +313,7 @@ export function SegmentRuleBuilder({
       {/* Manual tags */}
       <Field
         label="Manual tags include any of"
-        helper="Press Enter to add. Restricts to customers tagged manually with these strings."
+        helper="Only tags you added yourself (not VIP/dormant auto-tags). Press Enter to add."
       >
         <ChipInput
           value={rules.manual_tags_any ?? []}
@@ -311,7 +331,7 @@ export function SegmentRuleBuilder({
       {/* Auto tags */}
       <Field
         label="Auto tags include any of"
-        helper="Same five auto-tags computed from spend / recency."
+        helper="System tags: VIP, repeat, new, at-risk, dormant — computed from spend and recency."
       >
         <div className="flex flex-wrap gap-2">
           {AUTO_SEGMENT_KEYS.map((key) => {

@@ -29,6 +29,7 @@ export interface SendEmailInput {
   to: string;
   subject: string;
   body: string;
+  html?: string;
   fromEmail: string;
   apiKey: string;
   attachments?: Array<{
@@ -74,8 +75,8 @@ function missingConfig(
 /**
  * Send a single email through Resend.
  *
- * v1.1 sends the message_template as plain text (Resend accepts a
- * `text` field). HTML support is explicitly out of scope per spec §3.
+ * v1.1 sends plain text plus an optional branded HTML body (Resend
+ * `text` + `html` fields). Drag-and-drop builders are out of scope.
  */
 export async function sendEmail(
   input: SendEmailInput,
@@ -96,6 +97,7 @@ export async function sendEmail(
         to: input.to,
         subject: input.subject,
         text: input.body,
+        ...(input.html ? { html: input.html } : {}),
         ...(input.attachments?.length
           ? { attachments: input.attachments }
           : {}),
@@ -135,6 +137,7 @@ export interface BatchRecipient {
   to: string;
   subject: string;
   body: string;
+  html?: string;
   /** Caller-supplied correlation id (e.g. broadcast_recipients.id). */
   ref: string;
 }
@@ -179,6 +182,7 @@ export async function sendEmailBatch(
       to: [r.to],
       subject: r.subject,
       text: r.body,
+      ...(r.html ? { html: r.html } : {}),
     }));
 
     let res: Response;

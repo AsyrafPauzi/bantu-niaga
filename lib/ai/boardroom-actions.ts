@@ -133,12 +133,24 @@ export async function executeBoardroomPendingActions(opts: {
           action.args,
         );
         if (result.ok) {
-          lines.push(
-            `Maya: ${action.summary}${result.href ? ` → ${result.href}` : ""}`,
-          );
+          const href =
+            typeof result === "object" &&
+            result !== null &&
+            "href" in result &&
+            typeof result.href === "string"
+              ? ` → ${result.href}`
+              : "";
+          lines.push(`Maya: ${action.summary}${href}`);
         } else {
+          const message =
+            typeof result === "object" &&
+            result !== null &&
+            "message" in result &&
+            typeof result.message === "string"
+              ? result.message
+              : "failed";
           lines.push(
-            `Maya could not create (${action.tool}): ${result.message ?? "failed"}`,
+            `Maya could not create (${action.tool}): ${message}`,
           );
         }
         continue;

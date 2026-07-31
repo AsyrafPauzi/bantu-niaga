@@ -256,7 +256,7 @@ export function AdminStorageFileAttach({
                 type="button"
                 disabled={disabled || busy}
                 onClick={() => download(fileId)}
-                className="inline-flex h-8 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-cream-200 bg-cream-50/80 px-2 text-xs font-medium text-brand-700 hover:bg-cream-100 dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-brand-200 sm:max-w-[280px]"
+                className="inline-flex h-8 min-w-0 max-w-full flex-1 items-center gap-1.5 rounded-md border border-cream-200 bg-cream-50/80 px-2 text-xs font-medium text-brand-700 hover:bg-cream-100 dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-brand-200 sm:max-w-none"
               >
                 <FileText className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">{fileName}</span>
@@ -279,7 +279,7 @@ export function AdminStorageFileAttach({
                 value={pickId}
                 disabled={busy || loading}
                 onChange={(e) => setPickId(e.target.value)}
-                className="h-8 min-w-0 flex-1 rounded-md border border-cream-300 bg-white px-2 text-xs dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 sm:max-w-xs"
+                className="h-8 min-w-0 flex-1 basis-full rounded-md border border-cream-300 bg-white px-2 text-xs dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 sm:basis-[min(100%,16rem)]"
               >
                 <option value="">
                   {loading
@@ -294,15 +294,17 @@ export function AdminStorageFileAttach({
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                disabled={busy || !pickId}
-                onClick={() => void attach()}
-                className="inline-flex h-8 shrink-0 items-center rounded-md bg-brand-500 px-2.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
-              >
-                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Attach"}
-              </button>
-              {uploadControl}
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={busy || !pickId}
+                  onClick={() => void attach()}
+                  className="inline-flex h-8 items-center rounded-md bg-brand-500 px-2.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Attach"}
+                </button>
+                {uploadControl}
+              </div>
             </>
           ) : (
             <span className="text-xs text-ink-muted dark:text-cream-400">—</span>

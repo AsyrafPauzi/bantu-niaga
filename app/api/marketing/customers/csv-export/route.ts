@@ -65,7 +65,7 @@ function todayUtcDateStamp(): string {
   return `${y}-${m}-${day}`;
 }
 
-export async function GET(_request: Request) {
+export async function GET(request: Request) {
   let user;
   try {
     user = await getCurrentUser();
@@ -85,6 +85,38 @@ export async function GET(_request: Request) {
     );
   }
 
+  const url = new URL(request.url);
+  const q = url.searchParams.get("q")?.trim() || undefined;
+  const tagsRaw = url.searchParams.get("tags")?.trim() || undefined;
+  const source = url.searchParams.get("source")?.trim() || undefined;
+  const minSpendRaw = url.searchParams.get("min_spend");
+  const maxSpendRaw = url.searchParams.get("max_spend");
+  const minSpend =
+    minSpendRaw && !Number.isNaN(Number(minSpendRaw))
+      ? Number(minSpendRaw)
+      : undefined;
+  const maxSpend =
+    maxSpendRaw && !Number.isNaN(Number(maxSpendRaw))
+      ? Number(maxSpendRaw)
+      : undefined;
+  const tags = tagsRaw
+    ? tagsRaw
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : undefined;
+  const idsRaw = url.searchParams.get("ids")?.trim() || undefined;
+  const ids = idsRaw
+    ? idsRaw
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            id,
+          ),
+        )
+    : undefined;
+
   const supabase = await createSupabaseServerClient();
 
   // PostgREST `range()` cap is 1000 by default for `?.from(…).select(…)`
@@ -97,7 +129,7 @@ export async function GET(_request: Request) {
   const HARD_CAP = 50_000;
 
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("customers")
       .select(
         "name, phone_e164, email, address, notes, manual_tags, auto_tags, " +
@@ -105,7 +137,22 @@ export async function GET(_request: Request) {
       )
       .eq("business_id", user.businessId)
       .is("deleted_at", null)
-      .is("merged_into_id", null)
+      .is("merged_into_id", null);
+
+    if (q) {
+      const safe = q.replace(/[\\*,()]/g, "");
+      query = query.or(`name.ilike.*${safe}*,phone_e164.ilike.*${safe}*`);
+    }
+    if (tags && tags.length > 0) {
+      const tagList = `{${tags.map((t) => `"${t.replace(/"/g, '\\"')}"`).join(",")}}`;
+      query = query.or(`auto_tags.ov.${tagList},manual_tags.ov.${tagList}`);
+    }
+    if (source) query = query.eq("source", source);
+    if (typeof minSpend === "number") query = query.gte("total_spend_myr", minSpend);
+    if (typeof maxSpend === "number") query = query.lte("total_spend_myr", maxSpend);
+    if (ids && ids.length > 0) query = query.in("id", ids);
+
+    const { data, error } = await query
       .order("created_at", { ascending: true })
       .range(from, from + pageSize - 1);
 
@@ -141,7 +188,15 @@ export async function GET(_request: Request) {
   }));
 
   const body = toCsv(renderable, EXPORT_COLUMNS as unknown as string[]);
-  const filename = `bantuniaga-customers-${todayUtcDateStamp()}.csv`;
+  const filtered = Boolean(
+    q || tags?.length || source || minSpend != null || maxSpend != null,
+  );
+  const filename =
+    ids && ids.length > 0
+      ? `bantuniaga-customers-selected-${todayUtcDateStamp()}.csv`
+      : filtered
+        ? `bantuniaga-customers-filtered-${todayUtcDateStamp()}.csv`
+        : `bantuniaga-customers-${todayUtcDateStamp()}.csv`;
 
   return new NextResponse(body, {
     status: 200,

@@ -1,9 +1,14 @@
 import { z } from "zod";
 
-export const posCheckoutItemSchema = z.object({
-  product_id: z.string().uuid(),
-  quantity: z.number().finite().positive().max(9999),
-});
+export const posCheckoutItemSchema = z
+  .object({
+    product_id: z.string().uuid().optional(),
+    service_id: z.string().uuid().optional(),
+    quantity: z.number().finite().positive().max(9999),
+  })
+  .refine((v) => Boolean(v.product_id) !== Boolean(v.service_id), {
+    message: "Each line must have exactly one of product_id or service_id",
+  });
 
 export const posCheckoutSchema = z
   .object({
@@ -11,12 +16,20 @@ export const posCheckoutSchema = z
     payment_method: z.enum(["cash", "duitnow_qr_static"]),
     discount_type: z.enum(["amount", "pct"]).nullable().optional(),
     discount_value: z.number().finite().nonnegative().nullable().optional(),
+    coupon_code: z.string().trim().min(1).max(64).nullable().optional(),
     payment_received_myr: z.number().finite().nonnegative().nullable().optional(),
     payment_note: z.string().trim().max(500).nullable().optional(),
     customer_id: z.string().uuid().nullable().optional(),
     customer_name: z.string().trim().max(200).nullable().optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.coupon_code && (v.discount_type || v.discount_value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Use either coupon_code or manual discount, not both",
+        path: ["coupon_code"],
+      });
+    }
     if (v.discount_type && (v.discount_value === null || v.discount_value === undefined)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

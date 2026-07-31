@@ -37,6 +37,8 @@ interface AssistantStatus {
 interface MayaAssistantChatProps {
   businessId: string;
   initialStatus?: AssistantStatus | null;
+  /** Pre-fill the message box (e.g. from customer detail win-back CTA). */
+  initialSeed?: string;
 }
 
 function loadSession(businessId: string): ChatTurn[] {
@@ -66,12 +68,13 @@ function saveSession(businessId: string, turns: ChatTurn[]) {
 export function MayaAssistantChat({
   businessId,
   initialStatus,
+  initialSeed,
 }: MayaAssistantChatProps) {
   const [status, setStatus] = useState<AssistantStatus | null>(
     initialStatus ?? null,
   );
   const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialSeed ?? "");
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(!initialStatus);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +123,7 @@ export function MayaAssistantChat({
     } finally {
       setStatusLoading(false);
     }
-  }, []);
+  }, [turns.length]);
 
   useEffect(() => {
     if (!initialStatus) {
@@ -188,6 +191,25 @@ export function MayaAssistantChat({
         return;
       }
 
+      if (res.status === 403 && data.error === "assistant_disabled") {
+        setStatus((s) =>
+          s ? { ...s, assistant_enabled: false } : s,
+        );
+        setTurns((prev) => prev.slice(0, -1));
+        setInput(message);
+        setError(
+          data.message ?? "Maya is turned off in Settings → AI Agents.",
+        );
+        return;
+      }
+
+      if (res.status === 429 && data.error === "rate_limited") {
+        setTurns((prev) => prev.slice(0, -1));
+        setInput(message);
+        setError(data.message ?? "Too many messages. Pause a moment and try again.");
+        return;
+      }
+
       if (res.status === 429 && data.error === "daily_budget_exceeded") {
         setTurns((prev) => prev.slice(0, -1));
         setInput(message);
@@ -221,6 +243,13 @@ export function MayaAssistantChat({
           behavior: "smooth",
         });
       });
+    }
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void sendMessage(input);
     }
   }
 
@@ -378,15 +407,16 @@ export function MayaAssistantChat({
         onSubmit={handleSubmit}
         className="shrink-0 border-t border-[#E5E0D8] bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark"
       >
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
+        <div className="flex items-end gap-2">
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleInputKeyDown}
             placeholder={`Message ${displayName}…`}
             maxLength={2000}
+            rows={1}
             disabled={loading}
-            className="flex-1 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            className="max-h-32 min-h-[42px] flex-1 resize-none rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
           <button
             type="submit"
@@ -401,8 +431,8 @@ export function MayaAssistantChat({
           </button>
         </div>
         <p className="mt-2 text-[11px] text-ink-muted dark:text-cream-500">
-          Clarifying questions are free. Plans and actions use credits. Not
-          marketing or legal advice.
+          Enter to send · Shift+Enter for new line. Clarifying questions are
+          free. Plans and actions use credits. Not marketing or legal advice.
         </p>
       </form>
     </div>

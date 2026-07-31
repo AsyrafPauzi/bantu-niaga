@@ -1,19 +1,22 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  ArrowLeft,
-  Download,
-  HelpCircle,
-  Sparkles,
-} from "lucide-react";
+import { Upload, Users } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { MarketingCustomersBackLink } from "@/components/marketing/MarketingCustomersBackLink";
+import { NewCustomerFormPencil } from "@/components/marketing/NewCustomerFormPencil";
+import {
+  ModuleDashboardHero,
+  ModuleHeroStat,
+} from "@/components/dashboard/module-layout";
 import {
   getCurrentUser,
   UnauthorizedError,
 } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
-import { NewCustomerFormPencil } from "@/components/marketing/NewCustomerFormPencil";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getKpiSnapshot } from "@/lib/marketing/dashboard-queries";
+import { formatCount } from "@/lib/marketing/metrics";
+import { newCustomerSubpageHero } from "@/lib/marketing/subpage-hero";
 
 export const metadata = { title: "New customer" };
 export const dynamic = "force-dynamic";
@@ -39,99 +42,108 @@ export default async function NewCustomerPage() {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <Link
-        href="/marketing/customers"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        All customers
-      </Link>
+  const supabase = await createSupabaseServerClient();
+  const snapshot = await getKpiSnapshot(supabase, user.businessId);
+  const hero = newCustomerSubpageHero(snapshot);
 
-      <PageHeader
-        eyebrow="Marketing · Customers"
-        title="New customer"
-        description="Add a customer to your card-index CRM. Phone + name fields auto-merge if a match already exists."
-        action={
-          <a
-            href="/api/marketing/customers/csv-export"
-            rel="nofollow"
-            className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+  return (
+    <div className="space-y-4 pb-20 lg:pb-8">
+      <MarketingCustomersBackLink />
+
+      <ModuleDashboardHero
+        module="Marketing · Customers"
+        headline={hero.headline}
+        subcopy={hero.subcopy}
+        variant={hero.variant}
+        cta={
+          <Link
+            href="/marketing/customers/import"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-violet-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-violet-800 shadow-sm transition-colors hover:bg-white dark:border-violet-900/50 dark:bg-panel-dark/80 dark:text-violet-200"
           >
-            <Download className="h-4 w-4" strokeWidth={2} />
-            Export book
-          </a>
+            <Upload className="h-4 w-4" strokeWidth={2} />
+            Import CSV
+          </Link>
         }
-      />
+      >
+        {snapshot.totalCustomers > 0 ? (
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+            <ModuleHeroStat
+              label="In CRM"
+              value={formatCount(snapshot.totalCustomers)}
+              icon={Users}
+              iconClassName="text-violet-700 dark:text-violet-300"
+            />
+            <ModuleHeroStat
+              label="VIP"
+              value={formatCount(snapshot.vipCount)}
+              hint="auto-tagged"
+              iconClassName="text-amber-700 dark:text-amber-300"
+            />
+            <ModuleHeroStat
+              label="Dormant"
+              value={formatCount(snapshot.dormantCount)}
+              hint="win-back pool"
+              iconClassName="text-slate-600 dark:text-slate-300"
+            />
+          </div>
+        ) : null}
+      </ModuleDashboardHero>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
         <div className="lg:col-span-2">
           <NewCustomerFormPencil />
         </div>
 
-        <aside className="space-y-5">
-          <div className="rounded-xl border border-accent-200 bg-accent-50 p-4 dark:border-accent-700/40 dark:bg-accent-700/15">
-            <div className="flex items-start gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-white">
-                <Sparkles className="h-4 w-4" strokeWidth={2} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-700 dark:text-accent-200">
-                  Why register?
-                </p>
-                <ul className="mt-2 space-y-2 text-sm text-ink dark:text-cream-100">
-                  {[
-                    "Auto-segments (VIP, Repeat, At-risk) update in real time.",
-                    "Activate WhatsApp + email broadcasts and personalised offers.",
-                    "AI-suggested win-back actions when customers go cold.",
-                  ].map((line) => (
-                    <li key={line} className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" />
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+        <aside className="space-y-4">
+          <div className="rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-5 shadow-card dark:border-violet-900/40 dark:from-violet-950/30 dark:via-panel-dark dark:to-fuchsia-950/20">
+            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+              What happens next
+            </p>
+            <ul className="mt-3 space-y-2.5 text-sm text-ink dark:text-cream-100">
+              <li className="flex gap-2">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+                <span>
+                  Phone is normalised to +60 and checked against your existing
+                  list.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+                <span>
+                  VIP, repeat, and dormant tags update from POS and Finance
+                  orders — not from this form.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+                <span>
+                  Manual tags here are for your own labels — wholesale, regular,
+                  and so on.
+                </span>
+              </li>
+            </ul>
           </div>
 
-          <Card>
-            <CardBody className="space-y-3">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                  <HelpCircle className="h-4 w-4" strokeWidth={2} />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                    Got many customers?
-                  </p>
-                  <p className="text-xs text-ink-muted dark:text-cream-400">
-                    Bulk import in a tap.
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/marketing/customers/import"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-              >
-                Import CSV
-              </Link>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-                Dedup behaviour
-              </p>
-              <p className="text-xs text-ink-muted dark:text-cream-400">
-                If a customer with the same phone number already exists, we
-                offer to merge into the existing record. If the names differ,
-                you&apos;ll see a merge prompt above the form.
-              </p>
-            </CardBody>
-          </Card>
+          {snapshot.totalCustomers >= 5 ? (
+            <Card>
+              <CardBody className="space-y-2 text-sm">
+                <p className="font-semibold text-ink dark:text-cream-100">
+                  Adding many at once?
+                </p>
+                <p className="text-xs text-ink-muted dark:text-cream-400">
+                  CSV import handles up to 5,000 rows with phone dedupe preview
+                  before commit.
+                </p>
+                <Link
+                  href="/marketing/customers/import"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                >
+                  <Upload className="h-4 w-4" strokeWidth={2} />
+                  Open import wizard
+                </Link>
+              </CardBody>
+            </Card>
+          ) : null}
         </aside>
       </div>
     </div>

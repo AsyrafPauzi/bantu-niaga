@@ -9,14 +9,18 @@ import {
   Search,
   Star,
   Upload,
-  UserPlus,
   Users,
 } from "lucide-react";
+import { BulkAutoTagBanner } from "@/components/marketing/BulkAutoTagBanner";
+import { CustomerListEmptyState } from "@/components/marketing/CustomerListEmptyState";
+import { CustomerListSelectable } from "@/components/marketing/CustomerListSelectable";
+import { CustomerQuickAddBar } from "@/components/marketing/CustomerQuickAddBar";
+import { MarketingSubpageShell } from "@/components/marketing/MarketingSubpageShell";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
-import { PageHeader } from "@/components/dashboard/page-header";
-import { StatusPill } from "@/components/dashboard/status-pill";
 import { AiBanner } from "@/components/dashboard/ai-banner";
 import { cn } from "@/lib/utils/cn";
+import { buildCustomersExportUrl } from "@/lib/marketing/customers-export-url";
 import {
   getCurrentUser,
   UnauthorizedError,
@@ -24,8 +28,9 @@ import {
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ListQuerySchema } from "@/lib/marketing/schemas";
-import { formatCount, formatMyr } from "@/lib/marketing/metrics";
+import { formatCount } from "@/lib/marketing/metrics";
 import { getKpiSnapshot } from "@/lib/marketing/dashboard-queries";
+import { customersSubpageHero } from "@/lib/marketing/subpage-hero";
 
 export const metadata = { title: "Customers" };
 export const dynamic = "force-dynamic";
@@ -58,38 +63,6 @@ function flattenParams(
   return out;
 }
 
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-function segmentFromTags(autoTags: string[]): {
-  label: string;
-  tone: "accent" | "brand" | "success" | "warning" | "neutral";
-} {
-  if (autoTags.includes("vip")) return { label: "VIP", tone: "accent" };
-  if (autoTags.includes("at-risk")) return { label: "At-risk", tone: "warning" };
-  if (autoTags.includes("repeat")) return { label: "Repeat", tone: "brand" };
-  if (autoTags.includes("new")) return { label: "New", tone: "success" };
-  if (autoTags.includes("dormant")) return { label: "Dormant", tone: "neutral" };
-  return { label: "—", tone: "neutral" };
-}
-
-function fmtRel(iso: string | null): string {
-  if (!iso) return "—";
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const diffSec = Math.max(0, Math.round((now - then) / 1000));
-  if (diffSec < 60) return "Just now";
-  if (diffSec < 3600) return `${Math.round(diffSec / 60)} min ago`;
-  if (diffSec < 86400) return `${Math.round(diffSec / 3600)} hr ago`;
-  const days = Math.round(diffSec / 86400);
-  if (days < 30) return `${days}d ago`;
-  return `${Math.round(days / 30)}mo ago`;
-}
-
 export default async function CustomersPage({ searchParams }: PageProps) {
   let user;
   try {
@@ -117,6 +90,23 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     ? parsed.data
     : ListQuerySchema.parse({}); // defaults
   const parseError = !parsed.success;
+  const hasFilters = Boolean(
+    query.q ||
+      (query.tags && query.tags.length > 0) ||
+      query.source ||
+      typeof query.min_spend === "number" ||
+      typeof query.max_spend === "number",
+  );
+
+  const exportHref = buildCustomersExportUrl({
+    q: query.q,
+    tags: query.tags?.join(","),
+    source: query.source,
+    min_spend:
+      typeof query.min_spend === "number" ? String(query.min_spend) : undefined,
+    max_spend:
+      typeof query.max_spend === "number" ? String(query.max_spend) : undefined,
+  });
 
   const supabase = await createSupabaseServerClient();
 
@@ -184,153 +174,159 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     return `/marketing/customers?${u.toString()}`;
   };
 
-  const MINI_KPIS = [
-    {
-      label: "Total",
-      value: formatCount(snapshot.totalCustomers),
-      helper: `+${formatCount(snapshot.newThisMonth)} MTD`,
-      icon: Users,
-      tone: "brand" as const,
-      href: "/marketing/customers",
-    },
-    {
-      label: "VIP",
-      value: formatCount(snapshot.vipCount),
-      helper:
-        snapshot.totalCustomers > 0
-          ? `${Math.round((snapshot.vipCount / snapshot.totalCustomers) * 100)}% of base`
-          : "—",
-      icon: Star,
-      tone: "accent" as const,
-      href: "/marketing/customers?tags=vip",
-    },
-    {
-      label: "Repeat",
-      value: formatCount(snapshot.repeatCount),
-      helper:
-        snapshot.totalCustomers > 0
-          ? `${Math.round((snapshot.repeatCount / snapshot.totalCustomers) * 100)}% of base`
-          : "—",
-      icon: Users,
-      tone: "brand" as const,
-      href: "/marketing/customers?tags=repeat",
-    },
-    {
-      label: "Dormant",
-      value: formatCount(snapshot.dormantCount),
-      helper: snapshot.dormantCount > 0 ? "win back soon" : "none",
-      icon: Users,
-      tone: "neutral" as const,
-      href: "/marketing/customers?tags=dormant",
-    },
-    {
-      label: "At-risk",
-      value: formatCount(snapshot.atRiskCount),
-      helper: snapshot.atRiskCount > 0 ? "needs care" : "all clear",
-      icon: AlertTriangle,
-      tone: "warning" as const,
-      href: "/marketing/customers?tags=at-risk",
-    },
-    {
-      label: "New (MTD)",
-      value: formatCount(snapshot.newThisMonth),
-      helper: `${formatMyr(snapshot.avgAovMyr)} AOV`,
-      icon: UserPlus,
-      tone: "success" as const,
-      href: "/marketing/customers?tags=new",
-    },
-  ];
-
-  const KPI_TONE: Record<string, { wrap: string; icon: string }> = {
-    brand: {
-      wrap: "bg-brand-50 dark:bg-brand-900/30",
-      icon: "text-brand-700 dark:text-brand-200",
-    },
-    accent: {
-      wrap: "bg-accent-50 dark:bg-accent-700/20",
-      icon: "text-accent-700 dark:text-accent-200",
-    },
-    warning: {
-      wrap: "bg-status-warning/15",
-      icon: "text-[#8C5C0A] dark:text-[#F5C97A]",
-    },
-    success: {
-      wrap: "bg-status-success/10",
-      icon: "text-status-success",
-    },
-    neutral: {
-      wrap: "bg-cream-200 dark:bg-hairline-dark",
-      icon: "text-ink-muted dark:text-cream-400",
-    },
+  const sortHref = (field: typeof query.sort) => {
+    const u = new URLSearchParams(baseParams);
+    u.delete("page");
+    if (query.sort === field) {
+      u.set("order", query.order === "asc" ? "desc" : "asc");
+    } else {
+      u.set("sort", field);
+      u.set("order", field === "name" ? "asc" : "desc");
+    }
+    return `/marketing/customers?${u.toString()}`;
   };
 
+  const tagFilterHref = (tag: string | null) => {
+    const u = new URLSearchParams(baseParams);
+    u.delete("page");
+    if (tag) u.set("tags", tag);
+    else u.delete("tags");
+    return `/marketing/customers?${u.toString()}`;
+  };
+
+  const activeTag =
+    query.tags && query.tags.length === 1 ? query.tags[0] : query.tags?.length ? "multi" : null;
+
+  const TAG_FILTERS = [
+    { slug: null as string | null, label: "All", count: snapshot.totalCustomers },
+    { slug: "vip", label: "VIP", count: snapshot.vipCount },
+    { slug: "repeat", label: "Repeat", count: snapshot.repeatCount },
+    { slug: "new", label: "New", count: snapshot.newThisMonth },
+    { slug: "at-risk", label: "At-risk", count: snapshot.atRiskCount },
+    { slug: "dormant", label: "Dormant", count: snapshot.dormantCount },
+  ] as const;
+
+  const hero = customersSubpageHero(snapshot);
+  const filteredLabel =
+    query.q || (query.tags && query.tags.length > 0) || query.source
+      ? `${formatCount(total)} match${total === 1 ? "" : "es"}`
+      : null;
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Marketing"
-        title="Customers"
-        description="Card-index CRM with auto-segmentation, tags, and spend signals."
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/marketing/customers/import"
-              className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-            >
-              <Upload className="h-4 w-4" strokeWidth={2} />
-              Import CSV
-            </Link>
-            <Link
-              href="/marketing/customers/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-600 active:bg-accent-700"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.25} />
-              New customer
-            </Link>
-          </div>
-        }
-      />
+    <MarketingSubpageShell
+      headline={hero.headline}
+      subcopy={hero.subcopy}
+      variant={hero.variant}
+      cta={
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Link
+            href="/marketing/customers/import"
+            className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-violet-800 shadow-sm transition-colors hover:bg-white dark:border-violet-900/50 dark:bg-panel-dark/80 dark:text-violet-200"
+          >
+            <Upload className="h-4 w-4" strokeWidth={2} />
+            Import CSV
+          </Link>
+          <Link
+            href="/marketing/customers/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2} />
+            New customer
+          </Link>
+        </div>
+      }
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="In CRM"
+            value={formatCount(snapshot.totalCustomers)}
+            hint={
+              snapshot.newThisMonth > 0
+                ? `+${formatCount(snapshot.newThisMonth)} this month`
+                : "all active"
+            }
+            icon={Users}
+            iconClassName="text-violet-700 dark:text-violet-300"
+            href="/marketing/customers"
+          />
+          <ModuleHeroStat
+            label="VIP"
+            value={formatCount(snapshot.vipCount)}
+            hint={snapshot.vipCount > 0 ? "top spenders" : "none yet"}
+            icon={Star}
+            iconClassName="text-amber-700 dark:text-amber-300"
+            href="/marketing/customers?tags=vip"
+          />
+          <ModuleHeroStat
+            label="Dormant"
+            value={formatCount(snapshot.dormantCount)}
+            hint={snapshot.dormantCount > 0 ? "win-back targets" : "all active"}
+            icon={Users}
+            iconClassName="text-slate-600 dark:text-slate-300"
+            href="/marketing/customers?tags=dormant"
+          />
+          <ModuleHeroStat
+            label="At-risk"
+            value={formatCount(snapshot.atRiskCount)}
+            hint={snapshot.atRiskCount > 0 ? "needs care" : "all clear"}
+            icon={AlertTriangle}
+            iconClassName="text-rose-700 dark:text-rose-300"
+            href="/marketing/customers?tags=at-risk"
+          />
+        </div>
+      }
+    >
+      {snapshot.totalCustomers > 0 ? <BulkAutoTagBanner /> : null}
 
-      <section
-        aria-label="Customer counts"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4"
-      >
-        {MINI_KPIS.map((k) => {
-          const tone = KPI_TONE[k.tone];
-          return (
-            <Link key={k.label} href={k.href} className="block transition-opacity hover:opacity-90">
-              <Card>
-                <CardBody className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-                      {k.label}
-                    </p>
-                    <span
-                      className={`flex h-7 w-7 items-center justify-center rounded-md ${tone.wrap} ${tone.icon}`}
-                    >
-                      <k.icon className="h-3.5 w-3.5" strokeWidth={2} />
-                    </span>
-                  </div>
-                  <p className="text-2xl font-bold text-ink dark:text-cream-100">
-                    {k.value}
-                  </p>
-                  <p className="text-xs text-ink-muted dark:text-cream-400">
-                    {k.helper}
-                  </p>
-                </CardBody>
-              </Card>
-            </Link>
-          );
-        })}
-      </section>
+      <div className="space-y-4">
+        <CustomerQuickAddBar />
 
-      {snapshot.dormantCount > 0 || snapshot.atRiskCount > 0 ? (
-        <AiBanner
-          label="Win-back ready"
-          message={`${formatCount(snapshot.dormantCount + snapshot.atRiskCount)} customers need attention. Filter Dormant or At-risk, then send a broadcast — auto win-back packs are a Marketplace add-on.`}
-          cta="Open broadcasts"
-          href="/marketing/broadcasts/new"
-        />
-      ) : null}
+        {snapshot.totalCustomers === 0 && !hasFilters ? (
+          <CustomerListEmptyState />
+        ) : null}
+        <nav
+          aria-label="Filter by auto-tag"
+          className="flex flex-wrap gap-2"
+        >
+          {TAG_FILTERS.map((chip) => {
+            const isActive =
+              chip.slug === null
+                ? !query.tags || query.tags.length === 0
+                : activeTag === chip.slug;
+            return (
+              <Link
+                key={chip.label}
+                href={tagFilterHref(chip.slug)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                  isActive
+                    ? "border-violet-500 bg-violet-500 text-white shadow-sm"
+                    : "border-cream-300 bg-white text-ink-muted hover:border-violet-300 hover:text-violet-800 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:border-violet-700 dark:hover:text-violet-200",
+                )}
+              >
+                {chip.label}
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    isActive ? "text-white/90" : "text-ink-subtle dark:text-cream-500",
+                  )}
+                >
+                  {formatCount(chip.count)}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {(snapshot.dormantCount > 0 || snapshot.atRiskCount > 0) &&
+        !query.tags?.length ? (
+          <AiBanner
+            label="Win-back ready"
+            message={`${formatCount(snapshot.dormantCount + snapshot.atRiskCount)} customers could use a nudge. Tap Dormant or At-risk above, then start a broadcast.`}
+            cta="New broadcast"
+            href="/marketing/broadcasts/new"
+          />
+        ) : null}
 
       {parseError ? (
         <Card>
@@ -348,192 +344,91 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         </Card>
       ) : null}
 
-      <Card>
+      <Card className="overflow-hidden">
         <form
           method="get"
           action="/marketing/customers"
-          className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+          className="border-b border-cream-200 p-4 dark:border-hairline-dark sm:p-5"
         >
-          <div className="flex flex-1 items-center gap-2 rounded-lg border border-cream-300 bg-white px-3 py-2 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <Search className="h-4 w-4 text-ink-muted" strokeWidth={2} />
-            <input
-              type="search"
-              name="q"
-              defaultValue={query.q ?? ""}
-              placeholder="Search by name or phone…"
-              className="w-full bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100 dark:placeholder:text-cream-400"
-            />
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex flex-1 items-center gap-2 rounded-xl border border-cream-300 bg-cream-50/50 px-3 py-2.5 dark:border-hairline-dark dark:bg-panel-dark/60">
+              <Search className="h-4 w-4 shrink-0 text-ink-muted" strokeWidth={2} />
+              <input
+                type="search"
+                name="q"
+                defaultValue={query.q ?? ""}
+                placeholder="Search name or phone…"
+                className="w-full min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {query.tags?.length ? (
+                <input
+                  type="hidden"
+                  name="tags"
+                  value={query.tags.join(",")}
+                />
+              ) : null}
+              <select
+                name="source"
+                defaultValue={query.source ?? ""}
+                className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-xs font-semibold text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              >
+                <option value="">All sources</option>
+                <option value="manual">Manual</option>
+                <option value="pos">POS</option>
+                <option value="booking">Booking</option>
+                <option value="lead_conversion">Lead conversion</option>
+                <option value="csv_import">CSV import</option>
+                <option value="public_booking_page">Public booking</option>
+              </select>
+              <input type="hidden" name="sort" defaultValue={query.sort} />
+              <input type="hidden" name="order" defaultValue={query.order} />
+              <button
+                type="submit"
+                className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700"
+              >
+                Search
+              </button>
+              <Link
+                href="/marketing/customers"
+                className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-xs font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
+              >
+                Clear
+              </Link>
+              <a
+                href={exportHref}
+                rel="nofollow"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              >
+                <Download className="h-3.5 w-3.5" strokeWidth={2} />
+                {hasFilters ? "Export filtered" : "Export all"}
+              </a>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              name="source"
-              defaultValue={query.source ?? ""}
-              className="rounded-md border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
-            >
-              <option value="">All sources</option>
-              <option value="manual">Manual</option>
-              <option value="pos">POS</option>
-              <option value="booking">Booking</option>
-              <option value="lead_conversion">Lead conversion</option>
-              <option value="csv_import">CSV import</option>
-              <option value="public_booking_page">Public booking</option>
-            </select>
-            <input
-              type="hidden"
-              name="sort"
-              defaultValue={query.sort}
-            />
-            <input
-              type="hidden"
-              name="order"
-              defaultValue={query.order}
-            />
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1.5 rounded-md bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600"
-            >
-              Apply
-            </button>
-            <Link
-              href="/marketing/customers"
-              className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
-            >
-              Reset
-            </Link>
-            <a
-              href="/api/marketing/customers/csv-export"
-              rel="nofollow"
-              className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            >
-              <Download className="h-3.5 w-3.5" strokeWidth={2} />
-              Export
-            </a>
-          </div>
-        </form>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <div className="hidden lg:block">
-          <table className="min-w-full text-sm">
-            <thead className="bg-cream-100/60 text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:bg-hairline-dark/30 dark:text-cream-400">
-              <tr>
-                <th className="px-5 py-3 text-left">Customer</th>
-                <th className="px-3 py-3 text-left">Segment</th>
-                <th className="px-3 py-3 text-left">Tags</th>
-                <th className="px-3 py-3 text-left">Phone</th>
-                <th className="px-3 py-3 text-right">Spend</th>
-                <th className="px-3 py-3 text-right">Orders</th>
-                <th className="px-5 py-3 text-right">Last contact</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cream-200 dark:divide-hairline-dark">
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-ink-muted dark:text-cream-400">
-                    No customers match the current filters.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => {
-                  const seg = segmentFromTags(row.auto_tags);
-                  const tags = [
-                    ...row.manual_tags.slice(0, 2),
-                    ...row.auto_tags.filter((t) => !["vip", "repeat", "new", "dormant", "at-risk"].includes(t)).slice(0, 1),
-                  ].slice(0, 2);
-                  return (
-                    <tr
-                      key={row.id}
-                      className="bg-panel-light hover:bg-cream-100/60 dark:bg-panel-dark dark:hover:bg-hairline-dark/40"
-                    >
-                      <td className="px-5 py-3">
-                        <Link
-                          href={`/marketing/customers/${row.id}`}
-                          className="flex items-center gap-3"
-                        >
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-xs font-semibold uppercase text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                            {initialsOf(row.name)}
-                          </span>
-                          <span className="font-semibold text-ink hover:text-brand-700 dark:text-cream-100">
-                            {row.name}
-                          </span>
-                        </Link>
-                      </td>
-                      <td className="px-3 py-3">
-                        <StatusPill tone={seg.tone}>{seg.label}</StatusPill>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {tags.length === 0 ? (
-                            <span className="text-xs text-ink-subtle">—</span>
-                          ) : (
-                            tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="inline-flex items-center rounded-full bg-cream-200 px-2 py-0.5 text-[11px] font-medium text-ink-muted dark:bg-hairline-dark dark:text-cream-400"
-                              >
-                                {tag}
-                              </span>
-                            ))
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 font-mono text-xs text-ink-muted dark:text-cream-400">
-                        {row.phone_e164 ?? "—"}
-                      </td>
-                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-ink dark:text-cream-100">
-                        {formatMyr(row.total_spend_myr)}
-                      </td>
-                      <td className="px-3 py-3 text-right tabular-nums text-ink-muted dark:text-cream-400">
-                        {row.order_count}
-                      </td>
-                      <td className="px-5 py-3 text-right text-xs text-ink-muted dark:text-cream-400">
-                        {fmtRel(row.last_purchase_at)}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile / compact list */}
-        <div className="divide-y divide-cream-200 lg:hidden dark:divide-hairline-dark">
-          {rows.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-ink-muted dark:text-cream-400">
-              No customers match the current filters.
+          {filteredLabel ? (
+            <p className="mt-3 text-xs font-medium text-violet-700 dark:text-violet-300">
+              Showing {filteredLabel}
+              {query.tags?.length
+                ? ` · tag: ${query.tags.join(", ")}`
+                : null}
+              {query.q ? ` · “${query.q}”` : null}
             </p>
-          ) : (
-            rows.map((row) => {
-              const seg = segmentFromTags(row.auto_tags);
-              return (
-                <Link
-                  key={row.id}
-                  href={`/marketing/customers/${row.id}`}
-                  className="flex items-center gap-3 px-4 py-3"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-sm font-semibold uppercase text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                    {initialsOf(row.name)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink dark:text-cream-100">
-                      {row.name}
-                    </p>
-                    <p className="truncate text-xs text-ink-muted dark:text-cream-400">
-                      {row.phone_e164 ?? "no phone"}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold tabular-nums text-ink dark:text-cream-100">
-                      {formatMyr(row.total_spend_myr)}
-                    </p>
-                    <StatusPill tone={seg.tone}>{seg.label}</StatusPill>
-                  </div>
-                </Link>
-              );
-            })
-          )}
-        </div>
+          ) : null}
+        </form>
+
+        <CustomerListSelectable
+          rows={rows}
+          sort={{
+            field: query.sort,
+            order: query.order,
+            hrefs: {
+              name: sortHref("name"),
+              total_spend_myr: sortHref("total_spend_myr"),
+              last_purchase_at: sortHref("last_purchase_at"),
+            },
+          }}
+        />
 
         <div className="flex items-center justify-between border-t border-cream-200 bg-cream-100/40 px-5 py-3 text-xs text-ink-muted dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-400">
           <p>
@@ -557,7 +452,8 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           </div>
         </div>
       </Card>
-    </div>
+      </div>
+    </MarketingSubpageShell>
   );
 }
 

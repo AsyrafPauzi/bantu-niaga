@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { validateCoupon, redeemCoupon } from "@/lib/marketing/coupons";
 import { nextSaleNumber, postPosSaleToFinance } from "@/lib/sales/checkout";
 import { canUsePos } from "@/lib/sales/access";
 import { computePosTotals, posCheckoutSchema } from "@/lib/sales/schemas";
+import { decrementProductStock } from "@/lib/sales/stock";
 import { loadBusiness } from "@/lib/settings/business";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
+
+type SaleLine = {
+  product_id: string | null;
+  service_id: string | null;
+  product_name: string;
+  product_sku: string | null;
+  unit_price_myr: number;
+  quantity: number;
+  line_total_myr: number;
+  sort_order: number;
+};
 
 /**
  * POST /api/sales/pos/checkout — complete a paid-in-full POS sale.
@@ -35,7 +48,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // sales_rep has pos:r only
   if (user.role === "sales_rep") {
     return NextResponse.json(
       { error: "forbidden", message: "You cannot complete POS sales." },
@@ -84,63 +96,138 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const productIds = parsed.items.map((i) => i.product_id);
-  const { data: products, error: prodErr } = await supabase
-    .from("operations_products")
-    .select("id, sku, name, price_myr, is_active, deleted_at")
-    .eq("business_id", user.businessId)
-    .in("id", productIds);
 
-  if (prodErr) {
+  const productIds = parsed.items
+    .filter((i) => i.product_id)
+    .map((i) => i.product_id as string);
+  const serviceIds = parsed.items
+    .filter((i) => i.service_id)
+    .map((i) => i.service_id as string);
+
+  const [productsRes, servicesRes] = await Promise.all([
+    productIds.length > 0
+      ? supabase
+          .from("operations_products")
+          .select("id, sku, name, price_myr, is_active, deleted_at, stock_qty")
+          .eq("business_id", user.businessId)
+          .in("id", productIds)
+      : Promise.resolve({ data: [], error: null }),
+    serviceIds.length > 0
+      ? supabase
+          .from("operations_services")
+          .select("id, name, price_myr, is_active, deleted_at")
+          .eq("business_id", user.businessId)
+          .in("id", serviceIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (productsRes.error) {
     return NextResponse.json(
-      { error: "product_lookup_failed", message: prodErr.message },
+      { error: "product_lookup_failed", message: productsRes.error.message },
+      { status: 500 },
+    );
+  }
+  if (servicesRes.error) {
+    return NextResponse.json(
+      { error: "service_lookup_failed", message: servicesRes.error.message },
       { status: 500 },
     );
   }
 
-  const byId = new Map((products ?? []).map((p) => [p.id as string, p]));
-  const lines: Array<{
-    product_id: string;
-    product_name: string;
-    product_sku: string | null;
-    unit_price_myr: number;
-    quantity: number;
-    line_total_myr: number;
-    sort_order: number;
-  }> = [];
+  const productsById = new Map(
+    (productsRes.data ?? []).map((p) => [p.id as string, p]),
+  );
+  const servicesById = new Map(
+    (servicesRes.data ?? []).map((s) => [s.id as string, s]),
+  );
 
+  const lines: SaleLine[] = [];
   let lineSubtotal = 0;
   let sort = 0;
+
   for (const item of parsed.items) {
-    const p = byId.get(item.product_id);
-    if (!p || p.deleted_at || !p.is_active) {
+    if (item.product_id) {
+      const p = productsById.get(item.product_id);
+      if (!p || p.deleted_at || !p.is_active) {
+        return NextResponse.json(
+          {
+            error: "product_unavailable",
+            message: "One or more products are missing or inactive.",
+          },
+          { status: 400 },
+        );
+      }
+      const unit = Number(p.price_myr ?? 0);
+      const qty = item.quantity;
+      const lineTotal = Number((unit * qty).toFixed(2));
+      lineSubtotal += lineTotal;
+      lines.push({
+        product_id: p.id as string,
+        service_id: null,
+        product_name: String(p.name),
+        product_sku: (p.sku as string | null) ?? null,
+        unit_price_myr: unit,
+        quantity: qty,
+        line_total_myr: lineTotal,
+        sort_order: sort++,
+      });
+    } else if (item.service_id) {
+      const s = servicesById.get(item.service_id);
+      if (!s || s.deleted_at || !s.is_active) {
+        return NextResponse.json(
+          {
+            error: "service_unavailable",
+            message: "One or more services are missing or inactive.",
+          },
+          { status: 400 },
+        );
+      }
+      const unit = Number(s.price_myr ?? 0);
+      const qty = item.quantity;
+      const lineTotal = Number((unit * qty).toFixed(2));
+      lineSubtotal += lineTotal;
+      lines.push({
+        product_id: null,
+        service_id: s.id as string,
+        product_name: String(s.name),
+        product_sku: null,
+        unit_price_myr: unit,
+        quantity: qty,
+        line_total_myr: lineTotal,
+        sort_order: sort++,
+      });
+    }
+  }
+
+  let discountType = parsed.discount_type;
+  let discountValue = parsed.discount_value;
+  let couponId: string | null = null;
+  let couponCode: string | null = null;
+
+  if (parsed.coupon_code) {
+    const couponResult = await validateCoupon({
+      supabase,
+      businessId: user.businessId,
+      code: parsed.coupon_code,
+      customerId: parsed.customer_id ?? null,
+      subtotalMyr: lineSubtotal,
+    });
+    if (!couponResult.ok) {
       return NextResponse.json(
-        {
-          error: "product_unavailable",
-          message: "One or more products are missing or inactive.",
-        },
+        { error: "coupon_invalid", reason: couponResult.reason },
         { status: 400 },
       );
     }
-    const unit = Number(p.price_myr ?? 0);
-    const qty = item.quantity;
-    const lineTotal = Number((unit * qty).toFixed(2));
-    lineSubtotal += lineTotal;
-    lines.push({
-      product_id: p.id as string,
-      product_name: String(p.name),
-      product_sku: (p.sku as string | null) ?? null,
-      unit_price_myr: unit,
-      quantity: qty,
-      line_total_myr: lineTotal,
-      sort_order: sort++,
-    });
+    discountType = "amount";
+    discountValue = couponResult.discount_myr;
+    couponId = couponResult.coupon.id;
+    couponCode = couponResult.coupon.code;
   }
 
   const totals = computePosTotals({
     lineSubtotal,
-    discountType: parsed.discount_type,
-    discountValue: parsed.discount_value,
+    discountType,
+    discountValue,
     sstEnabled: business.sst_enabled,
     sstRatePct: Number(business.sst_rate_pct ?? 0),
   });
@@ -164,6 +251,7 @@ export async function POST(request: Request) {
     change = Number((paymentReceived - totals.total_myr).toFixed(2));
   }
 
+  let resolvedCustomerName = parsed.customer_name ?? null;
   if (parsed.customer_id) {
     const { data: cust } = await supabase
       .from("customers")
@@ -178,6 +266,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (!resolvedCustomerName) resolvedCustomerName = cust.name;
   }
 
   const saleNumber = await nextSaleNumber(supabase, user.businessId);
@@ -189,10 +278,10 @@ export async function POST(request: Request) {
       sale_number: saleNumber,
       cashier_user_id: user.id,
       customer_id: parsed.customer_id ?? null,
-      customer_name: parsed.customer_name ?? null,
+      customer_name: resolvedCustomerName,
       subtotal_myr: totals.subtotal_myr,
-      discount_type: parsed.discount_type ?? null,
-      discount_value: parsed.discount_value ?? null,
+      discount_type: discountType ?? null,
+      discount_value: discountValue ?? null,
       discount_amount_myr: totals.discount_amount_myr,
       sst_amount_myr: totals.sst_amount_myr,
       total_myr: totals.total_myr,
@@ -200,6 +289,8 @@ export async function POST(request: Request) {
       payment_received_myr: paymentReceived,
       change_myr: change,
       payment_note: parsed.payment_note ?? null,
+      coupon_id: couponId,
+      coupon_code: couponCode,
       status: "completed",
     })
     .select(
@@ -221,7 +312,14 @@ export async function POST(request: Request) {
   const itemRows = lines.map((l) => ({
     business_id: user.businessId,
     sale_id: sale.id,
-    ...l,
+    product_id: l.product_id,
+    service_id: l.service_id,
+    product_name: l.product_name,
+    product_sku: l.product_sku,
+    unit_price_myr: l.unit_price_myr,
+    quantity: l.quantity,
+    line_total_myr: l.line_total_myr,
+    sort_order: l.sort_order,
   }));
 
   const { error: itemsErr } = await supabase
@@ -234,7 +332,6 @@ export async function POST(request: Request) {
       saleId: sale.id,
       error: itemsErr.message,
     });
-    // Best-effort cleanup
     await supabase
       .from("pos_sales")
       .delete()
@@ -244,6 +341,59 @@ export async function POST(request: Request) {
       { error: "items_failed", message: itemsErr.message },
       { status: 500 },
     );
+  }
+
+  try {
+    const stockLines = lines
+      .filter((l) => l.product_id)
+      .map((l) => ({
+        product_id: l.product_id as string,
+        quantity: l.quantity,
+      }));
+    if (stockLines.length > 0) {
+      await decrementProductStock(supabase, user.businessId, stockLines);
+    }
+  } catch (stockErr) {
+    logger.error("sales.pos.checkout.stock_failed", {
+      businessId: user.businessId,
+      saleId: sale.id,
+      error: stockErr instanceof Error ? stockErr.message : String(stockErr),
+    });
+    await supabase.from("pos_sale_items").delete().eq("sale_id", sale.id);
+    await supabase
+      .from("pos_sales")
+      .delete()
+      .eq("id", sale.id)
+      .eq("business_id", user.businessId);
+    return NextResponse.json(
+      {
+        error: "insufficient_stock",
+        message:
+          stockErr instanceof Error ? stockErr.message : "Stock update failed",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (couponCode) {
+    try {
+      await redeemCoupon({
+        serviceClient: supabase,
+        businessId: user.businessId,
+        code: couponCode,
+        customerId: parsed.customer_id ?? null,
+        orderRef: saleNumber,
+        subtotalMyr: lineSubtotal,
+        redeemedBy: user.id,
+      });
+    } catch (couponErr) {
+      logger.warn("sales.pos.checkout.coupon_redeem_failed", {
+        businessId: user.businessId,
+        saleId: sale.id,
+        error:
+          couponErr instanceof Error ? couponErr.message : String(couponErr),
+      });
+    }
   }
 
   let financeTransactionId: string | null = null;
@@ -256,7 +406,7 @@ export async function POST(request: Request) {
       saleNumber,
       totalMyr: totals.total_myr,
       paymentMethod: parsed.payment_method,
-      customerName: parsed.customer_name ?? null,
+      customerName: resolvedCustomerName,
     });
   } catch (err) {
     logger.error("sales.pos.checkout.finance_failed", {
@@ -264,7 +414,6 @@ export async function POST(request: Request) {
       saleId: sale.id,
       error: err instanceof Error ? err.message : String(err),
     });
-    // Sale is kept; surface warning so cashier knows Finance needs attention
     return NextResponse.json(
       {
         data: {

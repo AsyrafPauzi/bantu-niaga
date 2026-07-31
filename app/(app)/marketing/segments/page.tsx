@@ -1,19 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Plus, Sparkles, Users } from "lucide-react";
+import { Plus, Send, Target, Users } from "lucide-react";
+import { SegmentList } from "@/components/marketing/SegmentList";
+import { MarketingSubpageShell } from "@/components/marketing/MarketingSubpageShell";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
+import { AiBanner } from "@/components/dashboard/ai-banner";
 import { Card, CardBody } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/dashboard/page-header";
 import {
   getCurrentUser,
   UnauthorizedError,
 } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  AUTO_KEY_LABEL,
-  type AutoSegmentKey,
-} from "@/lib/marketing/segments-rules";
+import { formatCount } from "@/lib/marketing/metrics";
+import type { AutoSegmentKey } from "@/lib/marketing/segments-rules";
+import { segmentsSubpageHero } from "@/lib/marketing/subpage-hero";
 
 export const metadata = { title: "Segments" };
 export const dynamic = "force-dynamic";
@@ -27,18 +28,6 @@ interface SegmentRow {
   member_count_at: string | null;
   created_at: string;
   updated_at: string;
-}
-
-function relativeTime(iso: string | null): string {
-  if (!iso) return "never";
-  const then = new Date(iso).getTime();
-  const diffSec = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (diffSec < 60) return "just now";
-  if (diffSec < 3600) return `${Math.round(diffSec / 60)} min ago`;
-  if (diffSec < 86400) return `${Math.round(diffSec / 3600)} hr ago`;
-  const days = Math.round(diffSec / 86400);
-  if (days < 30) return `${days}d ago`;
-  return `${Math.round(days / 30)}mo ago`;
 }
 
 export default async function MarketingSegmentsPage() {
@@ -71,36 +60,106 @@ export default async function MarketingSegmentsPage() {
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
     .order("kind", { ascending: true })
-    .order("created_at", { ascending: false });
+    .order("member_count", { ascending: false });
 
   const rows = (data ?? []) as SegmentRow[];
   const autoRows = rows.filter((r) => r.kind === "auto");
   const customRows = rows.filter((r) => r.kind === "custom");
+  const totalMembers = rows.reduce((n, r) => n + r.member_count, 0);
+  const segmentsWithMembers = rows.filter((r) => r.member_count > 0).length;
+  const largestSegment =
+    rows.length > 0
+      ? rows.reduce((best, r) =>
+          r.member_count > best.member_count ? r : best,
+        )
+      : null;
+  const winBackMembers = rows
+    .filter(
+      (r) =>
+        r.auto_key === "dormant" || r.auto_key === "at_risk",
+    )
+    .reduce((n, r) => n + r.member_count, 0);
+
+  const hero = segmentsSubpageHero({
+    total: rows.length,
+    autoCount: autoRows.length,
+    customCount: customRows.length,
+    totalMembers,
+    largestSegment: largestSegment
+      ? { name: largestSegment.name, count: largestSegment.member_count }
+      : null,
+    winBackMembers,
+  });
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/marketing"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
-        Back to Marketing
-      </Link>
-
-      <PageHeader
-        eyebrow="Marketing"
-        title="Segments"
-        description="Save cohorts you can broadcast to. Auto segments mirror the five system tags; custom segments let you mix tags, spend, and recency rules."
-        action={
+    <MarketingSubpageShell
+      headline={hero.headline}
+      subcopy={hero.subcopy}
+      variant={hero.variant}
+      cta={
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {totalMembers > 0 ? (
+            <Link
+              href="/marketing/broadcasts/new"
+              className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-violet-800 shadow-sm transition-colors hover:bg-white dark:border-violet-900/50 dark:bg-panel-dark/80 dark:text-violet-200"
+            >
+              <Send className="h-4 w-4" strokeWidth={2} />
+              Send broadcast
+            </Link>
+          ) : null}
           <Link
             href="/marketing/segments/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-600 active:bg-accent-700"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
           >
-            <Plus className="h-4 w-4" strokeWidth={2.25} />
+            <Plus className="h-4 w-4" strokeWidth={2} />
             New segment
           </Link>
-        }
-      />
+        </div>
+      }
+      stats={
+        rows.length > 0 ? (
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+            <ModuleHeroStat
+              label="Total members"
+              value={formatCount(totalMembers)}
+              hint="across all segments"
+              icon={Users}
+              iconClassName="text-violet-700 dark:text-violet-300"
+            />
+            <ModuleHeroStat
+              label="Built-in"
+              value={formatCount(autoRows.length)}
+              hint="auto from tags"
+              iconClassName="text-sky-700 dark:text-sky-300"
+            />
+            <ModuleHeroStat
+              label="Custom"
+              value={formatCount(customRows.length)}
+              hint={
+                customRows.length > 0 ? "your rules" : "none yet"
+              }
+              iconClassName="text-amber-700 dark:text-amber-300"
+            />
+            <ModuleHeroStat
+              label="Ready to reach"
+              value={formatCount(segmentsWithMembers)}
+              hint="with members"
+              icon={Target}
+              iconClassName="text-emerald-700 dark:text-emerald-300"
+              href="/marketing/broadcasts/new"
+            />
+          </div>
+        ) : null
+      }
+    >
+      {winBackMembers > 0 ? (
+        <AiBanner
+          label="Win-back pool"
+          message={`${formatCount(winBackMembers)} customers in dormant or at-risk segments — pick one below and start a broadcast.`}
+          cta="Send broadcast"
+          href="/marketing/broadcasts/new"
+        />
+      ) : null}
 
       {error ? (
         <Card>
@@ -110,88 +169,7 @@ export default async function MarketingSegmentsPage() {
         </Card>
       ) : null}
 
-      <Card className="overflow-hidden">
-        <table className="min-w-full text-sm">
-          <thead className="bg-cream-100/60 text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:bg-hairline-dark/30 dark:text-cream-400">
-            <tr>
-              <th className="px-5 py-3 text-left">Segment</th>
-              <th className="px-3 py-3 text-left">Kind</th>
-              <th className="px-3 py-3 text-right">Members</th>
-              <th className="px-5 py-3 text-right">Last refreshed</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-cream-200 dark:divide-hairline-dark">
-            {rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-5 py-10 text-center text-sm text-ink-muted dark:text-cream-400"
-                >
-                  No segments yet — auto segments should appear after the
-                  next migration apply.
-                </td>
-              </tr>
-            ) : (
-              [...autoRows, ...customRows].map((row) => (
-                <tr
-                  key={row.id}
-                  className="bg-panel-light hover:bg-cream-100/60 dark:bg-panel-dark dark:hover:bg-hairline-dark/40"
-                >
-                  <td className="px-5 py-3">
-                    <Link
-                      href={`/marketing/segments/${row.id}`}
-                      className="flex items-center gap-3"
-                    >
-                      <span
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                          row.kind === "auto"
-                            ? "bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
-                            : "bg-accent-50 text-accent-700 dark:bg-accent-700/30 dark:text-accent-200"
-                        }`}
-                      >
-                        {row.kind === "auto" ? (
-                          <Sparkles className="h-4 w-4" strokeWidth={2} />
-                        ) : (
-                          <Users className="h-4 w-4" strokeWidth={2} />
-                        )}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-ink hover:text-brand-700 dark:text-cream-100">
-                          {row.name}
-                        </p>
-                        {row.auto_key ? (
-                          <p className="text-xs text-ink-muted dark:text-cream-400">
-                            auto_key:{" "}
-                            <code className="font-mono">{row.auto_key}</code> ·{" "}
-                            {AUTO_KEY_LABEL[row.auto_key]}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-ink-muted dark:text-cream-400">
-                            Custom rules · created {relativeTime(row.created_at)}
-                          </p>
-                        )}
-                      </div>
-                    </Link>
-                  </td>
-                  <td className="px-3 py-3">
-                    {row.kind === "auto" ? (
-                      <Badge tone="brand">Auto</Badge>
-                    ) : (
-                      <Badge tone="accent">Custom</Badge>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-right font-semibold tabular-nums text-ink dark:text-cream-100">
-                    {row.member_count.toLocaleString()}
-                  </td>
-                  <td className="px-5 py-3 text-right text-xs text-ink-muted dark:text-cream-400">
-                    {relativeTime(row.member_count_at)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </Card>
-    </div>
+      <SegmentList autoRows={autoRows} customRows={customRows} />
+    </MarketingSubpageShell>
   );
 }

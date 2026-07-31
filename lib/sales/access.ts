@@ -15,6 +15,11 @@ export function canUseLeads(role: Role): boolean {
   return hasFullAccess(role, "sales") || canSurface(role, "sales", "leads");
 }
 
+/** Sufi assistant — same gate as leads (cashiers excluded). */
+export function canUseSalesAssistant(role: Role): boolean {
+  return canUseLeads(role);
+}
+
 /** Roles that may be assigned a lead. */
 export const LEAD_ASSIGNEE_ROLES: Role[] = ["owner", "manager", "sales_rep"];
 

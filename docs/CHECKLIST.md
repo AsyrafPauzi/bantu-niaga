@@ -308,6 +308,17 @@
 | ✅ | Daily sales summary (real totals) |
 | ✅ | POS sale → Finance income / ledger event |
 | ✅ | First-visit Sales guide (skip/cancel = done) |
+| ✅ | Sales history — period filters + receipt detail |
+| ✅ | Sales CSV export (today / week / month) |
+| ✅ | Leads Kanban view + drag-to-update status |
+| ✅ | Leads bulk status / assignee (multi-select) |
+| ✅ | Lead channel analytics on pipeline page |
+| ✅ | POS services from Operations catalog |
+| ✅ | POS coupon redeem (Marketing) |
+| ✅ | POS void sale + stock restore |
+| ✅ | Dashboard week compare, top products, cashier summary |
+| ✅ | Receipt print view |
+| ✅ | Lead / customer → POS deep link (pre-convert name fill) |
 
 ### 7.2 Sales add-ons (Marketplace · coming soon)
 

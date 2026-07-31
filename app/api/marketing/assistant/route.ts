@@ -9,6 +9,11 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildMarketingAssistantRules } from "@/lib/ai/marketing-assistant-prompt";
+import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
+import {
+  detectUserLanguage,
+  userLanguageInstruction,
+} from "@/lib/ai/user-language";
 import {
   MARKETING_ASSISTANT_TOOLS,
   executeMarketingAssistantTool,
@@ -97,6 +102,7 @@ async function runMayaAssistantChat(
     reasoningMode: settings.reasoningMode,
     modelOverride: settings.modelOverride,
   });
+  const lang = detectUserLanguage(userMessage);
   const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
@@ -105,6 +111,7 @@ async function runMayaAssistantChat(
           displayName,
           businessName: businessName ?? undefined,
           todayIso: malaysiaTodayIso(),
+          userLanguageInstruction: userLanguageInstruction(lang),
         }) +
         "\n\nDATA PACKET — COMMERCE (products + monthly sales):\n" +
         commerceText,
@@ -121,6 +128,7 @@ async function runMayaAssistantChat(
     briefingFor: "marketing",
     context: ctx,
     temperature: 0.2,
+    max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
     messages: baseMessages,
     tools: MARKETING_ASSISTANT_TOOLS,
     tool_choice: "auto",
@@ -175,6 +183,7 @@ async function runMayaAssistantChat(
     model,
     context: ctx,
     temperature: 0.2,
+    max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
     messages: followUpMessages,
     includeBriefing: false,
     tool_choice: "none",

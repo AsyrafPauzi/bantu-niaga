@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Plus, Ticket } from "lucide-react";
+import { Plus, Ticket } from "lucide-react";
+import { MarketingSubpageShell } from "@/components/marketing/MarketingSubpageShell";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
-import { PageHeader } from "@/components/dashboard/page-header";
 import {
   getCurrentUser,
   UnauthorizedError,
@@ -12,6 +13,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatMyr } from "@/lib/marketing/metrics";
 import { CouponStatusBadge } from "@/components/marketing/CouponStatusBadge";
 import { CouponStatusToggle } from "./status-toggle";
+import { couponsSubpageHero } from "@/lib/marketing/subpage-hero";
 
 export const metadata = { title: "Coupons" };
 export const dynamic = "force-dynamic";
@@ -77,31 +79,55 @@ export default async function MarketingCouponsPage() {
     .order("created_at", { ascending: false });
 
   const rows = (data ?? []) as CouponListRow[];
+  const activeCount = rows.filter((r) => r.status === "active").length;
+  const redeemedTotal = rows.reduce((n, r) => n + r.redeemed_count, 0);
+  const hero = couponsSubpageHero({
+    total: rows.length,
+    activeCount,
+    redeemedTotal,
+  });
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/marketing"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
-        Back to Marketing
-      </Link>
+    <MarketingSubpageShell
+      headline={hero.headline}
+      subcopy={hero.subcopy}
+      variant={hero.variant}
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ModuleHeroStat
+            label="Total"
+            value={rows.length}
+            iconClassName="text-violet-700 dark:text-violet-300"
+          />
+          <ModuleHeroStat
+            label="Active"
+            value={activeCount}
+            iconClassName="text-emerald-700 dark:text-emerald-300"
+          />
+          <ModuleHeroStat
+            label="Redemptions"
+            value={redeemedTotal.toLocaleString("en-MY")}
+            iconClassName="text-amber-700 dark:text-amber-300"
+          />
+          <ModuleHeroStat
+            label="Paused"
+            value={rows.filter((r) => r.status === "paused").length}
+            iconClassName="text-sky-700 dark:text-sky-300"
+          />
+        </div>
+      }
+    >
+      <div className="flex justify-end">
+        <Link
+          href="/marketing/coupons/new"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-brand-600"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.25} />
+          New coupon
+        </Link>
+      </div>
 
-      <PageHeader
-        eyebrow="Marketing"
-        title="Coupons"
-        description="Percentage- and ringgit-off promo codes. Scope to a segment, watch redemptions in real time."
-        action={
-          <Link
-            href="/marketing/coupons/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-600 active:bg-accent-700"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.25} />
-            New coupon
-          </Link>
-        }
-      />
+      <div className="space-y-4">
 
       {error ? (
         <Card>
@@ -189,6 +215,7 @@ export default async function MarketingCouponsPage() {
           </tbody>
         </table>
       </Card>
-    </div>
+      </div>
+    </MarketingSubpageShell>
   );
 }

@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { FinanceTxnCompactList } from "@/components/finance/FinanceTxnCompactList";
+import { FinanceTxnDocumentField } from "@/components/finance/FinanceTxnDocumentField";
+import { useStagedReceipt } from "@/components/finance/use-staged-receipt";
 import {
   QuickCreateActions,
   QuickCreatePanel,
@@ -131,6 +133,13 @@ export function FinanceExpensesPanel({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [txnDate, setTxnDate] = useState(new Date().toISOString().slice(0, 10));
   const [showMore, setShowMore] = useState(false);
+  const {
+    adminFileId,
+    adminFileName,
+    stageReceipt,
+    clearReceipt,
+    loadReceiptFromRow,
+  } = useStagedReceipt();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -161,10 +170,11 @@ export function FinanceExpensesPanel({
     setCounterparty("");
     setPaymentMethod("");
     setTxnDate(new Date().toISOString().slice(0, 10));
+    clearReceipt();
     setEditingId(null);
     setShowMore(false);
     setFormError(null);
-  }, []);
+  }, [clearReceipt]);
 
   const startEdit = useCallback((row: FinanceTransactionRow) => {
     setEditingId(row.id);
@@ -174,9 +184,10 @@ export function FinanceExpensesPanel({
     setCounterparty(row.counterparty ?? "");
     setPaymentMethod(row.payment_method ?? "");
     setTxnDate(row.txn_date);
+    loadReceiptFromRow(row);
     setShowMore(true);
     setFormError(null);
-  }, []);
+  }, [loadReceiptFromRow]);
 
   const onSave = useCallback(
     async (e: FormEvent) => {
@@ -206,6 +217,7 @@ export function FinanceExpensesPanel({
               counterparty: counterparty || null,
               payment_method: paymentMethod || null,
               txn_date: txnDate,
+              admin_file_id: adminFileId,
             }),
           });
           const json = (await res.json()) as {
@@ -220,7 +232,11 @@ export function FinanceExpensesPanel({
           setTransactions((prev) =>
             prev.map((t) =>
               t.id === editingId
-                ? { ...t, ...json.data!, admin_file_name: t.admin_file_name }
+                ? {
+                    ...t,
+                    ...json.data!,
+                    admin_file_name: adminFileName,
+                  }
                 : t,
             ),
           );
@@ -241,6 +257,7 @@ export function FinanceExpensesPanel({
             counterparty: counterparty || null,
             payment_method: paymentMethod || null,
             txn_date: txnDate,
+            admin_file_id: adminFileId,
           }),
         });
         const json = (await res.json()) as {
@@ -251,7 +268,10 @@ export function FinanceExpensesPanel({
         if (!res.ok || !json.ok || !json.data) {
           throw new Error(json.error?.message ?? "Could not save.");
         }
-        setTransactions((prev) => [json.data!, ...prev]);
+        setTransactions((prev) => [
+          { ...json.data!, admin_file_name: adminFileName },
+          ...prev,
+        ]);
         setMonthTotal((m) => m + amountNum);
         setLoggedCount((c) => c + 1);
         resetForm();
@@ -263,6 +283,8 @@ export function FinanceExpensesPanel({
       }
     },
     [
+      adminFileId,
+      adminFileName,
       amount,
       category,
       counterparty,
@@ -385,7 +407,7 @@ export function FinanceExpensesPanel({
         open
         onSubmit={onSave}
         title={editingId ? "Edit expense" : "Quick log"}
-        subtitle="Amount → what → category. Done in seconds."
+        subtitle="Amount, description, category — add a receipt if you have one."
         icon={Receipt}
         accent="rose"
       >
@@ -432,7 +454,11 @@ export function FinanceExpensesPanel({
             className="w-full rounded-lg border border-cream-300 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
 
-          <div className="flex flex-wrap gap-1.5">
+          <div className="space-y-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+              Category
+            </p>
+            <div className="flex flex-wrap gap-1.5">
             {FINANCE_EXPENSE_CATEGORIES.map((c) => {
               const meta = categoryMeta(c);
               const active = category === c;
@@ -452,25 +478,8 @@ export function FinanceExpensesPanel({
                 </button>
               );
             })}
-          </div>
-
-          {recentVendors.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
-                Recent:
-              </span>
-              {recentVendors.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setCounterparty(v)}
-                  className="rounded-full border border-cream-300 px-2 py-0.5 text-[11px] font-medium text-ink-muted hover:border-brand-200 dark:border-hairline-dark dark:text-cream-400"
-                >
-                  {v}
-                </button>
-              ))}
             </div>
-          ) : null}
+          </div>
 
           <button
             type="button"
@@ -513,6 +522,32 @@ export function FinanceExpensesPanel({
             </div>
           ) : null}
 
+          {recentVendors.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+                Recent vendors:
+              </span>
+              {recentVendors.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setCounterparty(v)}
+                  className="rounded-full border border-cream-300 px-2 py-0.5 text-[11px] font-medium text-ink-muted hover:border-brand-200 dark:border-hairline-dark dark:text-cream-400"
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <FinanceTxnDocumentField
+            fileId={adminFileId}
+            fileName={adminFileName}
+            onAttach={stageReceipt}
+            label="Receipt (optional)"
+            hint="Snap or upload the receipt — saved with this expense."
+          />
+
           {formError ? (
             <p className="text-sm text-status-danger">{formError}</p>
           ) : null}
@@ -537,6 +572,8 @@ export function FinanceExpensesPanel({
         onEdit={startEdit}
         onRemove={(id, amt) => void removeTxn(id, amt)}
         onAttachReceipt={attachReceipt}
+        exportMonth={monthLabel}
+        exportEntryCount={loggedCount}
       />
     </div>
   );

@@ -13,7 +13,7 @@ export function ModuleDashboardShell({
   return <div className={cn("space-y-6 pb-8", className)}>{children}</div>;
 }
 
-export type ModuleHeroVariant = "calm" | "attention" | "finance-up" | "finance-down";
+export type ModuleHeroVariant = "calm" | "attention" | "finance-up" | "finance-down" | "marketing" | "sales";
 
 const HERO_VARIANT_CLASS: Record<ModuleHeroVariant, string> = {
   calm: "border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-teal-50 dark:border-sky-900/40 dark:from-sky-950/30 dark:via-panel-dark dark:to-teal-950/20",
@@ -23,12 +23,18 @@ const HERO_VARIANT_CLASS: Record<ModuleHeroVariant, string> = {
     "border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-brand-50 dark:border-emerald-900/40 dark:from-emerald-950/30 dark:via-panel-dark dark:to-brand-950/20",
   "finance-down":
     "border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-amber-50 dark:border-rose-900/40 dark:from-rose-950/30 dark:via-panel-dark dark:to-amber-950/20",
+  marketing:
+    "border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:border-violet-900/40 dark:from-violet-950/30 dark:via-panel-dark dark:to-fuchsia-950/20",
+  sales:
+    "border-orange-200/80 bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:border-orange-900/40 dark:from-orange-950/30 dark:via-panel-dark dark:to-amber-950/20",
 };
 
 const MODULE_EYEBROW_CLASS: Record<string, string> = {
   Operations: "text-sky-700 dark:text-sky-300",
   Admin: "text-violet-700 dark:text-violet-300",
   Finance: "text-emerald-700 dark:text-emerald-300",
+  Marketing: "text-violet-700 dark:text-violet-300",
+  Sales: "text-orange-700 dark:text-orange-300",
 };
 
 interface ModuleDashboardHeroProps {

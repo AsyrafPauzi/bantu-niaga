@@ -10,6 +10,11 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildAdminAssistantRules } from "@/lib/ai/admin-assistant-prompt";
+import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
+import {
+  detectUserLanguage,
+  userLanguageInstruction,
+} from "@/lib/ai/user-language";
 import {
   extractChatAssistantText,
   openaiChat,
@@ -99,6 +104,7 @@ async function runAdminAssistantChat(
     reasoningMode: settings.reasoningMode,
     modelOverride: settings.modelOverride,
   });
+  const lang = detectUserLanguage(userMessage);
   const messages: AgentChatMessage[] = [
     {
       role: "system",
@@ -107,6 +113,7 @@ async function runAdminAssistantChat(
           displayName,
           businessName: businessName ?? undefined,
           todayIso: malaysiaTodayYmd(),
+          userLanguageInstruction: userLanguageInstruction(lang),
         }) +
         "\n\nDATA PACKET — ADMIN (tasks + compliance + storage):\n" +
         adminPacketText,
@@ -123,6 +130,7 @@ async function runAdminAssistantChat(
     briefingFor: "admin",
     context: ctx,
     temperature: 0.2,
+    max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
     messages,
     tool_choice: "none",
   });

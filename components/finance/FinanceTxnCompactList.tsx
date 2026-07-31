@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
+import { FinanceTxnExportButton } from "@/components/finance/FinanceTxnExportButton";
 import { cn } from "@/lib/utils/cn";
 import { formatMyr, type FinanceTransactionRow } from "@/lib/finance/schemas";
 
@@ -32,6 +33,10 @@ interface FinanceTxnCompactListProps {
   onEdit: (row: FinanceTransactionRow) => void;
   onRemove: (id: string, amt: number) => void;
   onAttachReceipt: (id: string, fileId: string | null) => Promise<void>;
+  /** YYYY-MM — enables month CSV export in the list header. */
+  exportMonth?: string;
+  /** Month entry count — disables export when zero. */
+  exportEntryCount?: number;
 }
 
 export function FinanceTxnCompactList({
@@ -47,6 +52,8 @@ export function FinanceTxnCompactList({
   onEdit,
   onRemove,
   onAttachReceipt,
+  exportMonth,
+  exportEntryCount,
 }: FinanceTxnCompactListProps) {
   const [attachRowId, setAttachRowId] = useState<string | null>(null);
   const isIncome = kind === "income";
@@ -56,15 +63,24 @@ export function FinanceTxnCompactList({
 
   return (
     <div className="overflow-hidden rounded-xl border border-cream-200 bg-white dark:border-hairline-dark dark:bg-panel-dark">
-      <div className="flex items-center justify-between border-b border-cream-200 px-3 py-2 dark:border-hairline-dark">
+      <div className="flex items-center justify-between gap-2 border-b border-cream-200 px-3 py-2 dark:border-hairline-dark">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
           {title}
         </p>
-        {transactions.length > 0 ? (
-          <span className="text-[11px] tabular-nums text-ink-muted dark:text-cream-400">
-            {transactions.length}
-          </span>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {exportMonth ? (
+            <FinanceTxnExportButton
+              kind={kind}
+              month={exportMonth}
+              disabled={(exportEntryCount ?? transactions.length) === 0}
+            />
+          ) : null}
+          {transactions.length > 0 ? (
+            <span className="text-[11px] tabular-nums text-ink-muted dark:text-cream-400">
+              {transactions.length}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {transactions.length === 0 ? (
