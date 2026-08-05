@@ -4,7 +4,8 @@ import {
   UnauthorizedError,
   type CurrentUser,
 } from "@/lib/auth/current-user";
-import { canShareAdminFileCategory, newAdminFileShareHash, adminFileShareUrl } from "@/lib/admin/share";
+import { canShareAdminFileCategory, adminFileShareUrl } from "@/lib/admin/share";
+import { newAdminFileShareHash } from "@/lib/admin/share-server";
 import { canSurface } from "@/lib/permissions";
 import { loadBusiness } from "@/lib/settings/business";
 import { createSupabaseServerClient } from "@/lib/supabase/server";

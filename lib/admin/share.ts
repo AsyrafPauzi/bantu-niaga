@@ -1,5 +1,3 @@
-import { generateShareHash } from "@/lib/finance/helpers";
-
 const BLOCKED_SHARE_CATEGORIES = new Set(["hr_doc"]);
 
 export function canShareAdminFileCategory(
@@ -20,8 +18,4 @@ export function adminFileShareUrl(
 ): string {
   const base = appUrl.replace(/\/$/, "");
   return `${base}${adminFileSharePath(idcompany, shareHash)}`;
-}
-
-export function newAdminFileShareHash(): string {
-  return generateShareHash();
 }

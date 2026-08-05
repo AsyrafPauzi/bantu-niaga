@@ -1,17 +1,8 @@
-import { randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FinanceMonthSummary, FinancePnLLine, FinancePnLStatement } from "@/lib/finance/schemas";
 import { FINANCE_INCOME_REVENUE_CATEGORIES } from "@/lib/finance/schemas";
 
-export function generateShareHash(): string {
-  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = randomBytes(8);
-  let out = "";
-  for (let i = 0; i < 8; i++) {
-    out += alphabet[bytes[i]! % alphabet.length];
-  }
-  return out;
-}
+export { generateShareHash } from "@/lib/utils/share-hash";
 
 export async function nextFinanceInvoiceNumber(
   admin: SupabaseClient,
