@@ -222,7 +222,7 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | `customer.created` / `updated` / `deleted` / `merged` / `tag_changed` | CRM / SQL | Sync ack | Audit / Home feed |
 
 **Dispatcher:** `lib/events/dispatcher.ts` · **Handlers:** `lib/events/register-handlers.ts`  
-**Cron replay:** `GET /api/cron/events-dispatch` (every 5 min)  
+**Cron replay:** `GET /api/cron/events-dispatch` (daily 02:00 UTC on Hobby; invoke manually for faster replay)  
 **Legacy:** `marketing-event-listener` Edge function remains as optional batch fallback
 
 ---
