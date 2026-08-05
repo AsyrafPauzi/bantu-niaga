@@ -34,7 +34,11 @@ export type EventName =
   | "task.due_soon"
   | "compliance.due_soon"
   | "sale.completed"
-  | "sale.voided";
+  | "sale.voided"
+  | "stock.decrement"
+  | "stock.restore"
+  | "order.completed"
+  | "order.created";
 
 export interface DomainEvent<TPayload = unknown> {
   id: string;

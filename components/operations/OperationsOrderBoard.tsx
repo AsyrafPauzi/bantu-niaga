@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -16,6 +17,8 @@ import {
   Plus,
   Search,
   Trash2,
+  Receipt,
+  UserPlus,
 } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import {
@@ -49,6 +52,8 @@ import {
 interface OperationsOrderBoardProps {
   initialOrders: OperationsOrderRow[];
   suppliers: OperationsSupplierRow[];
+  leadLinks?: Record<string, string>;
+  highlightOrderId?: string | null;
 }
 
 type OrderViewMode = "board" | "list";
@@ -139,6 +144,8 @@ function waUrl(phone: string): string {
 export function OperationsOrderBoard({
   initialOrders,
   suppliers,
+  leadLinks = {},
+  highlightOrderId = null,
 }: OperationsOrderBoardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -165,6 +172,18 @@ export function OperationsOrderBoard({
   const [dropTarget, setDropTarget] = useState<OperationsOrderStatus | null>(
     null,
   );
+  const [linkedLeads, setLinkedLeads] = useState(leadLinks);
+
+  useEffect(() => {
+    setLinkedLeads(leadLinks);
+  }, [leadLinks]);
+
+  useEffect(() => {
+    if (!highlightOrderId) return;
+    setExpandedId(highlightOrderId);
+    const el = document.getElementById(`order-${highlightOrderId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightOrderId]);
 
   const customerHints = useMemo(
     () => customerHintsFromOrders(orders),
@@ -317,6 +336,68 @@ export function OperationsOrderBoard({
     ],
   );
 
+  const recordExpense = useCallback(
+    async (order: OperationsOrderRow) => {
+      setBusyId(order.id);
+      setFormError(null);
+      try {
+        const res = await fetch(
+          `/api/operations/orders/${order.id}/record-expense`,
+          { method: "POST" },
+        );
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (json.error === "already_recorded" && json.expense_id) {
+            router.push(`/finance/expenses?txn=${json.expense_id}`);
+            return;
+          }
+          throw new Error(
+            json.message ?? json.error ?? "Could not record expense.",
+          );
+        }
+        router.push(json.data?.href ?? "/finance/expenses");
+      } catch (err) {
+        setFormError(
+          err instanceof Error ? err.message : "Could not record expense.",
+        );
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [router],
+  );
+
+  const createLead = useCallback(
+    async (order: OperationsOrderRow) => {
+      setBusyId(order.id);
+      setFormError(null);
+      try {
+        const res = await fetch(
+          `/api/operations/orders/${order.id}/create-lead`,
+          { method: "POST" },
+        );
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            json.message ?? json.error ?? "Could not create lead.",
+          );
+        }
+        const leadId = json.data?.lead_id as string | undefined;
+        if (leadId) {
+          setLinkedLeads((prev) => ({ ...prev, [order.id]: leadId }));
+          router.push(`/sales/leads/${leadId}`);
+        }
+      } catch (err) {
+        setFormError(
+          err instanceof Error ? err.message : "Could not create lead.",
+        );
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [router],
+  );
+
   const renderExpandedDetails = (
     order: OperationsOrderRow,
     busy: boolean,
@@ -325,6 +406,38 @@ export function OperationsOrderBoard({
       className="space-y-3 border-t border-cream-100 px-3 py-3 dark:border-hairline-dark"
       onClick={(e) => e.stopPropagation()}
     >
+      <div className="flex flex-wrap gap-2">
+        {order.amount_myr != null && Number(order.amount_myr) > 0 ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void recordExpense(order)}
+            className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[11px] font-bold text-violet-800 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100"
+          >
+            <Receipt className="h-3 w-3" />
+            Record expense
+          </button>
+        ) : null}
+        {linkedLeads[order.id] ? (
+          <Link
+            href={`/sales/leads/${linkedLeads[order.id]}`}
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100"
+          >
+            <UserPlus className="h-3 w-3" />
+            View lead
+          </Link>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void createLead(order)}
+            className="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] font-bold text-sky-800 hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"
+          >
+            <UserPlus className="h-3 w-3" />
+            Create lead
+          </button>
+        )}
+      </div>
       <div>
         <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-ink-muted dark:text-cream-400">
           Fulfillment status
@@ -597,9 +710,12 @@ export function OperationsOrderBoard({
                 return (
                   <li
                     key={order.id}
+                    id={`order-${order.id}`}
                     className={cn(
                       "bg-white dark:bg-panel-dark",
                       overdue && "bg-rose-50/40 dark:bg-rose-950/10",
+                      highlightOrderId === order.id &&
+                        "ring-2 ring-inset ring-amber-300 dark:ring-amber-700",
                     )}
                   >
                     <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -772,6 +888,7 @@ export function OperationsOrderBoard({
                   return (
                     <li
                       key={order.id}
+                      id={`order-${order.id}`}
                       draggable
                       onDragStart={() => setDragId(order.id)}
                       onDragEnd={() => {
@@ -784,6 +901,8 @@ export function OperationsOrderBoard({
                           ? "border-rose-300 ring-1 ring-rose-200 dark:border-rose-900 dark:ring-rose-950"
                           : "border-cream-200 dark:border-hairline-dark",
                         dragId === order.id && "scale-[0.98] opacity-50",
+                        highlightOrderId === order.id &&
+                          "ring-2 ring-amber-300 dark:ring-amber-700",
                       )}
                     >
                       <div className="p-3">

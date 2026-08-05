@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -31,6 +31,7 @@ import type { OperationsSupplierRow } from "@/lib/operations/schemas";
 
 interface OperationsSupplierPanelProps {
   initialSuppliers: OperationsSupplierRow[];
+  highlightSupplierId?: string | null;
 }
 
 const PAYMENT_TERM_PRESETS = ["COD", "Net 7", "Net 14", "Net 30", "Net 60"];
@@ -51,6 +52,7 @@ function supplierMatchesSearch(s: OperationsSupplierRow, needle: string): boolea
 
 export function OperationsSupplierPanel({
   initialSuppliers,
+  highlightSupplierId = null,
 }: OperationsSupplierPanelProps) {
   const router = useRouter();
   const [suppliers, setSuppliers] = useState(initialSuppliers);
@@ -72,6 +74,12 @@ export function OperationsSupplierPanel({
   const [formError, setFormError] = useState<string | null>(null);
 
   const refresh = useCallback(() => router.refresh(), [router]);
+
+  useEffect(() => {
+    if (!highlightSupplierId) return;
+    const el = document.getElementById(`supplier-${highlightSupplierId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightSupplierId]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -443,7 +451,12 @@ export function OperationsSupplierPanel({
               return (
                 <li
                   key={s.id}
-                  className="group px-3 py-2.5 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60"
+                  id={`supplier-${s.id}`}
+                  className={cn(
+                    "group px-3 py-2.5 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60",
+                    highlightSupplierId === s.id &&
+                      "bg-amber-50/90 ring-2 ring-inset ring-amber-300 dark:bg-amber-950/30 dark:ring-amber-700",
+                  )}
                 >
                   <div className="flex items-start gap-3">
                     <OperationsCatalogThumb emoji="🚚" />

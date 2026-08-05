@@ -190,6 +190,7 @@ export const operationsProductCreateSchema = z
     low_stock_threshold: z.coerce.number().int().min(0).optional().default(5),
     notes: z.string().trim().max(2000).optional().nullable(),
     image_file_id: z.string().uuid().optional().nullable(),
+    spec_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -205,6 +206,7 @@ export const operationsProductUpdateSchema = z
     low_stock_threshold: z.coerce.number().int().min(0).optional(),
     notes: z.string().trim().max(2000).optional().nullable(),
     image_file_id: z.string().uuid().optional().nullable(),
+    spec_file_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -222,6 +224,8 @@ export interface OperationsProductRow {
   notes: string | null;
   image_file_id: string | null;
   image_file_name?: string | null;
+  spec_file_id: string | null;
+  spec_file_name?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -233,6 +237,7 @@ export const operationsBookingResourceCreateSchema = z
     description: z.string().trim().max(2000).optional().nullable(),
     buffer_minutes: z.coerce.number().int().min(0).max(480).optional().default(0),
     is_active: z.boolean().optional().default(true),
+    employee_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -242,6 +247,7 @@ export const operationsBookingResourceUpdateSchema = z
     description: z.string().trim().max(2000).optional().nullable(),
     buffer_minutes: z.coerce.number().int().min(0).max(480).optional(),
     is_active: z.boolean().optional(),
+    employee_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -252,6 +258,8 @@ export interface OperationsBookingResourceRow {
   description: string | null;
   buffer_minutes: number;
   is_active: boolean;
+  employee_id: string | null;
+  employee_name?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

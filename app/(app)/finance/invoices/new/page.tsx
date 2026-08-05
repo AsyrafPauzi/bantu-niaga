@@ -31,6 +31,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
   const documentKind = sp.kind === "quote" ? "quote" : "invoice";
   const initialCustomerId =
     typeof sp.customer_id === "string" ? sp.customer_id : undefined;
+  const leadId = typeof sp.lead_id === "string" ? sp.lead_id : undefined;
 
   let user;
   try {
@@ -46,7 +47,16 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
   if (!business) redirect("/home");
 
   const supabase = await createSupabaseServerClient();
-  const [customersRes, nextNumber, recentCustomers, products] =
+  const leadPromise = leadId
+    ? supabase
+        .from("sales_leads")
+        .select("id, name, phone_e164, customer_id, estimated_value_myr")
+        .eq("business_id", user.businessId)
+        .eq("id", leadId)
+        .maybeSingle()
+    : Promise.resolve({ data: null });
+
+  const [customersRes, nextNumber, recentCustomers, products, leadRes] =
     await Promise.all([
       supabase
         .from("customers")
@@ -63,7 +73,19 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
       ),
       loadRecentBilledCustomers(supabase, user.businessId),
       loadOperationsProductsForFinance(supabase, user.businessId),
+      leadPromise,
     ]);
+
+  const lead = leadRes.data as {
+    id: string;
+    name: string;
+    phone_e164: string;
+    customer_id: string | null;
+    estimated_value_myr: number | string | null;
+  } | null;
+
+  const resolvedCustomerId =
+    initialCustomerId ?? lead?.customer_id ?? undefined;
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
@@ -85,7 +107,10 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
         customers={(customersRes.data ?? []) as unknown as FinanceCustomerRow[]}
         nextNumberPreview={nextNumber}
         defaultInvoiceDate={today}
-        initialCustomerId={initialCustomerId}
+        initialCustomerId={resolvedCustomerId}
+        initialSalesLeadId={lead?.id}
+        initialCustomerName={lead && !lead.customer_id ? lead.name : ""}
+        initialCustomerPhone={lead && !lead.customer_id ? lead.phone_e164 : ""}
         recentCustomers={recentCustomers}
         products={products}
         idcompany={business.idcompany}

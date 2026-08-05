@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { restoreProductStock } from "@/lib/sales/stock";
+import { emitAndDispatch } from "@/lib/events/dispatcher";
 import type { SaleVoidedPayload } from "@/lib/events/sale-payloads";
 
 async function claimDedup(
@@ -19,12 +19,13 @@ async function claimDedup(
   throw new Error(error.message);
 }
 
-/** Sync handler: reverse Finance txn + restore Operations stock. */
+/** Sync handler: reverse Finance txn; stock via `stock.restore` event. */
 export async function handleSaleVoided(opts: {
   supabase: SupabaseClient;
   payload: SaleVoidedPayload;
+  userId: string | null;
 }): Promise<void> {
-  const { supabase, payload } = opts;
+  const { supabase, payload, userId } = opts;
   const claimed = await claimDedup(
     supabase,
     payload.business_id,
@@ -48,6 +49,17 @@ export async function handleSaleVoided(opts: {
     }));
 
   if (stockLines.length > 0) {
-    await restoreProductStock(supabase, payload.business_id, stockLines);
+    await emitAndDispatch({
+      supabase,
+      businessId: payload.business_id,
+      name: "stock.restore",
+      payload: {
+        business_id: payload.business_id,
+        source_type: "sale",
+        source_id: payload.sale_id,
+        lines: stockLines,
+      },
+      userId,
+    });
   }
 }

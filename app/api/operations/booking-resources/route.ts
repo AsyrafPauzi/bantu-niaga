@@ -10,7 +10,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const RESOURCE_SELECT =
-  "id, business_id, name, description, buffer_minutes, is_active, " +
+  "id, business_id, name, description, buffer_minutes, is_active, employee_id, " +
   "created_by, created_at, updated_at";
 
 export async function GET() {

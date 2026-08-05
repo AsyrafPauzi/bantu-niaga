@@ -9,7 +9,9 @@ import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { nextOperationsOrderNumber } from "@/lib/operations/helpers";
+import { dispatchOrderCreated } from "@/lib/events/dispatch-cross-pillar";
 import { notifyOperationsOrderCreated } from "@/lib/operations/notify";
+import { canUseLeads } from "@/lib/sales/access";
 import {
   operationsOrderCreateSchema,
   type OperationsOrderRow,
@@ -187,6 +189,19 @@ export async function POST(request: Request) {
     title: row.title,
     customerName: row.customer_name,
   });
+
+  if (parsed.customer_phone?.trim() && canUseLeads(user.role)) {
+    void dispatchOrderCreated({
+      supabase,
+      payload: {
+        business_id: user.businessId,
+        order_id: row.id,
+        user_id: user.id,
+        can_leads: true,
+        customer_phone: parsed.customer_phone,
+      },
+    });
+  }
 
   return NextResponse.json({ ok: true, data }, { status: 201 });
 }

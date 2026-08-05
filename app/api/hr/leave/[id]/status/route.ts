@@ -6,6 +6,7 @@ import { canManageHrCore } from "@/lib/hr/access";
 import { applyAnnualLeaveApproval } from "@/lib/hr/leave-balance";
 import { leaveStatusUpdateSchema } from "@/lib/hr/schemas";
 import { notifyHrLeaveStatusChanged } from "@/lib/hr/notify";
+import { dispatchLeaveStatus } from "@/lib/events/dispatch-cross-pillar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -145,6 +146,20 @@ export async function PATCH(request: Request, context: RouteContext) {
       employeeName,
       leaveType: existing.leave_type as string,
       status: parsed.status,
+    });
+
+    await dispatchLeaveStatus({
+      supabase,
+      payload: {
+        business_id: user.businessId,
+        leave_id: id,
+        employee_id: existing.employee_id as string,
+        start_date: String(existing.start_date),
+        end_date: String(existing.end_date),
+        status: parsed.status,
+        reason: existing.leave_type as string,
+      },
+      userId: user.id,
     });
   }
 

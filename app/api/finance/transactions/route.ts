@@ -187,6 +187,7 @@ export async function POST(request: Request) {
       payment_method: parsed.payment_method ?? null,
       txn_date: parsed.txn_date ?? new Date().toISOString().slice(0, 10),
       admin_file_id: adminFileId,
+      operations_order_id: parsed.operations_order_id ?? null,
       created_by: user.id,
     })
     .select(

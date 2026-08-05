@@ -75,6 +75,7 @@ export const financeTransactionCreateSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
       .optional(),
     admin_file_id: z.string().uuid().optional().nullable(),
+    operations_order_id: z.string().uuid().optional().nullable(),
   })
   .strict();
 
@@ -88,6 +89,7 @@ export const financeInvoiceLineItemSchema = z.object({
   quantity: z.number().positive(),
   unit: z.string().trim().max(40).optional().nullable(),
   taxable: z.boolean().optional().default(false),
+  product_id: z.string().uuid().optional().nullable(),
 });
 
 export const financeInvoiceNumberSchema = z
@@ -149,6 +151,7 @@ export const financeInvoiceCreateSchema = z
     number: financeInvoiceNumberSchema.optional(),
     show_duitnow: z.boolean().optional().default(true),
     admin_file_id: z.string().uuid().optional().nullable(),
+    sales_lead_id: z.string().uuid().optional().nullable(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -212,6 +215,7 @@ export interface FinanceTransactionRow {
   payment_method: string | null;
   txn_date: string;
   finance_invoice_id: string | null;
+  operations_order_id?: string | null;
   admin_file_id: string | null;
   admin_file_name?: string | null;
   created_by: string;
@@ -230,6 +234,7 @@ export interface FinanceInvoiceItemRow {
   taxable: boolean;
   sort_order: number;
   line_total_myr: number;
+  product_id?: string | null;
 }
 
 export interface FinanceCustomerRow {
@@ -273,6 +278,8 @@ export interface FinanceInvoiceRow {
   converted_from_id: string | null;
   admin_file_id: string | null;
   admin_file_name?: string | null;
+  sales_lead_id?: string | null;
+  created_by?: string;
   created_at: string;
   updated_at: string;
   items?: FinanceInvoiceItemRow[];

@@ -47,6 +47,7 @@ interface OperationsProductPanelProps {
   searchQuery: string;
   categoryFilter: string;
   lowStockOnly?: boolean;
+  highlightProductId?: string | null;
 }
 
 function isLowStock(product: OperationsProductRow): boolean {
@@ -64,6 +65,7 @@ export function OperationsProductPanel({
   searchQuery,
   categoryFilter,
   lowStockOnly = false,
+  highlightProductId = null,
 }: OperationsProductPanelProps) {
   const router = useRouter();
   const [products, setProducts] = useState(initialProducts);
@@ -81,6 +83,8 @@ export function OperationsProductPanel({
   const [notes, setNotes] = useState("");
   const [imageFileId, setImageFileId] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string | null>(null);
+  const [specFileId, setSpecFileId] = useState<string | null>(null);
+  const [specFileName, setSpecFileName] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -92,6 +96,12 @@ export function OperationsProductPanel({
   useEffect(() => {
     setSearch(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (!highlightProductId) return;
+    const el = document.getElementById(`product-${highlightProductId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightProductId]);
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
@@ -125,6 +135,8 @@ export function OperationsProductPanel({
     setNotes("");
     setImageFileId(null);
     setImageFileName(null);
+    setSpecFileId(null);
+    setSpecFileName(null);
     setEditingId(null);
     setFormError(null);
   }, []);
@@ -143,6 +155,8 @@ export function OperationsProductPanel({
     setNotes(product.notes ?? "");
     setImageFileId(product.image_file_id);
     setImageFileName(product.image_file_name ?? null);
+    setSpecFileId(product.spec_file_id);
+    setSpecFileName(product.spec_file_name ?? null);
     closeForm();
     setFormError(null);
   }, [closeForm]);
@@ -186,6 +200,7 @@ export function OperationsProductPanel({
                 : Number.parseInt(lowStockThreshold, 10),
             notes: notes || null,
             image_file_id: imageFileId,
+            spec_file_id: specFileId,
           }),
         });
         const json = (await res.json()) as {
@@ -248,6 +263,7 @@ export function OperationsProductPanel({
                 : Number.parseInt(lowStockThreshold, 10),
             notes: notes || null,
             image_file_id: imageFileId,
+            spec_file_id: specFileId,
           }),
         });
         const json = (await res.json()) as {
@@ -414,6 +430,20 @@ export function OperationsProductPanel({
     />
   );
 
+  const specPicker = (
+    <AdminStorageFileAttach
+      fileId={specFileId}
+      fileName={specFileName}
+      category="operations"
+      disabled={creating || Boolean(busyId)}
+      label="Spec sheet / datasheet"
+      onAttach={async (fileId) => {
+        setSpecFileId(fileId);
+        setSpecFileName(null);
+      }}
+    />
+  );
+
   const formFields = (
     <>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -515,6 +545,7 @@ export function OperationsProductPanel({
       >
         {formFields}
         {imagePicker}
+        {specPicker}
         <QuickCreateActions
           submitLabel="Save product"
           loading={creating}
@@ -533,6 +564,7 @@ export function OperationsProductPanel({
           <form onSubmit={onUpdate} className="space-y-3">
             {formFields}
             {imagePicker}
+            {specPicker}
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -654,10 +686,13 @@ export function OperationsProductPanel({
               return (
                 <li
                   key={p.id}
+                  id={`product-${p.id}`}
                   className={cn(
                     "group px-3 py-2.5 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60",
                     low && "bg-amber-50/40 dark:bg-amber-950/10",
                     !p.is_active && "opacity-60",
+                    highlightProductId === p.id &&
+                      "ring-2 ring-inset ring-amber-300 dark:ring-amber-700",
                   )}
                 >
                   <div className="flex items-center gap-3">

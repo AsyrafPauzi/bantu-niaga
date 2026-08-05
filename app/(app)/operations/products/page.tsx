@@ -45,6 +45,8 @@ export default async function ProductsPage({
   const category =
     typeof params.category === "string" ? params.category : "all";
   const lowStockOnly = params.low_stock === "1";
+  const highlightProductId =
+    typeof params.product === "string" ? params.product : null;
 
   const admin = createServiceRoleClient();
   let pageData;
@@ -83,15 +85,21 @@ export default async function ProductsPage({
   const imageIds = pageData.products
     .map((p) => p.image_file_id)
     .filter(Boolean) as string[];
+  const specIds = pageData.products
+    .map((p) => p.spec_file_id)
+    .filter(Boolean) as string[];
   const fileNames = await loadAdminFileNames(
     admin,
     user.businessId,
-    imageIds,
+    [...imageIds, ...specIds],
   );
   const enrichedProducts = pageData.products.map((p) => ({
     ...p,
     image_file_name: p.image_file_id
       ? (fileNames.get(p.image_file_id) ?? null)
+      : null,
+    spec_file_name: p.spec_file_id
+      ? (fileNames.get(p.spec_file_id) ?? null)
       : null,
   }));
 
@@ -150,6 +158,7 @@ export default async function ProductsPage({
         searchQuery={searchQuery}
         categoryFilter={category}
         lowStockOnly={lowStockOnly}
+        highlightProductId={highlightProductId}
       />
     </OperationsSubpageShell>
   );

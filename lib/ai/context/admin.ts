@@ -50,7 +50,7 @@ export async function buildAdminSnapshot(
 
   const audit = verifyRows(auditRes, ctx, "audit_log");
 
-  const [tasksRes, complianceRes, filesRes, missingStorageCats, financeNoReceiptRes] =
+  const [tasksRes, complianceRes, filesRes, missingStorageCats, financeNoReceiptRes, lowStockRes] =
     await Promise.all([
     supabase
       .from("admin_tasks")
@@ -81,12 +81,24 @@ export async function buildAdminSnapshot(
       .eq("kind", "expense")
       .is("deleted_at", null)
       .is("admin_file_id", null),
+    supabase
+      .from("operations_products")
+      .select("id, stock_qty, low_stock_threshold")
+      .eq("business_id", ctx.businessId)
+      .is("deleted_at", null)
+      .eq("is_active", true),
   ]);
 
   const openTasks = verifyRows(tasksRes, ctx, "admin_tasks");
   const complianceItems = verifyRows(complianceRes, ctx, "admin_compliance_items");
   const fileCount = filesRes.count ?? 0;
   const expensesWithoutReceipt = financeNoReceiptRes.count ?? 0;
+  const lowStockCount = (lowStockRes.data ?? []).filter((row) => {
+    const qty = row.stock_qty as number | null;
+    if (qty == null) return false;
+    const threshold = Number(row.low_stock_threshold ?? 5);
+    return qty <= threshold;
+  }).length;
 
   const expiringCompliance = complianceItems.filter(
     (item) => complianceUrgency(String(item.expires_on)) !== "ok",
@@ -144,6 +156,15 @@ export async function buildAdminSnapshot(
           {
             id: "finance-expenses-no-receipt",
             label: `${expensesWithoutReceipt} expense(s) have no receipt in Storage`,
+            severity: "medium" as const,
+          },
+        ]
+      : []),
+    ...(lowStockCount > 0
+      ? [
+          {
+            id: "operations-low-stock",
+            label: `${lowStockCount} product(s) at or below low-stock threshold`,
             severity: "medium" as const,
           },
         ]
@@ -214,6 +235,11 @@ export async function buildAdminSnapshot(
         key: "expenses_without_receipt",
         label: "Expenses missing receipt",
         value: expensesWithoutReceipt,
+      },
+      {
+        key: "operations_low_stock",
+        label: "Low-stock products",
+        value: lowStockCount,
       },
       {
         key: "subscription_status",

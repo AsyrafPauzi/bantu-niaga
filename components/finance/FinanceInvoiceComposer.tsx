@@ -67,6 +67,7 @@ type LineDraft = {
   quantity: string;
   unit: string;
   taxable: boolean;
+  product_id?: string | null;
 };
 
 interface FinanceInvoiceComposerProps {
@@ -75,6 +76,9 @@ interface FinanceInvoiceComposerProps {
   nextNumberPreview?: string;
   defaultInvoiceDate?: string;
   initialCustomerId?: string;
+  initialSalesLeadId?: string;
+  initialCustomerName?: string;
+  initialCustomerPhone?: string;
   recentCustomers?: FinanceCustomerRow[];
   products?: OperationsProductPickerRow[];
   idcompany?: string;
@@ -119,6 +123,7 @@ function linesFromInvoiceRecord(inv: FinanceInvoiceRow): LineDraft[] {
       quantity: String(item.quantity),
       unit: item.unit ?? "unit",
       taxable: item.taxable,
+      product_id: item.product_id ?? null,
     }));
   }
   return [emptyLine("line-0")];
@@ -134,6 +139,9 @@ export function FinanceInvoiceComposer({
   nextNumberPreview,
   defaultInvoiceDate = "",
   initialCustomerId = "",
+  initialSalesLeadId = "",
+  initialCustomerName = "",
+  initialCustomerPhone = "",
   recentCustomers = [],
   products = [],
   idcompany = "",
@@ -171,7 +179,9 @@ export function FinanceInvoiceComposer({
   const [customerId, setCustomerId] = useState(
     invoice?.customer_id ?? initialCustomerId,
   );
-  const [customerQuery, setCustomerQuery] = useState("");
+  const [customerQuery, setCustomerQuery] = useState(
+    invoice?.customer_name ?? initialCustomerName,
+  );
   const [customerOpen, setCustomerOpen] = useState(false);
   const [title, setTitle] = useState(invoice?.title ?? "");
   const [documentNumber, setDocumentNumber] = useState(
@@ -209,7 +219,9 @@ export function FinanceInvoiceComposer({
   const [productPickId, setProductPickId] = useState("");
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState("");
-  const [newCustomerPhone, setNewCustomerPhone] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState(
+    initialCustomerPhone,
+  );
   const [newCustomerEmail, setNewCustomerEmail] = useState("");
   const [newCustomerAddress, setNewCustomerAddress] = useState("");
   const [creatingCustomer, setCreatingCustomer] = useState(false);
@@ -262,6 +274,7 @@ export function FinanceInvoiceComposer({
         quantity: parseFloat(line.quantity) || 0,
         unit: line.unit,
         taxable: line.taxable,
+        product_id: line.product_id ?? null,
       })),
     [lines],
   );
@@ -428,6 +441,7 @@ export function FinanceInvoiceComposer({
         quantity: "1",
         unit: "unit",
         taxable: false,
+        product_id: product.id,
       },
     ]);
     setProductPickId("");
@@ -519,7 +533,9 @@ export function FinanceInvoiceComposer({
 
   const validateForm = useCallback((): boolean => {
     const errors: typeof fieldErrors = {};
-    if (!customerId) errors.customer = "Select a customer.";
+    if (!customerId && !customerQuery.trim()) {
+      errors.customer = "Select a customer.";
+    }
     const trimmedNumber = documentNumber.trim().toUpperCase();
     if (!trimmedNumber) {
       errors.number = `${numberLabel} is required.`;
@@ -544,7 +560,7 @@ export function FinanceInvoiceComposer({
     setFieldErrors({});
     setFormError(null);
     return true;
-  }, [customerId, documentNumber, numberLabel, parsedLines]);
+  }, [customerId, customerQuery, documentNumber, numberLabel, parsedLines]);
 
   const saveInvoice = useCallback(
     async (nextStatus?: FinanceInvoiceStatus): Promise<FinanceInvoiceRow | null> => {
@@ -560,7 +576,10 @@ export function FinanceInvoiceComposer({
       setFieldErrors({});
 
       const payload = {
-        customer_id: customerId,
+        customer_id: customerId || null,
+        customer_name: customerId ? undefined : customerQuery.trim() || undefined,
+        customer_phone: customerId ? undefined : newCustomerPhone.trim() || undefined,
+        sales_lead_id: initialSalesLeadId || undefined,
         number: trimmedNumber,
         title: title || null,
         invoice_date: invoiceDate,

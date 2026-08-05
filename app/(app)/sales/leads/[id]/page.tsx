@@ -71,6 +71,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
   };
 
   const quotes = await loadLeadQuotes(supabase, user.businessId, {
+    leadId: id,
     name: lead.name,
     phone_e164: lead.phone_e164,
   });

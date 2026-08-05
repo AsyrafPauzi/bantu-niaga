@@ -50,6 +50,8 @@ export default async function ExpensesPage({
   }
 
   const params = await searchParams;
+  const highlightTxnId =
+    typeof params.txn === "string" ? params.txn : null;
   const pagination = parsePagination(params, { defaultPageSize: 15 });
   const supabase = await createSupabaseServerClient();
 
@@ -145,6 +147,7 @@ export default async function ExpensesPage({
         expenseCount={insights.expenseCount}
         categories={insights.categories}
         shellMode
+        highlightTxnId={highlightTxnId}
       />
       {total > pagination.pageSize ? (
         <ListPagination

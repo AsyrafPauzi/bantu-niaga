@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { completeBillplzPayment } from "@/lib/finance/billplz-checkout";
+import { dispatchInvoicePaid } from "@/lib/finance/dispatch-invoice-paid";
+import { loadInvoiceWithItems } from "@/lib/finance/invoice-db";
 import { notifyFinanceBillplzPaid } from "@/lib/finance/notify";
 import { verifyBillplzSignature } from "@/lib/integrations/billplz";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -34,6 +36,19 @@ export async function POST(request: Request) {
     const result = await completeBillplzPayment(payload.id);
     if (result.kind === "finance") {
       const admin = createServiceRoleClient();
+      const invoice = await loadInvoiceWithItems(
+        admin,
+        result.businessId,
+        result.invoiceId,
+      );
+      if (invoice) {
+        await dispatchInvoicePaid({
+          supabase: admin,
+          invoice,
+          userId: invoice.created_by ?? null,
+          paymentMethod: "fpx",
+        });
+      }
       await notifyFinanceBillplzPaid(
         admin,
         result.businessId,

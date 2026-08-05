@@ -174,7 +174,17 @@ export default async function LeadsPage({ searchParams }: PageProps) {
       subcopy={hero.subcopy}
       variant={hero.variant}
       cta={
-        <LeadCreateForm assignees={assignees} currentUserId={user.id} />
+        <LeadCreateForm
+          assignees={assignees}
+          currentUserId={user.id}
+          prefill={{
+            name: param(raw, "prefill_name"),
+            phone: param(raw, "prefill_phone"),
+            interest: param(raw, "prefill_interest"),
+            value: param(raw, "prefill_value"),
+          }}
+          autoOpen={param(raw, "open_create") === "1"}
+        />
       }
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">

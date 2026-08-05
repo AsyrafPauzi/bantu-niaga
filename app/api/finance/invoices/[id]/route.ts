@@ -22,6 +22,7 @@ import {
   notifyFinanceInvoiceSent,
   notifyFinanceInvoiceVoided,
 } from "@/lib/finance/notify";
+import { dispatchInvoicePaid } from "@/lib/finance/dispatch-invoice-paid";
 import {
   financeInvoiceUpdateSchema,
   type FinanceInvoiceRow,
@@ -63,36 +64,6 @@ async function requireFinanceUser(): Promise<
     }
     throw e;
   }
-}
-
-async function recordInvoiceIncome(
-  admin: ReturnType<typeof createServiceRoleClient>,
-  businessId: string,
-  userId: string,
-  invoice: FinanceInvoiceRow,
-): Promise<void> {
-  const { data: existing } = await admin
-    .from("finance_transactions")
-    .select("id")
-    .eq("business_id", businessId)
-    .eq("finance_invoice_id", invoice.id)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (existing) return;
-
-  await admin.from("finance_transactions").insert({
-    business_id: businessId,
-    kind: "income",
-    amount_myr: invoice.total_myr,
-    category: "invoice_payment",
-    description: `Payment for ${invoice.number}`,
-    counterparty: invoice.customer_name,
-    payment_method: "other",
-    txn_date: new Date().toISOString().slice(0, 10),
-    finance_invoice_id: invoice.id,
-    created_by: userId,
-  });
 }
 
 export async function GET(
@@ -251,6 +222,7 @@ export async function PATCH(
         taxable: item.taxable,
         description: item.description,
         unit: item.unit,
+        product_id: item.product_id ?? null,
       })) ??
       [];
 
@@ -335,9 +307,32 @@ export async function PATCH(
       .eq("finance_invoice_id", id)
       .is("deleted_at", null);
   }
-  if (parsed.status === "paid" && row) {
-    const admin = createServiceRoleClient();
-    await recordInvoiceIncome(admin, user.businessId, user.id, row);
+  if (
+    parsed.status === "paid" &&
+    row &&
+    current.status !== "paid"
+  ) {
+    try {
+      await dispatchInvoicePaid({
+        supabase,
+        invoice: row,
+        userId: user.id,
+      });
+    } catch (err) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "invoice_paid_dispatch_failed",
+            message:
+              err instanceof Error
+                ? err.message
+                : "Could not complete cross-pillar sync for paid invoice.",
+          },
+        },
+        { status: 500 },
+      );
+    }
   }
 
   if (row && parsed.status && parsed.status !== current.status) {

@@ -76,6 +76,7 @@ export async function POST(request: Request) {
         mc_document_name: string;
         mc_document_mime: string;
         mc_document_size_bytes: number;
+        admin_file_id: string;
       }
     | undefined;
 
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
       const stored = await storeMcLeaveDocument(
         admin,
         user.businessId,
+        user.id,
         mcValidation.file,
         mcValidation.mimeType,
       );
@@ -101,6 +103,7 @@ export async function POST(request: Request) {
         mc_document_name: stored.name,
         mc_document_mime: stored.mime,
         mc_document_size_bytes: stored.size,
+        admin_file_id: stored.admin_file_id,
       };
     } catch {
       return NextResponse.json(

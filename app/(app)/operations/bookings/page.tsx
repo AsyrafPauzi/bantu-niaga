@@ -9,6 +9,7 @@ import {
   UnauthorizedError,
 } from "@/lib/auth/current-user";
 import { computeOperationsSummary } from "@/lib/operations/helpers";
+import { loadActiveLeaveBlocks } from "@/lib/operations/leave-blocks";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
@@ -35,7 +36,8 @@ export default async function BookingsPage() {
 
   const supabase = await createSupabaseServerClient();
 
-  const [bookingsRes, resourcesRes, servicesRes, summary] = await Promise.all([
+  const [bookingsRes, resourcesRes, servicesRes, employeesRes, leaveBlocks, summary] =
+    await Promise.all([
     supabase
       .from("operations_bookings")
       .select(
@@ -49,7 +51,7 @@ export default async function BookingsPage() {
     supabase
       .from("operations_booking_resources")
       .select(
-        "id, business_id, name, description, buffer_minutes, is_active, " +
+        "id, business_id, name, description, buffer_minutes, is_active, employee_id, " +
           "created_by, created_at, updated_at",
       )
       .eq("business_id", user.businessId)
@@ -64,6 +66,14 @@ export default async function BookingsPage() {
       .eq("business_id", user.businessId)
       .is("deleted_at", null)
       .order("name", { ascending: true }),
+    supabase
+      .from("hr_employees")
+      .select("id, full_name")
+      .eq("business_id", user.businessId)
+      .is("deleted_at", null)
+      .eq("status", "active")
+      .order("full_name", { ascending: true }),
+    loadActiveLeaveBlocks(supabase, user.businessId),
     computeOperationsSummary(supabase, user.businessId),
   ]);
 
@@ -72,8 +82,19 @@ export default async function BookingsPage() {
     []) as unknown as OperationsBookingResourceRow[];
   const services = (servicesRes.data ??
     []) as unknown as OperationsServiceRow[];
+  const employees = (employeesRes.data ?? []) as Array<{
+    id: string;
+    full_name: string;
+  }>;
+  const employeeLookup = new Map(employees.map((e) => [e.id, e.full_name]));
+  const enrichedResources = resources.map((r) => ({
+    ...r,
+    employee_name: r.employee_id
+      ? (employeeLookup.get(r.employee_id) ?? null)
+      : null,
+  }));
 
-  const resourceLookup = new Map(resources.map((r) => [r.id, r.name]));
+  const resourceLookup = new Map(enrichedResources.map((r) => [r.id, r.name]));
   const enriched = bookings.map((b) => ({
     ...b,
     resource_name: b.resource_id
@@ -135,8 +156,10 @@ export default async function BookingsPage() {
     >
       <OperationsBookingPanel
         initialBookings={enriched}
-        initialResources={resources}
+        initialResources={enrichedResources}
         initialServices={services}
+        employees={employees}
+        leaveBlocks={leaveBlocks}
       />
     </OperationsSubpageShell>
   );

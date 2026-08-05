@@ -19,20 +19,29 @@ const CHANNELS: { value: LeadChannel; label: string }[] = [
 export function LeadCreateForm({
   assignees,
   currentUserId,
+  prefill,
+  autoOpen = false,
 }: {
   assignees: Assignee[];
   currentUserId: string;
+  prefill?: {
+    name?: string;
+    phone?: string;
+    interest?: string;
+    value?: string;
+  };
+  autoOpen?: boolean;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState(prefill?.name ?? "");
+  const [phone, setPhone] = useState(prefill?.phone ?? "");
   const [channel, setChannel] = useState<LeadChannel | "">("");
-  const [interest, setInterest] = useState("");
-  const [value, setValue] = useState("");
+  const [interest, setInterest] = useState(prefill?.interest ?? "");
+  const [value, setValue] = useState(prefill?.value ?? "");
   const [followUp, setFollowUp] = useState("");
   const [assignedTo, setAssignedTo] = useState(currentUserId);
 

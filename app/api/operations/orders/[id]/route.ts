@@ -6,6 +6,7 @@ import {
   type CurrentUser,
 } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
+import { dispatchOrderCompleted } from "@/lib/events/dispatch-cross-pillar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { operationsOrderUpdateSchema, type OperationsOrderRow } from "@/lib/operations/schemas";
 import { resolveAdminFileIdPatch, loadAdminFileNames } from "@/lib/admin/validate-admin-file";
@@ -184,6 +185,22 @@ export async function PATCH(
       title: row.title,
       status: row.status,
     });
+
+    if (
+      parsed.status === "done" &&
+      existing.status !== "done" &&
+      can(user.role, "finance")
+    ) {
+      void dispatchOrderCompleted({
+        supabase,
+        payload: {
+          business_id: user.businessId,
+          order_id: id,
+          user_id: user.id,
+          can_finance: true,
+        },
+      });
+    }
   }
 
   return NextResponse.json(

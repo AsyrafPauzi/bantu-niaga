@@ -178,6 +178,7 @@ export async function POST(request: Request) {
       follow_up_at: normalizeFollowUpAt(parsed.follow_up_at ?? null) ?? null,
       assigned_to: parsed.assigned_to ?? null,
       status: parsed.status ?? "new",
+      source_order_id: parsed.source_order_id ?? null,
       created_by: user.id,
     })
     .select(

@@ -24,7 +24,7 @@ export async function loadOperationsProductsPage(
   let query = admin
     .from("operations_products")
     .select(
-      "id, business_id, sku, name, description, category, price_myr, is_active, stock_qty, low_stock_threshold, notes, image_file_id, created_by, created_at, updated_at",
+      "id, business_id, sku, name, description, category, price_myr, is_active, stock_qty, low_stock_threshold, notes, image_file_id, spec_file_id, created_by, created_at, updated_at",
       { count: "exact" },
     )
     .eq("business_id", businessId)

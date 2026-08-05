@@ -148,6 +148,7 @@ export const leadCreateSchema = z.object({
   follow_up_at: followUpAtSchema,
   assigned_to: z.string().uuid().nullable().optional(),
   status: z.enum(LEAD_STATUSES).optional(),
+  source_order_id: z.string().uuid().nullable().optional(),
 });
 
 export type LeadCreateInput = z.infer<typeof leadCreateSchema>;

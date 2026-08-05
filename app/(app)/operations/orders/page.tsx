@@ -25,7 +25,11 @@ const ORDER_SELECT =
   "status, fulfillment_type, fulfillment_status, due_date, amount_myr, supplier_id, notes, admin_file_id, completed_at, " +
   "created_by, created_at, updated_at";
 
-export default async function OrdersPage() {
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   let user;
   try {
     user = await getCurrentUser();
@@ -38,9 +42,13 @@ export default async function OrdersPage() {
     redirect("/home");
   }
 
+  const params = await searchParams;
+  const highlightOrderId =
+    typeof params.order === "string" ? params.order : null;
+
   const admin = createServiceRoleClient();
 
-  const [{ data: orders, error }, { data: suppliers }, summary] =
+  const [{ data: orders, error }, { data: suppliers }, { data: orderLeads }, summary] =
     await Promise.all([
       admin
         .from("operations_orders")
@@ -56,6 +64,11 @@ export default async function OrdersPage() {
         .eq("business_id", user.businessId)
         .is("deleted_at", null)
         .order("name", { ascending: true }),
+      admin
+        .from("sales_leads")
+        .select("id, source_order_id")
+        .eq("business_id", user.businessId)
+        .not("source_order_id", "is", null),
       computeOperationsSummary(admin, user.businessId),
     ]);
 
@@ -66,6 +79,12 @@ export default async function OrdersPage() {
     admin,
     user.businessId,
     rows.map((r) => r.admin_file_id).filter(Boolean) as string[],
+  );
+
+  const leadLinks = Object.fromEntries(
+    (orderLeads ?? [])
+      .filter((l) => l.source_order_id)
+      .map((l) => [l.source_order_id as string, l.id as string]),
   );
 
   const nameLookup = new Map(supplierRows.map((s) => [s.id, s.name]));
@@ -142,6 +161,8 @@ export default async function OrdersPage() {
       <OperationsOrderBoard
         initialOrders={enriched}
         suppliers={supplierRows}
+        leadLinks={leadLinks}
+        highlightOrderId={highlightOrderId}
       />
     </OperationsSubpageShell>
   );

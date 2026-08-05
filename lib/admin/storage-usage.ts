@@ -5,8 +5,10 @@ export type AdminFileUsageType =
   | "hr"
   | "task"
   | "finance"
+  | "finance_invoice"
   | "operations_supplier"
   | "operations_order"
+  | "operations_product"
   | "sales_lead";
 
 export interface AdminFileUsageLink {
@@ -23,8 +25,10 @@ export const USAGE_LINK_TYPE_LABELS: Record<AdminFileUsageType, string> = {
   hr: "HR",
   task: "Task",
   finance: "Expense",
+  finance_invoice: "Invoice",
   operations_supplier: "Supplier",
   operations_order: "Order",
+  operations_product: "Product spec",
   sales_lead: "Lead",
 };
 
@@ -41,8 +45,10 @@ export async function loadFileUsageLinks(
     hrRes,
     tasksRes,
     financeRes,
+    invoicesRes,
     suppliersRes,
     ordersRes,
+    productsRes,
     leadsRes,
   ] = await Promise.all([
     supabase
@@ -72,6 +78,12 @@ export async function loadFileUsageLinks(
       .is("deleted_at", null)
       .in("admin_file_id", fileIds),
     supabase
+      .from("finance_invoices")
+      .select("id, number, customer_name, admin_file_id")
+      .eq("business_id", businessId)
+      .is("deleted_at", null)
+      .in("admin_file_id", fileIds),
+    supabase
       .from("operations_suppliers")
       .select("id, name, admin_file_id")
       .eq("business_id", businessId)
@@ -83,6 +95,12 @@ export async function loadFileUsageLinks(
       .eq("business_id", businessId)
       .is("deleted_at", null)
       .in("admin_file_id", fileIds),
+    supabase
+      .from("operations_products")
+      .select("id, name, spec_file_id")
+      .eq("business_id", businessId)
+      .is("deleted_at", null)
+      .in("spec_file_id", fileIds),
     supabase
       .from("sales_leads")
       .select("id, name, admin_file_id")
@@ -151,7 +169,24 @@ export async function loadFileUsageLinks(
       type: "finance",
       id: row.id,
       label: row.description,
-      href: `/finance/expenses`,
+      href: `/finance/expenses?txn=${row.id}`,
+    });
+    map[row.admin_file_id] = links;
+  }
+
+  for (const row of (invoicesRes.data ?? []) as Array<{
+    id: string;
+    number: string;
+    customer_name: string;
+    admin_file_id: string | null;
+  }>) {
+    if (!row.admin_file_id) continue;
+    const links = map[row.admin_file_id] ?? [];
+    links.push({
+      type: "finance_invoice",
+      id: row.id,
+      label: `${row.number} · ${row.customer_name}`,
+      href: `/finance/invoices/${row.id}/edit`,
     });
     map[row.admin_file_id] = links;
   }
@@ -167,7 +202,7 @@ export async function loadFileUsageLinks(
       type: "operations_supplier",
       id: row.id,
       label: row.name,
-      href: `/operations/suppliers`,
+      href: `/operations/suppliers?supplier=${row.id}`,
     });
     map[row.admin_file_id] = links;
   }
@@ -184,9 +219,25 @@ export async function loadFileUsageLinks(
       type: "operations_order",
       id: row.id,
       label: `${row.number} · ${row.title}`,
-      href: `/operations/orders`,
+      href: `/operations/orders?order=${row.id}`,
     });
     map[row.admin_file_id] = links;
+  }
+
+  for (const row of (productsRes.data ?? []) as Array<{
+    id: string;
+    name: string;
+    spec_file_id: string | null;
+  }>) {
+    if (!row.spec_file_id) continue;
+    const links = map[row.spec_file_id] ?? [];
+    links.push({
+      type: "operations_product",
+      id: row.id,
+      label: row.name,
+      href: `/operations/products?product=${row.id}`,
+    });
+    map[row.spec_file_id] = links;
   }
 
   for (const row of (leadsRes.data ?? []) as Array<{

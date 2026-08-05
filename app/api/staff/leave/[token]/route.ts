@@ -73,6 +73,7 @@ export async function POST(request: Request, context: RouteContext) {
         mc_document_name: string;
         mc_document_mime: string;
         mc_document_size_bytes: number;
+        admin_file_id: string;
       }
     | undefined;
 
@@ -86,10 +87,21 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     const supabase = createServiceRoleClient();
+    const { data: employee } = await supabase
+      .from("hr_employees")
+      .select("user_id")
+      .eq("id", link.employee_id)
+      .eq("business_id", link.business_id)
+      .maybeSingle();
+
+    const uploadedBy =
+      (employee?.user_id as string | null) ?? link.employee_id;
+
     try {
       const stored = await storeMcLeaveDocument(
         supabase,
         link.business_id,
+        uploadedBy,
         mcValidation.file,
         mcValidation.mimeType,
       );
@@ -98,6 +110,7 @@ export async function POST(request: Request, context: RouteContext) {
         mc_document_name: stored.name,
         mc_document_mime: stored.mime,
         mc_document_size_bytes: stored.size,
+        admin_file_id: stored.admin_file_id,
       };
     } catch {
       return NextResponse.json(

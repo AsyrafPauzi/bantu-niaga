@@ -130,6 +130,33 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+
+    const { findStaffLeaveConflicts } = await import(
+      "@/lib/operations/staff-availability"
+    );
+    const leaveConflicts = await findStaffLeaveConflicts(
+      supabaseCheck,
+      user.businessId,
+      {
+        resourceId: parsed.resource_id,
+        startsAt: parsed.starts_at,
+        endsAt: parsed.ends_at,
+      },
+    );
+    if (leaveConflicts.length > 0) {
+      const c = leaveConflicts[0];
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "staff_on_leave",
+            message: `${c.employeeName} is on leave (${c.startsOn} – ${c.endsOn}).`,
+            conflicts: leaveConflicts,
+          },
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const supabase = await createSupabaseServerClient();

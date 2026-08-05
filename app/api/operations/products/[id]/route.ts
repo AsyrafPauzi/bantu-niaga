@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const PRODUCT_SELECT =
   "id, business_id, sku, name, description, category, price_myr, " +
-  "is_active, stock_qty, low_stock_threshold, notes, image_file_id, created_by, created_at, updated_at";
+  "is_active, stock_qty, low_stock_threshold, notes, image_file_id, spec_file_id, created_by, created_at, updated_at";
 
 export async function PATCH(
   request: Request,
@@ -78,6 +78,20 @@ export async function PATCH(
       );
     }
     updatePayload.image_file_id = resolved.value;
+  }
+  if (parsed.spec_file_id !== undefined) {
+    const resolved = await resolveAdminFileIdPatch(
+      supabase,
+      user.businessId,
+      parsed.spec_file_id,
+    );
+    if (!resolved.ok) {
+      return NextResponse.json(
+        { ok: false, error: { code: "invalid_file", message: resolved.message } },
+        { status: 400 },
+      );
+    }
+    updatePayload.spec_file_id = resolved.value;
   }
 
   const { data, error } = await supabase

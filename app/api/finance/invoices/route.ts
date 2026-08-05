@@ -26,6 +26,7 @@ import {
   notifyFinanceInvoicePaid,
   notifyFinanceInvoiceSent,
 } from "@/lib/finance/notify";
+import { dispatchInvoicePaid } from "@/lib/finance/dispatch-invoice-paid";
 import {
   financeInvoiceCreateSchema,
   type FinanceInvoiceRow,
@@ -67,36 +68,6 @@ async function requireFinanceUser(): Promise<
     }
     throw e;
   }
-}
-
-async function recordInvoiceIncome(
-  admin: ReturnType<typeof createServiceRoleClient>,
-  businessId: string,
-  userId: string,
-  invoice: FinanceInvoiceRow,
-): Promise<void> {
-  const { data: existing } = await admin
-    .from("finance_transactions")
-    .select("id")
-    .eq("business_id", businessId)
-    .eq("finance_invoice_id", invoice.id)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (existing) return;
-
-  await admin.from("finance_transactions").insert({
-    business_id: businessId,
-    kind: "income",
-    amount_myr: invoice.total_myr,
-    category: "invoice_payment",
-    description: `Payment for ${invoice.number}`,
-    counterparty: invoice.customer_name,
-    payment_method: "other",
-    txn_date: new Date().toISOString().slice(0, 10),
-    finance_invoice_id: invoice.id,
-    created_by: userId,
-  });
 }
 
 export async function GET(request: Request) {
@@ -239,6 +210,24 @@ export async function POST(request: Request) {
     adminFileId = fileCheck.value;
   }
 
+  if (parsed.sales_lead_id) {
+    const { data: leadRow } = await supabase
+      .from("sales_leads")
+      .select("id")
+      .eq("business_id", user.businessId)
+      .eq("id", parsed.sales_lead_id)
+      .maybeSingle();
+    if (!leadRow) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "invalid_lead", message: "Lead not found." },
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from("finance_invoices")
     .insert({
@@ -265,6 +254,7 @@ export async function POST(request: Request) {
       document_kind: documentKind,
       show_duitnow: parsed.show_duitnow ?? true,
       admin_file_id: adminFileId,
+      sales_lead_id: parsed.sales_lead_id ?? null,
       sent_at: status === "sent" ? now : null,
       paid_at: status === "paid" ? now : null,
       created_by: user.id,
@@ -309,8 +299,28 @@ export async function POST(request: Request) {
   }
 
   const full = await loadInvoiceWithItems(supabase, user.businessId, row.id);
-  if (full?.status === "paid") {
-    await recordInvoiceIncome(admin, user.businessId, user.id, full);
+  if (full?.status === "paid" && full.document_kind === "invoice") {
+    try {
+      await dispatchInvoicePaid({
+        supabase,
+        invoice: full,
+        userId: user.id,
+      });
+    } catch (err) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "invoice_paid_dispatch_failed",
+            message:
+              err instanceof Error
+                ? err.message
+                : "Could not complete cross-pillar sync for paid invoice.",
+          },
+        },
+        { status: 500 },
+      );
+    }
   }
 
   const invoiceRow = full ?? row;

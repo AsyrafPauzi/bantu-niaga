@@ -16,7 +16,11 @@ import type { OperationsSupplierRow } from "@/lib/operations/schemas";
 export const metadata = { title: "Suppliers" };
 export const dynamic = "force-dynamic";
 
-export default async function SuppliersPage() {
+export default async function SuppliersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   let user;
   try {
     user = await getCurrentUser();
@@ -28,6 +32,10 @@ export default async function SuppliersPage() {
   if (!can(user.role, "operations")) {
     redirect("/home");
   }
+
+  const params = await searchParams;
+  const highlightSupplierId =
+    typeof params.supplier === "string" ? params.supplier : null;
 
   const admin = createServiceRoleClient();
   const { data, error } = await admin
@@ -109,7 +117,10 @@ export default async function SuppliersPage() {
         </div>
       }
     >
-      <OperationsSupplierPanel initialSuppliers={suppliers} />
+      <OperationsSupplierPanel
+        initialSuppliers={suppliers}
+        highlightSupplierId={highlightSupplierId}
+      />
     </OperationsSubpageShell>
   );
 }

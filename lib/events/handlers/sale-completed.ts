@@ -1,8 +1,8 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { emitAndDispatch } from "@/lib/events/dispatcher";
 import { postPosSaleToFinance } from "@/lib/sales/checkout";
-import { decrementProductStock } from "@/lib/sales/stock";
 import type { SaleCompletedPayload } from "@/lib/events/sale-payloads";
 
 async function claimDedup(
@@ -21,7 +21,7 @@ async function claimDedup(
   throw new Error(error.message);
 }
 
-/** Sync handler: Finance income + Operations stock decrement. */
+/** Sync handler: Finance income; stock via `stock.decrement` event. */
 export async function handleSaleCompleted(opts: {
   supabase: SupabaseClient;
   payload: SaleCompletedPayload;
@@ -52,7 +52,18 @@ export async function handleSaleCompleted(opts: {
     }));
 
   if (stockLines.length > 0) {
-    await decrementProductStock(supabase, payload.business_id, stockLines);
+    await emitAndDispatch({
+      supabase,
+      businessId: payload.business_id,
+      name: "stock.decrement",
+      payload: {
+        business_id: payload.business_id,
+        source_type: "sale",
+        source_id: payload.sale_id,
+        lines: stockLines,
+      },
+      userId,
+    });
   }
 
   const financeTransactionId = await postPosSaleToFinance({

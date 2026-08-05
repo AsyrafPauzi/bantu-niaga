@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Car,
@@ -113,6 +113,7 @@ interface FinanceExpensesPanelProps {
   expenseCount: number;
   categories: ExpenseCategoryInsight[];
   shellMode?: boolean;
+  highlightTxnId?: string | null;
 }
 
 export function FinanceExpensesPanel({
@@ -122,6 +123,7 @@ export function FinanceExpensesPanel({
   expenseCount,
   categories,
   shellMode = false,
+  highlightTxnId = null,
 }: FinanceExpensesPanelProps) {
   const router = useRouter();
   const [transactions, setTransactions] = useState(initialTransactions);
@@ -149,6 +151,12 @@ export function FinanceExpensesPanel({
   const [listFilter, setListFilter] = useState<string>("all");
 
   const refresh = useCallback(() => router.refresh(), [router]);
+
+  useEffect(() => {
+    if (!highlightTxnId) return;
+    const el = document.getElementById(`txn-${highlightTxnId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightTxnId]);
 
   const listCategories = useMemo(() => {
     const set = new Set(transactions.map((t) => t.category ?? "other"));
@@ -587,6 +595,7 @@ export function FinanceExpensesPanel({
         onAttachReceipt={attachReceipt}
         exportMonth={monthLabel}
         exportEntryCount={loggedCount}
+        highlightTxnId={highlightTxnId}
         filters={
           <>
             <nav

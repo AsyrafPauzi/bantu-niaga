@@ -5,12 +5,28 @@ import type { LeadQuoteRow } from "@/lib/sales/lead-quotes-shared";
 
 export type { LeadQuoteRow } from "@/lib/sales/lead-quotes-shared";
 
-/** Match Finance quotes to a lead by phone or name. */
+/** Load Finance quotes linked to a lead (FK first, then phone/name heuristic). */
 export async function loadLeadQuotes(
   supabase: SupabaseClient,
   businessId: string,
-  opts: { name: string; phone_e164: string },
+  opts: { leadId: string; name: string; phone_e164: string },
 ): Promise<LeadQuoteRow[]> {
+  const { data: linked, error: linkedErr } = await supabase
+    .from("finance_invoices")
+    .select(
+      "id, number, share_hash, customer_name, customer_phone, total_myr, status, created_at",
+    )
+    .eq("business_id", businessId)
+    .eq("sales_lead_id", opts.leadId)
+    .eq("document_kind", "quote")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (!linkedErr && linked && linked.length > 0) {
+    return linked as LeadQuoteRow[];
+  }
+
   const phone = opts.phone_e164.trim();
   const name = opts.name.trim().toLowerCase();
 

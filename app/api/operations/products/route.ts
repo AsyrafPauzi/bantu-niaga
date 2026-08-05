@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const PRODUCT_SELECT =
   "id, business_id, sku, name, description, category, price_myr, " +
-  "is_active, stock_qty, low_stock_threshold, notes, image_file_id, created_by, created_at, updated_at";
+  "is_active, stock_qty, low_stock_threshold, notes, image_file_id, spec_file_id, created_by, created_at, updated_at";
 
 export async function GET(request: Request) {
   const auth = await requireOperationsUser();
@@ -102,6 +102,22 @@ export async function POST(request: Request) {
     imageFileId = resolved.value;
   }
 
+  let specFileId: string | null = null;
+  if (parsed.spec_file_id) {
+    const resolved = await resolveAdminFileIdPatch(
+      supabase,
+      user.businessId,
+      parsed.spec_file_id,
+    );
+    if (!resolved.ok) {
+      return NextResponse.json(
+        { ok: false, error: { code: "invalid_file", message: resolved.message } },
+        { status: 400 },
+      );
+    }
+    specFileId = resolved.value;
+  }
+
   const { data, error } = await supabase
     .from("operations_products")
     .insert({
@@ -116,6 +132,7 @@ export async function POST(request: Request) {
       low_stock_threshold: parsed.low_stock_threshold ?? 5,
       notes: parsed.notes ?? null,
       image_file_id: imageFileId,
+      spec_file_id: specFileId,
       created_by: user.id,
     })
     .select(PRODUCT_SELECT)

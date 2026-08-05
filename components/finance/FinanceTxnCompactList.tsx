@@ -44,6 +44,7 @@ interface FinanceTxnCompactListProps {
   exportEntryCount?: number;
   /** Renders inside ModuleListPanelFilters (category chips, search). */
   filters?: React.ReactNode;
+  highlightTxnId?: string | null;
 }
 
 export function FinanceTxnCompactList({
@@ -62,6 +63,7 @@ export function FinanceTxnCompactList({
   exportMonth,
   exportEntryCount,
   filters,
+  highlightTxnId = null,
 }: FinanceTxnCompactListProps) {
   const [attachRowId, setAttachRowId] = useState<string | null>(null);
   const isIncome = kind === "income";
@@ -119,7 +121,12 @@ export function FinanceTxnCompactList({
             return (
               <li
                 key={row.id}
-                className="group px-3 py-2 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60"
+                id={`txn-${row.id}`}
+                className={cn(
+                  "group px-3 py-2 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60",
+                  highlightTxnId === row.id &&
+                    "bg-amber-50/90 ring-2 ring-inset ring-amber-300 dark:bg-amber-950/30 dark:ring-amber-700",
+                )}
               >
                 <div className="flex items-start gap-2">
                   <span

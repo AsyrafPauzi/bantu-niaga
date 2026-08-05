@@ -9,11 +9,11 @@ export const INVOICE_SELECT =
   "id, business_id, number, share_hash, customer_id, customer_name, customer_email, " +
   "customer_phone, title, description, invoice_date, amount_myr, discount_myr, " +
   "discount_pct, tax_myr, tax_pct, shipping_myr, total_myr, status, due_date, notes, " +
-  "paid_at, sent_at, document_kind, show_duitnow, converted_from_id, admin_file_id, created_at, updated_at";
+  "paid_at, sent_at, document_kind, show_duitnow, converted_from_id, admin_file_id, created_by, created_at, updated_at";
 
 export const INVOICE_ITEM_SELECT =
   "id, business_id, invoice_id, description, unit_price, quantity, unit, taxable, " +
-  "sort_order, line_total_myr";
+  "sort_order, line_total_myr, product_id";
 
 interface CustomerSnapshot {
   customer_id: string | null;
@@ -131,6 +131,7 @@ export async function replaceInvoiceItems(
     quantity: number;
     unit?: string | null;
     taxable?: boolean;
+    product_id?: string | null;
   }>,
 ): Promise<void> {
   await supabase
@@ -149,6 +150,7 @@ export async function replaceInvoiceItems(
     quantity: item.quantity,
     unit: item.unit ?? null,
     taxable: item.taxable ?? false,
+    product_id: item.product_id ?? null,
     sort_order: index,
     line_total_myr: lineTotal(item.unit_price, item.quantity),
   }));

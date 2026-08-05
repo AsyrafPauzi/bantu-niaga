@@ -32,12 +32,20 @@ import {
   type OperationsBookingStatus,
   type OperationsServiceRow,
 } from "@/lib/operations/schemas";
+import type { OperationsLeaveBlockRow } from "@/lib/operations/leave-blocks";
 import { cn } from "@/lib/utils/cn";
+
+interface BookingEmployee {
+  id: string;
+  full_name: string;
+}
 
 interface OperationsBookingPanelProps {
   initialBookings: OperationsBookingRow[];
   initialResources: OperationsBookingResourceRow[];
   initialServices: OperationsServiceRow[];
+  employees?: BookingEmployee[];
+  leaveBlocks?: OperationsLeaveBlockRow[];
 }
 
 const STATUS_TONE: Record<
@@ -80,6 +88,8 @@ export function OperationsBookingPanel({
   initialBookings,
   initialResources,
   initialServices,
+  employees = [],
+  leaveBlocks = [],
 }: OperationsBookingPanelProps) {
   const router = useRouter();
   const [bookings, setBookings] = useState(initialBookings);
@@ -98,6 +108,7 @@ export function OperationsBookingPanel({
   const [notes, setNotes] = useState("");
   const [resourceName, setResourceName] = useState("");
   const [resourceBuffer, setResourceBuffer] = useState("0");
+  const [resourceEmployeeId, setResourceEmployeeId] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -222,6 +233,7 @@ export function OperationsBookingPanel({
           body: JSON.stringify({
             name: resourceName,
             buffer_minutes: Number(resourceBuffer) || 0,
+            employee_id: resourceEmployeeId || null,
           }),
         });
         const json = (await res.json()) as {
@@ -237,6 +249,7 @@ export function OperationsBookingPanel({
         );
         setResourceName("");
         setResourceBuffer("0");
+        setResourceEmployeeId("");
         setShowResourceForm(false);
         refresh();
       } catch (err) {
@@ -245,7 +258,41 @@ export function OperationsBookingPanel({
         setCreating(false);
       }
     },
-    [refresh, resourceBuffer, resourceName],
+    [refresh, resourceBuffer, resourceEmployeeId, resourceName],
+  );
+
+  const updateResourceEmployee = useCallback(
+    async (resourceId: string, employeeId: string | null) => {
+      setBusyId(resourceId);
+      try {
+        const res = await fetch(`/api/operations/booking-resources/${resourceId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ employee_id: employeeId }),
+        });
+        const json = (await res.json()) as {
+          ok: boolean;
+          data?: OperationsBookingResourceRow;
+        };
+        if (!res.ok || !json.ok || !json.data) {
+          throw new Error("Could not update staff link.");
+        }
+        const emp = employees.find((e) => e.id === employeeId);
+        setResources((prev) =>
+          prev.map((r) =>
+            r.id === resourceId
+              ? {
+                  ...json.data!,
+                  employee_name: emp?.full_name ?? null,
+                }
+              : r,
+          ),
+        );
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [employees],
   );
 
   const onCreateBooking = useCallback(
@@ -491,6 +538,24 @@ export function OperationsBookingPanel({
 
   return (
     <div className="space-y-4">
+      {leaveBlocks.length > 0 ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-semibold">Staff on approved leave</p>
+          <ul className="mt-2 space-y-1 text-xs">
+            {leaveBlocks.map((block) => (
+              <li key={block.id}>
+                {block.employee_name}: {block.starts_on} → {block.ends_on}
+                {block.reason ? ` · ${block.reason}` : ""}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-amber-800/80 dark:text-amber-200/80">
+            Link each resource to an HR employee below to block bookings during
+            leave.
+          </p>
+        </div>
+      ) : null}
+
       <section className="space-y-3 rounded-xl border border-cream-200 bg-white p-3 dark:border-hairline-dark dark:bg-panel-dark sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
@@ -527,6 +592,20 @@ export function OperationsBookingPanel({
               placeholder="Buffer (minutes)"
               className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
             />
+            {employees.length > 0 ? (
+              <select
+                value={resourceEmployeeId}
+                onChange={(e) => setResourceEmployeeId(e.target.value)}
+                className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              >
+                <option value="">No staff link</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.full_name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <button
               type="submit"
               disabled={creating}
@@ -555,6 +634,31 @@ export function OperationsBookingPanel({
                 {r.buffer_minutes > 0 ? (
                   <span className="text-ink-muted dark:text-cream-400">
                     +{r.buffer_minutes}m buffer
+                  </span>
+                ) : null}
+                {employees.length > 0 ? (
+                  <select
+                    value={r.employee_id ?? ""}
+                    disabled={busyId === r.id}
+                    onChange={(e) =>
+                      void updateResourceEmployee(
+                        r.id,
+                        e.target.value || null,
+                      )
+                    }
+                    className="max-w-[8rem] rounded border border-cream-200 bg-transparent px-1 py-0.5 text-[10px] dark:border-hairline-dark"
+                    aria-label={`Staff for ${r.name}`}
+                  >
+                    <option value="">Staff</option>
+                    {employees.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.full_name}
+                      </option>
+                    ))}
+                  </select>
+                ) : r.employee_name ? (
+                  <span className="text-ink-muted dark:text-cream-400">
+                    · {r.employee_name}
                   </span>
                 ) : null}
                 <button

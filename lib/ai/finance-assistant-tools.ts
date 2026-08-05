@@ -18,6 +18,7 @@ import {
   replaceInvoiceItems,
   resolveCustomerSnapshot,
 } from "@/lib/finance/invoice-db";
+import { dispatchInvoicePaid } from "@/lib/finance/dispatch-invoice-paid";
 import { renderFinanceInvoicePdf } from "@/lib/finance/invoice-pdf";
 import {
   FINANCE_EXPENSE_CATEGORIES,
@@ -120,34 +121,6 @@ async function findInvoice(
     return rows[0];
   }
   return null;
-}
-
-async function recordInvoiceIncome(
-  admin: ReturnType<typeof createServiceRoleClient>,
-  businessId: string,
-  userId: string,
-  invoice: FinanceInvoiceRow,
-): Promise<void> {
-  const { data: existing } = await admin
-    .from("finance_transactions")
-    .select("id")
-    .eq("business_id", businessId)
-    .eq("finance_invoice_id", invoice.id)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (existing) return;
-  await admin.from("finance_transactions").insert({
-    business_id: businessId,
-    kind: "income",
-    amount_myr: invoice.total_myr,
-    category: "invoice_payment",
-    description: `Payment for ${invoice.number}`,
-    counterparty: invoice.customer_name,
-    payment_method: "other",
-    txn_date: malaysiaTodayIso(),
-    finance_invoice_id: invoice.id,
-    created_by: userId,
-  });
 }
 
 export const FINANCE_ASSISTANT_TOOLS = [
@@ -1044,8 +1017,12 @@ export async function executeFinanceAssistantTool(
       if (error || !data) return { ok: false, error: error?.message ?? "update_failed" };
 
       const row = await loadInvoiceWithItems(supabase, ctx.businessId, current.id);
-      if (parsed.status === "paid" && row) {
-        await recordInvoiceIncome(admin, ctx.businessId, ctx.userId, row);
+      if (parsed.status === "paid" && row && current.status !== "paid") {
+        await dispatchInvoicePaid({
+          supabase,
+          invoice: row,
+          userId: ctx.userId,
+        });
       }
 
       return {

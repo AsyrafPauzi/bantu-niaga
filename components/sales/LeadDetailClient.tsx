@@ -411,12 +411,12 @@ export function LeadDetailClient({
         </h2>
         {quotes.length === 0 ? (
           <p className="mt-2 text-sm text-ink-muted">
-            No matching quotes.{" "}
+            No matching quotes yet.{" "}
             <Link
-              href="/finance/invoices?kind=quote"
+              href={`/finance/invoices/new?kind=quote&lead_id=${lead.id}`}
               className="font-semibold text-[#2563EB] dark:text-blue-300"
             >
-              Create quote in Finance
+              Create quote for this lead
             </Link>
           </p>
         ) : (
