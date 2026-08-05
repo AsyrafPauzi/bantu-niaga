@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import {
   ALLOWED_MODEL_OVERRIDES,
+  labelForModelOverride,
   REASONING_MODE_MODELS,
   TENANT_AI_AGENTS,
   type ReasoningMode,
@@ -133,7 +134,7 @@ export function TenantAgentRoutingEditor({
                   <option value="">None (use mode default)</option>
                   {ALLOWED_MODEL_OVERRIDES.map((m) => (
                     <option key={m} value={m}>
-                      {m}
+                      {labelForModelOverride(m)}
                     </option>
                   ))}
                 </select>

@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireOperationsUser } from "@/lib/operations/require-user";
+import { notifyOperationsProductCreated, notifyOperationsProductLowStock } from "@/lib/operations/notify";
 import {
   operationsProductCreateSchema,
   type OperationsProductRow,
@@ -136,6 +137,26 @@ export async function POST(request: Request) {
       },
       { status: code === "duplicate_sku" ? 409 : 500 },
     );
+  }
+
+  const row = data as unknown as { id: string; sku: string; name: string; stock_qty: number | null; low_stock_threshold: number };
+  notifyOperationsProductCreated({
+    businessId: user.businessId,
+    productId: row.id,
+    sku: row.sku,
+    name: row.name,
+  });
+  if (
+    row.stock_qty !== null &&
+    row.stock_qty <= (row.low_stock_threshold ?? 5)
+  ) {
+    notifyOperationsProductLowStock({
+      businessId: user.businessId,
+      productId: row.id,
+      sku: row.sku,
+      name: row.name,
+      stockQty: row.stock_qty,
+    });
   }
 
   return NextResponse.json({ ok: true, data }, { status: 201 });

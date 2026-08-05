@@ -10,9 +10,10 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
+import { BookingListFilters } from "@/components/operations/BookingListFilters";
 import {
   OperationsCatalogEditShell,
-  OperationsCatalogEmpty,
   OperationsCatalogList,
   OperationsCatalogThumb,
 } from "@/components/operations/OperationsCatalogUi";
@@ -475,6 +476,19 @@ export function OperationsBookingPanel({
     [refresh],
   );
 
+  const bookingListFilters = (
+    <BookingListFilters
+      viewMode={viewMode}
+      onViewModeChange={setViewMode}
+      upcomingCount={upcoming.length}
+      weekDays={weekDays}
+      selectedDay={selectedDay}
+      bookingsByDay={bookingsByDay}
+      onSelectDay={setSelectedDay}
+      toMalaysiaYmd={toMalaysiaYmd}
+    />
+  );
+
   return (
     <div className="space-y-4">
       <section className="space-y-3 rounded-xl border border-cream-200 bg-white p-3 dark:border-hairline-dark dark:bg-panel-dark sm:p-4">
@@ -569,76 +583,7 @@ export function OperationsBookingPanel({
           }
         }}
         actionLabel="New booking"
-      >
-        <div className="inline-flex rounded-lg border border-cream-300 p-0.5 dark:border-hairline-dark">
-          <button
-            type="button"
-            onClick={() => setViewMode("list")}
-            className={cn(
-              "rounded-md px-2.5 py-1 text-xs font-semibold",
-              viewMode === "list"
-                ? "bg-brand-500 text-white"
-                : "text-ink-muted dark:text-cream-400",
-            )}
-          >
-            List
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("week")}
-            className={cn(
-              "rounded-md px-2.5 py-1 text-xs font-semibold",
-              viewMode === "week"
-                ? "bg-brand-500 text-white"
-                : "text-ink-muted dark:text-cream-400",
-            )}
-          >
-            Week
-          </button>
-        </div>
-        <span className="text-xs text-ink-muted dark:text-cream-400">
-          {upcoming.length} upcoming
-        </span>
-      </QuickActionBar>
-
-      {viewMode === "week" ? (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {weekDays.map((day) => {
-              const ymd = toMalaysiaYmd(day);
-              const count = bookingsByDay.get(ymd) ?? 0;
-              const selected = selectedDay === ymd;
-              return (
-                <button
-                  key={ymd}
-                  type="button"
-                  onClick={() => setSelectedDay(ymd)}
-                  className={cn(
-                    "flex min-w-[4.5rem] flex-col items-center rounded-xl border px-2 py-2 text-center transition-colors",
-                    selected
-                      ? "border-brand-400 bg-brand-50 dark:border-brand-700 dark:bg-brand-950/30"
-                      : "border-cream-200 bg-white dark:border-hairline-dark dark:bg-panel-dark",
-                  )}
-                >
-                  <span className="text-[10px] font-semibold uppercase text-ink-muted dark:text-cream-400">
-                    {day.toLocaleDateString("en-MY", { weekday: "short" })}
-                  </span>
-                  <span className="text-lg font-bold tabular-nums text-ink dark:text-cream-100">
-                    {day.getDate()}
-                  </span>
-                  {count > 0 ? (
-                    <span className="mt-0.5 rounded-full bg-violet-100 px-1.5 text-[10px] font-semibold text-violet-800 dark:bg-violet-950/50 dark:text-violet-100">
-                      {count}
-                    </span>
-                  ) : (
-                    <span className="mt-0.5 text-[10px] text-ink-muted dark:text-cream-500">
-                      —
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
+      />
 
       <QuickCreatePanel
         open={showForm}
@@ -872,23 +817,32 @@ export function OperationsBookingPanel({
       ) : null}
 
       {displayedBookings.length === 0 ? (
-        <OperationsCatalogEmpty
-          icon="📅"
-          title={
-            viewMode === "week"
-              ? "No bookings on this day"
-              : "No bookings yet"
-          }
-          hint={
-            viewMode === "week"
-              ? "Pick another day or switch to list view."
-              : "Tap New booking to schedule your first appointment."
-          }
-        />
+        <OperationsCatalogList
+          title={viewMode === "week" ? "Day schedule" : "Schedule"}
+          total={0}
+          filters={bookingListFilters}
+        >
+          <div className="px-5 py-14 text-center">
+            <p className="text-4xl" aria-hidden>
+              📅
+            </p>
+            <p className="mt-3 text-sm font-semibold text-ink dark:text-cream-100">
+              {viewMode === "week"
+                ? "No bookings on this day"
+                : "No bookings yet"}
+            </p>
+            <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
+              {viewMode === "week"
+                ? "Pick another day or switch to list view."
+                : "Tap New booking to schedule your first appointment."}
+            </p>
+          </div>
+        </OperationsCatalogList>
       ) : (
         <OperationsCatalogList
           title={viewMode === "week" ? "Day schedule" : "Schedule"}
           total={displayedBookings.length}
+          filters={bookingListFilters}
         >
           <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
             {displayedBookings.map((b) => {

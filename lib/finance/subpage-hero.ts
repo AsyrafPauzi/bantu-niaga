@@ -1,4 +1,4 @@
-import type { ModuleHeroVariant } from "@/components/dashboard/module-layout";
+import type { LegacyModuleHeroVariant } from "@/components/dashboard/module-layout";
 import type { FinanceAnalyticsSummary } from "@/lib/finance/analytics";
 import type { FinanceCustomersSummary } from "@/lib/finance/customers";
 import type { ExpenseCategoryInsight } from "@/lib/finance/helpers";
@@ -8,7 +8,7 @@ import { formatMyr } from "@/lib/finance/schemas";
 export function invoiceSubpageHero(summary: FinanceInvoicesSummary): {
   headline: string;
   subcopy: string;
-  variant: ModuleHeroVariant;
+  variant: LegacyModuleHeroVariant;
 } {
   const headline =
     summary.outstanding_myr > 0
@@ -36,7 +36,7 @@ export function expensesSubpageHero(opts: {
   expenseCount: number;
   monthLabel: string;
   topCategory: ExpenseCategoryInsight | null;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     opts.expenseCount === 0
       ? "No spends logged this month"
@@ -58,7 +58,7 @@ export function incomeSubpageHero(opts: {
   monthIncomeMyr: number;
   incomeCount: number;
   monthLabel: string;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     opts.incomeCount === 0
       ? "No income logged this month"
@@ -74,7 +74,7 @@ export function incomeSubpageHero(opts: {
 
 export function customersSubpageHero(
   summary: FinanceCustomersSummary,
-): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     summary.total === 0
       ? "Add your first customer"
@@ -96,7 +96,7 @@ export function customersSubpageHero(
 
 export function reportsSubpageHero(
   analytics: FinanceAnalyticsSummary,
-): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const isProfit = analytics.net_myr >= 0;
   const headline = isProfit
     ? `${formatMyr(analytics.net_myr)} net for the period`

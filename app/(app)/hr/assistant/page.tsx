@@ -1,8 +1,13 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { HelpCircle } from "lucide-react";
 import { HrAssistantChat } from "@/components/hr/HrAssistantChat";
-import { HrAssistantShell } from "@/components/hr/layout/hr-assistant-shell";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
-import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
+import {
+  PILLAR_ASSISTANT_BODY,
+  PillarAssistantHeader,
+  PillarAssistantShell,
+} from "@/components/dashboard/pillar-assistant-shell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
 import {
@@ -13,6 +18,8 @@ import {
 import { HR_AGENT_SLUG } from "@/lib/marketplace/agent-types";
 import { chatCreditsForReasoning } from "@/lib/settings/reasoning-credits";
 import { loadShortMemory } from "@/lib/ai/short-memory";
+import { pillarClasses } from "@/lib/pillars/theme";
+import { cn } from "@/lib/utils/cn";
 
 export const metadata = { title: "HR AI Assistant" };
 export const dynamic = "force-dynamic";
@@ -41,19 +48,35 @@ export default async function HrAssistantPage() {
     }),
   ]);
 
+  const theme = pillarClasses.hr;
+
   return (
-    <HrAssistantShell
+    <PillarAssistantShell
       header={
-        <HrPageHeader
-          title={`${settings.displayName} · HR Assistant`}
-          subtitle="Ask like you would HR staff — she clarifies, plans from your records, then can record or approve leave"
-          helpHref="/more"
-          className="px-4 lg:px-8"
-        />
+        <>
+          <PillarAssistantHeader
+            pillar="hr"
+            eyebrow="HR"
+            title={`${settings.displayName} · HR Assistant`}
+            subtitle="Ask like you would HR staff — she clarifies, plans from your records, then can record or approve leave"
+            action={
+              <Link
+                href="/more"
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold shadow-sm transition-colors",
+                  theme.btnSecondary,
+                )}
+              >
+                <HelpCircle className="h-4 w-4" strokeWidth={2} />
+                Get help
+              </Link>
+            }
+          />
+          <HrMobileSubnav className="shrink-0 border-b border-cream-200 px-4 dark:border-hairline-dark lg:px-8" />
+        </>
       }
     >
-      <HrMobileSubnav className="shrink-0 border-b border-[#E5E0D8] px-4 dark:border-hairline-dark lg:px-8" />
-      <div className="flex min-h-0 flex-1 flex-col px-4 py-3 lg:px-8 lg:py-4">
+      <div className={PILLAR_ASSISTANT_BODY}>
         <HrAssistantChat
           businessId={user.businessId}
           initialStatus={{
@@ -70,6 +93,6 @@ export default async function HrAssistantPage() {
           }}
         />
       </div>
-    </HrAssistantShell>
+    </PillarAssistantShell>
   );
 }

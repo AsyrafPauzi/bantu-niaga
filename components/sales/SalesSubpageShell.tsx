@@ -1,13 +1,13 @@
 import { SalesBackLink } from "@/components/sales/SalesBackLink";
 import {
   ModuleDashboardHero,
-  type ModuleHeroVariant,
+  type LegacyModuleHeroVariant,
 } from "@/components/dashboard/module-layout";
 
 interface SalesSubpageShellProps {
   headline: string;
   subcopy: string;
-  variant?: ModuleHeroVariant;
+  variant?: LegacyModuleHeroVariant;
   stats?: React.ReactNode;
   cta?: React.ReactNode;
   children: React.ReactNode;
@@ -16,7 +16,7 @@ interface SalesSubpageShellProps {
 export function SalesSubpageShell({
   headline,
   subcopy,
-  variant = "sales",
+  variant = "default",
   stats,
   cta,
   children,
@@ -26,6 +26,7 @@ export function SalesSubpageShell({
       <SalesBackLink />
       <ModuleDashboardHero
         module="Sales"
+        pillar="sales"
         headline={headline}
         subcopy={subcopy}
         variant={variant}

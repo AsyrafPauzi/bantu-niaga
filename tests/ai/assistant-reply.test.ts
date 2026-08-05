@@ -3,9 +3,12 @@ import {
   beautifyAssistantMarkdown,
   convertMarkdownTablesToBullets,
   fixBrokenBoldMarkdown,
+  formatAssistantReply,
+  isStructuredModelJson,
   normalizeAssistantLinks,
   sanitizeAssistantReply,
 } from "@/lib/ai/assistant-reply";
+import { extractChatAssistantText } from "@/lib/ai/openai";
 
 describe("sanitizeAssistantReply", () => {
   it("removes leaked monologue and repeated MTD blocks", () => {
@@ -88,5 +91,27 @@ describe("formatAssistantReply", () => {
       "Done. **Ringkasan:** - **Jumlah:** RM 10.00 - **Tarikh:** 2026-07-31";
     const out = beautifyAssistantMarkdown(sanitizeAssistantReply(raw));
     expect(out).toContain("\n- **Jumlah:**");
+  });
+
+  it("preserves boardroom agent JSON (no MTD Income truncation)", () => {
+    const raw = `{
+"headline": "MTD Income is zero — chase invoices",
+"numbers": [{"label": "MTD Income", "value": "RM 0.00"}],
+"problem": "No sales recorded this month.",
+"actions": ["Send INV-2026-0003 today"]
+}`;
+    expect(isStructuredModelJson(raw)).toBe(true);
+    const out = formatAssistantReply(raw);
+    expect(out).toContain('"actions"');
+    expect(out).toContain("Send INV-2026-0003 today");
+    expect(out).toContain("MTD Income");
+  });
+
+  it("extractChatAssistantText keeps structured JSON intact", () => {
+    const json = `{"headline":"Hit RM5k","numbers":[],"problem":"Pipeline thin.","actions":["Call top 3 leads"]}`;
+    const text = extractChatAssistantText({
+      choices: [{ message: { content: json } }],
+    });
+    expect(text).toBe(json);
   });
 });

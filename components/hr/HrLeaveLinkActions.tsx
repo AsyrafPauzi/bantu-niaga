@@ -68,9 +68,9 @@ export function HrLeaveLinkActions({
         type="button"
         onClick={generateLink}
         disabled={busy}
-        className="rounded-lg border border-cream-300 px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand-400 hover:text-brand-700 disabled:opacity-60 dark:border-hairline-dark dark:text-cream-100 dark:hover:text-brand-200"
+        className="rounded-lg border border-teal-300 px-3 py-1.5 text-xs font-semibold text-[#0F766E] hover:bg-teal-50 disabled:opacity-60 dark:border-teal-800 dark:text-teal-200 dark:hover:bg-teal-950/40"
       >
-        {busy ? "Generating..." : "Generate leave link"}
+        {busy ? "Generating…" : "Create leave link"}
       </button>
       {url ? (
         <div
@@ -82,7 +82,7 @@ export function HrLeaveLinkActions({
           <button
             type="button"
             onClick={copyLink}
-            className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            className="font-semibold text-[#0D9488] hover:underline dark:text-teal-400"
           >
             Copy link
           </button>
@@ -91,7 +91,7 @@ export function HrLeaveLinkActions({
               href={whatsappHref}
               target="_blank"
               rel="noreferrer"
-              className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+              className="font-semibold text-[#0D9488] hover:underline dark:text-teal-400"
             >
               Send WhatsApp
             </a>

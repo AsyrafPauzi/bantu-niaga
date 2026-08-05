@@ -128,11 +128,15 @@ export async function createFinanceInvoiceBillplzCheckout(
   };
 }
 
+export type BillplzCompleteResult =
+  | { kind: "finance"; businessId: string; invoiceId: string }
+  | { kind: "topup" };
+
 /** Webhook dispatcher — finance invoice first, then platform top-up. */
 export async function completeBillplzPayment(
   billplzId: string,
   admin?: SupabaseClient,
-): Promise<"finance" | "topup"> {
+): Promise<BillplzCompleteResult> {
   const client = admin ?? createServiceRoleClient();
 
   const financeRes = await client.rpc("finance_complete_billplz", {
@@ -140,7 +144,22 @@ export async function completeBillplzPayment(
   });
 
   if (!financeRes.error) {
-    return "finance";
+    const row = Array.isArray(financeRes.data)
+      ? financeRes.data[0]
+      : financeRes.data;
+    if (
+      row &&
+      typeof row === "object" &&
+      "business_id" in row &&
+      "finance_invoice_id" in row
+    ) {
+      return {
+        kind: "finance",
+        businessId: row.business_id as string,
+        invoiceId: row.finance_invoice_id as string,
+      };
+    }
+    throw new Error("finance_complete_billplz returned no row");
   }
 
   if (!financeRes.error.message.includes("not found")) {
@@ -155,5 +174,5 @@ export async function completeBillplzPayment(
     throw new Error(topupRes.error.message);
   }
 
-  return "topup";
+  return { kind: "topup" };
 }

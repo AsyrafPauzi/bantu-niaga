@@ -55,7 +55,7 @@ const SECTIONS: readonly { label: string; items: MoreItem[] }[] = [
     items: [
       {
         href: "/boardroom",
-        label: "AI Boardroom",
+        label: "Boardroom",
         description: "Multi-agent business decisions",
       },
       {

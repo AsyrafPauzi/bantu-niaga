@@ -6,6 +6,7 @@ import {
   dedupeImportedHolidays,
   fetchMalaysiaHolidays,
 } from "@/lib/hr/holiday-import";
+import { holidayDedupeKey } from "@/lib/hr/holiday-dedupe";
 import { hasPublicHolidaysAddon } from "@/lib/marketplace/entitlements";
 import { loadBusiness } from "@/lib/settings/business";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -72,11 +73,42 @@ export async function POST(request: Request) {
     );
   }
 
+  const { data: existingRows, error: existingError } = await supabase
+    .from("hr_public_holidays")
+    .select("holiday_date, name, state_code, external_id")
+    .eq("business_id", user.businessId)
+    .gte("holiday_date", `${year}-01-01`)
+    .lte("holiday_date", `${year}-12-31`);
+
+  if (existingError) {
+    return NextResponse.json(
+      { error: "import_failed", message: "Could not read existing holidays." },
+      { status: 500 },
+    );
+  }
+
+  const existingKeys = new Set(
+    (existingRows ?? []).map((row) =>
+      holidayDedupeKey({
+        holiday_date: String(row.holiday_date),
+        name: row.name,
+        state_code: row.state_code,
+        external_id: row.external_id,
+      }),
+    ),
+  );
+
   let inserted = 0;
   let skipped = 0;
   const source = imported[0]?.source ?? "mycal";
 
   for (const row of imported) {
+    const slotKey = holidayDedupeKey(row);
+    if (existingKeys.has(slotKey)) {
+      skipped += 1;
+      continue;
+    }
+
     const { error } = await supabase.from("hr_public_holidays").insert({
       business_id: user.businessId,
       holiday_date: row.holiday_date,
@@ -97,6 +129,7 @@ export async function POST(request: Request) {
       );
     }
     inserted += 1;
+    existingKeys.add(slotKey);
   }
 
   await writeAuditLog(supabase, {

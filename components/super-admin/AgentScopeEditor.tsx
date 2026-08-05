@@ -78,15 +78,16 @@ export function AgentScopeEditor({ slug, version }: Props) {
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-cream-300 bg-white p-5 shadow-card">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-3">
           <div>
             <h2 className="text-base font-bold text-ink">System prompt</h2>
             <p className="mt-1 text-xs text-ink-muted">
-              This is the agent&apos;s identity. Loaded at the start of every
-              conversation. Use clear, short paragraphs.
+              Role rules and module behavior. Do not hardcode agent names (Maya,
+              Fayza, …) — each tenant&apos;s display name from Settings is
+              injected automatically at the top of every chat.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <input
               type="text"
               value={draft.version_label}
@@ -114,11 +115,11 @@ export function AgentScopeEditor({ slug, version }: Props) {
             setDraft({ ...draft, system_prompt: e.target.value })
           }
           className="mt-3 w-full rounded-lg border border-cream-300 bg-cream-100 p-3 font-mono text-[12px] leading-relaxed text-ink focus:bg-white focus:outline-none"
-          placeholder="You are Maya, a marketing copilot for SMEs in Malaysia…"
+          placeholder="You are the Marketing staff member for Malaysian SMEs… (do not hardcode a name — tenant display name is injected at runtime)"
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="flex flex-col gap-5">
         <ListEditor
           title="Allowed actions"
           description="What the agent IS allowed to do. The runtime tool layer reads this list and refuses any tool not listed here."
@@ -160,7 +161,7 @@ export function AgentScopeEditor({ slug, version }: Props) {
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="flex flex-col gap-5">
         <ListEditor
           title="Escalation rules"
           description="When the agent should stop and hand control back to a human. Mapped to the Inbox / support ticketing surface."
@@ -200,7 +201,7 @@ export function AgentScopeEditor({ slug, version }: Props) {
         />
       </div>
 
-      <div className="sticky bottom-3 z-10 flex items-center justify-between gap-3 rounded-xl border border-cream-300 bg-white px-4 py-3 shadow-elevated">
+      <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-xl border border-cream-300 bg-white px-4 py-3 shadow-elevated sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-xs text-ink-muted">
           {saved && (
             <span className="inline-flex items-center gap-1.5 rounded-md bg-status-success/10 px-2 py-0.5 font-semibold text-status-success">
@@ -301,19 +302,19 @@ function ListEditor<T>({
         {items.map((it, idx) => (
           <li
             key={idx}
-            className="group relative rounded-lg border border-cream-300 bg-cream-100 p-3"
+            className="group flex items-start gap-2 rounded-lg border border-cream-300 bg-cream-100 p-3"
           >
-            <div className="absolute right-2 top-2">
-              <button
-                type="button"
-                onClick={() => removeAt(idx)}
-                className="rounded-md px-2 py-0.5 text-[10px] font-bold text-status-danger opacity-0 transition group-hover:opacity-100"
-                aria-label="Remove"
-              >
-                Remove
-              </button>
+            <div className="min-w-0 flex-1">
+              {renderRow(it, idx, (patch) => patchAt(idx, patch))}
             </div>
-            {renderRow(it, idx, (patch) => patchAt(idx, patch))}
+            <button
+              type="button"
+              onClick={() => removeAt(idx)}
+              className="shrink-0 rounded-md px-2 py-1 text-[10px] font-bold text-status-danger opacity-50 transition hover:bg-status-danger/10 hover:opacity-100 group-hover:opacity-100"
+              aria-label="Remove"
+            >
+              Remove
+            </button>
           </li>
         ))}
       </ul>
@@ -401,7 +402,7 @@ function EscalationRow({
   onPatch: (patch: Partial<EscalationRule>) => void;
 }) {
   return (
-    <div className="grid gap-1.5 sm:grid-cols-2">
+    <div className="flex flex-col gap-1.5">
       <input
         type="text"
         value={rule.trigger}
@@ -428,7 +429,7 @@ function KnowledgeRow({
   onPatch: (patch: Partial<KnowledgeSource>) => void;
 }) {
   return (
-    <div className="grid gap-1.5 sm:grid-cols-[2fr_1fr_80px]">
+    <div className="flex flex-col gap-1.5">
       <input
         type="text"
         value={src.label}

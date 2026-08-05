@@ -228,6 +228,16 @@ async function main() {
     ok("export CSV");
   }
 
+  const { count: salesNotifs } = await admin
+    .from("business_notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .eq("pillar", "sales")
+    .gte("created_at", new Date(Date.now() - 300_000).toISOString());
+
+  if ((salesNotifs ?? 0) >= 2) ok("sales notifications posted");
+  else fail("sales notifications posted", `count=${salesNotifs ?? 0}`);
+
   await admin.from("sales_leads").delete().eq("id", leadId);
 
   console.log(`\n${passed} passed, ${failed} failed\n`);

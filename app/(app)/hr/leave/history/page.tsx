@@ -1,21 +1,18 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card, CardBody } from "@/components/ui/card";
-import { SectionCard } from "@/components/dashboard/section-card";
-import { HrLeaveRecordRow } from "@/components/hr/HrLeaveRecordRow";
-import { HrBackLink } from "@/components/hr/layout/hr-back-link";
-import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
-import { HrPageBody } from "@/components/hr/layout/hr-page-body";
-import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
-import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
+import { HrLeaveHistoryView } from "@/components/hr/HrLeaveHistoryView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
-import { loadHrLeaveRecords } from "@/lib/hr/load";
+import { loadHrEmployee, loadHrLeaveRecords } from "@/lib/hr/load";
 
 export const metadata = { title: "Leave history" };
 export const dynamic = "force-dynamic";
 
-export default async function LeaveHistoryPage() {
+export default async function LeaveHistoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ employee_id?: string }>;
+}) {
   let user;
   try {
     user = await getCurrentUser();
@@ -34,41 +31,15 @@ export default async function LeaveHistoryPage() {
     );
   }
 
-  const leave = await loadHrLeaveRecords(user.businessId);
+  const { employee_id: employeeId } = await searchParams;
+  const [leave, employee] = await Promise.all([
+    loadHrLeaveRecords(user.businessId),
+    employeeId ? loadHrEmployee(user.businessId, employeeId) : Promise.resolve(null),
+  ]);
 
-  return (
-    <HrPageShell
-      header={
-        <HrPageHeader
-          title="Leave history"
-          subtitle="All leave records — pending, approved, and rejected"
-          helpHref="/more"
-        />
-      }
-    >
-      <HrPageBody>
-        <HrMobileSubnav />
-        <HrBackLink href="/hr/leave" label="Back to Leave" />
+  const filtered = employeeId
+    ? leave.filter((row) => row.employee_id === employeeId)
+    : leave;
 
-        <SectionCard
-          title="All leave records"
-          subtitle={`${leave.length} record${leave.length === 1 ? "" : "s"} on file`}
-          bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
-        >
-          {leave.length === 0 ? (
-            <p className="text-sm text-ink-muted dark:text-cream-400">
-              No leave records yet.{" "}
-              <Link href="/hr/leave/record" className="font-semibold text-brand-700">
-                Record leave
-              </Link>
-            </p>
-          ) : (
-            leave.map((row) => (
-              <HrLeaveRecordRow key={row.id} row={row} showStatus />
-            ))
-          )}
-        </SectionCard>
-      </HrPageBody>
-    </HrPageShell>
-  );
+  return <HrLeaveHistoryView leave={filtered} employee={employee} />;
 }

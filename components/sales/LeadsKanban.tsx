@@ -160,7 +160,7 @@ export function LeadsKanban({
             className={cn(
               "w-64 shrink-0 rounded-xl border border-cream-200 bg-cream-50/50 transition dark:border-hairline-dark dark:bg-panel-dark/50",
               dropTarget === status &&
-                "border-brand-400 ring-2 ring-brand-200 dark:ring-brand-800",
+                "border-blue-400 ring-2 ring-blue-200 dark:ring-blue-800",
             )}
           >
             <div className="flex items-center justify-between border-b border-cream-200 px-3 py-2 dark:border-hairline-dark">
@@ -199,7 +199,7 @@ export function LeadsKanban({
                       >
                         <Link
                           href={`/sales/leads/${lead.id}`}
-                          className="block p-3 hover:border-brand-300"
+                          className="block p-3 hover:border-blue-300"
                           draggable={false}
                           onClick={(e) => {
                             if (draggingId) e.preventDefault();

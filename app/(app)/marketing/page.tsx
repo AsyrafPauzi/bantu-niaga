@@ -18,6 +18,7 @@ import {
   getTopPostedContent,
   getUpcomingContent,
 } from "@/lib/marketing/dashboard-queries";
+import { loadPillarNotifications } from "@/lib/notifications/load-pillar";
 
 export const metadata = { title: "Marketing" };
 export const dynamic = "force-dynamic";
@@ -56,6 +57,7 @@ export default async function MarketingOverviewPage() {
     upcoming,
     activity,
     topContent,
+    teamNotifications,
   ] = await Promise.all([
     getKpiSnapshot(supabase, user.businessId),
     getKpiDeltas(supabase, user.businessId),
@@ -64,6 +66,7 @@ export default async function MarketingOverviewPage() {
     getUpcomingContent(supabase, user.businessId, 7),
     getRecentActivity(supabase, user.businessId, 5),
     getTopPostedContent(supabase, user.businessId, 4),
+    loadPillarNotifications(supabase, user.businessId, "marketing", 12),
   ]);
 
   return (
@@ -77,6 +80,7 @@ export default async function MarketingOverviewPage() {
         upcoming={upcoming}
         topContent={topContent}
         activity={activity}
+        teamNotifications={teamNotifications}
       />
       <MarketingMobileFab />
     </div>

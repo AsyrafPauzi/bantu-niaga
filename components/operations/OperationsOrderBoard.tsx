@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Calendar,
@@ -14,10 +14,14 @@ import {
   MessageCircle,
   Package,
   Plus,
+  Search,
   Trash2,
 } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
-import { OperationsCatalogList } from "@/components/operations/OperationsCatalogUi";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+} from "@/components/dashboard/module-list-panel";
 import { OperationsCustomerFields } from "@/components/operations/OperationsCustomerFields";
 import {
   QuickActionBar,
@@ -137,6 +141,7 @@ export function OperationsOrderBoard({
   suppliers,
 }: OperationsOrderBoardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState(initialOrders);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -152,7 +157,9 @@ export function OperationsOrderBoard({
   const [supplierId, setSupplierId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(
+    () => searchParams.get("q")?.trim() ?? "",
+  );
   const [viewMode, setViewMode] = useState<OrderViewMode>("board");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<OperationsOrderStatus | null>(
@@ -372,48 +379,7 @@ export function OperationsOrderBoard({
         open={showForm}
         onToggle={toggleForm}
         actionLabel="New order"
-        hint={
-          viewMode === "board"
-            ? "Drag cards · or tap Advance"
-            : "List view · tap Advance to move status"
-        }
-        search={{
-          value: query,
-          onChange: setQuery,
-          placeholder: "Search customer, order #, title…",
-        }}
-      >
-        <div className="flex rounded-lg border border-cream-300 dark:border-hairline-dark">
-          <button
-            type="button"
-            onClick={() => setViewMode("board")}
-            className={cn(
-              "inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold",
-              viewMode === "board"
-                ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
-                : "text-ink-muted dark:text-cream-400",
-            )}
-            aria-pressed={viewMode === "board"}
-          >
-            <LayoutGrid className="h-4 w-4" />
-            Board
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("list")}
-            className={cn(
-              "inline-flex items-center gap-1 border-l border-cream-300 px-3 py-2 text-sm font-semibold dark:border-hairline-dark",
-              viewMode === "list"
-                ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
-                : "text-ink-muted dark:text-cream-400",
-            )}
-            aria-pressed={viewMode === "list"}
-          >
-            <List className="h-4 w-4" />
-            List
-          </button>
-        </div>
-      </QuickActionBar>
+      />
 
       <QuickCreatePanel
         open={showForm}
@@ -540,6 +506,68 @@ export function OperationsOrderBoard({
           />
       </QuickCreatePanel>
 
+      <ModuleListPanel>
+        <ModuleListPanelFilters>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-lg border border-cream-300 dark:border-hairline-dark">
+              <button
+                type="button"
+                onClick={() => setViewMode("board")}
+                className={cn(
+                  "inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold",
+                  viewMode === "board"
+                    ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
+                    : "text-ink-muted dark:text-cream-400",
+                )}
+                aria-pressed={viewMode === "board"}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                Board
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "inline-flex items-center gap-1 border-l border-cream-300 px-3 py-2 text-sm font-semibold dark:border-hairline-dark",
+                  viewMode === "list"
+                    ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
+                    : "text-ink-muted dark:text-cream-400",
+                )}
+                aria-pressed={viewMode === "list"}
+              >
+                <List className="h-4 w-4" />
+                List
+              </button>
+            </div>
+            <p className="text-xs text-ink-muted dark:text-cream-400">
+              {viewMode === "board"
+                ? "Drag cards · or tap Advance"
+                : "List view · tap Advance to move status"}
+            </p>
+          </div>
+          <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex flex-1 items-center gap-2 rounded-xl border border-cream-300 bg-cream-50/50 px-3 py-2.5 dark:border-hairline-dark dark:bg-panel-dark/60">
+              <Search className="h-4 w-4 shrink-0 text-ink-muted" strokeWidth={2} />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search customer, order #, title…"
+                className="w-full min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100"
+              />
+            </div>
+            {query.trim() ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-xs font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </ModuleListPanelFilters>
+
       {viewMode === "list" ? (
         sortedListOrders.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-cream-300 bg-cream-50/50 py-14 text-center dark:border-hairline-dark dark:bg-panel-dark/30">
@@ -554,11 +582,7 @@ export function OperationsOrderBoard({
             </p>
           </div>
         ) : (
-          <OperationsCatalogList
-            title="All orders"
-            total={sortedListOrders.length}
-          >
-            <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+          <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
               {sortedListOrders.map((order) => {
                 const overdue = isOverdue(order.due_date, order.status);
                 const busy = busyId === order.id;
@@ -673,7 +697,6 @@ export function OperationsOrderBoard({
                 );
               })}
             </ul>
-          </OperationsCatalogList>
         )
       ) : (
       <div
@@ -874,6 +897,7 @@ export function OperationsOrderBoard({
         ))}
       </div>
       )}
+      </ModuleListPanel>
     </div>
   );
 }

@@ -97,7 +97,7 @@ export function SalesGuideJourney({
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-panel-dark">
         <div className="flex items-start justify-between gap-3 border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
           <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-[#2563EB] dark:bg-blue-950/40 dark:text-blue-300">
               <Icon className="h-5 w-5" strokeWidth={2} />
             </span>
             <div>
@@ -130,7 +130,7 @@ export function SalesGuideJourney({
             <Link
               href={current.href}
               onClick={markDone}
-              className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 dark:text-brand-200"
+              className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#2563EB] dark:text-blue-300"
             >
               {current.cta}
               <ArrowRight className="h-4 w-4" />
@@ -160,7 +160,7 @@ export function SalesGuideJourney({
               <button
                 type="button"
                 onClick={markDone}
-                className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600"
+                className="rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
               >
                 Done
               </button>
@@ -168,7 +168,7 @@ export function SalesGuideJourney({
               <button
                 type="button"
                 onClick={() => setStep((s) => s + 1)}
-                className="inline-flex items-center gap-1 rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600"
+                className="inline-flex items-center gap-1 rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
               >
                 Next
                 <ArrowRight className="h-3.5 w-3.5" />

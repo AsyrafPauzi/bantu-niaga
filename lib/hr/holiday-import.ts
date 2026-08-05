@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { resolveMycalStateAlias } from "@/lib/hr/state-codes";
+import { dedupeHolidayRows } from "@/lib/hr/holiday-dedupe";
 import { logger } from "@/lib/logger";
 
 const DEFAULT_MYCAL_BASE = "https://mycal-api.huijun00100101.workers.dev";
@@ -26,6 +27,8 @@ interface MycalHolidayRow {
   date?: string;
   holiday_date?: string;
   name?: string | MycalHolidayName;
+  type?: string;
+  states?: string[];
 }
 
 function mycalBaseUrl(): string {
@@ -38,20 +41,33 @@ function pickHolidayName(name: string | MycalHolidayName | undefined): string {
   return (name.en ?? name.ms ?? "Public holiday").slice(0, 160);
 }
 
+function resolveImportedStateCode(
+  row: MycalHolidayRow,
+  businessStateCode: string,
+): string | null {
+  if (row.type === "federal" || row.states?.includes("*")) {
+    return null;
+  }
+  return businessStateCode;
+}
+
 function normalizeMycalRows(
   rows: MycalHolidayRow[],
-  stateCode: string | null,
+  businessStateCode: string,
 ): ImportedHoliday[] {
   const out: ImportedHoliday[] = [];
   for (const row of rows) {
     const date = row.date ?? row.holiday_date;
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-    const externalId = row.id ?? `${date}-${pickHolidayName(row.name)}`;
+    const externalId = (row.id ?? `${date}-${pickHolidayName(row.name)}`).slice(
+      0,
+      120,
+    );
     out.push({
       holiday_date: date,
       name: pickHolidayName(row.name),
-      state_code: stateCode,
-      external_id: externalId.slice(0, 120),
+      state_code: resolveImportedStateCode(row, businessStateCode),
+      external_id: externalId,
       source: "mycal",
     });
   }
@@ -152,13 +168,5 @@ export async function fetchMalaysiaHolidays(
 export function dedupeImportedHolidays(
   rows: ImportedHoliday[],
 ): ImportedHoliday[] {
-  const seen = new Set<string>();
-  const out: ImportedHoliday[] = [];
-  for (const row of rows) {
-    const key = `${row.holiday_date}|${row.name}|${row.state_code ?? "ALL"}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(row);
-  }
-  return out.sort((a, b) => a.holiday_date.localeCompare(b.holiday_date));
+  return dedupeHolidayRows(rows);
 }

@@ -16,6 +16,7 @@ import {
   adminComplianceCreateSchema,
   type AdminComplianceRow,
 } from "@/lib/admin/task-compliance-schemas";
+import { postBusinessNotification } from "@/lib/notifications/post";
 
 export const dynamic = "force-dynamic";
 
@@ -158,6 +159,13 @@ export async function POST(request: Request) {
   const [enriched] = await enrichComplianceRows(supabase, [
     data as unknown as AdminComplianceRow,
   ]);
+
+  void postBusinessNotification({
+    businessId: user.businessId,
+    eventType: "compliance.created",
+    message: `Compliance item added: ${parsed.title}`,
+    meta: { compliance_id: enriched?.id },
+  });
 
   return NextResponse.json({ ok: true, data: enriched }, { status: 201 });
 }

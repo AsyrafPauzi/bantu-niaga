@@ -25,7 +25,7 @@ export function HrPendingLeaveCard({ row }: HrPendingLeaveCardProps) {
     row.leave_type === "mc" && Boolean(row.mc_document_path && row.mc_document_name);
 
   return (
-    <div className="rounded-xl border border-[#E5E0D8] bg-[#FFFEFB] p-4 dark:border-hairline-dark dark:bg-surface-dark">
+    <div className="rounded-xl border border-cream-200 bg-white p-3 dark:border-hairline-dark dark:bg-panel-dark">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -61,7 +61,7 @@ export function HrPendingLeaveCard({ row }: HrPendingLeaveCardProps) {
                   href={`/api/hr/leave/${row.id}/mc-document`}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-200"
+                  className="font-semibold text-[#0D9488] underline underline-offset-2 hover:text-[#0F766E] dark:text-teal-400"
                 >
                   {row.mc_document_name}
                 </Link>

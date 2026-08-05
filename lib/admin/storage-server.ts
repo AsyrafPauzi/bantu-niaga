@@ -21,6 +21,8 @@ export interface AdminFileListRow {
   tags: string[];
   created_at: string;
   updated_at: string;
+  share_hash: string | null;
+  share_enabled_at: string | null;
 }
 
 export interface ListAdminFilesOptions {
@@ -39,7 +41,8 @@ export interface ListAdminFilesResult {
 
 const SELECT_COLS =
   "id, business_id, uploaded_by, storage_path, file_name, mime_type, " +
-  "file_size_bytes, category, description, tags, created_at, updated_at";
+  "file_size_bytes, category, description, tags, created_at, updated_at, " +
+  "share_hash, share_enabled_at";
 
 function buildNextCursor(
   sort: AdminFileSort,

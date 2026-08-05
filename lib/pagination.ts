@@ -1,5 +1,9 @@
 export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;
+export const ADMIN_PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+export const ADMIN_DEFAULT_PAGE_SIZE = 10;
+export const DOCUMENTS_PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+export const DOCUMENTS_DEFAULT_PAGE_SIZE = 25;
 
 export interface PaginationParams {
   page: number;
@@ -29,25 +33,42 @@ export function parsePagination(
     pageSizeKey?: string;
     defaultPageSize?: number;
     maxPageSize?: number;
+    allowedPageSizes?: readonly number[];
   },
 ): PaginationParams {
   const pageKey = options?.pageKey ?? "page";
   const pageSizeKey = options?.pageSizeKey ?? "pageSize";
   const defaultPageSize = options?.defaultPageSize ?? DEFAULT_PAGE_SIZE;
   const maxPageSize = options?.maxPageSize ?? MAX_PAGE_SIZE;
+  const allowedPageSizes = options?.allowedPageSizes;
 
   const page = Math.max(1, Number(readParam(raw, pageKey)) || 1);
+  const rawPageSize = Number(readParam(raw, pageSizeKey)) || defaultPageSize;
+  const normalizedPageSize =
+    allowedPageSizes && allowedPageSizes.length > 0
+      ? allowedPageSizes.includes(rawPageSize)
+        ? rawPageSize
+        : defaultPageSize
+      : rawPageSize;
   const pageSize = Math.min(
     maxPageSize,
-    Math.max(
-      1,
-      Number(readParam(raw, pageSizeKey)) || defaultPageSize,
-    ),
+    Math.max(1, normalizedPageSize),
   );
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
   return { page, pageSize, from, to };
+}
+
+export function withPageSizeSearchParam(
+  params: Record<string, string | undefined>,
+  pageSize: number,
+  defaultPageSize = ADMIN_DEFAULT_PAGE_SIZE,
+): Record<string, string | undefined> {
+  return {
+    ...params,
+    pageSize: pageSize !== defaultPageSize ? String(pageSize) : undefined,
+  };
 }
 
 export function paginateArray<T>(

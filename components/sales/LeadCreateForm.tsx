@@ -85,7 +85,7 @@ export function LeadCreateForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+        className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-[#1D4ED8]"
       >
         <Plus className="h-4 w-4" />
         New lead
@@ -243,7 +243,7 @@ export function LeadCreateForm({
               <button
                 type="submit"
                 disabled={pending}
-                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-60"
               >
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Create

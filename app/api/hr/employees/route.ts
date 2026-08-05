@@ -11,6 +11,7 @@ import {
 import { DEFAULT_ONBOARDING_LABELS } from "@/lib/hr/employee-fields";
 import { loadHrEmployees } from "@/lib/hr/load";
 import { employeeCreateSchema } from "@/lib/hr/schemas";
+import { notifyHrEmployeeCreated } from "@/lib/hr/notify";
 import { hrEncryptionReady } from "@/lib/hr/sensitive";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -129,6 +130,13 @@ export async function POST(request: Request) {
     entityType: "hr_employees",
     entityId: created.id,
     diff: { full_name: parsed.full_name, role_title: parsed.role_title },
+  });
+
+  notifyHrEmployeeCreated({
+    businessId: user.businessId,
+    employeeId: created.id,
+    fullName: parsed.full_name,
+    roleTitle: parsed.role_title ?? null,
   });
 
   return NextResponse.json(

@@ -13,7 +13,8 @@ describe("Hana staff planning prompt", () => {
     });
     expect(rules).toContain("STAFF PLANNING FLOW");
     expect(rules).toContain("clarifying questions FIRST");
-    expect(rules).toContain("DIRECT ACTIONS");
+    expect(rules).toContain("get_leave_balance");
+    expect(rules).toContain("complete_onboarding_item");
     expect(rules).toContain("Kedai Demo");
   });
 

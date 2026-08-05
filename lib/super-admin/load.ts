@@ -4,11 +4,17 @@ import { tierBy, type TierKey } from "@/lib/settings/plans";
 import type {
   BusinessRowAdmin,
   UserRowAdmin,
-  AiAgentRow,
-  AiAgentVersion,
-  AgentUsage7d,
   MarketplaceAdminRow,
+  MarketplaceAddonDetail,
+  MarketplaceAddonActivation,
 } from "./types";
+import {
+  sortBusinessRows,
+  sortUserRows,
+  type BusinessesSortField,
+  type SortOrder,
+  type UsersSortField,
+} from "./table-sort";
 
 /**
  * Server-only loaders for the super-admin route group. Every function in
@@ -18,12 +24,21 @@ import type {
  */
 
 export interface OverviewKpis {
-  activeTenants: number;
+  totalTenants: number;
+  paidTenants: number;
   trialTenants: number;
+  newTenantsThisWeek: number;
   mrrMyr: number;
-  activeUsers30d: number;
-  aiInvocations24h: number;
-  aiSpendCents24h: number;
+  tenantsActive30d: number;
+  totalUsers: number;
+  aiInvocations7d: number;
+  aiCredits7d: number;
+}
+
+export interface OverviewOps {
+  ilmuConfigured: boolean;
+  tenantsAtRisk: number;
+  tenantsCritical: number;
 }
 
 export interface PlanMixEntry {
@@ -38,13 +53,25 @@ export async function loadOverview(): Promise<{
   planMix: PlanMixEntry[];
   weeklyGrowth: { weekLabel: string; count: number }[];
   activity: ActivityRow[];
+  ops: OverviewOps;
 }> {
   const svc = createServiceRoleClient();
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Plan mix from businesses.tier
-  const { data: bizs } = await svc
-    .from("businesses")
-    .select("id, tier, subscription_status, created_at");
+  const [
+    { data: bizs },
+    { count: totalUsers },
+    { data: auditActive },
+    { data: aiRows },
+    { data: healthSnapshots },
+  ] = await Promise.all([
+    svc.from("businesses").select("id, tier, subscription_status, created_at"),
+    svc.from("users").select("id", { count: "exact", head: true }),
+    svc.rpc("super_admin_audit_active_businesses", { p_since: since30d }),
+    svc.from("ai_usage").select("credits_charged").gte("created_at", since7d),
+    svc.from("tenant_health_snapshots").select("band"),
+  ]);
 
   const businesses = (bizs ?? []) as Array<{
     id: string;
@@ -72,7 +99,8 @@ export async function loadOverview(): Promise<{
     };
   });
 
-  const activeTenants = businesses.filter(
+  const totalTenants = businesses.length;
+  const paidTenants = businesses.filter(
     (b) => b.subscription_status !== "cancelled" && b.tier !== "starter",
   ).length;
   const trialTenants = businesses.filter(
@@ -80,48 +108,48 @@ export async function loadOverview(): Promise<{
   ).length;
   const mrrMyr = planMix.reduce((s, p) => s + p.monthlyMyr, 0);
 
-  // AI invocations + spend over last 24h
-  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
-  const { data: usage } = await svc
-    .from("ai_agent_usage_daily")
-    .select("invocations, spend_cents")
-    .gte("day", since24h);
-  const aiInvocations24h = (usage ?? []).reduce(
-    (s, r) => s + (r.invocations ?? 0),
-    0,
-  );
-  const aiSpendCents24h = (usage ?? []).reduce(
-    (s, r) => s + (r.spend_cents ?? 0),
-    0,
-  );
-
-  // Active users (30d) — approximate via users.last_password_change_at or
-  // creation time. When neither exists we fall back to total users.
-  const { count: totalUsers } = await svc
-    .from("users")
-    .select("id", { count: "exact", head: true });
-  const activeUsers30d = totalUsers ?? 0;
-
-  // Weekly growth: last 12 weeks of new businesses.
   const weeklyGrowth = buildWeeklyGrowth(businesses);
+  const newTenantsThisWeek = weeklyGrowth.at(-1)?.count ?? 0;
 
-  // Recent platform activity from super_admin_audit + audit_log (cross-tenant)
+  const tenantsActive30d = (auditActive ?? []).length;
+  const aiUsage = aiRows ?? [];
+  const aiInvocations7d = aiUsage.length;
+  const aiCredits7d = aiUsage.reduce(
+    (s, r) => s + Number(r.credits_charged ?? 0),
+    0,
+  );
+
+  const ilmuConfigured = Boolean(process.env.ILMU_API_KEY?.trim());
+
+  let tenantsAtRisk = 0;
+  let tenantsCritical = 0;
+  for (const row of healthSnapshots ?? []) {
+    if (row.band === "at_risk") tenantsAtRisk += 1;
+    if (row.band === "critical") tenantsCritical += 1;
+  }
+
   const activity = await loadRecentActivity();
 
   return {
     kpis: {
-      activeTenants,
+      totalTenants,
+      paidTenants,
       trialTenants,
+      newTenantsThisWeek,
       mrrMyr,
-      activeUsers30d,
-      aiInvocations24h,
-      aiSpendCents24h,
+      tenantsActive30d,
+      totalUsers: totalUsers ?? 0,
+      aiInvocations7d,
+      aiCredits7d,
     },
     planMix,
     weeklyGrowth,
     activity,
+    ops: {
+      ilmuConfigured,
+      tenantsAtRisk,
+      tenantsCritical,
+    },
   };
 }
 
@@ -247,21 +275,89 @@ function formatAgo(iso: string): string {
 // ────────────────────────────────────────────────────────────────────────
 // Users
 // ────────────────────────────────────────────────────────────────────────
+export interface UsersSummary {
+  total: number;
+  active: number;
+  suspended: number;
+  owners: number;
+}
+
+export type UsersPageFilters = {
+  q?: string;
+  role?: string;
+  status?: "all" | "active" | "suspended";
+};
+
+export async function loadUsersSummary(): Promise<UsersSummary> {
+  const svc = createServiceRoleClient();
+  const [{ count: total }, { count: suspended }, { count: owners }] =
+    await Promise.all([
+      svc.from("users").select("id", { count: "exact", head: true }),
+      svc
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("is_suspended", true),
+      svc
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "owner"),
+    ]);
+
+  const totalN = total ?? 0;
+  const suspendedN = suspended ?? 0;
+  return {
+    total: totalN,
+    active: Math.max(0, totalN - suspendedN),
+    suspended: suspendedN,
+    owners: owners ?? 0,
+  };
+}
+
 export async function loadUsersPage(opts: {
   from: number;
   to: number;
+  filters?: UsersPageFilters;
+  sort?: { field: UsersSortField; order: SortOrder };
 }): Promise<{ rows: UserRowAdmin[]; total: number }> {
   const svc = createServiceRoleClient();
-  const { data, error, count } = await svc
+  const filters = opts.filters ?? {};
+  const sort = opts.sort ?? { field: "joined", order: "desc" };
+
+  let query = svc
     .from("users")
     .select(
       "id, business_id, role, display_name, email, phone_e164, last_password_change_at, is_suspended, created_at, businesses(name, tier)",
       { count: "exact" },
-    )
-    .order("created_at", { ascending: false })
-    .range(opts.from, opts.to);
+    );
+
+  const q = filters.q?.trim();
+  if (q) {
+    const like = `%${q}%`;
+    const { data: bizMatches } = await svc
+      .from("businesses")
+      .select("id")
+      .or(`name.ilike.${like},idcompany.ilike.${like}`);
+    const bizIds = (bizMatches ?? []).map((b) => b.id as string);
+    const orParts = [`display_name.ilike.${like}`, `email.ilike.${like}`];
+    if (bizIds.length > 0) {
+      orParts.push(`business_id.in.(${bizIds.join(",")})`);
+    }
+    query = query.or(orParts.join(","));
+  }
+
+  if (filters.role && filters.role !== "all") {
+    query = query.eq("role", filters.role);
+  }
+
+  if (filters.status === "suspended") {
+    query = query.eq("is_suspended", true);
+  } else if (filters.status === "active") {
+    query = query.eq("is_suspended", false);
+  }
+
+  const { data, error, count } = await query;
   if (error) throw error;
-  const rows = ((data ?? []) as unknown as RawUserJoin[]).map((r) => {
+  const mapped = ((data ?? []) as unknown as RawUserJoin[]).map((r) => {
     const biz = Array.isArray(r.businesses)
       ? r.businesses[0]
       : (r.businesses ?? null);
@@ -279,7 +375,10 @@ export async function loadUsersPage(opts: {
       created_at: r.created_at,
     };
   });
-  return { rows, total: count ?? rows.length };
+  const sorted = sortUserRows(mapped, sort);
+  const total = count ?? sorted.length;
+  const rows = sorted.slice(opts.from, opts.to + 1);
+  return { rows, total };
 }
 
 interface RawUserJoin {
@@ -346,25 +445,48 @@ export async function loadBusinessesSummary(): Promise<BusinessesSummary> {
   };
 }
 
+export type BusinessesPageFilters = {
+  q?: string;
+  tier?: string;
+  status?: string;
+};
+
 export async function loadBusinessesPage(opts: {
   from: number;
   to: number;
+  filters?: BusinessesPageFilters;
+  sort?: { field: BusinessesSortField; order: SortOrder };
 }): Promise<{ rows: BusinessRowAdmin[]; total: number }> {
   const svc = createServiceRoleClient();
+  const filters = opts.filters ?? {};
+  const sort = opts.sort ?? { field: "joined", order: "desc" };
+
+  let query = svc
+    .from("businesses")
+    .select(
+      "id, idcompany, name, tier, subscription_status, subscription_renewal_at, state_code, credit_balance, created_at",
+      { count: "exact" },
+    );
+
+  const q = filters.q?.trim();
+  if (q) {
+    const like = `%${q}%`;
+    query = query.or(`name.ilike.${like},idcompany.ilike.${like}`);
+  }
+
+  if (filters.tier && filters.tier !== "all") {
+    query = query.eq("tier", filters.tier);
+  }
+
+  if (filters.status && filters.status !== "all") {
+    query = query.eq("subscription_status", filters.status);
+  }
+
   const [{ data: bizs, count }, { data: memberCounts }, { data: health }] =
     await Promise.all([
-      svc
-        .from("businesses")
-        .select(
-          "id, idcompany, name, tier, subscription_status, subscription_renewal_at, state_code, credit_balance, created_at",
-          { count: "exact" },
-        )
-        .order("created_at", { ascending: false })
-        .range(opts.from, opts.to),
+      query,
       svc.rpc("super_admin_membership_counts"),
-      svc
-        .from("tenant_health_snapshots")
-        .select("business_id, score, band"),
+      svc.from("tenant_health_snapshots").select("business_id, score, band"),
     ]);
 
   const counts = new Map<string, number>();
@@ -380,7 +502,7 @@ export async function loadBusinessesPage(opts: {
       },
     ]),
   );
-  const rows = ((bizs ?? []) as BusinessRowAdmin[]).map((b) => {
+  const enriched = ((bizs ?? []) as BusinessRowAdmin[]).map((b) => {
     const h = healthByBiz.get(b.id);
     return {
       ...b,
@@ -389,7 +511,10 @@ export async function loadBusinessesPage(opts: {
       health_band: h?.band,
     };
   });
-  return { rows, total: count ?? rows.length };
+  const sorted = sortBusinessRows(enriched, sort);
+  const total = count ?? sorted.length;
+  const rows = sorted.slice(opts.from, opts.to + 1);
+  return { rows, total };
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -401,7 +526,7 @@ export async function loadMarketplaceAdmin(): Promise<MarketplaceAdminRow[]> {
     svc
       .from("marketplace_addons")
       .select(
-        "id, slug, name, short_desc, pillar, icon, price_cents, cadence, included_in_tier, is_featured, status, sort_order",
+        "id, slug, name, short_desc, pillar, icon, price_cents, cadence, included_in_tier, is_featured, is_coming_soon, status, sort_order",
       )
       .order("sort_order", { ascending: true }),
     svc
@@ -421,186 +546,93 @@ export async function loadMarketplaceAdmin(): Promise<MarketplaceAdminRow[]> {
   type RawAddon = Omit<MarketplaceAdminRow, "active_subscriptions" | "mrr_myr">;
   return ((addons ?? []) as unknown as RawAddon[]).map((a) => {
     const sub = subsByAddon.get(a.id) ?? { count: 0, qty: 0 };
-    const monthlyMyr =
-      a.cadence === "monthly"
-        ? (a.price_cents / 100) * sub.qty
-        : a.cadence === "yearly"
-          ? (a.price_cents / 100 / 12) * sub.qty
-          : 0;
     return {
       ...a,
       active_subscriptions: sub.count,
-      mrr_myr: monthlyMyr,
+      mrr_myr: addonMrrMyr(a.price_cents, a.cadence, sub.qty),
     };
   });
 }
 
-// ────────────────────────────────────────────────────────────────────────
-// AI agents
-// ────────────────────────────────────────────────────────────────────────
-export async function loadAgents(): Promise<
-  { agent: AiAgentRow; usage: AgentUsage7d }[]
-> {
-  const svc = createServiceRoleClient();
-  const [{ data: agents }, { data: usage }] = await Promise.all([
-    svc
-      .from("ai_agents")
-      .select(
-        "id, slug, name, short_desc, pillar, icon, default_model, status, published_version_id, updated_at",
-      )
-      .order("name", { ascending: true }),
-    svc
-      .from("ai_agent_usage_daily")
-      .select("agent_slug, day, invocations, spend_cents, latency_ms_p50, failures")
-      .gte(
-        "day",
-        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10),
-      ),
-  ]);
-
-  const usageBySlug = new Map<
-    string,
-    {
-      invocations: number;
-      spend_cents: number;
-      latency_sum: number;
-      latency_n: number;
-      failures: number;
-      daily: Array<{ day: string; invocations: number }>;
-    }
-  >();
-  for (const r of usage ?? []) {
-    const e = usageBySlug.get(r.agent_slug) ?? {
-      invocations: 0,
-      spend_cents: 0,
-      latency_sum: 0,
-      latency_n: 0,
-      failures: 0,
-      daily: [],
-    };
-    e.invocations += r.invocations ?? 0;
-    e.spend_cents += r.spend_cents ?? 0;
-    if (r.latency_ms_p50) {
-      e.latency_sum += r.latency_ms_p50;
-      e.latency_n += 1;
-    }
-    e.failures += r.failures ?? 0;
-    e.daily.push({ day: r.day as string, invocations: r.invocations ?? 0 });
-    usageBySlug.set(r.agent_slug, e);
-  }
-
-  return ((agents ?? []) as AiAgentRow[]).map((agent) => {
-    const u = usageBySlug.get(agent.slug);
-    const inv = u?.invocations ?? 0;
-    const failures = u?.failures ?? 0;
-    const usage7d: AgentUsage7d = {
-      agent_slug: agent.slug,
-      invocations: inv,
-      avg_latency_ms:
-        u?.latency_n && u.latency_n > 0
-          ? Math.round((u.latency_sum ?? 0) / u.latency_n)
-          : 0,
-      failure_rate_pct: inv > 0 ? Math.round((failures / inv) * 1000) / 10 : 0,
-      spend_myr: Math.round((u?.spend_cents ?? 0) / 100),
-      hourly: buildUsageSparkline(u?.daily ?? []),
-    };
-    return { agent, usage: usage7d };
-  });
+function addonMrrMyr(
+  priceCents: number,
+  cadence: MarketplaceAdminRow["cadence"],
+  qty: number,
+): number {
+  if (cadence === "monthly") return (priceCents / 100) * qty;
+  if (cadence === "yearly") return (priceCents / 100 / 12) * qty;
+  return 0;
 }
 
-function buildUsageSparkline(
-  rows: Array<{ day: string; invocations: number }>,
-  days = 7,
-): number[] {
-  const keys: string[] = [];
-  const totals = new Map<string, number>();
-  const now = Date.now();
-  for (let i = days - 1; i >= 0; i--) {
-    const key = new Date(now - i * 86_400_000).toISOString().slice(0, 10);
-    keys.push(key);
-    totals.set(key, 0);
-  }
-  for (const row of rows) {
-    if (totals.has(row.day)) {
-      totals.set(row.day, (totals.get(row.day) ?? 0) + row.invocations);
-    }
-  }
-  return keys.map((key) => totals.get(key) ?? 0);
-}
-
-export async function loadAgentDetail(slug: string): Promise<{
-  agent: AiAgentRow;
-  version: AiAgentVersion | null;
-  usage: AgentUsage7d;
-}> {
+export async function loadMarketplaceAddonDetail(
+  id: string,
+): Promise<MarketplaceAddonDetail | null> {
   const svc = createServiceRoleClient();
-  const { data: agent, error } = await svc
-    .from("ai_agents")
+  const { data: addon } = await svc
+    .from("marketplace_addons")
     .select(
-      "id, slug, name, short_desc, pillar, icon, default_model, status, published_version_id, updated_at",
+      "id, slug, name, short_desc, long_desc, pillar, icon, price_cents, cadence, included_in_tier, is_featured, is_coming_soon, status, sort_order, created_at",
     )
-    .eq("slug", slug)
+    .eq("id", id)
     .maybeSingle();
-  if (error || !agent) throw new Error(`agent not found: ${slug}`);
 
-  let version: AiAgentVersion | null = null;
-  if ((agent as AiAgentRow).published_version_id) {
-    const { data: ver } = await svc
-      .from("ai_agent_versions")
-      .select(
-        "id, agent_id, version_label, system_prompt, allowed_actions, guardrails, escalation, knowledge_base, default_tone, published_at, created_at",
-      )
-      .eq("id", (agent as AiAgentRow).published_version_id!)
-      .maybeSingle();
-    if (ver) version = ver as unknown as AiAgentVersion;
+  if (!addon) return null;
+
+  const { data: subs } = await svc
+    .from("business_addons")
+    .select(
+      "status, qty, activated_at, business_id, businesses!inner(name, idcompany)",
+    )
+    .eq("addon_id", id)
+    .neq("status", "cancelled")
+    .order("activated_at", { ascending: false })
+    .limit(25);
+
+  let activeCount = 0;
+  let totalQty = 0;
+  const recent_activations: MarketplaceAddonActivation[] = [];
+
+  for (const row of subs ?? []) {
+    const biz = row.businesses as unknown as {
+      name: string;
+      idcompany: string;
+    };
+    const qty = row.qty ?? 1;
+    if (row.status === "active" || row.status === "pending_cancel") {
+      activeCount += 1;
+      totalQty += qty;
+    }
+    recent_activations.push({
+      business_id: row.business_id,
+      business_name: biz.name,
+      idcompany: biz.idcompany,
+      status: row.status,
+      qty,
+      activated_at: row.activated_at,
+    });
   }
 
-  const { data: usage } = await svc
-    .from("ai_agent_usage_daily")
-    .select("invocations, spend_cents, latency_ms_p50, failures, day")
-    .eq("agent_slug", slug)
-    .gte(
-      "day",
-      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10),
-    );
+  const a = addon as Omit<
+    MarketplaceAddonDetail,
+    "active_subscriptions" | "mrr_myr" | "recent_activations"
+  >;
 
-  const u = (usage ?? []).reduce(
-    (acc, r) => {
-      acc.invocations += r.invocations ?? 0;
-      acc.spend_cents += r.spend_cents ?? 0;
-      if (r.latency_ms_p50) {
-        acc.latency_sum += r.latency_ms_p50;
-        acc.latency_n += 1;
-      }
-      acc.failures += r.failures ?? 0;
-      return acc;
-    },
-    { invocations: 0, spend_cents: 0, latency_sum: 0, latency_n: 0, failures: 0 },
-  );
-  const usage7d: AgentUsage7d = {
-    agent_slug: slug,
-    invocations: u.invocations,
-    avg_latency_ms:
-      u.latency_n > 0 ? Math.round(u.latency_sum / u.latency_n) : 0,
-    failure_rate_pct:
-      u.invocations > 0
-        ? Math.round((u.failures / u.invocations) * 1000) / 10
-        : 0,
-    spend_myr: Math.round(u.spend_cents / 100),
-    hourly: buildUsageSparkline(
-      (usage ?? []).map((row) => ({
-        day: row.day as string,
-        invocations: row.invocations ?? 0,
-      })),
-    ),
+  return {
+    ...a,
+    active_subscriptions: activeCount,
+    mrr_myr: addonMrrMyr(a.price_cents, a.cadence, totalQty),
+    recent_activations,
   };
-
-  return { agent: agent as AiAgentRow, version, usage: usage7d };
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// AI agents (live ai_usage + tenant catalog)
+// ────────────────────────────────────────────────────────────────────────
+export {
+  loadPlatformAgentsDashboard as loadAgents,
+  loadPlatformAgentDetail as loadAgentDetail,
+  type PlatformAgentListItem,
+} from "@/lib/super-admin/agent-usage-dashboard";
 
 // ────────────────────────────────────────────────────────────────────────
 // Data monitor

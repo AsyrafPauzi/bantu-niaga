@@ -127,7 +127,15 @@ export function renderBriefingText(snapshot: PillarSnapshot): string {
   }
 
   if (snapshot.notes) {
-    lines.push(`Notes: ${snapshot.notes}`);
+    const noteLines = snapshot.notes.split("\n");
+    if (noteLines.length === 1) {
+      lines.push(`Notes: ${snapshot.notes}`);
+    } else {
+      lines.push("Notes:");
+      for (const line of noteLines) {
+        lines.push(line.startsWith("  ") ? line : `  · ${line}`);
+      }
+    }
   }
 
   return lines.join("\n");

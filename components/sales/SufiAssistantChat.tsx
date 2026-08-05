@@ -246,7 +246,7 @@ export function SufiAssistantChat({
     return (
       <div className="rounded-2xl border border-[#E5E0D8] bg-white p-6 text-center text-sm text-ink-muted dark:border-hairline-dark dark:bg-panel-dark">
         Sufi is turned off. Enable it in{" "}
-        <a href="/settings/ai-agents" className="font-semibold text-brand-700">
+        <a href="/settings/ai-agents" className="font-semibold text-[#2563EB]">
           Settings → AI Agents
         </a>
         .
@@ -263,7 +263,7 @@ export function SufiAssistantChat({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E5E0D8] px-4 py-3 dark:border-hairline-dark">
         <div className="flex items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
-          <Sparkles className="h-4 w-4 text-brand-600" />
+          <Sparkles className="h-4 w-4 text-[#2563EB]" />
           {displayName}
         </div>
         <div className="flex items-center gap-2">
@@ -332,7 +332,7 @@ export function SufiAssistantChat({
                   type="button"
                   disabled={loading}
                   onClick={() => void sendMessage(prompt)}
-                  className="rounded-full border border-[#E5E0D8] bg-[#FFFEFB] px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 dark:border-hairline-dark dark:bg-surface-dark dark:text-cream-400"
+                  className="rounded-full border border-[#E5E0D8] bg-[#FFFEFB] px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-blue-300 hover:text-[#2563EB] disabled:opacity-50 dark:border-hairline-dark dark:bg-surface-dark dark:text-cream-400"
                 >
                   {prompt}
                 </button>
@@ -346,7 +346,7 @@ export function SufiAssistantChat({
               className={cn(
                 "max-w-[min(90%,42rem)] rounded-2xl px-4 py-3 text-sm",
                 turn.role === "user"
-                  ? "ml-auto bg-brand-500 text-white"
+                  ? "ml-auto bg-[#2563EB] text-white"
                   : "mr-auto border border-[#E5E0D8] bg-[#FFFEFB] text-ink dark:border-hairline-dark dark:bg-surface-dark dark:text-cream-100",
               )}
             >
@@ -386,12 +386,12 @@ export function SufiAssistantChat({
             placeholder={`Message ${displayName}…`}
             maxLength={2000}
             disabled={loading}
-            className="flex-1 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            className="flex-1 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB] disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="inline-flex items-center justify-center rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

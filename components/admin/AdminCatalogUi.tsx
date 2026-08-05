@@ -1,5 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+  ModuleListPanelHeader,
+} from "@/components/dashboard/module-list-panel";
 
 export function AdminCatalogThumb({
   icon: Icon,
@@ -51,31 +56,35 @@ export function AdminCatalogList({
   total,
   children,
   className,
+  filters,
 }: {
   title: string;
   total?: number;
   children: React.ReactNode;
   className?: string;
+  /** Renders inside ModuleListPanelFilters (search, chips, view toggles). */
+  filters?: React.ReactNode;
 }) {
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-xl border border-cream-200 bg-white dark:border-hairline-dark dark:bg-panel-dark",
-        className,
+    <ModuleListPanel className={className}>
+      {filters ? (
+        <ModuleListPanelFilters>
+          {filters}
+          {total != null ? (
+            <p className="mt-3 text-xs font-medium text-ink-muted dark:text-cream-400">
+              {title} · {total} total
+            </p>
+          ) : null}
+        </ModuleListPanelFilters>
+      ) : (
+        <ModuleListPanelHeader
+          variant="compact"
+          title={title}
+          subtitle={total != null ? `${total} total` : undefined}
+        />
       )}
-    >
-      <div className="flex items-center justify-between border-b border-cream-200 px-3 py-2 dark:border-hairline-dark">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
-          {title}
-        </p>
-        {total != null ? (
-          <span className="text-[11px] tabular-nums text-ink-muted dark:text-cream-400">
-            {total} total
-          </span>
-        ) : null}
-      </div>
       {children}
-    </div>
+    </ModuleListPanel>
   );
 }
 

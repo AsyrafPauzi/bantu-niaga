@@ -52,6 +52,13 @@ export interface FinancePosToday {
   sales_total_myr: number;
 }
 
+export interface FinanceNotificationItem {
+  id: string;
+  message: string;
+  event_type: string;
+  created_at: string;
+}
+
 export interface FinanceDashboardData {
   month: string;
   summary: FinanceMonthSummary;
@@ -63,6 +70,7 @@ export interface FinanceDashboardData {
   chaseList: FinanceChaseInvoice[];
   expenseCategories: FinanceExpenseCategory[];
   posToday: FinancePosToday;
+  notifications: FinanceNotificationItem[];
   counts: {
     customers: number;
     draftInvoices: number;
@@ -144,6 +152,7 @@ export async function loadFinanceDashboard(
     quotesRes,
     paidMonthRes,
     posTodayRes,
+    notificationsRes,
   ] = await Promise.all([
     supabase
       .from("finance_transactions")
@@ -229,6 +238,13 @@ export async function loadFinanceDashboard(
       .eq("business_id", businessId)
       .gte("created_at", dayStartIso)
       .lt("created_at", dayEndIso),
+    supabase
+      .from("business_notifications")
+      .select("id, message, event_type, created_at")
+      .eq("business_id", businessId)
+      .eq("pillar", "finance")
+      .order("created_at", { ascending: false })
+      .limit(12),
   ]);
 
   const categoryMap = new Map<string, number>();
@@ -307,6 +323,7 @@ export async function loadFinanceDashboard(
     }),
     expenseCategories,
     posToday,
+    notifications: (notificationsRes.data ?? []) as FinanceNotificationItem[],
     counts: {
       customers: customersRes.count ?? 0,
       draftInvoices: draftRes.count ?? 0,

@@ -1,19 +1,67 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   MoreVertical,
   UserCheck,
-  Eye,
-  Pencil,
+  Building2,
   KeyRound,
   ShieldOff,
   ShieldCheck,
   Archive,
 } from "lucide-react";
 
-export function ImpersonateButton({ userId }: { userId: string }) {
+const MENU_WIDTH = 224;
+const MENU_ESTIMATE_HEIGHT = 240;
+const VIEWPORT_MARGIN = 8;
+const MENU_GAP = 6;
+
+function computeMenuCoords(
+  trigger: DOMRect,
+  menuHeight: number,
+): { top: number; left: number } {
+  let left = trigger.right - MENU_WIDTH;
+  left = Math.max(
+    VIEWPORT_MARGIN,
+    Math.min(left, window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN),
+  );
+
+  const belowTop = trigger.bottom + MENU_GAP;
+  const aboveTop = trigger.top - MENU_GAP - menuHeight;
+  const fitsBelow =
+    belowTop + menuHeight <= window.innerHeight - VIEWPORT_MARGIN;
+  const fitsAbove = aboveTop >= VIEWPORT_MARGIN;
+
+  let top: number;
+  if (fitsBelow) {
+    top = belowTop;
+  } else if (fitsAbove) {
+    top = aboveTop;
+  } else {
+    top = Math.max(
+      VIEWPORT_MARGIN,
+      window.innerHeight - menuHeight - VIEWPORT_MARGIN,
+    );
+  }
+
+  return { top, left };
+}
+
+export function ImpersonateButton({
+  userId,
+  compact = false,
+}: {
+  userId: string;
+  compact?: boolean;
+}) {
   const [pending, startTransition] = useTransition();
 
   const onClick = () => {
@@ -24,15 +72,30 @@ export function ImpersonateButton({ userId }: { userId: string }) {
         body: JSON.stringify({ targetUserId: userId }),
       });
       if (res.ok) {
-        // Land in the impersonated tenant's Home so the admin sees what
-        // the user sees right away.
         window.location.href = "/home";
       } else {
-        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        const body = (await res.json().catch(() => ({}))) as {
+          message?: string;
+        };
         alert(body.message ?? "Impersonation failed");
       }
     });
   };
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={pending}
+        title="Impersonate user"
+        aria-label="Impersonate user"
+        className="grid h-7 w-7 place-items-center rounded-md border border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 disabled:opacity-50"
+      >
+        <UserCheck className="h-3.5 w-3.5" />
+      </button>
+    );
+  }
 
   return (
     <button
@@ -49,16 +112,67 @@ export function ImpersonateButton({ userId }: { userId: string }) {
 
 export function UserRowMenu({
   userId,
+  businessId,
   email,
   isSuspended,
 }: {
   userId: string;
+  businessId: string;
   email: string | null;
   isSuspended: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+    null,
+  );
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) {
+      setCoords(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const menuHeight =
+        menuRef.current?.getBoundingClientRect().height ?? MENU_ESTIMATE_HEIGHT;
+      setCoords(computeMenuCoords(rect, menuHeight));
+    };
+
+    updatePosition();
+    const raf = requestAnimationFrame(updatePosition);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, isSuspended]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open]);
 
   const patch = (body: Record<string, unknown>) => {
     startTransition(async () => {
@@ -71,7 +185,9 @@ export function UserRowMenu({
         setOpen(false);
         router.refresh();
       } else {
-        const json = (await res.json().catch(() => ({}))) as { message?: string };
+        const json = (await res.json().catch(() => ({}))) as {
+          message?: string;
+        };
         alert(json.message ?? "Action failed");
       }
     });
@@ -86,46 +202,32 @@ export function UserRowMenu({
         setOpen(false);
         router.refresh();
       } else {
-        const json = (await res.json().catch(() => ({}))) as { message?: string };
+        const json = (await res.json().catch(() => ({}))) as {
+          message?: string;
+        };
         alert(json.message ?? "Delete failed");
       }
     });
   };
 
-  return (
-    <div className="relative inline-block">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="grid h-7 w-7 place-items-center rounded-lg bg-cream-100 text-ink-muted hover:bg-cream-200"
-      >
-        <MoreVertical className="h-3.5 w-3.5" />
-      </button>
-      {open && (
-        <>
+  const menu =
+    open && coords
+      ? createPortal(
           <div
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-30"
-            aria-hidden
-          />
-          <div className="absolute right-0 z-40 mt-1.5 w-56 rounded-xl border border-cream-300 bg-white p-1.5 shadow-elevated">
+            ref={menuRef}
+            role="menu"
+            className="fixed z-50 max-h-[min(280px,calc(100vh-16px))] w-56 overflow-y-auto overscroll-contain rounded-xl border border-cream-300 bg-white p-1.5 shadow-elevated"
+            style={{ top: coords.top, left: coords.left }}
+          >
             <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-ink-subtle">
               Row actions
             </p>
             <MenuItem
-              icon={<Eye className="h-3.5 w-3.5" />}
-              label="View profile"
+              icon={<Building2 className="h-3.5 w-3.5" />}
+              label="Open tenant"
               onClick={() => {
                 setOpen(false);
-                router.push(`/super-admin/users/${userId}`);
-              }}
-            />
-            <MenuItem
-              icon={<Pencil className="h-3.5 w-3.5" />}
-              label="Edit details & role"
-              onClick={() => {
-                setOpen(false);
-                router.push(`/super-admin/users/${userId}/edit`);
+                router.push(`/super-admin/businesses/${businessId}`);
               }}
             />
             <MenuItem
@@ -170,9 +272,24 @@ export function UserRowMenu({
               }}
               disabled={pending}
             />
-          </div>
-        </>
-      )}
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <div className="relative inline-block">
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((value) => !value)}
+        className="grid h-7 w-7 place-items-center rounded-lg bg-cream-100 text-ink-muted hover:bg-cream-200"
+      >
+        <MoreVertical className="h-3.5 w-3.5" />
+      </button>
+      {menu}
     </div>
   );
 }
@@ -193,6 +310,7 @@ function MenuItem({
   return (
     <button
       type="button"
+      role="menuitem"
       onClick={onClick}
       disabled={disabled}
       className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition-colors disabled:opacity-50 ${

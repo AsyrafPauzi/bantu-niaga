@@ -9,6 +9,10 @@ import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { operationsOrderUpdateSchema, type OperationsOrderRow } from "@/lib/operations/schemas";
 import { resolveAdminFileIdPatch, loadAdminFileNames } from "@/lib/admin/validate-admin-file";
+import {
+  notifyOperationsOrderDeleted,
+  notifyOperationsOrderStatusChanged,
+} from "@/lib/operations/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +104,24 @@ export async function PATCH(
 
   const supabase = await createSupabaseServerClient();
 
+  const { data: existing } = await supabase
+    .from("operations_orders")
+    .select("number, title, status")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!existing) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: "not_found", message: "Order not found." },
+      },
+      { status: 404 },
+    );
+  }
+
   if (parsed.admin_file_id !== undefined) {
     const fileCheck = await resolveAdminFileIdPatch(
       supabase,
@@ -150,6 +172,20 @@ export async function PATCH(
     admin_file_name = names.get(row.admin_file_id) ?? null;
   }
 
+  if (
+    row &&
+    parsed.status &&
+    parsed.status !== existing.status
+  ) {
+    notifyOperationsOrderStatusChanged({
+      businessId: user.businessId,
+      orderId: id,
+      number: row.number,
+      title: row.title,
+      status: row.status,
+    });
+  }
+
   return NextResponse.json(
     { ok: true, data: row ? { ...row, admin_file_name } : row },
     { status: 200 },
@@ -166,6 +202,15 @@ export async function DELETE(
   const { user } = auth;
 
   const supabase = await createSupabaseServerClient();
+
+  const { data: existing } = await supabase
+    .from("operations_orders")
+    .select("number")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("operations_orders")
     .update({ deleted_at: new Date().toISOString() })
@@ -181,6 +226,14 @@ export async function DELETE(
       },
       { status: 500 },
     );
+  }
+
+  if (existing?.number) {
+    notifyOperationsOrderDeleted({
+      businessId: user.businessId,
+      orderId: id,
+      number: existing.number as string,
+    });
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

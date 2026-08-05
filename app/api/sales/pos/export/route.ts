@@ -7,6 +7,7 @@ import {
 } from "@/lib/sales/pos-export";
 import { canManageSalesCore } from "@/lib/sales/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { notifySalesExportDownloaded } from "@/lib/sales/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,8 @@ export async function GET(request: Request) {
       user.businessId,
       period,
     );
+
+    notifySalesExportDownloaded({ businessId: user.businessId });
 
     return new NextResponse(body, {
       status: 200,

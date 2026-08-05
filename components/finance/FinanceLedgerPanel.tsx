@@ -12,6 +12,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+  ModuleListPanelHeader,
+} from "@/components/dashboard/module-list-panel";
+import { ModuleListFilterChipButton } from "@/components/dashboard/module-list-search";
+import {
   formatMyr,
   type FinanceMonthSummary,
   type FinanceTransactionRow,
@@ -162,51 +168,50 @@ export function FinanceLedgerPanel({
       </section>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        {(
-          [
-            ["all", "All"],
-            ["income", "Money in"],
-            ["expense", "Money out"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setFilter(key)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-              filter === key
-                ? "border-brand-500 bg-brand-500 text-white"
-                : "border-cream-300 text-ink-muted hover:border-brand-200 dark:border-hairline-dark dark:text-cream-400",
-            )}
+      <ModuleListPanel>
+        <ModuleListPanelFilters>
+          <nav
+            aria-label="Filter ledger"
+            className="flex flex-wrap items-center gap-2"
           >
-            {label}
-          </button>
-        ))}
-        {!embedded ? (
-        <div className="ml-auto flex flex-wrap gap-2">
-          <Link
-            href="/finance/income"
-            className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100"
-          >
-            <Wallet className="h-3.5 w-3.5" />
-            Log income
-          </Link>
-          <Link
-            href="/finance/expenses"
-            className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100"
-          >
-            <Receipt className="h-3.5 w-3.5" />
-            Log expense
-          </Link>
-        </div>
-        ) : null}
-      </div>
+            {(
+              [
+                ["all", "All"],
+                ["income", "Money in"],
+                ["expense", "Money out"],
+              ] as const
+            ).map(([key, label]) => (
+              <ModuleListFilterChipButton
+                key={key}
+                active={filter === key}
+                accent="sky"
+                label={label}
+                onClick={() => setFilter(key)}
+              />
+            ))}
+            {!embedded ? (
+              <div className="ml-auto flex flex-wrap gap-2">
+                <Link
+                  href="/finance/income"
+                  className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100"
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  Log income
+                </Link>
+                <Link
+                  href="/finance/expenses"
+                  className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100"
+                >
+                  <Receipt className="h-3.5 w-3.5" />
+                  Log expense
+                </Link>
+              </div>
+            ) : null}
+          </nav>
+        </ModuleListPanelFilters>
 
-      <div className="overflow-hidden rounded-xl border border-cream-200 bg-white dark:border-hairline-dark dark:bg-panel-dark">
-        <div className="border-b border-cream-200 px-4 py-2.5 dark:border-hairline-dark">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+        <ModuleListPanelHeader variant="compact">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
             {filter === "all"
               ? "All entries"
               : filter === "income"
@@ -214,7 +219,7 @@ export function FinanceLedgerPanel({
                 : "Money out"}
             <span className="ml-1 font-normal">({filteredTxns.length})</span>
           </p>
-        </div>
+        </ModuleListPanelHeader>
 
         {filteredTxns.length === 0 ? (
           <div className="px-4 py-12 text-center">
@@ -286,7 +291,7 @@ export function FinanceLedgerPanel({
             })}
           </ul>
         )}
-      </div>
+      </ModuleListPanel>
     </div>
   );
 }

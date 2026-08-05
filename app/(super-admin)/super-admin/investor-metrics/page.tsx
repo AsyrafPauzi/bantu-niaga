@@ -17,9 +17,9 @@ export default async function SuperAdminInvestorMetrics() {
     loadDataMonitor(),
   ]);
 
-  const totalTenants = planMix.reduce((s, p) => s + p.count, 0);
-  const arpu = kpis.activeTenants
-    ? Math.round(kpis.mrrMyr / kpis.activeTenants)
+  const totalTenants = kpis.totalTenants;
+  const arpu = kpis.paidTenants
+    ? Math.round(kpis.mrrMyr / kpis.paidTenants)
     : 0;
   const arr = kpis.mrrMyr * 12;
 
@@ -50,8 +50,8 @@ export default async function SuperAdminInvestorMetrics() {
           />
           <KpiCard
             label="Paying tenants"
-            value={kpis.activeTenants}
-            delta={`of ${totalTenants} signed up`}
+            value={kpis.paidTenants}
+            delta={`of ${kpis.totalTenants} signed up`}
             trend="up"
           />
           <KpiCard

@@ -4,16 +4,18 @@ import { useCallback, useMemo, useState, type DragEvent, type FormEvent } from "
 import {
   Calendar,
   ClipboardList,
-  Columns3,
-  GripVertical,
   Loader2,
   Pencil,
   Plus,
   Trash2,
-  User,
 } from "lucide-react";
 import { AdminTaskDetailModal } from "@/components/admin/AdminTaskDetailModal";
 import { SimpleRichTextEditor } from "@/components/admin/SimpleRichTextEditor";
+import { StatusPill } from "@/components/dashboard/status-pill";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+} from "@/components/dashboard/module-list-panel";
 import {
   QuickActionBar,
   QuickCreateActions,
@@ -23,7 +25,6 @@ import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
 import {
   ADMIN_TASK_COLUMN_MAX,
-  columnShellStyle,
   type AdminTaskColumn,
 } from "@/lib/admin/task-columns-shared";
 import {
@@ -73,6 +74,15 @@ function isDueToday(iso: string | null, isDoneColumn: boolean): boolean {
   const m = String(today.getMonth() + 1).padStart(2, "0");
   const d = String(today.getDate()).padStart(2, "0");
   return iso === `${y}-${m}-${d}`;
+}
+
+function columnTone(
+  col: AdminTaskColumn,
+  index: number,
+): "neutral" | "brand" | "success" | "accent" {
+  if (col.is_done) return "success";
+  if (index === 0) return "neutral";
+  return "brand";
 }
 
 export function AdminTaskBoard({
@@ -189,7 +199,7 @@ export function AdminTaskBoard({
   );
 
   const handleDragStart = useCallback(
-    (e: DragEvent<HTMLButtonElement>, taskId: string) => {
+    (e: DragEvent<HTMLDivElement>, taskId: string) => {
       e.dataTransfer.setData(DRAG_TASK_MIME, taskId);
       e.dataTransfer.effectAllowed = "move";
       setDraggingTaskId(taskId);
@@ -443,7 +453,6 @@ export function AdminTaskBoard({
           open={showForm}
           onToggle={toggleForm}
           actionLabel="Add task"
-          hint="Due dates and assignees optional — drag cards between columns."
         />
       ) : null}
 
@@ -541,82 +550,55 @@ export function AdminTaskBoard({
         <p className="text-sm text-status-danger">{columnError}</p>
       ) : null}
 
-      <div
-        role="region"
-        aria-label="Task board"
-        className="-mx-1 flex items-start gap-3 overflow-x-auto overscroll-x-contain px-1 pb-2 snap-x snap-mandatory scroll-smooth [scrollbar-width:thin] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cream-300 dark:[&::-webkit-scrollbar-thumb]:bg-hairline-dark"
-      >
-        {columns.map((col, index) => {
-          const styles = columnShellStyle(index, col.is_done);
-          const items = byColumn.get(col.id) ?? [];
-          const isEditing = editingColumnId === col.id;
-          const isDropTarget = dragOverColumnId === col.id;
+      <ModuleListPanel>
+        <ModuleListPanelFilters>
+          <p className="text-xs text-ink-muted dark:text-cream-400">
+            Drag cards between columns to move tasks.
+          </p>
+        </ModuleListPanelFilters>
 
-          return (
-            <section
-              key={col.id}
-              className={cn(
-                "flex h-[min(70vh,640px)] w-[min(88vw,18rem)] shrink-0 snap-center flex-col overflow-hidden rounded-2xl border-2 transition-all sm:w-72",
-                styles.shell,
-                isDropTarget
-                  ? "scale-[1.01] shadow-lg ring-2 ring-brand-400 ring-offset-2 dark:ring-brand-500 dark:ring-offset-panel-dark"
-                  : "border-transparent shadow-sm",
-              )}
-              onDragOver={(e) => handleColumnDragOver(e, col.id)}
-              onDrop={(e) => handleColumnDrop(e, col.id)}
-            >
-              <header
+        <div
+          role="region"
+          aria-label="Task board"
+          className="flex gap-3 overflow-x-auto px-4 pb-4 sm:px-5"
+        >
+          {columns.map((col, index) => {
+            const items = byColumn.get(col.id) ?? [];
+            const isEditing = editingColumnId === col.id;
+            const isDropTarget = dragOverColumnId === col.id;
+
+            return (
+              <section
+                key={col.id}
+                onDragOver={(e) => handleColumnDragOver(e, col.id)}
+                onDragLeave={() => setDragOverColumnId(null)}
+                onDrop={(e) => handleColumnDrop(e, col.id)}
                 className={cn(
-                  "flex items-start justify-between gap-2 border-b px-4 py-3 dark:border-white/5",
-                  styles.header,
+                  "w-64 shrink-0 rounded-xl border border-cream-200 bg-cream-50/50 transition dark:border-hairline-dark dark:bg-panel-dark/50",
+                  isDropTarget &&
+                    "border-blue-400 ring-2 ring-blue-200 dark:ring-blue-800",
                 )}
               >
-                <div className="min-w-0 flex-1">
-                  {isEditing ? (
-                    <input
-                      value={editingColumnLabel}
-                      onChange={(e) => setEditingColumnLabel(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") void saveColumnLabel(col.id);
-                        if (e.key === "Escape") setEditingColumnId(null);
-                      }}
-                      className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-sm font-bold dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-                      autoFocus
-                    />
-                  ) : (
-                    <h2 className="text-sm font-bold text-ink dark:text-cream-100">
-                      {col.label}
-                      {col.is_done ? (
-                        <span className="ml-1.5 text-[10px] font-semibold uppercase text-status-success">
-                          Done
-                        </span>
-                      ) : null}
-                    </h2>
-                  )}
-                  <p className="text-[11px] text-ink-muted dark:text-cream-400">
-                    {isDropTarget ? "Drop here" : "Drag cards here"}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <span
-                    className={cn(
-                      "rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums",
-                      styles.badge,
+                <header className="flex items-center justify-between gap-2 border-b border-cream-200 px-3 py-2 dark:border-hairline-dark">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    {isEditing ? (
+                      <input
+                        value={editingColumnLabel}
+                        onChange={(e) => setEditingColumnLabel(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void saveColumnLabel(col.id);
+                          if (e.key === "Escape") setEditingColumnId(null);
+                        }}
+                        className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-xs font-semibold dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                        autoFocus
+                      />
+                    ) : (
+                      <StatusPill tone={columnTone(col, index)}>
+                        {col.label}
+                      </StatusPill>
                     )}
-                  >
-                    {items.length}
-                  </span>
-                  {canManage ? (
-                    <>
-                      {isEditing ? (
-                        <button
-                          type="button"
-                          onClick={() => void saveColumnLabel(col.id)}
-                          className="rounded-md px-2 py-1 text-[11px] font-semibold text-brand-700"
-                        >
-                          Save
-                        </button>
-                      ) : (
+                    {canManage && !isEditing ? (
+                      <div className="flex shrink-0 items-center gap-0.5">
                         <button
                           type="button"
                           onClick={() => {
@@ -626,130 +608,131 @@ export function AdminTaskBoard({
                           aria-label={`Rename ${col.label}`}
                           className="rounded-md p-1 text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/60"
                         >
-                          <Pencil className="h-3.5 w-3.5" />
+                          <Pencil className="h-3 w-3" />
                         </button>
-                      )}
-                      {columns.length > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => void removeColumn(col)}
-                          aria-label={`Delete ${col.label}`}
-                          className="rounded-md p-1 text-status-danger hover:bg-status-danger/10"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
-              </header>
-              <ul
-                className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cream-300 dark:[&::-webkit-scrollbar-thumb]:bg-hairline-dark"
-              >
-                {items.length === 0 ? (
-                  <li
-                    className={cn(
-                      "flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-10 text-center transition-colors",
-                      dragOverColumnId === col.id
-                        ? "border-brand-400 bg-brand-50/80 dark:border-brand-500 dark:bg-brand-900/30"
-                        : "border-cream-300/80 bg-white/50 dark:border-hairline-dark dark:bg-panel-dark/30",
-                    )}
-                  >
-                    <Columns3
-                      className="h-8 w-8 text-ink-subtle dark:text-cream-500"
-                      strokeWidth={1.5}
-                    />
-                    <p className="text-xs font-medium text-ink-muted dark:text-cream-400">
-                      {draggingTaskId ? "Drop task here" : "No tasks here"}
-                    </p>
-                  </li>
-                ) : (
-                  items.map((task) => {
-                    const isDoneCol = task.column_is_done ?? col.is_done;
-                    const overdue = isOverdue(task.due_date, isDoneCol);
-                    const dueToday = isDueToday(task.due_date, isDoneCol);
-                    const busy = busyId === task.id;
-                    const isDragging = draggingTaskId === task.id;
-                    const hasDetails = !isEmptyTaskDescription(task.description);
-
-                    return (
-                      <li
-                        key={task.id}
-                        className={cn(
-                          "group rounded-xl border bg-white shadow-sm transition-all dark:bg-panel-dark",
-                          overdue
-                            ? "border-rose-300 ring-1 ring-rose-200 dark:border-rose-900 dark:ring-rose-950"
-                            : "border-cream-200 dark:border-hairline-dark",
-                          busy && "opacity-60",
-                          isDragging && "scale-[0.98] opacity-50",
-                        )}
-                      >
-                        <div className="flex items-start gap-2 p-3">
+                        {columns.length > 1 ? (
                           <button
                             type="button"
+                            onClick={() => void removeColumn(col)}
+                            aria-label={`Delete ${col.label}`}
+                            className="rounded-md p-1 text-status-danger hover:bg-status-danger/10"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {isEditing ? (
+                      <button
+                        type="button"
+                        onClick={() => void saveColumnLabel(col.id)}
+                        className="shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold text-brand-700 dark:text-brand-200"
+                      >
+                        Save
+                      </button>
+                    ) : null}
+                  </div>
+                  <span className="text-xs font-semibold text-ink-muted dark:text-cream-400">
+                    {items.length}
+                  </span>
+                </header>
+                <ul className="max-h-[28rem] space-y-2 overflow-y-auto p-2">
+                  {items.length === 0 ? (
+                    <li className="px-2 py-4 text-center text-xs text-ink-muted dark:text-cream-400">
+                      Drop here
+                    </li>
+                  ) : (
+                    items.map((task) => {
+                      const isDoneCol = task.column_is_done ?? col.is_done;
+                      const overdue = isOverdue(task.due_date, isDoneCol);
+                      const dueToday = isDueToday(task.due_date, isDoneCol);
+                      const busy = busyId === task.id;
+                      const isDragging = draggingTaskId === task.id;
+                      const hasDetails = !isEmptyTaskDescription(
+                        task.description,
+                      );
+
+                      return (
+                        <li key={task.id}>
+                          <div
                             draggable={!busy}
                             onDragStart={(e) => handleDragStart(e, task.id)}
                             onDragEnd={handleDragEnd}
-                            disabled={busy}
-                            aria-label={`Drag ${task.title} to another column`}
-                            className="mt-0.5 shrink-0 cursor-grab rounded-md p-0.5 text-ink-subtle opacity-40 hover:opacity-100 active:cursor-grabbing disabled:cursor-not-allowed dark:text-cream-500"
+                            className={cn(
+                              "rounded-lg border border-cream-200 bg-white text-sm shadow-sm transition dark:border-hairline-dark dark:bg-panel-dark",
+                              isDragging && "opacity-40",
+                              overdue &&
+                                "border-amber-300 dark:border-amber-800",
+                            )}
                           >
-                            <GripVertical className="h-4 w-4" strokeWidth={2} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedTaskId(task.id)}
-                            className="min-w-0 flex-1 text-left"
-                          >
-                            <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink dark:text-cream-100">
-                              {task.title}
-                            </p>
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              {task.due_date ? (
-                                <span
-                                  className={cn(
-                                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px]",
-                                    overdue
-                                      ? "bg-rose-50 font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200"
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!draggingTaskId) setSelectedTaskId(task.id);
+                              }}
+                              draggable={false}
+                              className="block w-full p-3 text-left hover:border-blue-300"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="line-clamp-2 font-semibold text-ink dark:text-cream-100">
+                                  {task.title}
+                                </p>
+                                {busy ? (
+                                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-ink-muted" />
+                                ) : null}
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {task.due_date ? (
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px]",
+                                      overdue
+                                        ? "font-semibold text-amber-700 dark:text-amber-300"
+                                        : dueToday
+                                          ? "font-semibold text-amber-900 dark:text-amber-100"
+                                          : "text-ink-muted dark:text-cream-400",
+                                    )}
+                                  >
+                                    <Calendar className="h-3 w-3" />
+                                    {fmtDue(task.due_date)}
+                                    {overdue
+                                      ? " · overdue"
                                       : dueToday
-                                        ? "bg-amber-50 font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
-                                        : "text-ink-muted dark:text-cream-400",
+                                        ? " · today"
+                                        : ""}
+                                  </span>
+                                ) : null}
+                                {task.assignee_name ? (
+                                  <span className="text-[10px] text-ink-muted dark:text-cream-400">
+                                    {task.assignee_name}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {hasDetails ? (
+                                <p className="mt-1 line-clamp-2 text-xs text-ink-muted dark:text-cream-400">
+                                  {plainTextFromTaskDescription(
+                                    task.description,
                                   )}
-                                >
-                                  <Calendar className="h-3 w-3" />
-                                  {fmtDue(task.due_date)}
-                                  {overdue
-                                    ? " · late"
-                                    : dueToday
-                                      ? " · today"
-                                      : ""}
-                                </span>
+                                </p>
                               ) : null}
-                              {task.assignee_name ? (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-800 dark:bg-violet-950/40 dark:text-violet-100">
-                                  <User className="h-3 w-3" />
-                                  {task.assignee_name}
-                                </span>
+                              {overdue ? (
+                                <p className="mt-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                                  Overdue
+                                </p>
                               ) : null}
-                            </div>
-                            {hasDetails ? (
-                              <p className="mt-2 line-clamp-2 text-xs text-ink-muted dark:text-cream-400">
-                                {plainTextFromTaskDescription(task.description)}
-                              </p>
-                            ) : null}
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })
-                )}
-              </ul>
-            </section>
-          );
-        })}
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </section>
+            );
+          })}
 
-        {canManage && columns.length < ADMIN_TASK_COLUMN_MAX ? (
-          <section className="flex h-[min(70vh,640px)] w-72 shrink-0 flex-col rounded-2xl border border-dashed border-cream-300 bg-cream-50/40 p-4 dark:border-hairline-dark dark:bg-panel-dark/30">
+          {canManage && columns.length < ADMIN_TASK_COLUMN_MAX ? (
+            <section className="w-64 shrink-0 rounded-xl border border-dashed border-cream-300 bg-cream-50/40 dark:border-hairline-dark dark:bg-panel-dark/30">
             {showAddColumn ? (
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-ink dark:text-cream-100">
@@ -790,15 +773,16 @@ export function AdminTaskBoard({
               <button
                 type="button"
                 onClick={() => setShowAddColumn(true)}
-                className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-cream-300 text-ink-muted transition-colors hover:border-brand-400 hover:bg-brand-50/50 hover:text-brand-700 dark:border-hairline-dark dark:hover:border-brand-600 dark:hover:text-brand-200"
+                className="flex min-h-[12rem] w-full flex-col items-center justify-center gap-2 px-4 py-8 text-ink-muted transition-colors hover:text-brand-700 dark:hover:text-brand-200"
               >
-                <Plus className="h-8 w-8" strokeWidth={1.5} />
-                <span className="text-sm font-semibold">Add column</span>
+                <Plus className="h-6 w-6" strokeWidth={1.5} />
+                <span className="text-xs font-semibold">Add column</span>
               </button>
             )}
           </section>
         ) : null}
-      </div>
+        </div>
+      </ModuleListPanel>
 
       {selectedTask ? (
         <AdminTaskDetailModal

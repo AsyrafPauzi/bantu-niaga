@@ -2,9 +2,8 @@ import Link from "next/link";
 import {
   Brain,
   HelpCircle,
+  LineChart,
   Package,
-  Plus,
-  Settings2,
   Sparkles,
   Users,
   Wallet,
@@ -31,6 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
   "brain-circuit": Brain,
   users: Users,
   "help-circle": HelpCircle,
+  "line-chart": LineChart,
 };
 
 function statusToPill(s: "active" | "beta" | "disabled") {
@@ -46,74 +46,71 @@ export default async function SuperAdminAgents() {
     (s, x) => s + x.usage.invocations,
     0,
   );
+  const totalCredits = items.reduce((s, x) => s + x.usage.credits, 0);
   const totalSpend = items.reduce((s, x) => s + x.usage.spend_myr, 0);
-  const avgLatency = items.length
-    ? Math.round(
-        items.reduce((s, x) => s + x.usage.avg_latency_ms, 0) /
-          Math.max(1, items.length),
-      )
-    : 0;
-  const worstFailure = items.reduce(
-    (m, x) => Math.max(m, x.usage.failure_rate_pct),
-    0,
-  );
+  const activeAgents = items.filter((x) => x.usage.invocations > 0).length;
+  const hasUsage = totalInvocations > 0;
 
   return (
     <>
       <PageTopbar
         title="AI Agents"
-        subtitle={`${items.length} agents · ${formatInt(totalInvocations)} invocations · last 7 days`}
-        right={
-          <>
-            <button className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100">
-              <Settings2 className="h-3.5 w-3.5" />
-              Global guardrails
-            </button>
-            <button className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-white hover:bg-ink-muted">
-              <Plus className="h-3.5 w-3.5" />
-              New agent
-            </button>
-          </>
-        }
+        subtitle={`${items.length} agents · tenant copilots + platform analyst`}
       />
 
       <PageBody>
-        <div className="flex gap-4 flex-wrap">
+        <div className="mb-3 grid grid-cols-4 gap-3">
           <KpiCard
             label="Invocations / 7d"
             value={formatInt(totalInvocations)}
-            delta="rolling"
-            trend="up"
+            subtle={hasUsage ? "all tenants" : "no usage yet"}
+            trend="flat"
+          />
+          <KpiCard
+            label="Credits / 7d"
+            value={formatInt(totalCredits)}
+            subtle="tenant credit pool"
+            trend="flat"
           />
           <KpiCard
             label="Spend / 7d"
             value={formatMyr(totalSpend)}
-            delta="includes tokens + tools"
-            trend="up"
+            subtle="estimated retail value"
+            trend="flat"
           />
           <KpiCard
-            label="Avg latency"
-            value={`${avgLatency} ms`}
-            subtle="p50 across agents"
-          />
-          <KpiCard
-            label="Worst failure rate"
-            value={`${worstFailure}%`}
-            subtle={worstFailure > 5 ? "needs attention" : "all healthy"}
-            trend={worstFailure > 5 ? "down" : "flat"}
+            label="Agents in use"
+            value={formatInt(activeAgents)}
+            subtle={`of ${items.length} configured`}
+            trend={activeAgents > 0 ? "up" : "flat"}
           />
         </div>
 
-        <div
-          className="grid gap-4"
-          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}
-        >
-          {items.map(({ agent, usage }) => {
+        {!hasUsage ? (
+          <div className="rounded-xl border border-dashed border-cream-300 bg-cream-50/60 px-5 py-8 text-center">
+            <p className="text-sm font-semibold text-ink">
+              No AI usage in the last 7 days
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">
+              Numbers appear here when tenants chat with assistants or run
+              Boardroom meetings. Check the ILMU monitor for provider-level
+              detail.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-4">
+          {items.map(({ agent, usage, scopeConfigured }) => {
             const Icon = ICONS[agent.icon] ?? Sparkles;
+            const pillar =
+              PILLAR_LABEL[agent.pillar as Pillar] ??
+              agent.pillar.charAt(0).toUpperCase() + agent.pillar.slice(1);
+            const sparkMax = Math.max(...usage.hourly, 0);
+
             return (
               <Link
                 href={`/super-admin/ai-agents/${agent.slug}`}
-                key={agent.id}
+                key={agent.slug}
                 className="group block overflow-hidden rounded-xl border border-cream-300 bg-white shadow-card transition hover:border-brand-300 hover:shadow-elevated"
               >
                 <div className="flex items-start justify-between gap-3 p-4">
@@ -129,9 +126,10 @@ export default async function SuperAdminAgents() {
                         {agent.short_desc}
                       </p>
                       <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
-                        {PILLAR_LABEL[agent.pillar as Pillar] ?? agent.pillar}
+                        {pillar}
                         {" · "}
                         {agent.default_model}
+                        {!scopeConfigured ? " · scope draft" : ""}
                       </p>
                     </div>
                   </div>
@@ -149,24 +147,18 @@ export default async function SuperAdminAgents() {
                   </div>
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
-                      Latency
+                      Credits
                     </p>
                     <p className="text-sm font-bold text-ink">
-                      {usage.avg_latency_ms}ms
+                      {formatInt(usage.credits)}
                     </p>
                   </div>
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
-                      Failure
+                      Spend
                     </p>
-                    <p
-                      className={`text-sm font-bold ${
-                        usage.failure_rate_pct > 5
-                          ? "text-status-warning"
-                          : "text-status-success"
-                      }`}
-                    >
-                      {usage.failure_rate_pct}%
+                    <p className="text-sm font-bold text-ink">
+                      {formatMyr(usage.spend_myr)}
                     </p>
                   </div>
                 </div>
@@ -174,7 +166,9 @@ export default async function SuperAdminAgents() {
                 <div className="px-4 py-3 text-brand-500">
                   <Sparkline values={usage.hourly} label="7d activity" />
                   <div className="mt-1 flex items-center justify-between text-[10px] font-semibold text-ink-muted">
-                    <span>7d activity</span>
+                    <span>
+                      {sparkMax > 0 ? "7d activity" : "No activity this week"}
+                    </span>
                     <span className="group-hover:text-brand-700">
                       Configure scope →
                     </span>

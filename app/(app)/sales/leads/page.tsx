@@ -2,6 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+} from "@/components/dashboard/module-list-panel";
 import { LeadCreateForm } from "@/components/sales/LeadCreateForm";
 import { LeadsKanban } from "@/components/sales/LeadsKanban";
 import { LeadsListSelectable } from "@/components/sales/LeadsListSelectable";
@@ -193,7 +197,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
             value={String(insights.dueToday)}
             hint="Follow-ups"
             icon={Users}
-            iconClassName="text-orange-700 dark:text-orange-300"
+            iconClassName="text-blue-700 dark:text-blue-300"
           />
           <ModuleHeroStat
             label="Pipeline"
@@ -230,105 +234,119 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         </div>
       ) : null}
 
-      <form className="flex flex-wrap gap-2" method="get">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="Search name or phone"
-          className="min-w-[12rem] flex-1 rounded-lg border border-cream-300 px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark"
-        />
-        {mine ? <input type="hidden" name="mine" value="1" /> : null}
-        {status ? <input type="hidden" name="status" value={status} /> : null}
-        {followUp ? (
-          <input type="hidden" name="follow_up" value={followUp} />
-        ) : null}
-        {view === "kanban" ? (
-          <input type="hidden" name="view" value="kanban" />
-        ) : null}
-        <button
-          type="submit"
-          className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600"
-        >
-          Search
-        </button>
-      </form>
-
-      <div className="flex flex-wrap gap-2">
-        <FilterChip href={href({ status: null })} active={!status}>
-          All statuses
-        </FilterChip>
-        {LEAD_STATUSES.map((s) => (
-          <FilterChip key={s} href={href({ status: s })} active={status === s}>
-            {s}
-          </FilterChip>
-        ))}
-        <FilterChip
-          href={href({
-            follow_up: followUp === "due_today" ? null : "due_today",
-          })}
-          active={followUp === "due_today"}
-        >
-          Due today
-        </FilterChip>
-        <FilterChip
-          href={href({ follow_up: followUp === "overdue" ? null : "overdue" })}
-          active={followUp === "overdue"}
-        >
-          Overdue
-        </FilterChip>
-        <FilterChip href={href({ mine: mine ? null : "1" })} active={mine}>
-          Mine
-        </FilterChip>
-        {assignees.length > 0 ? (
-          <>
-            <FilterChip
-              href={href({
-                assigned: assigned === "__unassigned__" ? null : "__unassigned__",
-                mine: null,
-              })}
-              active={assigned === "__unassigned__"}
+      <ModuleListPanel>
+        <ModuleListPanelFilters>
+          <form className="flex flex-col gap-3 lg:flex-row lg:items-center" method="get">
+            <div className="flex flex-1 items-center gap-2 rounded-xl border border-cream-300 bg-cream-50/50 px-3 py-2.5 dark:border-hairline-dark dark:bg-panel-dark/60">
+              <input
+                name="q"
+                defaultValue={q}
+                placeholder="Search name or phone"
+                className="w-full min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100"
+              />
+            </div>
+            {mine ? <input type="hidden" name="mine" value="1" /> : null}
+            {status ? <input type="hidden" name="status" value={status} /> : null}
+            {followUp ? (
+              <input type="hidden" name="follow_up" value={followUp} />
+            ) : null}
+            {view === "kanban" ? (
+              <input type="hidden" name="view" value="kanban" />
+            ) : null}
+            <button
+              type="submit"
+              className="rounded-lg bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
             >
-              Unassigned
+              Search
+            </button>
+          </form>
+
+          <nav
+            aria-label="Filter leads"
+            className="mt-3 flex flex-wrap gap-2"
+          >
+            <FilterChip href={href({ status: null })} active={!status}>
+              All statuses
             </FilterChip>
-            {assignees.map((a) => (
-              <FilterChip
-                key={a.user_id}
-                href={href({
-                  assigned: assigned === a.user_id ? null : a.user_id,
-                  mine: null,
-                })}
-                active={assigned === a.user_id}
-              >
-                {a.display_name || a.role}
+            {LEAD_STATUSES.map((s) => (
+              <FilterChip key={s} href={href({ status: s })} active={status === s}>
+                {s}
               </FilterChip>
             ))}
-          </>
-        ) : null}
-      </div>
+            <FilterChip
+              href={href({
+                follow_up: followUp === "due_today" ? null : "due_today",
+              })}
+              active={followUp === "due_today"}
+            >
+              Due today
+            </FilterChip>
+            <FilterChip
+              href={href({ follow_up: followUp === "overdue" ? null : "overdue" })}
+              active={followUp === "overdue"}
+            >
+              Overdue
+            </FilterChip>
+            <FilterChip href={href({ mine: mine ? null : "1" })} active={mine}>
+              Mine
+            </FilterChip>
+            {assignees.length > 0 ? (
+              <>
+                <FilterChip
+                  href={href({
+                    assigned: assigned === "__unassigned__" ? null : "__unassigned__",
+                    mine: null,
+                  })}
+                  active={assigned === "__unassigned__"}
+                >
+                  Unassigned
+                </FilterChip>
+                {assignees.map((a) => (
+                  <FilterChip
+                    key={a.user_id}
+                    href={href({
+                      assigned: assigned === a.user_id ? null : a.user_id,
+                      mine: null,
+                    })}
+                    active={assigned === a.user_id}
+                  >
+                    {a.display_name || a.role}
+                  </FilterChip>
+                ))}
+              </>
+            ) : null}
+          </nav>
+          <p className="mt-3 text-xs font-medium text-[#2563EB] dark:text-blue-300">
+            {total} lead{total === 1 ? "" : "s"}
+            {view === "kanban" ? " · Board view" : " · List view"}
+          </p>
+        </ModuleListPanelFilters>
 
-      {view === "kanban" ? (
-        <LeadsKanban
-          leads={leads.map((l) => ({
-            ...l,
-            status: l.status as LeadStatus,
-          }))}
-          assigneeNames={nameById}
-          overdueBeforeIso={dayStartIso}
-        />
-      ) : (
-        <LeadsListSelectable
-          leads={leads.map((l) => ({
-            ...l,
-            status: l.status as LeadStatus,
-          }))}
-          total={total}
-          assigneeNames={nameById}
-          assignees={assignees}
-          overdueBeforeIso={dayStartIso}
-          pagination={{ page: pagination.page, pageSize: pagination.pageSize }}
-          searchParamsForPagination={searchParamsForPagination}
-        />
-      )}
+        {view === "kanban" ? (
+          <LeadsKanban
+            leads={leads.map((l) => ({
+              ...l,
+              status: l.status as LeadStatus,
+            }))}
+            assigneeNames={nameById}
+            overdueBeforeIso={dayStartIso}
+          />
+        ) : (
+          <LeadsListSelectable
+            embedded
+            leads={leads.map((l) => ({
+              ...l,
+              status: l.status as LeadStatus,
+            }))}
+            total={total}
+            assigneeNames={nameById}
+            assignees={assignees}
+            overdueBeforeIso={dayStartIso}
+            pagination={{ page: pagination.page, pageSize: pagination.pageSize }}
+            searchParamsForPagination={searchParamsForPagination}
+          />
+        )}
+      </ModuleListPanel>
     </SalesSubpageShell>
   );
 }
@@ -348,8 +366,8 @@ function FilterChip({
       className={cn(
         "rounded-full border px-3 py-1 text-xs font-semibold capitalize",
         active
-          ? "border-brand-500 bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200"
-          : "border-cream-300 text-ink-muted hover:border-brand-300 dark:border-hairline-dark",
+          ? "border-[#2563EB] bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+          : "border-cream-300 text-ink-muted hover:border-blue-300 dark:border-hairline-dark",
       )}
     >
       {children}

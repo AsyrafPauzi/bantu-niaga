@@ -27,6 +27,14 @@ describe("buildSettingsNavGroups", () => {
     );
   });
 
+    it("includes business profile in workspace", () => {
+    const groups = buildSettingsNavGroups(true, "owner");
+    const workspace = groups.find((g) => g.title === "Workspace");
+    expect(
+      workspace?.items.some((i) => i.href === "/settings/business"),
+    ).toBe(true);
+  });
+
   it("omits plan group for staff in standalone", () => {
     const groups = buildSettingsNavGroups(true, "staff");
     expect(groups.some((g) => g.title === "Plan & billing")).toBe(false);

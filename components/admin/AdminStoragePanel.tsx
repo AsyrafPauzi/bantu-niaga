@@ -50,6 +50,8 @@ export interface AdminStorageFileRow {
   created_at: string;
   uploaded_by: string;
   uploader_name?: string | null;
+  share_hash?: string | null;
+  share_enabled_at?: string | null;
 }
 
 export interface AdminStorageStats {
@@ -479,6 +481,8 @@ export function AdminStoragePanel({
                           id={row.id}
                           fileName={row.file_name}
                           mimeType={row.mime_type}
+                          category={row.category}
+                          shareEnabled={Boolean(row.share_enabled_at)}
                           showLabels={false}
                           onEdit={() => setEditingFile(row)}
                         />

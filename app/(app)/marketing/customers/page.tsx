@@ -17,6 +17,11 @@ import { CustomerListSelectable } from "@/components/marketing/CustomerListSelec
 import { CustomerQuickAddBar } from "@/components/marketing/CustomerQuickAddBar";
 import { MarketingSubpageShell } from "@/components/marketing/MarketingSubpageShell";
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+  ModuleListPanelFooter,
+} from "@/components/dashboard/module-list-panel";
 import { Card, CardBody } from "@/components/ui/card";
 import { AiBanner } from "@/components/dashboard/ai-banner";
 import { cn } from "@/lib/utils/cn";
@@ -284,72 +289,65 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         {snapshot.totalCustomers === 0 && !hasFilters ? (
           <CustomerListEmptyState />
         ) : null}
-        <nav
-          aria-label="Filter by auto-tag"
-          className="flex flex-wrap gap-2"
-        >
-          {TAG_FILTERS.map((chip) => {
-            const isActive =
-              chip.slug === null
-                ? !query.tags || query.tags.length === 0
-                : activeTag === chip.slug;
-            return (
-              <Link
-                key={chip.label}
-                href={tagFilterHref(chip.slug)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-                  isActive
-                    ? "border-violet-500 bg-violet-500 text-white shadow-sm"
-                    : "border-cream-300 bg-white text-ink-muted hover:border-violet-300 hover:text-violet-800 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:border-violet-700 dark:hover:text-violet-200",
-                )}
-              >
-                {chip.label}
-                <span
-                  className={cn(
-                    "tabular-nums",
-                    isActive ? "text-white/90" : "text-ink-subtle dark:text-cream-500",
-                  )}
-                >
-                  {formatCount(chip.count)}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
 
-        {(snapshot.dormantCount > 0 || snapshot.atRiskCount > 0) &&
-        !query.tags?.length ? (
-          <AiBanner
-            label="Win-back ready"
-            message={`${formatCount(snapshot.dormantCount + snapshot.atRiskCount)} customers could use a nudge. Tap Dormant or At-risk above, then start a broadcast.`}
-            cta="New broadcast"
-            href="/marketing/broadcasts/new"
-          />
+        {parseError ? (
+          <Card>
+            <CardBody className="text-sm text-status-danger">
+              Invalid filter values in URL — defaults applied.
+            </CardBody>
+          </Card>
         ) : null}
 
-      {parseError ? (
-        <Card>
-          <CardBody className="text-sm text-status-danger">
-            Invalid filter values in URL — defaults applied.
-          </CardBody>
-        </Card>
-      ) : null}
+        {error ? (
+          <Card>
+            <CardBody className="text-sm text-status-danger">
+              Failed to load customers: {error.message}
+            </CardBody>
+          </Card>
+        ) : null}
 
-      {error ? (
-        <Card>
-          <CardBody className="text-sm text-status-danger">
-            Failed to load customers: {error.message}
-          </CardBody>
-        </Card>
-      ) : null}
-
-      <Card className="overflow-hidden">
+      <ModuleListPanel>
+        <ModuleListPanelFilters>
         <form
           method="get"
           action="/marketing/customers"
-          className="border-b border-cream-200 p-4 dark:border-hairline-dark sm:p-5"
+          className="contents"
         >
+          <nav
+            aria-label="Filter by segment"
+            className="mb-3 flex flex-wrap gap-2"
+          >
+            {TAG_FILTERS.map((chip) => {
+              const isActive =
+                chip.slug === null
+                  ? !query.tags || query.tags.length === 0
+                  : activeTag === chip.slug;
+              return (
+                <Link
+                  key={chip.label}
+                  href={tagFilterHref(chip.slug)}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                    isActive
+                      ? "border-violet-500 bg-violet-500 text-white shadow-sm"
+                      : "border-cream-300 bg-white text-ink-muted hover:border-violet-300 hover:text-violet-800 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:border-violet-700 dark:hover:text-violet-200",
+                  )}
+                >
+                  {chip.label}
+                  <span
+                    className={cn(
+                      "tabular-nums",
+                      isActive
+                        ? "text-white/90"
+                        : "text-ink-subtle dark:text-cream-500",
+                    )}
+                  >
+                    {formatCount(chip.count)}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="flex flex-1 items-center gap-2 rounded-xl border border-cream-300 bg-cream-50/50 px-3 py-2.5 dark:border-hairline-dark dark:bg-panel-dark/60">
               <Search className="h-4 w-4 shrink-0 text-ink-muted" strokeWidth={2} />
@@ -416,6 +414,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             </p>
           ) : null}
         </form>
+        </ModuleListPanelFilters>
 
         <CustomerListSelectable
           rows={rows}
@@ -430,7 +429,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           }}
         />
 
-        <div className="flex items-center justify-between border-t border-cream-200 bg-cream-100/40 px-5 py-3 text-xs text-ink-muted dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-400">
+        <ModuleListPanelFooter>
           <p>
             Showing {pageStart}–{pageEnd} of {total}
           </p>
@@ -450,8 +449,18 @@ export default async function CustomersPage({ searchParams }: PageProps) {
               label="Next"
             />
           </div>
-        </div>
-      </Card>
+        </ModuleListPanelFooter>
+      </ModuleListPanel>
+
+        {(snapshot.dormantCount > 0 || snapshot.atRiskCount > 0) &&
+        !query.tags?.length ? (
+          <AiBanner
+            label="Win-back ready"
+            message={`${formatCount(snapshot.dormantCount + snapshot.atRiskCount)} customers could use a nudge. Tap Dormant or At-risk above, then start a broadcast.`}
+            cta="New broadcast"
+            href="/marketing/broadcasts/new"
+          />
+        ) : null}
       </div>
     </MarketingSubpageShell>
   );

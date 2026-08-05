@@ -1,16 +1,9 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { LeadQuoteRow } from "@/lib/sales/lead-quotes-shared";
 
-export type LeadQuoteRow = {
-  id: string;
-  number: string;
-  share_hash: string;
-  customer_name: string;
-  total_myr: number;
-  status: string;
-  created_at: string;
-};
+export type { LeadQuoteRow } from "@/lib/sales/lead-quotes-shared";
 
 /** Match Finance quotes to a lead by phone or name. */
 export async function loadLeadQuotes(
@@ -42,8 +35,4 @@ export async function loadLeadQuotes(
     })
     .slice(0, 5)
     .map(({ customer_phone: _p, ...rest }) => rest);
-}
-
-export function publicQuoteUrl(idcompany: string, shareHash: string): string {
-  return `/${idcompany}/inv-${shareHash}`;
 }

@@ -19,4 +19,13 @@ describe("resolveAgentModel", () => {
       }),
     ).toBe("ilmu-v3.1");
   });
+
+  it("allows nemo-super override", () => {
+    expect(
+      resolveAgentModel({
+        reasoningMode: "fast",
+        modelOverride: "nemo-super",
+      }),
+    ).toBe("nemo-super");
+  });
 });

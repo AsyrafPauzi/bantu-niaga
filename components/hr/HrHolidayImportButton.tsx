@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { hrClasses } from "@/lib/hr/theme";
+import { cn } from "@/lib/utils/cn";
 
 export function HrHolidayImportButton({ year }: { year?: number }) {
   const router = useRouter();
@@ -38,16 +40,16 @@ export function HrHolidayImportButton({ year }: { year?: number }) {
         type="button"
         onClick={onImport}
         disabled={busy}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+        className={cn(
+          "inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60",
+          hrClasses.btnPrimary,
+        )}
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
         {busy ? "Importing…" : `Import ${year ?? new Date().getFullYear()} holidays`}
       </button>
-      <p className="text-xs text-ink-muted dark:text-cream-400">
-        Fetches federal and state holidays for your business state (free Malaysia calendar API).
-      </p>
       {message ? (
-        <p className="text-xs font-medium text-ink dark:text-cream-100">{message}</p>
+        <p className="text-xs font-medium text-[#0D9488] dark:text-teal-400">{message}</p>
       ) : null}
     </div>
   );

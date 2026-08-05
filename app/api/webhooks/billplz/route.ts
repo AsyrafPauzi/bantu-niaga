@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { completeBillplzPayment } from "@/lib/finance/billplz-checkout";
+import { notifyFinanceBillplzPaid } from "@/lib/finance/notify";
 import { verifyBillplzSignature } from "@/lib/integrations/billplz";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -29,8 +31,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const kind = await completeBillplzPayment(payload.id);
-    return NextResponse.json({ ok: true, kind });
+    const result = await completeBillplzPayment(payload.id);
+    if (result.kind === "finance") {
+      const admin = createServiceRoleClient();
+      await notifyFinanceBillplzPaid(
+        admin,
+        result.businessId,
+        result.invoiceId,
+      );
+    }
+    return NextResponse.json({ ok: true, kind: result.kind });
   } catch (e) {
     logger.error("billplz.webhook.complete_failed", {
       billId: payload.id,

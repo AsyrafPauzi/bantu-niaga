@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { notifyMarketingCsvImportCommitted } from "@/lib/marketing/notify";
+
+export const dynamic = "force-dynamic";
 
 /**
  * POST /api/marketing/customers/csv-import/[id]/commit — Marketing M3.
@@ -34,8 +37,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  *   422 — no preview cached (operator skipped the preview phase)
  *   500 — RPC error (atomic rollback applied)
  */
-
-export const dynamic = "force-dynamic";
 
 interface ImportRow {
   id: string;
@@ -169,6 +170,14 @@ export async function POST(
             created_customer_ids?: string[];
           }
         | null);
+
+  const created = row?.created_count ?? 0;
+  const merged = row?.merged_count ?? 0;
+  notifyMarketingCsvImportCommitted({
+    businessId: user.businessId,
+    importId: id,
+    rowCount: created + merged,
+  });
 
   return NextResponse.json(
     {

@@ -5,6 +5,7 @@ import {
   leaveTypeLabel,
   leaveTypeShort,
 } from "@/lib/hr/leave-labels";
+import { cn } from "@/lib/utils/cn";
 
 function fmtDate(iso: string): string {
   return new Intl.DateTimeFormat("en-MY", {
@@ -21,9 +22,14 @@ function statusLabel(status: string): string {
 interface HrLeaveRecordRowProps {
   row: HrLeaveRow;
   showStatus?: boolean;
+  hideEmployeeName?: boolean;
 }
 
-export function HrLeaveRecordRow({ row, showStatus = false }: HrLeaveRecordRowProps) {
+export function HrLeaveRecordRow({
+  row,
+  showStatus = false,
+  hideEmployeeName = false,
+}: HrLeaveRecordRowProps) {
   const reason = row.reason?.trim() ? row.reason.trim() : "—";
   const hasMcDocument =
     row.leave_type === "mc" && Boolean(row.mc_document_path && row.mc_document_name);
@@ -33,9 +39,11 @@ export function HrLeaveRecordRow({ row, showStatus = false }: HrLeaveRecordRowPr
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-ink dark:text-cream-100">
-              {row.hr_employees?.full_name ?? "Employee"}
-            </p>
+            {!hideEmployeeName ? (
+              <p className="text-sm font-semibold text-ink dark:text-cream-100">
+                {row.hr_employees?.full_name ?? "Employee"}
+              </p>
+            ) : null}
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${leaveTypeBadgeClass(row.leave_type)}`}
             >
@@ -48,7 +56,16 @@ export function HrLeaveRecordRow({ row, showStatus = false }: HrLeaveRecordRowPr
           </p>
         </div>
         {showStatus ? (
-          <span className="shrink-0 rounded-full bg-cream-100 px-2.5 py-0.5 text-[11px] font-semibold text-ink-muted dark:bg-hairline-dark/60 dark:text-cream-400">
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize",
+              row.status === "approved"
+                ? "bg-teal-50 text-[#0F766E] dark:bg-teal-950/40 dark:text-teal-300"
+                : row.status === "pending"
+                  ? "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                  : "bg-cream-100 text-ink-muted dark:bg-hairline-dark dark:text-cream-400",
+            )}
+          >
             {statusLabel(row.status)}
           </span>
         ) : null}
@@ -68,7 +85,7 @@ export function HrLeaveRecordRow({ row, showStatus = false }: HrLeaveRecordRowPr
                 href={`/api/hr/leave/${row.id}/mc-document`}
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-200"
+                className="font-semibold text-[#0D9488] underline underline-offset-2 hover:text-[#0F766E] dark:text-teal-400"
               >
                 {row.mc_document_name}
               </Link>

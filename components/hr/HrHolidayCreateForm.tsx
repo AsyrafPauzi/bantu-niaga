@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-const inputClass =
-  "w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-400/30 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
+import { MALAYSIA_STATE_OPTIONS } from "@/lib/settings/state-options";
+import { hrClasses } from "@/lib/hr/theme";
+import { cn } from "@/lib/utils/cn";
 
 export function HrHolidayCreateForm() {
   const router = useRouter();
@@ -39,26 +39,52 @@ export function HrHolidayCreateForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <input name="name" required maxLength={160} placeholder="Holiday name" className={inputClass} />
-      <div className="grid grid-cols-2 gap-3">
+      <label className={hrClasses.label}>
+        <span>Name</span>
         <input
-          name="holiday_date"
-          type="date"
+          name="name"
           required
-          className={inputClass}
+          maxLength={160}
+          placeholder="e.g. Company anniversary"
+          className={hrClasses.input}
         />
-        <input
-          name="state_code"
-          maxLength={12}
-          placeholder="State, e.g. KUL"
-          className={inputClass}
-        />
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className={hrClasses.label}>
+          <span>Date</span>
+          <input name="holiday_date" type="date" required className={hrClasses.input} />
+        </label>
+        <label className={hrClasses.label}>
+          <span>State (optional)</span>
+          <select name="state_code" className={hrClasses.input} defaultValue="">
+            <option value="">Nationwide</option>
+            {MALAYSIA_STATE_OPTIONS.map((state) => (
+              <option key={state.code} value={state.code}>
+                {state.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
-      {message ? <p className="text-xs text-ink-muted dark:text-cream-400">{message}</p> : null}
+      {message ? (
+        <p
+          className={cn(
+            "text-xs font-medium",
+            message === "Holiday added."
+              ? "text-[#0D9488] dark:text-teal-400"
+              : "text-ink-muted dark:text-cream-400",
+          )}
+        >
+          {message}
+        </p>
+      ) : null}
       <button
         type="submit"
         disabled={busy}
-        className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+        className={cn(
+          "w-full rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-60",
+          hrClasses.btnPrimary,
+        )}
       >
         {busy ? "Adding..." : "Add holiday"}
       </button>

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { HrDocumentRow, HrEmployeeRow } from "@/lib/hr/load";
 import {
+  getEmployeeSetupChecklist,
   getMissingCompulsoryDocuments,
   isEmployeeProfileIncomplete,
+  isSetupChecklistComplete,
 } from "@/lib/hr/profile-completion";
 
 const baseEmployee: HrEmployeeRow = {
@@ -82,5 +84,22 @@ describe("profile completion", () => {
       ...documents,
     ];
     expect(isEmployeeProfileIncomplete(baseEmployee, unlinked)).toBe(true);
+  });
+
+  it("builds four-item setup checklist with scroll targets", () => {
+    const items = getEmployeeSetupChecklist(baseEmployee, documents);
+    expect(items).toHaveLength(4);
+    expect(items.map((i) => i.id)).toEqual([
+      "phone",
+      "bank",
+      "ic_file",
+      "contract_file",
+    ]);
+    expect(items.filter((i) => i.done).map((i) => i.id)).toEqual([
+      "phone",
+      "bank",
+      "ic_file",
+    ]);
+    expect(isSetupChecklistComplete(items)).toBe(false);
   });
 });

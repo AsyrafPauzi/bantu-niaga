@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   BarChart3,
+  Clock,
   FileText,
   MessageSquare,
   MessageSquareQuote,
@@ -37,6 +38,10 @@ import {
   whatsAppShareUrl,
 } from "@/lib/finance/schemas";
 import { cn } from "@/lib/utils/cn";
+import { fmtRelTime } from "@/lib/utils/relative-time";
+import { pillarClasses } from "@/lib/pillars/theme";
+
+const financeTheme = pillarClasses.finance;
 
 const QUICK_ACTIONS = [
   {
@@ -44,49 +49,42 @@ const QUICK_ACTIONS = [
     icon: Plus,
     title: "New invoice",
     subtitle: "Bill a customer",
-    accent: "from-brand-500 to-brand-600",
   },
   {
     href: "/finance/expenses",
     icon: Receipt,
     title: "Log expense",
     subtitle: "Snap a receipt",
-    accent: "from-rose-500 to-orange-500",
   },
   {
     href: "/finance/income",
     icon: Wallet,
     title: "Log income",
     subtitle: "Capital, loans & sales",
-    accent: "from-emerald-500 to-teal-600",
   },
   {
     href: "/finance/invoices?kind=quote",
     icon: MessageSquareQuote,
     title: "Quotes",
     subtitle: "Send before billing",
-    accent: "from-violet-500 to-purple-600",
   },
   {
     href: "/finance/reports",
     icon: BarChart3,
     title: "Reports",
     subtitle: "Ledger, P&L & charts",
-    accent: "from-indigo-500 to-fuchsia-600",
   },
   {
     href: "/finance/invoices",
     icon: FileText,
     title: "Invoices",
     subtitle: "Track & share",
-    accent: "from-sky-500 to-blue-600",
   },
   {
     href: "/finance/customers",
     icon: Users,
     title: "Customers",
     subtitle: "Billing contacts",
-    accent: "from-amber-500 to-orange-500",
   },
 ] as const;
 
@@ -167,6 +165,7 @@ export function FinanceOverview({
     expenseCategories,
     posToday,
     counts,
+    notifications,
     idcompany,
     appUrl,
   } = data;
@@ -238,9 +237,9 @@ export function FinanceOverview({
     <ModuleDashboardShell className="pb-20 lg:pb-8">
       <ModuleDashboardHero
         module="Finance"
+        pillar="finance"
         headline={heroHeadline}
         subcopy={heroSub}
-        variant={makingMoney || !hasActivity ? "finance-up" : "finance-down"}
         headerExtra={
           <div className="mb-2 flex flex-wrap items-center gap-3">
             <FinanceMonthPicker value={month} />
@@ -254,7 +253,10 @@ export function FinanceOverview({
         cta={
           <Link
             href="/finance/invoices/new"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
+              financeTheme.btnPrimary,
+            )}
           >
             <Plus className="h-4 w-4" strokeWidth={2} />
             New invoice
@@ -614,8 +616,46 @@ export function FinanceOverview({
         </AdminOverviewPanel>
       </div>
 
+      <AdminOverviewPanel
+        title="Activity feed"
+        subtitle="Recent finance events for your team"
+      >
+        <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
+          {notifications.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-ink-muted sm:px-5 dark:text-cream-400">
+              Expenses, invoices, exports, and payments will appear here.
+            </div>
+          ) : (
+            notifications.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start gap-3 px-4 py-3 sm:px-5"
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg",
+                    financeTheme.iconBox,
+                  )}
+                >
+                  <Clock className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink dark:text-cream-100">
+                    {item.message}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                    {fmtRelTime(item.created_at)}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </AdminOverviewPanel>
+
       <ModuleQuickActions
         module="Finance"
+        pillar="finance"
         actions={QUICK_ACTIONS}
         footer={<AccountantExportButton defaultMonth={month} compact />}
       />

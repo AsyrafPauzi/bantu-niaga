@@ -5,6 +5,7 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
 import { applyAnnualLeaveApproval } from "@/lib/hr/leave-balance";
 import { leaveStatusUpdateSchema } from "@/lib/hr/schemas";
+import { notifyHrLeaveStatusChanged } from "@/lib/hr/notify";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -70,7 +71,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   const { data: existing } = await supabase
     .from("hr_leave_records")
     .select(
-      "id, employee_id, leave_type, start_date, end_date, status, hr_employees(annual_leave_entitlement_days)",
+      "id, employee_id, leave_type, start_date, end_date, status, hr_employees(annual_leave_entitlement_days, full_name)",
     )
     .eq("business_id", user.businessId)
     .eq("id", id)
@@ -133,6 +134,19 @@ export async function PATCH(request: Request, context: RouteContext) {
     entityId: id,
     diff: { status: parsed.status, balance_warning: balanceWarning?.code ?? null },
   });
+
+  if (parsed.status !== existing.status) {
+    const employeeName =
+      (existing.hr_employees as { full_name?: string } | null)?.full_name ??
+      "Employee";
+    notifyHrLeaveStatusChanged({
+      businessId: user.businessId,
+      leaveId: id,
+      employeeName,
+      leaveType: existing.leave_type as string,
+      status: parsed.status,
+    });
+  }
 
   return NextResponse.json(
     { leave: data, warning: balanceWarning },

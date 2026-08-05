@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Brain,
   HelpCircle,
+  LineChart,
   Package,
   Sparkles,
   Users,
@@ -11,16 +12,19 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { loadAgentDetail } from "@/lib/super-admin/load";
+import { loadNadiaSettings } from "@/lib/super-admin/nadia-load";
 import { PageTopbar } from "@/components/super-admin/PageTopbar";
 import {
   KpiCard,
   PageBody,
+  Section,
   StatusPill,
   formatInt,
   formatMyr,
 } from "@/components/super-admin/primitives";
 import { Sparkline } from "@/components/super-admin/Sparkline";
 import { AgentScopeEditor } from "@/components/super-admin/AgentScopeEditor";
+import { NadiaReplySettings } from "@/components/super-admin/analyst/NadiaReplySettings";
 import { PILLAR_LABEL, type Pillar } from "@/lib/auth/entitlements";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +36,7 @@ const ICONS: Record<string, LucideIcon> = {
   "brain-circuit": Brain,
   users: Users,
   "help-circle": HelpCircle,
+  "line-chart": LineChart,
 };
 
 export default async function AgentDetail({
@@ -41,14 +46,23 @@ export default async function AgentDetail({
 }) {
   const { slug } = await params;
   let detail;
+  let nadiaSettings = null;
   try {
     detail = await loadAgentDetail(slug);
+    if (slug === "nadia") {
+      nadiaSettings = await loadNadiaSettings();
+    }
   } catch {
     notFound();
   }
-  const { agent, version, usage } = detail;
+  const { agent, version, usage, scopeConfigured } = detail;
   const Icon = ICONS[agent.icon] ?? Sparkles;
-
+  const pillar =
+    PILLAR_LABEL[agent.pillar as Pillar] ??
+    agent.pillar.charAt(0).toUpperCase() + agent.pillar.slice(1);
+  const sparkMax = Math.max(...usage.hourly, 0);
+  const usageSource =
+    slug === "boardroom" ? "credit_ledger" : "ai_usage + daily rollup";
   return (
     <>
       <PageTopbar
@@ -83,52 +97,104 @@ export default async function AgentDetail({
             />
           </span>
         }
-        subtitle={`${agent.short_desc} · ${PILLAR_LABEL[agent.pillar as Pillar] ?? agent.pillar} · ${agent.default_model}`}
+        subtitle={`${agent.short_desc} · ${pillar} · ${agent.default_model}`}
       />
 
       <PageBody>
-        <div className="flex gap-4 flex-wrap">
-          <KpiCard
-            label="Invocations / 7d"
-            value={formatInt(usage.invocations)}
-            delta="rolling"
-            trend="up"
-          />
-          <KpiCard
-            label="Spend / 7d"
-            value={formatMyr(usage.spend_myr)}
-            delta="tokens + tools"
-          />
-          <KpiCard
-            label="Avg latency"
-            value={`${usage.avg_latency_ms} ms`}
-            subtle="p50"
-          />
-          <KpiCard
-            label="Failure rate"
-            value={`${usage.failure_rate_pct}%`}
-            subtle={usage.failure_rate_pct > 5 ? "needs attention" : "healthy"}
-            trend={usage.failure_rate_pct > 5 ? "down" : "flat"}
-          />
+        <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-900 dark:bg-sky-950/30">
+          <p className="text-sm font-semibold text-ink dark:text-cream-100">
+            What controls accuracy &amp; tone today
+          </p>
+          <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-ink-muted dark:text-cream-400">
+            <li>
+              <strong className="text-ink dark:text-cream-200">Live data packet</strong>{" "}
+              — tenant briefing + tools (numbers must come from here; stops
+              invented RM / invoice #).
+            </li>
+            <li>
+              <strong className="text-ink dark:text-cream-200">Tenant display name</strong>{" "}
+              — each business can set a custom name (default Maya, Fayza, …);
+              runtime prepends &quot;You are {"{name}"}, the Marketing staff
+              AI…&quot; on every request.
+            </li>
+            <li>
+              <strong className="text-ink dark:text-cream-200">Scope below (live)</strong>{" "}
+              — published role rules, guardrails, allowed actions. Avoid
+              hardcoded names in the system prompt.
+            </li>
+            {slug === "boardroom" ? (
+              <li>
+                <strong className="text-ink dark:text-cream-200">Boardroom roles</strong>{" "}
+                — per-agent templates in{" "}
+                <code className="rounded bg-white/80 px-1 py-0.5 text-[10px] dark:bg-panel-dark">
+                  BOARDROOM_ROLE_PROMPTS
+                </code>{" "}
+                (Fayza, Aiman, Maya, …) plus structured JSON output.
+              </li>
+            ) : null}
+          </ul>
         </div>
 
-        <div className="rounded-xl border border-cream-300 bg-white p-5 shadow-card text-brand-500">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-ink">Activity</h2>
-              <p className="text-xs text-ink-muted">
-                Daily invocations across all tenants. Live data from
-                ai_agent_usage_daily.
-              </p>
-            </div>
-            <span className="rounded-md bg-cream-100 px-2 py-1 text-[10px] font-bold text-ink-muted">
-              v{version?.version_label ?? "unpublished"}
-            </span>
+        <Section
+          title="Usage (last 7 days)"
+          description={`Billing monitor only — ${usageSource}. Does not change how the model behaves.`}
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <KpiCard
+              label="Invocations"
+              value={formatInt(usage.invocations)}
+              subtle={usage.invocations > 0 ? usageSource : "no usage yet"}
+            />
+            <KpiCard
+              label="Credits"
+              value={formatInt(usage.credits)}
+              subtle="tenant pool"
+            />
+            <KpiCard
+              label="Spend"
+              value={formatMyr(usage.spend_myr)}
+              subtle="retail estimate"
+            />
           </div>
-          <Sparkline values={usage.hourly} height={80} width={1000} />
-        </div>
 
-        <AgentScopeEditor slug={slug} version={version} />
+          {sparkMax > 0 ? (
+            <div className="mt-4 w-full min-w-0 overflow-hidden rounded-lg border border-cream-300 bg-cream-50/50 p-3 text-brand-500 dark:border-hairline-dark dark:bg-panel-dark/40">
+              <div className="w-full min-w-0">
+                <Sparkline
+                  values={usage.hourly}
+                  height={72}
+                  width={320}
+                  responsive
+                  label="7 day activity"
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-ink-muted">
+              No activity this week for {agent.name}.
+            </p>
+          )}
+        </Section>
+
+        {slug === "nadia" && nadiaSettings ? (
+          <Section
+            title="Reply channels"
+            description="How Nadia responds on the Revenue dashboard — text, voice, or both."
+          >
+            <NadiaReplySettings initialSettings={nadiaSettings} />
+          </Section>
+        ) : null}
+
+        <Section
+          title="Agent behavior"
+          description={
+            scopeConfigured
+              ? `Published scope ${version?.version_label ?? ""} — system prompt, guardrails, allowed actions.`
+              : "No published scope yet — using code defaults until you save & publish below."
+          }
+        >
+          <AgentScopeEditor slug={slug} version={version} />
+        </Section>
       </PageBody>
     </>
   );

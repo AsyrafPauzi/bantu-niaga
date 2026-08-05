@@ -22,6 +22,11 @@ import {
 } from "@/lib/finance/invoice-db";
 import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
 import {
+  notifyFinanceInvoiceCreated,
+  notifyFinanceInvoicePaid,
+  notifyFinanceInvoiceSent,
+} from "@/lib/finance/notify";
+import {
   financeInvoiceCreateSchema,
   type FinanceInvoiceRow,
 } from "@/lib/finance/schemas";
@@ -308,5 +313,34 @@ export async function POST(request: Request) {
     await recordInvoiceIncome(admin, user.businessId, user.id, full);
   }
 
-  return NextResponse.json({ ok: true, data: full ?? row }, { status: 201 });
+  const invoiceRow = full ?? row;
+  notifyFinanceInvoiceCreated({
+    businessId: user.businessId,
+    invoiceId: invoiceRow.id,
+    number: invoiceRow.number,
+    customerName: invoiceRow.customer_name,
+    totalMyr: Number(invoiceRow.total_myr),
+    documentKind: invoiceRow.document_kind,
+    status: invoiceRow.status,
+  });
+  if (invoiceRow.status === "sent" && invoiceRow.document_kind === "invoice") {
+    notifyFinanceInvoiceSent({
+      businessId: user.businessId,
+      invoiceId: invoiceRow.id,
+      number: invoiceRow.number,
+      customerName: invoiceRow.customer_name,
+      totalMyr: Number(invoiceRow.total_myr),
+    });
+  }
+  if (invoiceRow.status === "paid" && invoiceRow.document_kind === "invoice") {
+    notifyFinanceInvoicePaid({
+      businessId: user.businessId,
+      invoiceId: invoiceRow.id,
+      number: invoiceRow.number,
+      customerName: invoiceRow.customer_name,
+      totalMyr: Number(invoiceRow.total_myr),
+    });
+  }
+
+  return NextResponse.json({ ok: true, data: invoiceRow }, { status: 201 });
 }

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Eye, Pencil, Trash2 } from "lucide-react";
+import { Download, Eye, Link2, Pencil, Trash2 } from "lucide-react";
+import { canShareAdminFileCategory } from "@/lib/admin/share";
 
 interface ApiEnvelope<T> {
   ok: boolean;
@@ -21,6 +22,8 @@ interface RowActionsProps {
   id: string;
   fileName: string;
   mimeType: string;
+  category?: string | null;
+  shareEnabled?: boolean;
   /** Show labels next to icons (desktop). Mobile cards pass false. */
   showLabels?: boolean;
   onEdit?: () => void;
@@ -30,13 +33,15 @@ export function AdminFileRowActions({
   id,
   fileName,
   mimeType,
+  category = null,
+  shareEnabled = false,
   showLabels = true,
   onEdit,
 }: RowActionsProps) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"download" | "preview" | "delete" | null>(
-    null,
-  );
+  const [busy, setBusy] = useState<
+    "download" | "preview" | "delete" | "share" | null
+  >(null);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -105,9 +110,52 @@ export function AdminFileRowActions({
 
   const canPreview =
     mimeType.startsWith("image/") || mimeType === "application/pdf";
+  const canShare = canShareAdminFileCategory(category);
+
+  const handleShare = async () => {
+    setError(null);
+    setBusy("share");
+    try {
+      const res = await fetch(`/api/admin/storage/${id}/share`, {
+        method: shareEnabled ? "DELETE" : "POST",
+      });
+      const body = (await res.json().catch(() => null)) as
+        | ApiEnvelope<{ share_url?: string }>
+        | null;
+      if (!res.ok) {
+        throw new Error(body?.error?.message ?? "Could not update share link.");
+      }
+      if (!shareEnabled && body?.data?.share_url) {
+        await navigator.clipboard.writeText(body.data.share_url);
+      }
+      startTransition(() => router.refresh());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Share link failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
+      {canShare ? (
+        <button
+          type="button"
+          onClick={() => void handleShare()}
+          disabled={busy !== null}
+          className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+          aria-label={shareEnabled ? "Revoke share link" : "Copy share link"}
+        >
+          <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
+          {showLabels
+            ? busy === "share"
+              ? "Working…"
+              : shareEnabled
+                ? "Revoke link"
+                : "Share link"
+            : null}
+        </button>
+      ) : null}
       {canPreview ? (
         <button
           type="button"

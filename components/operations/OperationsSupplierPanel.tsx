@@ -8,11 +8,11 @@ import {
   Mail,
   Pencil,
   Phone,
-  Search,
   Trash2,
   Truck,
   User,
 } from "lucide-react";
+import { ModuleListSearchBar } from "@/components/dashboard/module-list-search";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import {
   OperationsCatalogEditShell,
@@ -357,18 +357,7 @@ export function OperationsSupplierPanel({
           }
         }}
         actionLabel="Add supplier"
-      >
-        <div className="relative min-w-[12rem] flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search vendors…"
-            className="w-full rounded-lg border border-cream-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          />
-        </div>
-      </QuickActionBar>
+      />
 
       <QuickCreatePanel
         open={showForm}
@@ -434,7 +423,18 @@ export function OperationsSupplierPanel({
           }
         />
       ) : (
-        <OperationsCatalogList title="Vendor list" total={filtered.length}>
+        <OperationsCatalogList
+          title="Vendor list"
+          total={filtered.length}
+          filters={
+            <ModuleListSearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search vendors…"
+              onClear={hasSearch ? () => setSearch("") : undefined}
+            />
+          }
+        >
           <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
             {filtered.map((s) => {
               if (editingId === s.id) return null;

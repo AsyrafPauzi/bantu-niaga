@@ -1,8 +1,11 @@
 import { z } from "zod";
+import { MALAYSIA_STATE_CODES } from "@/lib/settings/state-options";
 import {
   INVITEABLE_ROLES,
   type InviteableRole,
 } from "@/lib/settings/team-shared";
+
+const malaysiaStateCode = z.enum(MALAYSIA_STATE_CODES);
 
 const inviteableRoleEnum = INVITEABLE_ROLES as unknown as [
   InviteableRole,
@@ -32,6 +35,7 @@ const hex = z
 export const businessUpdateSchema = z
   .object({
     name: z.string().trim().min(1).max(200).optional(),
+    state_code: malaysiaStateCode.nullable().optional(),
     brand_primary_hex: hex.optional(),
     brand_accent_hex: hex.optional(),
     registration_no: z.string().trim().max(80).nullable().optional(),

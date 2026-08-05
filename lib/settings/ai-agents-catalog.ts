@@ -51,9 +51,27 @@ export function resolveAgentModel(opts: {
 export const ALLOWED_MODEL_OVERRIDES = [
   "ilmu-mini-v3.3",
   "ilmu-v3.1",
+  "nemo-super",
   "gpt-4o-mini",
   "gpt-4o",
 ] as const;
+
+export type AllowedModelOverride = (typeof ALLOWED_MODEL_OVERRIDES)[number];
+
+/** Friendly labels for super-admin model override dropdown. */
+export const MODEL_OVERRIDE_LABELS: Record<AllowedModelOverride, string> = {
+  "ilmu-mini-v3.3": "ILMU Mini v3.3 (fast)",
+  "ilmu-v3.1": "ILMU v3.1 (deep reasoning)",
+  "nemo-super": "Nemo Super (agent / tools)",
+  "gpt-4o-mini": "GPT-4o mini",
+  "gpt-4o": "GPT-4o",
+};
+
+export function labelForModelOverride(model: string): string {
+  return (
+    MODEL_OVERRIDE_LABELS[model as AllowedModelOverride] ?? model
+  );
+}
 
 export interface TenantAgentDefinition {
   slug: AgentSlug;
@@ -204,7 +222,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
   {
     slug: "boardroom",
     addonSlug: "boardroom-weekly",
-    defaultName: "Boardroom AI",
+    defaultName: "Boardroom",
     roleTitle: "Executive briefing",
     pillar: "All modules",
     description:

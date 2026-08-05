@@ -1,11 +1,11 @@
-import type { ModuleHeroVariant } from "@/components/dashboard/module-layout";
+import type { LegacyModuleHeroVariant } from "@/components/dashboard/module-layout";
 import { formatMyr } from "@/lib/marketing/metrics";
 import type { LeadsInsights } from "@/lib/sales/leads-insights";
 
 export function leadsSubpageHero(insights: LeadsInsights): {
   headline: string;
   subcopy: string;
-  variant: ModuleHeroVariant;
+  variant: LegacyModuleHeroVariant;
 } {
   if (insights.open === 0) {
     return {
@@ -46,7 +46,7 @@ export function historySubpageHero(opts: {
   period: "today" | "week" | "month";
   salesMyr: number;
   txnCount: number;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const periodLabel =
     opts.period === "today"
       ? "Today"

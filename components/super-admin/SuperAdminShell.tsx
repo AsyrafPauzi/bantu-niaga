@@ -11,7 +11,6 @@ import {
   Store,
   Sparkles,
   LineChart,
-  PlugZap,
   TrendingUp,
   Activity,
   ShieldCheck,
@@ -50,7 +49,6 @@ const GROUPS: readonly NavGroup[] = [
       { href: "/super-admin/plans", label: "Plans", icon: Crown },
       { href: "/super-admin/marketplace", label: "Marketplace", icon: Store },
       { href: "/super-admin/ai-agents", label: "AI Agents", icon: Sparkles },
-      { href: "/super-admin/integrations", label: "Integrations", icon: PlugZap },
     ],
   },
   {
@@ -98,9 +96,9 @@ export function SuperAdminShell({ admin, children }: SuperAdminShellProps) {
     .toUpperCase() || "SA";
 
   return (
-    <div className="min-h-dvh bg-cream-100 text-ink">
-      <div className="flex min-h-dvh">
-        <aside className="hidden lg:flex w-64 shrink-0 flex-col bg-ink text-cream-100 sticky top-0 h-dvh">
+    <div className="h-dvh overflow-hidden bg-cream-100 text-ink">
+      <div className="flex h-dvh min-h-0 overflow-hidden">
+        <aside className="hidden lg:flex w-64 shrink-0 flex-col bg-ink text-cream-100 h-full min-h-0 overflow-hidden">
           <div className="px-4 pt-5 pb-4">
             <div className="flex items-center gap-3 px-2">
               <div className="w-9 h-9 rounded-lg bg-accent-500 flex items-center justify-center shrink-0">
@@ -173,7 +171,9 @@ export function SuperAdminShell({ admin, children }: SuperAdminShellProps) {
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0">{children}</main>
+        <main className="flex-1 min-w-0 min-h-0 overflow-y-auto overscroll-y-contain">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -13,8 +13,8 @@ import {
   type LeadStatus,
 } from "@/lib/sales/schemas";
 import { formatMyr } from "@/lib/marketing/metrics";
-import type { LeadQuoteRow } from "@/lib/sales/lead-quotes";
-import { publicQuoteUrl } from "@/lib/sales/lead-quotes";
+import type { LeadQuoteRow } from "@/lib/sales/lead-quotes-shared";
+import { publicQuoteUrl } from "@/lib/sales/lead-quotes-shared";
 import { buildWhatsAppChaseUrl } from "@/lib/sales/whatsapp-chase";
 import { buildPosPrefillUrl } from "@/lib/sales/pos-prefill";
 
@@ -204,7 +204,7 @@ export function LeadDetailClient({
   return (
     <div className="space-y-6">
       {showConvertPrompt ? (
-        <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3 dark:border-brand-800 dark:bg-brand-900/20">
+        <div className="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/20">
           <p className="text-sm font-medium text-ink dark:text-cream-100">
             This lead is won. Convert to a Marketing customer?
           </p>
@@ -213,7 +213,7 @@ export function LeadDetailClient({
               type="button"
               onClick={convert}
               disabled={convertPending}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-60"
             >
               {convertPending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -236,7 +236,7 @@ export function LeadDetailClient({
           <StatusPill tone="success">Converted</StatusPill>
           <Link
             href={`/marketing/customers/${lead.customer_id}`}
-            className="font-semibold text-brand-700 dark:text-brand-200"
+            className="font-semibold text-[#2563EB] dark:text-blue-300"
           >
             Open customer
           </Link>
@@ -245,7 +245,7 @@ export function LeadDetailClient({
               customerId: lead.customer_id,
               customerName: lead.name,
             })}
-            className="font-semibold text-brand-700 dark:text-brand-200"
+            className="font-semibold text-[#2563EB] dark:text-blue-300"
           >
             Ring up at POS
           </Link>
@@ -258,7 +258,7 @@ export function LeadDetailClient({
               leadName: name.trim() || lead.name,
               leadPhone: phone.trim() || lead.phone_e164,
             })}
-            className="font-semibold text-brand-700 dark:text-brand-200"
+            className="font-semibold text-[#2563EB] dark:text-blue-300"
           >
             Ring up at POS
           </Link>
@@ -398,7 +398,7 @@ export function LeadDetailClient({
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-60"
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Save changes
@@ -414,7 +414,7 @@ export function LeadDetailClient({
             No matching quotes.{" "}
             <Link
               href="/finance/invoices?kind=quote"
-              className="font-semibold text-brand-700 dark:text-brand-200"
+              className="font-semibold text-[#2563EB] dark:text-blue-300"
             >
               Create quote in Finance
             </Link>
@@ -438,14 +438,14 @@ export function LeadDetailClient({
                       href={publicQuoteUrl(idcompany, q.share_hash)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+                      className="text-xs font-semibold text-[#2563EB] dark:text-blue-300"
                     >
                       View PDF
                     </a>
                   ) : null}
                   <Link
                     href={`/finance/invoices/${q.id}`}
-                    className="text-xs font-semibold text-ink-muted hover:text-brand-700"
+                    className="text-xs font-semibold text-ink-muted hover:text-[#2563EB]"
                   >
                     Open in Finance
                   </Link>
@@ -480,7 +480,7 @@ export function LeadDetailClient({
           <button
             type="submit"
             disabled={notePending || !noteBody.trim()}
-            className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+            className="rounded-lg bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-60"
           >
             Add
           </button>

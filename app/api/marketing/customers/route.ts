@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CustomerCreateInput, ListQuerySchema } from "@/lib/marketing/schemas";
 import { normalizeMyPhone } from "@/lib/marketing/phone";
 import { dedupCustomer } from "@/lib/marketing/dedup";
+import { notifyMarketingCustomerCreated } from "@/lib/marketing/notify";
 
 /**
  * POST /api/marketing/customers — Marketing M1.
@@ -301,6 +302,12 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  notifyMarketingCustomerCreated({
+    businessId: user.businessId,
+    customerId,
+    name: parsed.name,
+  });
 
   return NextResponse.json(
     {

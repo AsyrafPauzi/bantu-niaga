@@ -88,7 +88,7 @@ export default async function SuperAdminBusinessDetailPage({
 
         <Section
           title="AI model routing"
-          description="Override reasoning mode or force a specific model for this tenant. Tenant owners still see their Settings UI; admin override wins at runtime."
+          description={`Override reasoning mode or force a model for this tenant (${biz.idcompany} · ${biz.id}). Boardroom chair + any agent without its own override use the Boardroom row. Tenant owners still see Settings; admin override wins at runtime.`}
         >
           <TenantAgentRoutingEditor
             businessId={biz.id}

@@ -1,87 +1,35 @@
 import "server-only";
 
-import { resolveIntegration } from "@/lib/integrations/load";
 import { logger } from "@/lib/logger";
 import { buildBriefing } from "@/lib/ai/context";
 import type { AgentContext } from "@/lib/ai/context/types";
 import type { Pillar } from "@/lib/permissions";
 
-const DEFAULT_OPENAI_BASE = "https://api.openai.com/v1";
 const DEFAULT_ILMU_BASE = "https://api.ilmu.ai/v1";
 
-/**
- * Resolve LLM credentials. Prefers ILMU (YTL AI Labs) when configured,
- * otherwise falls back to OpenAI.
- *
- * Resolution order per provider:
- *   1. `platform_integrations.<slug>` row (decrypted)
- *   2. Process env vars
- */
+/** Resolve ILMU LLM credentials from process env (production `.env`). */
 export interface OpenAIConfig {
   apiKey: string;
-  organizationId: string | null;
+  organizationId: null;
   defaultModel: string;
   baseUrl: string;
-  provider: "ilmu" | "openai";
+  provider: "ilmu";
 }
 
 export async function getOpenAIConfig(): Promise<OpenAIConfig> {
-  const ilmuResolved = await resolveIntegration("ilmu", {
-    api_key: process.env.ILMU_API_KEY,
-  });
-
-  const ilmuKey =
-    ilmuResolved?.secrets.api_key || process.env.ILMU_API_KEY || "";
-  if (ilmuKey) {
-    return {
-      apiKey: ilmuKey,
-      organizationId: null,
-      defaultModel:
-        (ilmuResolved?.config.default_model as string | undefined) ||
-        process.env.ILMU_DEFAULT_MODEL ||
-        "ilmu-mini-v3.3",
-      baseUrl:
-        (ilmuResolved?.config.base_url as string | undefined) ||
-        process.env.ILMU_API_BASE_URL ||
-        DEFAULT_ILMU_BASE,
-      provider: "ilmu",
-    };
-  }
-
-  const openaiResolved = await resolveIntegration("openai", {
-    api_key: process.env.OPENAI_API_KEY,
-  });
-
-  const apiKey =
-    openaiResolved?.secrets.api_key || process.env.OPENAI_API_KEY || "";
+  const apiKey = process.env.ILMU_API_KEY?.trim() ?? "";
   if (!apiKey) {
     throw new Error(
-      "No AI provider configured. Add ILMU in /super-admin/integrations/ilmu " +
-        "(or set ILMU_API_KEY), or configure OpenAI.",
+      "No AI provider configured. Set ILMU_API_KEY in your environment.",
     );
   }
 
-  const organizationId =
-    (openaiResolved?.config.organization_id as string | undefined) ||
-    process.env.OPENAI_ORGANIZATION_ID ||
-    null;
-
-  const defaultModel =
-    (openaiResolved?.config.default_model as string | undefined) ||
-    process.env.OPENAI_DEFAULT_MODEL ||
-    "gpt-4o-mini";
-
-  const baseUrl =
-    (openaiResolved?.config.base_url as string | undefined) ||
-    process.env.OPENAI_BASE_URL ||
-    DEFAULT_OPENAI_BASE;
-
   return {
     apiKey,
-    organizationId,
-    defaultModel,
-    baseUrl,
-    provider: "openai",
+    organizationId: null,
+    defaultModel: process.env.ILMU_DEFAULT_MODEL?.trim() || "ilmu-mini-v3.3",
+    baseUrl: process.env.ILMU_API_BASE_URL?.trim() || DEFAULT_ILMU_BASE,
+    provider: "ilmu",
   };
 }
 
@@ -168,7 +116,6 @@ export async function openaiChat<T = unknown>(
   }
 
   const base = cfg.baseUrl.replace(/\/$/, "");
-  const isOpenAiHost = base.includes("api.openai.com");
 
   try {
     const res = await fetch(`${base}/chat/completions`, {
@@ -176,9 +123,6 @@ export async function openaiChat<T = unknown>(
       headers: {
         Authorization: `Bearer ${cfg.apiKey}`,
         "Content-Type": "application/json",
-        ...(isOpenAiHost && cfg.organizationId
-          ? { "OpenAI-Organization": cfg.organizationId }
-          : {}),
       },
       body: JSON.stringify({
         model,

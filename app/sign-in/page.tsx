@@ -92,7 +92,7 @@ function SignInInner() {
   return (
     <AuthShell
       brandHeading="Run your entire business from one screen."
-      brandSubheading="Finance, sales, inventory, HR, marketing — unified with AI Boardroom for Malaysian SMEs."
+      brandSubheading="Finance, sales, inventory, HR, marketing — unified with Boardroom for Malaysian SMEs."
     >
       <div>
         <h2 className="text-3xl font-bold tracking-tight text-ink dark:text-cream-100">

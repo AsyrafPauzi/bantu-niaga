@@ -1,7 +1,10 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadPillarNotifications, type PillarNotificationItem } from "@/lib/notifications/load-pillar";
 import { malaysiaDayBounds, malaysiaTodayYmd } from "@/lib/sales/schemas";
+
+export type SalesNotificationItem = PillarNotificationItem;
 
 export type SalesRecentRow = {
   id: string;
@@ -50,6 +53,7 @@ export interface SalesDashboardData {
   recentSales: SalesRecentRow[];
   topProducts: SalesTopProduct[];
   cashiers: SalesCashierRow[];
+  notifications: SalesNotificationItem[];
 }
 
 export async function loadSalesDashboard(
@@ -85,6 +89,7 @@ export async function loadSalesDashboard(
     openLeadsRes,
     overdueLeadsRes,
     dueTodayLeadsRes,
+    notificationsRes,
   ] = await Promise.all([
       supabase
         .from("pos_sales")
@@ -147,6 +152,7 @@ export async function loadSalesDashboard(
         .gte("follow_up_at", dayStartIso)
         .lt("follow_up_at", dayEndIso)
         .not("status", "in", "(won,lost)"),
+      loadPillarNotifications(supabase, businessId, "sales", 12),
     ]);
 
   if (recentRes.error) throw new Error(recentRes.error.message);
@@ -274,5 +280,6 @@ export async function loadSalesDashboard(
     })),
     topProducts,
     cashiers,
+    notifications: notificationsRes,
   };
 }

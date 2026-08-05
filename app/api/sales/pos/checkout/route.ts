@@ -10,6 +10,7 @@ import { computePosTotals, posCheckoutSchema } from "@/lib/sales/schemas";
 import { loadBusiness } from "@/lib/settings/business";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { notifySalesPosCompleted } from "@/lib/sales/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -428,6 +429,14 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   }
+
+  notifySalesPosCompleted({
+    businessId: user.businessId,
+    saleId: sale.id,
+    saleNumber: sale.sale_number as string,
+    totalMyr: Number(sale.total_myr),
+    paymentMethod: sale.payment_method as string,
+  });
 
   return NextResponse.json(
     {

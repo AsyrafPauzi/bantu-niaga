@@ -65,7 +65,7 @@ function projectRow(
 
 /**
  * Load every integration in the catalog with its current state, grouped
- * by category. Used by the /super-admin/integrations index page.
+ * by category. Legacy helper — platform services are configured via `.env`.
  */
 export const loadIntegrationCatalog = cache(
   async (): Promise<

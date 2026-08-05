@@ -2,9 +2,17 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { HR_PUBLIC_HOLIDAYS_ADDON_SLUG, HR_STAFF_APPRAISAL_ADDON_SLUG } from "@/lib/marketplace/agent-types";
+import { HR_STAFF_APPRAISAL_ADDON_SLUG } from "@/lib/marketplace/agent-types";
 import { appraisalDisplayStatus } from "@/lib/hr/appraisal";
+import { dedupeHolidayRows } from "@/lib/hr/holiday-dedupe";
 import { hasActiveAddonWithClient } from "@/lib/marketplace/entitlements";
+import type { HrDocumentRow, HrEmployeeRow, HrLeaveRow } from "@/lib/hr/load";
+import {
+  buildCoverWarningLines,
+  buildLeaveCalendarLines,
+  buildProfileGapLines,
+  formatLeaveBalanceLine,
+} from "@/lib/ai/context/hr-enrichment";
 
 import { createAgentScopedClient, verifyRows } from "./client";
 import type {
@@ -15,14 +23,16 @@ import type {
 } from "./types";
 
 export interface HrSnapshotOptions {
-  /** When omitted, checks the Public Holiday Calendar marketplace add-on. */
-  includePublicHolidays?: boolean;
   /** When omitted, checks the Staff Appraisal Checker marketplace add-on. */
   includeStaffAppraisals?: boolean;
 }
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function currentLeaveYear(): number {
+  return new Date().getFullYear();
 }
 
 /**
@@ -36,15 +46,7 @@ export async function buildHrSnapshot(
 ): Promise<PillarSnapshot> {
   const supabase = client ?? (await createAgentScopedClient(ctx));
   const today = todayIso();
-
-  let includePublicHolidays = options?.includePublicHolidays;
-  if (includePublicHolidays === undefined) {
-    includePublicHolidays = await hasActiveAddonWithClient(
-      supabase,
-      ctx.businessId,
-      HR_PUBLIC_HOLIDAYS_ADDON_SLUG,
-    );
-  }
+  const leaveYear = currentLeaveYear();
 
   let includeStaffAppraisals = options?.includeStaffAppraisals;
   if (includeStaffAppraisals === undefined) {
@@ -57,12 +59,17 @@ export async function buildHrSnapshot(
 
   const employeesRes = await supabase
     .from("hr_employees")
-    .select("id, business_id, full_name, role_title, employment_type, status, start_date")
+    .select(
+      "id, business_id, full_name, role_title, employment_type, status, start_date, " +
+        "phone_e164, emergency_contact_name, bank_name, bank_account_no, bank_account_no_sealed, " +
+        "annual_leave_entitlement_days",
+    )
     .eq("business_id", ctx.businessId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(40);
-  const employees = verifyRows(employeesRes, ctx, "hr_employees");
+  if (employeesRes.error) throw new Error(employeesRes.error.message);
+  const employees = (employeesRes.data ?? []) as unknown as HrEmployeeRow[];
 
   const leaveRes = await supabase
     .from("hr_leave_records")
@@ -71,29 +78,34 @@ export async function buildHrSnapshot(
     )
     .eq("business_id", ctx.businessId)
     .order("start_date", { ascending: false })
-    .limit(30);
-  const leave = verifyRows(leaveRes, ctx, "hr_leave_records");
+    .limit(40);
+  const leave = verifyRows(leaveRes, ctx, "hr_leave_records") as unknown as HrLeaveRow[];
 
-  const holidays = includePublicHolidays
-    ? verifyRows(
-        await supabase
-          .from("hr_public_holidays")
-          .select("id, business_id, holiday_date, name, state_code")
-          .or(`business_id.is.null,business_id.eq.${ctx.businessId}`)
-          .gte("holiday_date", today)
-          .order("holiday_date", { ascending: true })
-          .limit(10),
-        ctx,
-        "hr_public_holidays",
-      )
-    : [];
+  const documentsRes = await supabase
+    .from("hr_employee_documents")
+    .select("id, business_id, employee_id, document_type, admin_file_id")
+    .eq("business_id", ctx.businessId)
+    .is("deleted_at", null)
+    .limit(120);
+  if (documentsRes.error) throw new Error(documentsRes.error.message);
+  const documents = (documentsRes.data ?? []) as unknown as HrDocumentRow[];
+
+  const holidaysRes = await supabase
+    .from("hr_public_holidays")
+    .select("id, business_id, holiday_date, name, state_code")
+    .or(`business_id.is.null,business_id.eq.${ctx.businessId}`)
+    .gte("holiday_date", today)
+    .order("holiday_date", { ascending: true })
+    .limit(15);
+  const holidaysRaw = verifyRows(holidaysRes, ctx, "hr_public_holidays");
+  const holidays = dedupeHolidayRows([...holidaysRaw]);
 
   const onboardingRes = await supabase
     .from("hr_onboarding_items")
     .select("id, business_id, employee_id, label, is_done, hr_employees(full_name)")
     .eq("business_id", ctx.businessId)
     .eq("is_done", false)
-    .limit(15);
+    .limit(20);
   const onboarding = verifyRows(onboardingRes, ctx, "hr_onboarding_items");
 
   const pendingAppraisals = includeStaffAppraisals
@@ -112,7 +124,16 @@ export async function buildHrSnapshot(
       )
     : [];
 
-  const activeCount = employees.filter((e) => e.status === "active").length;
+  const balanceRes = await supabase
+    .from("hr_leave_balances")
+    .select("employee_id, entitlement_days, taken_days, leave_year")
+    .eq("business_id", ctx.businessId)
+    .eq("leave_year", leaveYear);
+  if (balanceRes.error) throw new Error(balanceRes.error.message);
+  const balances = balanceRes.data ?? [];
+
+  const activeEmployees = employees.filter((e) => e.status === "active");
+  const activeCount = activeEmployees.length;
   const pendingLeave = leave.filter((l) => l.status === "pending");
   const onLeaveToday = leave.filter(
     (l) =>
@@ -120,20 +141,48 @@ export async function buildHrSnapshot(
       String(l.start_date) <= today &&
       String(l.end_date) >= today,
   );
+
+  const balanceByEmployee = new Map(
+    balances.map((b) => [
+      String(b.employee_id),
+      {
+        entitlement: Number(b.entitlement_days),
+        taken: Number(b.taken_days),
+      },
+    ]),
+  );
+
+  const balanceLines = activeEmployees
+    .map((emp) => {
+      const row = balanceByEmployee.get(emp.id);
+      const entitlement = row?.entitlement ?? Number(emp.annual_leave_entitlement_days ?? 8);
+      const taken = row?.taken ?? 0;
+      const available = Math.max(0, entitlement - taken);
+      return { emp, available, entitlement, taken };
+    })
+    .sort((a, b) => a.available - b.available)
+    .slice(0, 6);
+
   const recent: SnapshotItem[] = [
-    ...pendingLeave.slice(0, 4).map((row) => ({
+    ...pendingLeave.slice(0, 3).map((row) => ({
       id: row.id as string,
-      label: `Pending leave: ${(row.hr_employees as { full_name?: string } | null)?.full_name ?? "Employee"}`,
-      meta: `${String(row.leave_type).replace(/_/g, " ")} · ${row.start_date} to ${row.end_date}`,
+      label: `Pending: ${row.hr_employees?.full_name ?? "Employee"}`,
+      meta: `${String(row.leave_type).replace(/_/g, " ")} · ${row.start_date} to ${row.end_date} · id ${row.id}`,
       at: row.start_date as string,
     })),
-    ...employees.slice(0, 4).map((row) => ({
-      id: row.id as string,
-      label: row.full_name as string,
-      meta: `${row.role_title} · ${String(row.employment_type).replace(/_/g, " ")} · ${row.status}`,
-      at: row.start_date as string,
+    ...balanceLines.map(({ emp, available, entitlement, taken }) => ({
+      id: `bal-${emp.id}`,
+      label: formatLeaveBalanceLine(emp.full_name, available, entitlement, taken),
+      meta: emp.role_title,
+      at: null,
     })),
-  ].slice(0, 10);
+    ...onboarding.slice(0, 3).map((row) => ({
+      id: row.id as string,
+      label: `Onboarding: ${(row.hr_employees as { full_name?: string } | null)?.full_name ?? "Staff"}`,
+      meta: String(row.label),
+      at: null,
+    })),
+  ].slice(0, 12);
 
   const attention: SnapshotAttention[] = [];
   if (pendingLeave.length > 0) {
@@ -150,6 +199,25 @@ export async function buildHrSnapshot(
       severity: "medium",
     });
   }
+
+  const profileGaps = buildProfileGapLines(activeEmployees, documents, 6);
+  if (profileGaps.length > 0) {
+    attention.push({
+      id: "incomplete_profiles",
+      label: `${profileGaps.length} staff with incomplete profiles (contact or documents)`,
+      severity: "medium",
+    });
+  }
+
+  const lowBalance = balanceLines.filter((b) => b.available <= 2 && b.entitlement > 0);
+  if (lowBalance.length > 0) {
+    attention.push({
+      id: "low_al_balance",
+      label: `${lowBalance.length} staff with 2 days or less annual leave left`,
+      severity: "medium",
+    });
+  }
+
   const overdueAppraisals = pendingAppraisals.filter(
     (row) =>
       appraisalDisplayStatus(
@@ -178,17 +246,20 @@ export async function buildHrSnapshot(
     });
   }
 
-  const nextHoliday = holidays[0];
-  const notes = [
+  const noteLines = [
     onLeaveToday.length > 0
       ? `${onLeaveToday.length} staff on approved leave today.`
       : null,
-    nextHoliday
-      ? `Next holiday: ${nextHoliday.name} on ${nextHoliday.holiday_date}.`
+    holidays[0]
+      ? `Next holiday: ${holidays[0].name} on ${holidays[0].holiday_date}.`
       : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
+    profileGaps.length > 0
+      ? `Profiles to finish: ${profileGaps.join(" | ")}`
+      : null,
+    ...buildCoverWarningLines(leave, today),
+    "Leave calendar (14d):",
+    ...buildLeaveCalendarLines(leave, today).map((l) => `  ${l}`),
+  ].filter(Boolean) as string[];
 
   return {
     pillar: "hr",
@@ -196,8 +267,8 @@ export async function buildHrSnapshot(
     generatedAt: new Date().toISOString(),
     available: true,
     headline:
-      `HR snapshot for this business: ${employees.length} staff profile(s), ` +
-      `${pendingLeave.length} pending leave, ${onLeaveToday.length} on leave today.`,
+      `HR snapshot: ${employees.length} staff, ${pendingLeave.length} pending leave, ` +
+      `${onLeaveToday.length} away today, ${lowBalance.length} low AL balance.`,
     kpis: [
       { key: "active_staff", label: "Active staff", value: activeCount },
       { key: "pending_leave", label: "Pending leave", value: pendingLeave.length },
@@ -206,6 +277,11 @@ export async function buildHrSnapshot(
         key: "open_onboarding",
         label: "Open onboarding items",
         value: onboarding.length,
+      },
+      {
+        key: "upcoming_holidays",
+        label: "Upcoming holidays",
+        value: holidays.length,
       },
       ...(includeStaffAppraisals
         ? [
@@ -216,18 +292,9 @@ export async function buildHrSnapshot(
             },
           ]
         : []),
-      ...(includePublicHolidays
-        ? [
-            {
-              key: "upcoming_holidays",
-              label: "Upcoming holidays",
-              value: holidays.length,
-            },
-          ]
-        : []),
     ],
     recent,
     attention,
-    notes: notes || undefined,
+    notes: noteLines.length > 0 ? noteLines.join("\n") : undefined,
   };
 }

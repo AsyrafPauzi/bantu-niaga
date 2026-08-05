@@ -33,6 +33,7 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
     surfaces: [
       { href: "/admin/tasks", label: "Tasks", primary: "both" },
       { href: "/admin/compliance", label: "Compliance", primary: "both" },
+      { href: "/admin/documents", label: "Templates & notes", primary: "desktop" },
       { href: "/admin/storage", label: "Storage", primary: "desktop" },
     ],
   },
@@ -119,3 +120,14 @@ export const PILLAR_LIST: PillarMeta[] = [
   PILLAR_META.sales,
   PILLAR_META.hr,
 ];
+
+export {
+  PILLAR_COLORS,
+  PILLAR_PAGE_SHELL,
+  APP_CANVAS_CLASS,
+  MODULE_TO_PILLAR,
+  getPillarClasses,
+  pillarClasses,
+  pillarFromModule,
+  type PillarClasses,
+} from "@/lib/pillars/theme";

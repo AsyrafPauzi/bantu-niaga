@@ -13,16 +13,40 @@ export interface RevenueMonthRow {
   totalMyr: number;
 }
 
+export interface PlanRevenueRow {
+  tier: TierKey;
+  label: string;
+  count: number;
+  mrrMyr: number;
+}
+
+export interface AddonMrrRow {
+  slug: string;
+  name: string;
+  mrrMyr: number;
+  tenantCount: number;
+}
+
 export interface RevenueDashboard {
   mrrSubscriptionMyr: number;
   mrrAddonMyr: number;
   mrrTotalMyr: number;
+  mrrGrowthPct: number | null;
+  netNewMrrMyr: number;
+  arpuMyr: number;
+  payingTenantCount: number;
   collectedLast30dMyr: number;
   collectedLast90dMyr: number;
   pendingInvoicesMyr: number;
+  pendingInvoiceCount: number;
   paidInvoiceCount: number;
+  aiCost30dMyr: number;
+  grossMarginPct: number | null;
   monthly: RevenueMonthRow[];
+  mrrSparkline: number[];
   byKind: { kind: string; label: string; amountMyr: number; count: number }[];
+  planRevenue: PlanRevenueRow[];
+  addonMrrBySlug: AddonMrrRow[];
   topTenants: { businessId: string; name: string; amountMyr: number }[];
 }
 
@@ -32,6 +56,8 @@ const KIND_LABELS: Record<string, string> = {
   topup: "Credit top-ups",
   manual: "Manual / other",
 };
+
+const TIER_ORDER: TierKey[] = ["starter", "micro", "sme", "enterprise"];
 
 function monthKey(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -43,27 +69,57 @@ function monthLabel(key: string): string {
   return d.toLocaleString("en-MY", { month: "short", year: "2-digit" });
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function addonMrrFromRow(
+  priceCents: number,
+  cadence: string,
+  qty: number,
+): number {
+  if (cadence === "monthly") return (priceCents / 100) * qty;
+  if (cadence === "yearly") return (priceCents / 100 / 12) * qty;
+  return 0;
+}
+
 export async function loadRevenueDashboard(): Promise<RevenueDashboard> {
   const svc = createServiceRoleClient();
   const since12m = new Date();
   since12m.setUTCMonth(since12m.getUTCMonth() - 12);
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [{ data: invoices }, { data: businesses }, { data: addons }] =
-    await Promise.all([
-      svc
-        .from("invoices")
-        .select("business_id, kind, amount_myr, status, paid_at, created_at, businesses(name)")
-        .eq("status", "paid")
-        .not("paid_at", "is", null)
-        .gte("paid_at", since12m.toISOString())
-        .order("paid_at", { ascending: false })
-        .limit(5000),
-      svc.from("businesses").select("id, tier, subscription_status"),
-      svc
-        .from("business_addons")
-        .select("business_id, qty, status, marketplace_addons(price_cents, cadence)")
-        .eq("status", "active"),
-    ]);
+  const [
+    { data: paidInvoices },
+    { data: pendingInvoices },
+    { data: businesses },
+    { data: addons },
+    { data: aiUsage },
+  ] = await Promise.all([
+    svc
+      .from("invoices")
+      .select("business_id, kind, amount_myr, status, paid_at, created_at, businesses(name)")
+      .eq("status", "paid")
+      .not("paid_at", "is", null)
+      .gte("paid_at", since12m.toISOString())
+      .order("paid_at", { ascending: false })
+      .limit(5000),
+    svc
+      .from("invoices")
+      .select("amount_myr")
+      .eq("status", "pending"),
+    svc.from("businesses").select("id, tier, subscription_status"),
+    svc
+      .from("business_addons")
+      .select(
+        "business_id, qty, status, marketplace_addons(slug, name, price_cents, cadence)",
+      )
+      .eq("status", "active"),
+    svc
+      .from("ai_usage")
+      .select("cost_myr_estimated, credits_charged")
+      .gte("created_at", since30d),
+  ]);
 
   const paying = (businesses ?? []).filter(
     (b) => b.subscription_status !== "cancelled" && b.tier !== "starter",
@@ -74,20 +130,69 @@ export async function loadRevenueDashboard(): Promise<RevenueDashboard> {
   );
 
   let mrrAddonMyr = 0;
+  const addonMrrMap = new Map<
+    string,
+    { name: string; mrrMyr: number; tenants: Set<string> }
+  >();
+
   for (const row of addons ?? []) {
     const ma = row.marketplace_addons as
-      | { price_cents: number; cadence: string }
-      | { price_cents: number; cadence: string }[]
+      | { slug: string; name: string; price_cents: number; cadence: string }
+      | { slug: string; name: string; price_cents: number; cadence: string }[]
       | null;
     const addon = Array.isArray(ma) ? ma[0] : ma;
     if (!addon) continue;
     const qty = Number(row.qty ?? 1);
-    if (addon.cadence === "monthly") {
-      mrrAddonMyr += (addon.price_cents / 100) * qty;
-    } else if (addon.cadence === "yearly") {
-      mrrAddonMyr += (addon.price_cents / 100 / 12) * qty;
-    }
+    const rowMrr = addonMrrFromRow(addon.price_cents, addon.cadence, qty);
+    mrrAddonMyr += rowMrr;
+
+    const slug = addon.slug;
+    const prev = addonMrrMap.get(slug) ?? {
+      name: addon.name,
+      mrrMyr: 0,
+      tenants: new Set<string>(),
+    };
+    prev.mrrMyr += rowMrr;
+    prev.tenants.add(row.business_id as string);
+    addonMrrMap.set(slug, prev);
   }
+
+  const tierCount: Record<TierKey, number> = {
+    starter: 0,
+    micro: 0,
+    sme: 0,
+    enterprise: 0,
+  };
+  for (const b of businesses ?? []) {
+    const t = b.tier as TierKey;
+    if (tierCount[t] !== undefined) tierCount[t] += 1;
+  }
+
+  const planRevenue: PlanRevenueRow[] = TIER_ORDER.map((tier) => {
+    const meta = tierBy(tier)!;
+    const count =
+      tier === "starter"
+        ? tierCount[tier]
+        : (businesses ?? []).filter(
+            (b) =>
+              b.tier === tier && b.subscription_status !== "cancelled",
+          ).length;
+    return {
+      tier,
+      label: meta.label,
+      count,
+      mrrMyr: round2(count * (meta.priceMyr ?? 0)),
+    };
+  }).filter((p) => p.tier !== "starter" || p.count > 0);
+
+  const addonMrrBySlug: AddonMrrRow[] = Array.from(addonMrrMap.entries())
+    .map(([slug, v]) => ({
+      slug,
+      name: v.name,
+      mrrMyr: round2(v.mrrMyr),
+      tenantCount: v.tenants.size,
+    }))
+    .sort((a, b) => b.mrrMyr - a.mrrMyr);
 
   const now = Date.now();
   const d30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
@@ -114,20 +219,13 @@ export async function loadRevenueDashboard(): Promise<RevenueDashboard> {
   const tenantTotals = new Map<string, { name: string; amountMyr: number }>();
   let collectedLast30dMyr = 0;
   let collectedLast90dMyr = 0;
-  let pendingInvoicesMyr = 0;
   let paidInvoiceCount = 0;
 
-  for (const inv of invoices ?? []) {
+  for (const inv of paidInvoices ?? []) {
     const amount = Number(inv.amount_myr ?? 0);
     const kind = String(inv.kind ?? "manual");
-    const status = String(inv.status ?? "pending");
     const paidAt = inv.paid_at ? new Date(inv.paid_at as string) : null;
 
-    if (status === "pending") {
-      pendingInvoicesMyr += amount;
-    }
-
-    if (status !== "paid") continue;
     paidInvoiceCount += 1;
 
     if (paidAt) {
@@ -151,7 +249,10 @@ export async function loadRevenueDashboard(): Promise<RevenueDashboard> {
     kindTotals.set(kind, kt);
 
     const bizId = inv.business_id as string;
-    const bizJoin = inv.businesses as { name: string } | { name: string }[] | null;
+    const bizJoin = inv.businesses as
+      | { name: string }
+      | { name: string }[]
+      | null;
     const bizName = Array.isArray(bizJoin)
       ? bizJoin[0]?.name
       : bizJoin?.name ?? "Tenant";
@@ -160,10 +261,63 @@ export async function loadRevenueDashboard(): Promise<RevenueDashboard> {
     tenantTotals.set(bizId, tt);
   }
 
+  let pendingInvoicesMyr = 0;
+  let pendingInvoiceCount = 0;
+  for (const inv of pendingInvoices ?? []) {
+    pendingInvoicesMyr += Number(inv.amount_myr ?? 0);
+    pendingInvoiceCount += 1;
+  }
+
+  const monthly = Array.from(monthBuckets.values());
+  const mrrSparkline = monthly.slice(-6).map((m) => m.subscriptionMyr + m.addonMyr);
+
+  const currentMonth = monthly.at(-1);
+  const previousMonth = monthly.at(-2);
+  const netNewMrrMyr =
+    currentMonth && previousMonth
+      ? round2(
+          currentMonth.subscriptionMyr +
+            currentMonth.addonMyr -
+            (previousMonth.subscriptionMyr + previousMonth.addonMyr),
+        )
+      : 0;
+
+  const prevRecurring =
+    previousMonth != null
+      ? previousMonth.subscriptionMyr + previousMonth.addonMyr
+      : 0;
+  const mrrGrowthPct =
+    previousMonth && prevRecurring > 0
+      ? round2(
+          ((currentMonth!.subscriptionMyr +
+            currentMonth!.addonMyr -
+            prevRecurring) /
+            prevRecurring) *
+            100,
+        )
+      : null;
+
+  let aiCost30dMyr = 0;
+  for (const row of aiUsage ?? []) {
+    const est = Number(row.cost_myr_estimated ?? 0);
+    aiCost30dMyr += est > 0 ? est : Number(row.credits_charged ?? 0) * 0.01;
+  }
+  aiCost30dMyr = round2(aiCost30dMyr);
+
+  const mrrTotalMyr = mrrSubscriptionMyr + mrrAddonMyr;
+  const arpuMyr =
+    paying.length > 0 ? round2(mrrTotalMyr / paying.length) : 0;
+  const grossMarginPct =
+    collectedLast30dMyr > 0
+      ? round2(
+          ((collectedLast30dMyr - aiCost30dMyr) / collectedLast30dMyr) * 100,
+        )
+      : null;
+
   const byKind = Array.from(kindTotals.entries()).map(([kind, v]) => ({
     kind,
     label: KIND_LABELS[kind] ?? kind,
-    amountMyr: Math.round(v.amountMyr * 100) / 100,
+    amountMyr: round2(v.amountMyr),
     count: v.count,
   }));
 
@@ -171,20 +325,30 @@ export async function loadRevenueDashboard(): Promise<RevenueDashboard> {
     .map(([businessId, v]) => ({
       businessId,
       name: v.name,
-      amountMyr: Math.round(v.amountMyr * 100) / 100,
+      amountMyr: round2(v.amountMyr),
     }))
     .sort((a, b) => b.amountMyr - a.amountMyr);
 
   return {
-    mrrSubscriptionMyr: Math.round(mrrSubscriptionMyr * 100) / 100,
-    mrrAddonMyr: Math.round(mrrAddonMyr * 100) / 100,
-    mrrTotalMyr: Math.round((mrrSubscriptionMyr + mrrAddonMyr) * 100) / 100,
-    collectedLast30dMyr: Math.round(collectedLast30dMyr * 100) / 100,
-    collectedLast90dMyr: Math.round(collectedLast90dMyr * 100) / 100,
-    pendingInvoicesMyr: Math.round(pendingInvoicesMyr * 100) / 100,
+    mrrSubscriptionMyr: round2(mrrSubscriptionMyr),
+    mrrAddonMyr: round2(mrrAddonMyr),
+    mrrTotalMyr: round2(mrrTotalMyr),
+    mrrGrowthPct,
+    netNewMrrMyr,
+    arpuMyr,
+    payingTenantCount: paying.length,
+    collectedLast30dMyr: round2(collectedLast30dMyr),
+    collectedLast90dMyr: round2(collectedLast90dMyr),
+    pendingInvoicesMyr: round2(pendingInvoicesMyr),
+    pendingInvoiceCount,
     paidInvoiceCount,
-    monthly: Array.from(monthBuckets.values()),
+    aiCost30dMyr,
+    grossMarginPct,
+    monthly,
+    mrrSparkline,
     byKind,
+    planRevenue,
+    addonMrrBySlug,
     topTenants,
   };
 }

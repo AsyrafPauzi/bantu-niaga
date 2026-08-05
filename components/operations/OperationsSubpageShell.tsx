@@ -1,13 +1,13 @@
 import { OperationsBackLink } from "@/components/operations/OperationsBackLink";
 import {
   ModuleDashboardHero,
-  type ModuleHeroVariant,
+  type LegacyModuleHeroVariant,
 } from "@/components/dashboard/module-layout";
 
 interface OperationsSubpageShellProps {
   headline: string;
   subcopy: string;
-  variant?: ModuleHeroVariant;
+  variant?: LegacyModuleHeroVariant;
   stats: React.ReactNode;
   children: React.ReactNode;
 }
@@ -15,7 +15,7 @@ interface OperationsSubpageShellProps {
 export function OperationsSubpageShell({
   headline,
   subcopy,
-  variant = "calm",
+  variant = "default",
   stats,
   children,
 }: OperationsSubpageShellProps) {
@@ -24,6 +24,7 @@ export function OperationsSubpageShell({
       <OperationsBackLink />
       <ModuleDashboardHero
         module="Operations"
+        pillar="operations"
         headline={headline}
         subcopy={subcopy}
         variant={variant}

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Calculator,
   CalendarClock,
@@ -5,8 +6,6 @@ import {
   Database,
   HardDrive,
   MessageSquare,
-  Pencil,
-  Plus,
   Receipt,
   Sparkles,
   Store,
@@ -21,14 +20,74 @@ import { PageTopbar } from "@/components/super-admin/PageTopbar";
 import {
   KpiCard,
   PageBody,
+  Section,
   StatusPill,
   formatMyr,
   formatInt,
 } from "@/components/super-admin/primitives";
 import { MarketplaceToggle } from "@/components/super-admin/MarketplaceToggle";
-import { PILLAR_LABEL, type Pillar } from "@/lib/auth/entitlements";
+import { ListPagination } from "@/components/ui/list-pagination";
+import {
+  ADMIN_DEFAULT_PAGE_SIZE,
+  ADMIN_PAGE_SIZE_OPTIONS,
+  paginateArray,
+  parsePagination,
+  withPageSizeSearchParam,
+} from "@/lib/pagination";
+import { PILLAR_LABEL, PILLARS, type Pillar } from "@/lib/auth/entitlements";
 
 export const dynamic = "force-dynamic";
+
+const EXTRA_PILLAR_LABEL: Record<string, string> = {
+  ai: "AI agents",
+  cross: "Cross-cutting",
+};
+
+const FILTERABLE_PILLARS = [...PILLARS, "ai", "cross"] as const;
+type FilterablePillar = (typeof FILTERABLE_PILLARS)[number];
+type PillarFilter = "all" | FilterablePillar;
+
+function paramString(
+  value: string | string[] | undefined,
+): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function parsePillarFilter(
+  params: Record<string, string | string[] | undefined>,
+): PillarFilter {
+  const raw = paramString(params.pillar);
+  if (
+    raw &&
+    (FILTERABLE_PILLARS as readonly string[]).includes(raw)
+  ) {
+    return raw as FilterablePillar;
+  }
+  return "all";
+}
+
+function pillarLabel(pillar: string): string {
+  if ((PILLARS as readonly string[]).includes(pillar)) {
+    return PILLAR_LABEL[pillar as Pillar];
+  }
+  return EXTRA_PILLAR_LABEL[pillar] ?? pillar;
+}
+
+function marketplaceHref(
+  pillar: PillarFilter,
+  pageSize: number,
+): string {
+  const params = new URLSearchParams();
+  if (pillar !== "all") params.set("pillar", pillar);
+  if (pageSize !== ADMIN_DEFAULT_PAGE_SIZE) {
+    params.set("pageSize", String(pageSize));
+  }
+  const query = params.toString();
+  return query
+    ? `/super-admin/marketplace?${query}`
+    : "/super-admin/marketplace";
+}
 
 const ICONS: Record<string, LucideIcon> = {
   receipt: Receipt,
@@ -68,8 +127,32 @@ function statusToPill(status: "live" | "draft" | "disabled") {
   }
 }
 
-export default async function SuperAdminMarketplace() {
+export default async function SuperAdminMarketplace({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const pillarFilter = parsePillarFilter(params);
+  const pagination = parsePagination(params, {
+    defaultPageSize: ADMIN_DEFAULT_PAGE_SIZE,
+    allowedPageSizes: ADMIN_PAGE_SIZE_OPTIONS,
+  });
+  const listSearchParams = withPageSizeSearchParam(
+    pillarFilter !== "all" ? { pillar: pillarFilter } : {},
+    pagination.pageSize,
+  );
+
   const addons = await loadMarketplaceAdmin();
+  const filteredAddons =
+    pillarFilter === "all"
+      ? addons
+      : addons.filter((a) => a.pillar === pillarFilter);
+  const { items: pageAddons, total } = paginateArray(
+    filteredAddons,
+    pagination.page,
+    pagination.pageSize,
+  );
 
   const liveCount = addons.filter((a) => a.status === "live").length;
   const totalSubs = addons.reduce((s, a) => s + a.active_subscriptions, 0);
@@ -81,38 +164,31 @@ export default async function SuperAdminMarketplace() {
         ) / 10
       : 0;
 
-  const pillarTabs: { key: "all" | Pillar; label: string; count: number }[] = [
+  const pillarTabs: { key: PillarFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: addons.length },
-    ...(["admin", "finance", "operations", "sales", "hr", "marketing"] as Pillar[]).map(
-      (p) => ({
-        key: p,
-        label: PILLAR_LABEL[p],
-        count: addons.filter((a) => a.pillar === p).length,
-      }),
-    ),
+    ...FILTERABLE_PILLARS.filter((p) =>
+      addons.some((a) => a.pillar === p),
+    ).map((p) => ({
+      key: p as FilterablePillar,
+      label: pillarLabel(p),
+      count: addons.filter((a) => a.pillar === p).length,
+    })),
   ];
+
+  const catalogDescription =
+    pillarFilter === "all"
+      ? `${total} items · click an add-on for feature details`
+      : `${total} in ${pillarLabel(pillarFilter)} · click an add-on for feature details`;
 
   return (
     <>
       <PageTopbar
         title="Marketplace"
         subtitle={`${liveCount} live · ${addons.length - liveCount} hidden`}
-        right={
-          <>
-            <button className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100">
-              <Pencil className="h-3.5 w-3.5" />
-              Edit categories
-            </button>
-            <button className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-white hover:bg-ink-muted">
-              <Plus className="h-3.5 w-3.5" />
-              Add new add-on
-            </button>
-          </>
-        }
       />
 
       <PageBody>
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex flex-wrap gap-4">
           <KpiCard
             label="Active add-ons"
             value={liveCount}
@@ -138,97 +214,153 @@ export default async function SuperAdminMarketplace() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {pillarTabs.map((t, idx) => (
-            <button
-              key={t.key}
-              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${
-                idx === 0
-                  ? "border-ink bg-ink text-white"
-                  : "border-cream-300 bg-white text-ink hover:bg-cream-100"
-              }`}
-            >
-              {t.label}
-              <span
-                className={`rounded-sm px-1 text-[10px] font-bold ${
-                  idx === 0
-                    ? "bg-white/20 text-white"
-                    : "bg-cream-200 text-ink-muted"
+          {pillarTabs.map((t) => {
+            const active = t.key === pillarFilter;
+            return (
+              <Link
+                key={t.key}
+                href={marketplaceHref(t.key, pagination.pageSize)}
+                className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                  active
+                    ? "border-ink bg-ink text-white"
+                    : "border-cream-300 bg-white text-ink hover:bg-cream-100"
                 }`}
               >
-                {t.count}
-              </span>
-            </button>
-          ))}
+                {t.label}
+                <span
+                  className={`rounded-sm px-1 text-[10px] font-bold ${
+                    active
+                      ? "bg-white/20 text-white"
+                      : "bg-cream-200 text-ink-muted"
+                  }`}
+                >
+                  {t.count}
+                </span>
+              </Link>
+            );
+          })}
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-cream-300 bg-white shadow-card">
-          <div className="grid grid-cols-[300px_110px_120px_110px_110px_120px_56px] gap-3 border-b border-cream-300 bg-cream-100 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-            <span>Add-on</span>
-            <span>Module</span>
-            <span>Price</span>
-            <span>Active subs</span>
-            <span>MRR</span>
-            <span>Status</span>
-            <span className="text-right">Live</span>
-          </div>
-          <ul>
-            {addons.length === 0 && (
-              <li className="px-5 py-10 text-center text-sm text-ink-muted">
-                Catalog is empty. Click <em>Add new add-on</em> to publish your
-                first item.
-              </li>
-            )}
-            {addons.map((a) => {
-              const Icon = ICONS[a.icon] ?? Store;
-              return (
-                <li
-                  key={a.id}
-                  className="grid grid-cols-[300px_110px_120px_110px_110px_120px_56px] items-center gap-3 border-b border-cream-300 px-5 py-3 last:border-b-0 hover:bg-cream-100/50"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-brand-100 text-brand-700">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 leading-tight">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-semibold text-ink">
-                          {a.name}
-                        </p>
-                        {a.is_featured && (
-                          <span className="inline-flex rounded-sm bg-accent-100 px-1 py-0.5 text-[9px] font-bold text-accent-700 uppercase tracking-wide">
-                            Featured
-                          </span>
-                        )}
-                      </div>
-                      <p className="truncate text-[11px] text-ink-muted">
-                        {a.short_desc}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold text-ink">
-                    {PILLAR_LABEL[a.pillar as Pillar] ?? a.pillar}
-                  </span>
-                  <span className="text-xs text-ink">
-                    {priceLabel(a.price_cents, a.cadence)}
-                  </span>
-                  <span className="text-sm font-semibold text-ink">
-                    {formatInt(a.active_subscriptions)}
-                  </span>
-                  <span className="text-sm font-semibold text-ink">
-                    {a.mrr_myr > 0 ? formatMyr(Math.round(a.mrr_myr)) : "—"}
-                  </span>
-                  {statusToPill(a.status)}
-                  <div className="flex justify-end">
-                    <MarketplaceToggle
-                      addonId={a.id}
-                      initialStatus={a.status}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+        <Section
+          className="!p-4 !pb-0"
+          title="Add-on catalog"
+          description={catalogDescription}
+        >
+          {addons.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-ink-muted">
+              Catalog is empty. Add-ons are seeded via database migrations.
+            </p>
+          ) : filteredAddons.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-ink-muted">
+              No add-ons in {pillarLabel(pillarFilter)}.{" "}
+              <Link
+                href="/super-admin/marketplace"
+                className="font-semibold text-brand-600 hover:text-brand-700"
+              >
+                Show all
+              </Link>
+            </p>
+          ) : (
+            <>
+              <div className="-mx-4 mt-3 overflow-x-auto border-t border-cream-200">
+                <table className="w-full min-w-[960px] border-collapse text-left text-[13px]">
+                  <thead>
+                    <tr className="border-b border-cream-300 bg-cream-50/80 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+                      <th className="min-w-[260px] px-4 py-2">Add-on</th>
+                      <th className="whitespace-nowrap px-3 py-2">Module</th>
+                      <th className="whitespace-nowrap px-3 py-2">Price</th>
+                      <th className="whitespace-nowrap px-3 py-2 text-right">
+                        Active subs
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 text-right">
+                        MRR
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2">Status</th>
+                      <th className="whitespace-nowrap px-3 py-2 text-right">
+                        Live
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageAddons.map((a) => {
+                      const Icon = ICONS[a.icon] ?? Store;
+                      return (
+                        <tr
+                          key={a.id}
+                          className="border-b border-cream-200 last:border-b-0 hover:bg-cream-50/60"
+                        >
+                          <td className="px-4 py-3">
+                            <Link
+                              href={`/super-admin/marketplace/${a.id}`}
+                              className="flex min-w-0 items-center gap-2.5"
+                            >
+                              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-brand-100 text-brand-700">
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 leading-tight">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="truncate text-sm font-semibold text-brand-700 hover:underline">
+                                    {a.name}
+                                  </p>
+                                {a.is_featured && (
+                                  <span className="inline-flex shrink-0 rounded-sm bg-accent-100 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent-700">
+                                    Featured
+                                  </span>
+                                )}
+                                {a.is_coming_soon && (
+                                  <span className="inline-flex shrink-0 rounded-sm bg-cream-200 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-muted">
+                                    Soon
+                                  </span>
+                                )}
+                                </div>
+                                <p className="line-clamp-1 text-[11px] text-ink-muted">
+                                  {a.short_desc}
+                                </p>
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-xs font-semibold text-ink">
+                            {pillarLabel(a.pillar)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-xs font-medium tabular-nums text-ink">
+                            {priceLabel(a.price_cents, a.cadence)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-semibold tabular-nums text-ink">
+                            {formatInt(a.active_subscriptions)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-semibold tabular-nums text-ink">
+                            {formatMyr(Math.round(a.mrr_myr))}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3">
+                            {statusToPill(a.status)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3">
+                            <div className="flex justify-end">
+                              <MarketplaceToggle
+                                addonId={a.id}
+                                initialStatus={a.status}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <ListPagination
+                page={pagination.page}
+                pageSize={pagination.pageSize}
+                total={total}
+                basePath="/super-admin/marketplace"
+                searchParams={listSearchParams}
+                defaultPageSize={ADMIN_DEFAULT_PAGE_SIZE}
+                pageSizeOptions={ADMIN_PAGE_SIZE_OPTIONS}
+                hideOnSinglePage={false}
+              />
+            </>
+          )}
+        </Section>
       </PageBody>
     </>
   );

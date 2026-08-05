@@ -1,31 +1,46 @@
-"use client";
-
 import Link from "next/link";
-import { Calendar } from "lucide-react";
+import { CalendarDays } from "lucide-react";
+import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
+import { hrClasses } from "@/lib/hr/theme";
+import { cn } from "@/lib/utils/cn";
 
 export function HrPublicHolidaysGate() {
   return (
-    <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-[#E5E0D8] bg-white p-8 text-center dark:border-hairline-dark dark:bg-panel-dark">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#EEF3FE] text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-        <Calendar className="h-7 w-7" strokeWidth={2} />
-      </div>
-      <h2 className="text-lg font-bold text-ink dark:text-cream-100">
-        Public Holiday Calendar
-      </h2>
-      <p className="mt-2 max-w-md text-sm text-ink-muted dark:text-cream-400">
-        Track Malaysian federal and state holidays for leave planning. Free to
-        activate — when enabled, Hana includes upcoming holidays in daily HR
-        notices.
-      </p>
-      <Link
-        href="/marketplace"
-        className="mt-6 inline-flex items-center justify-center rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
+    <div className="space-y-6">
+      <HrMobileSubnav />
+
+      <section
+        className={cn(
+          "flex flex-col items-center rounded-xl border px-6 py-14 text-center shadow-sm sm:py-16",
+          hrClasses.heroBorder,
+          hrClasses.heroBg,
+        )}
       >
-        Activate in Marketplace
-      </Link>
-      <p className="mt-3 text-xs text-ink-subtle dark:text-cream-500">
-        Owner can activate Public Holiday Calendar from Marketplace → HR
-      </p>
+        <div
+          className={cn(
+            "mb-4 flex h-12 w-12 items-center justify-center rounded-full",
+            hrClasses.iconBox,
+          )}
+        >
+          <CalendarDays className="h-6 w-6" strokeWidth={2} />
+        </div>
+        <h1 className="text-xl font-bold text-ink dark:text-cream-100">
+          Public holiday calendar
+        </h1>
+        <p className="mt-2 max-w-md text-sm text-ink-muted dark:text-cream-400">
+          Enable the holiday calendar for your business to import Malaysian
+          federal and state days for leave planning.
+        </p>
+        <Link
+          href="/marketplace"
+          className={cn(
+            "mt-6 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition",
+            hrClasses.btnPrimary,
+          )}
+        >
+          Open Marketplace
+        </Link>
+      </section>
     </div>
   );
 }

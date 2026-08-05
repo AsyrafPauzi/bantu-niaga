@@ -1,7 +1,7 @@
 "use client";
 
 import { Sun, Moon, Monitor, type LucideIcon } from "lucide-react";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { SettingsPageHero } from "@/components/settings/SettingsPageHero";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -41,11 +41,10 @@ export default function AppearanceSettingsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Settings"
+      <SettingsPageHero
         title="Appearance"
-        description="Pick a theme for Bantu Niaga. The setting is saved in this browser only — we'll sync it to your account in a later release."
-        action={<Badge tone="brand">v1 core</Badge>}
+        subcopy="Pick a theme for Bantu Niaga. The setting is saved in this browser only — we'll sync it to your account in a later release."
+        cta={<Badge tone="brand">v1 core</Badge>}
       />
 
       <Card>

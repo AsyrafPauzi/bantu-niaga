@@ -6,15 +6,22 @@ import {
   openaiChat,
   type ChatCompletionResponse,
 } from "@/lib/ai/openai";
+import { executeHrAssistantTool } from "@/lib/ai/hr-assistant-tools";
 import { executeMarketingAssistantTool } from "@/lib/ai/marketing-assistant-tools";
 import { executeSalesAssistantTool } from "@/lib/ai/sales-assistant-tools";
 import type { BoardroomAgentId } from "@/lib/ai/boardroom-shared";
+import type { BoardroomPriorityAction } from "@/lib/ai/boardroom-output-schema";
 
 export type BoardroomPendingAction = {
-  agent: "marketing" | "sales";
+  id?: string;
+  agent: "marketing" | "sales" | "hr" | "finance" | "operations" | "admin";
   tool: string;
   args: Record<string, unknown>;
   summary: string;
+  label?: string;
+  link_href?: string;
+  rationale?: string;
+  requires_ai_draft?: boolean;
 };
 
 const MARKETING_TOOLS = new Set([
@@ -25,7 +32,58 @@ const MARKETING_TOOLS = new Set([
 
 const SALES_TOOLS = new Set(["create_lead", "add_lead_note"]);
 
-/** Owner confirmed create drafts proposed in the last synthesis. */
+const HR_TOOLS = new Set([
+  "create_leave_record",
+  "update_leave_status",
+  "complete_onboarding_item",
+]);
+
+/** Map chair priority_actions to pending actions (navigation + tool drafts). */
+export function mapPriorityActionsToPending(
+  actions: BoardroomPriorityAction[],
+): BoardroomPendingAction[] {
+  return actions.slice(0, 4).map((a) => {
+    if (a.link_href) {
+      return {
+        id: a.id,
+        agent: a.owner_agent,
+        tool: "navigate",
+        args: { href: a.link_href },
+        summary: a.label,
+        label: a.label,
+        link_href: a.link_href,
+        rationale: a.rationale,
+        requires_ai_draft: false,
+      };
+    }
+
+    const toolByAgent: Partial<Record<BoardroomAgentId, string>> = {
+      marketing: "create_coupon",
+      sales: "add_lead_note",
+      hr: "create_leave_record",
+    };
+
+    return {
+      id: a.id,
+      agent: a.owner_agent,
+      tool: toolByAgent[a.owner_agent] ?? "navigate",
+      args: {},
+      summary: a.label,
+      label: a.label,
+      rationale: a.rationale,
+      requires_ai_draft: a.owner_agent === "marketing",
+    };
+  });
+}
+
+export function filterPendingActionsByIds(
+  actions: BoardroomPendingAction[],
+  ids: string[],
+): BoardroomPendingAction[] {
+  const set = new Set(ids);
+  return actions.filter((a) => a.id && set.has(a.id));
+}
+
 export function isBoardroomCreateConfirm(message: string): boolean {
   const t = message.trim().toLowerCase();
   if (t.length > 120) return false;
@@ -35,7 +93,7 @@ export function isBoardroomCreateConfirm(message: string): boolean {
 }
 
 /**
- * Extract draft actions from the meeting turn (Maya / Sufi only).
+ * Extract draft actions from the meeting turn (Maya / Sufi / Hana).
  * Returns [] if nothing concrete enough to create safely.
  */
 export async function extractBoardroomPendingActions(opts: {
@@ -47,10 +105,11 @@ export async function extractBoardroomPendingActions(opts: {
 }): Promise<BoardroomPendingAction[]> {
   const canMarketing = opts.invited.includes("marketing");
   const canSales = opts.invited.includes("sales");
-  if (!canMarketing && !canSales) return [];
+  const canHr = opts.invited.includes("hr");
+  if (!canMarketing && !canSales && !canHr) return [];
 
   const createHint =
-    /\b(create|draft|buat|cipta|coupon|broadcast|lead|note|content)\b/i.test(
+    /\b(create|draft|buat|cipta|coupon|broadcast|lead|note|content|leave|cuti|approve|lulus|onboarding)\b/i.test(
       `${opts.userMessage}\n${opts.synthContent}`,
     );
   if (!createHint) return [];
@@ -69,14 +128,14 @@ export async function extractBoardroomPendingActions(opts: {
         {
           role: "system",
           content: `Extract ZERO or more draft create actions the owner clearly asked for.
-Only marketing tools: create_coupon, create_broadcast_draft, create_content_draft.
-Only sales tools: create_lead, add_lead_note.
-Hana/hr: never.
+Marketing tools: create_coupon, create_broadcast_draft, create_content_draft.
+Sales tools: create_lead, add_lead_note.
+HR tools (Hana): create_leave_record, update_leave_status, complete_onboarding_item — only when dates, employee, and decision are explicit.
 If details are incomplete, return empty actions.
 Return ONLY JSON:
-{"actions":[{"agent":"marketing"|"sales","tool":"...","args":{},"summary":"short"}]}
+{"actions":[{"agent":"marketing"|"sales"|"hr","tool":"...","args":{},"summary":"short"}]}
 
-Allowed agents present: marketing=${canMarketing} sales=${canSales}`,
+Allowed: marketing=${canMarketing} sales=${canSales} hr=${canHr}`,
         },
         {
           role: "user",
@@ -100,6 +159,9 @@ Allowed agents present: marketing=${canMarketing} sales=${canSales}`,
         if (a.agent === "sales") {
           return canSales && SALES_TOOLS.has(a.tool);
         }
+        if (a.agent === "hr") {
+          return canHr && HR_TOOLS.has(a.tool);
+        }
         return false;
       })
       .slice(0, 5)
@@ -122,6 +184,11 @@ export async function executeBoardroomPendingActions(opts: {
 
   for (const action of opts.actions) {
     try {
+      if (action.tool === "navigate" && action.link_href) {
+        lines.push(`${action.label ?? action.summary} → ${action.link_href}`);
+        continue;
+      }
+
       if (action.agent === "marketing") {
         if (!MARKETING_TOOLS.has(action.tool)) {
           lines.push(`Skipped ${action.tool} (not allowed).`);
@@ -173,6 +240,30 @@ export async function executeBoardroomPendingActions(opts: {
         } else {
           lines.push(
             `Sufi could not create (${action.tool}): ${String(result.error ?? "failed")}`,
+          );
+        }
+        continue;
+      }
+
+      if (action.agent === "hr") {
+        if (!HR_TOOLS.has(action.tool)) {
+          lines.push(`Skipped ${action.tool} (not allowed).`);
+          continue;
+        }
+        const result = await executeHrAssistantTool(
+          opts.ctx,
+          action.tool,
+          action.args,
+        );
+        if (result.ok) {
+          const href =
+            typeof result.href === "string" ? ` → ${result.href}` : "";
+          const warn =
+            result.warnings?.length ? ` (${result.warnings.join(" ")})` : "";
+          lines.push(`Hana: ${action.summary}${warn}${href}`);
+        } else {
+          lines.push(
+            `Hana could not complete (${action.tool}): ${result.message}`,
           );
         }
       }

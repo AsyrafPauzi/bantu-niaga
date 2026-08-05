@@ -1,6 +1,11 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MayaAssistantChat } from "@/components/marketing/MayaAssistantChat";
-import { MayaAssistantShell } from "@/components/marketing/layout/maya-assistant-shell";
+import {
+  PILLAR_ASSISTANT_BODY,
+  PillarAssistantHeader,
+  PillarAssistantShell,
+} from "@/components/dashboard/pillar-assistant-shell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageMarketingCore } from "@/lib/marketing/access";
 import {
@@ -11,6 +16,8 @@ import {
 import { MARKETING_AGENT_SLUG } from "@/lib/marketplace/agent-types";
 import { chatCreditsForReasoning } from "@/lib/settings/reasoning-credits";
 import { loadShortMemory } from "@/lib/ai/short-memory";
+import { pillarClasses } from "@/lib/pillars/theme";
+import { cn } from "@/lib/utils/cn";
 
 export const metadata = { title: "Maya · Marketing AI" };
 export const dynamic = "force-dynamic";
@@ -49,21 +56,31 @@ export default async function MarketingAssistantPage({
     }),
   ]);
 
+  const theme = pillarClasses.marketing;
+
   return (
-    <MayaAssistantShell
+    <PillarAssistantShell
       header={
-        <div className="shrink-0 border-b border-[#E5E0D8] px-4 py-4 dark:border-hairline-dark lg:px-8">
-          <h1 className="text-lg font-bold text-ink dark:text-cream-100">
-            {settings.displayName} · Marketing AI
-          </h1>
-          <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
-            Ask in plain language — Maya plans like marketing staff using your
-            CRM, products, and monthly sales
-          </p>
-        </div>
+        <PillarAssistantHeader
+          pillar="marketing"
+          eyebrow="Marketing"
+          title={`${settings.displayName} · Marketing AI`}
+          subtitle="Ask in plain language — Maya plans like marketing staff using your CRM, products, and monthly sales"
+          action={
+            <Link
+              href="/marketing"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold shadow-sm transition-colors",
+                theme.btnSecondary,
+              )}
+            >
+              Back to Marketing
+            </Link>
+          }
+        />
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col px-4 py-3 lg:px-8 lg:py-4">
+      <div className={PILLAR_ASSISTANT_BODY}>
         <MayaAssistantChat
           businessId={user.businessId}
           initialSeed={seed}
@@ -81,6 +98,6 @@ export default async function MarketingAssistantPage({
           }}
         />
       </div>
-    </MayaAssistantShell>
+    </PillarAssistantShell>
   );
 }

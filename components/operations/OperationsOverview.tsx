@@ -13,6 +13,9 @@ import {
   Wrench,
 } from "lucide-react";
 import {
+  AdminOverviewPanel,
+} from "@/components/admin/AdminOverviewPanel";
+import {
   ModuleAttentionPills,
   ModuleDashboardHero,
   ModuleDashboardShell,
@@ -31,6 +34,10 @@ import {
   type OperationsOrderStatus,
 } from "@/lib/operations/schemas";
 import { cn } from "@/lib/utils/cn";
+import { fmtRelTime } from "@/lib/utils/relative-time";
+import { pillarClasses } from "@/lib/pillars/theme";
+
+const opsTheme = pillarClasses.operations;
 
 const QUICK_ACTION_DEFS: Record<
   OperationsSurface,
@@ -39,7 +46,6 @@ const QUICK_ACTION_DEFS: Record<
     icon: typeof Package;
     title: string;
     subtitle: string;
-    accent: string;
   }
 > = {
   orders: {
@@ -47,42 +53,36 @@ const QUICK_ACTION_DEFS: Record<
     icon: Package,
     title: "Orders",
     subtitle: "To do → Done board",
-    accent: "from-sky-500 to-blue-600",
   },
   bookings: {
     href: "/operations/bookings",
     icon: Calendar,
     title: "Bookings",
     subtitle: "Appointments & slots",
-    accent: "from-violet-500 to-purple-600",
   },
   products: {
     href: "/operations/products",
     icon: ShoppingBag,
     title: "Products",
     subtitle: "Catalog & stock",
-    accent: "from-emerald-500 to-teal-600",
   },
   services: {
     href: "/operations/services",
     icon: Wrench,
     title: "Services",
     subtitle: "Catalogue & pricing",
-    accent: "from-rose-500 to-pink-600",
   },
   suppliers: {
     href: "/operations/suppliers",
     icon: Truck,
     title: "Suppliers",
     subtitle: "Vendor contacts",
-    accent: "from-amber-500 to-orange-500",
   },
   assistant: {
     href: "/operations/assistant",
     icon: Bot,
     title: "Aiman AI",
     subtitle: "Ops copilot",
-    accent: "from-indigo-500 to-fuchsia-600",
   },
 };
 
@@ -123,6 +123,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
     todaySchedule,
     lowStockProducts,
     weekStats,
+    notifications,
   } = data;
 
   const pipelineTotal = Math.max(
@@ -201,13 +202,16 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
     <ModuleDashboardShell>
       <ModuleDashboardHero
         module="Operations"
+        pillar="operations"
         headline={heroHeadline}
         subcopy={heroSub}
-        variant={needsAttention ? "attention" : "calm"}
         cta={
           <Link
             href={profile.primaryCta.href}
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
+              opsTheme.btnPrimary,
+            )}
           >
             <Plus className="h-4 w-4" strokeWidth={2} />
             {profile.primaryCta.label}
@@ -216,7 +220,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
       >
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <div className="rounded-xl border border-white/60 bg-white/70 p-3 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
-            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+            <p className={cn("flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide", opsTheme.eyebrow)}>
               <Package className="h-3 w-3" />
               Open
             </p>
@@ -228,7 +232,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
             </p>
           </div>
           <div className="rounded-xl border border-white/60 bg-white/70 p-3 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
-            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+            <p className={cn("flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide", opsTheme.eyebrow)}>
               <Calendar className="h-3 w-3" />
               Bookings
             </p>
@@ -273,7 +277,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
       </ModuleDashboardHero>
 
       {todaySchedule.length > 0 && profile.showBookings ? (
-        <section className="rounded-2xl border border-violet-200/80 bg-violet-50/40 p-4 dark:border-violet-900/40 dark:bg-violet-950/20 sm:p-5">
+        <section className={cn("p-4 sm:p-5", opsTheme.sectionPanel)}>
           <div className="flex items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
@@ -285,7 +289,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
             </div>
             <Link
               href="/operations/bookings"
-              className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+              className="text-xs font-semibold text-[#EA580C] dark:text-orange-300"
             >
               Full calendar
             </Link>
@@ -294,7 +298,10 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
             {todaySchedule.map((row) => (
               <li
                 key={row.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-violet-200/60 bg-white/80 px-3 py-2 text-sm dark:border-violet-900/50 dark:bg-panel-dark/80"
+                className={cn(
+                  "flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm",
+                  opsTheme.sectionPanelItem,
+                )}
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium text-ink dark:text-cream-100">
@@ -402,7 +409,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
             </div>
             <Link
               href="/operations/orders"
-              className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+              className="text-xs font-semibold text-[#EA580C] dark:text-orange-300"
             >
               All
             </Link>
@@ -480,7 +487,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
               </div>
               <Link
                 href="/operations/bookings"
-                className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+                className="text-xs font-semibold text-[#EA580C] dark:text-orange-300"
               >
                 Calendar
               </Link>
@@ -516,7 +523,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
                         {formatBookingWhen(row.starts_at, row.ends_at)}
                       </p>
                     </div>
-                    <span className="shrink-0 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-800 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100">
+                    <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold", opsTheme.chip)}>
                       {bookingStatusLabel(row.status)}
                     </span>
                   </div>
@@ -528,7 +535,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
       </div>
 
       {profile.showStockAlerts && lowStockProducts.length > 0 ? (
-        <section className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20 sm:p-5">
+        <section className={cn("p-4 sm:p-5", opsTheme.sectionPanel)}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
@@ -540,7 +547,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
             </div>
             <Link
               href="/operations/products"
-              className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+              className="text-xs font-semibold text-[#EA580C] dark:text-orange-300"
             >
               Manage catalog
             </Link>
@@ -549,7 +556,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
             {lowStockProducts.map((row) => (
               <li
                 key={row.id}
-                className="rounded-lg border border-amber-200/80 bg-white/80 px-3 py-2 text-xs dark:border-amber-900/50 dark:bg-panel-dark/80"
+                className={cn("rounded-lg px-3 py-2 text-xs", opsTheme.sectionPanelItem)}
               >
                 <span className="font-semibold text-ink dark:text-cream-100">
                   {row.name}
@@ -564,8 +571,46 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
         </section>
       ) : null}
 
+      <AdminOverviewPanel
+        title="Activity feed"
+        subtitle="Recent operations events for your team"
+      >
+        <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
+          {notifications.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-ink-muted sm:px-5 dark:text-cream-400">
+              Orders, bookings, stock alerts, and exports will appear here.
+            </div>
+          ) : (
+            notifications.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start gap-3 px-4 py-3 sm:px-5"
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg",
+                    opsTheme.iconBox,
+                  )}
+                >
+                  <Clock className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink dark:text-cream-100">
+                    {item.message}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                    {fmtRelTime(item.created_at)}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </AdminOverviewPanel>
+
       <ModuleQuickActions
         module="Operations"
+        pillar="operations"
         actions={buildQuickActions(profile)}
         footer={
           <Link
@@ -583,7 +628,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
         }
       />
 
-      <div className="rounded-xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-3 dark:border-indigo-900/40 dark:from-indigo-950/30 dark:to-violet-950/20 sm:px-5">
+      <div className={cn("rounded-xl border px-4 py-3 sm:px-5", opsTheme.heroBorder, opsTheme.heroBg)}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-200">

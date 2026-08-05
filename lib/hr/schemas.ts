@@ -22,6 +22,39 @@ export const EMPLOYMENT_TYPES = [
 
 export const EMPLOYEE_STATUSES = ["active", "inactive", "terminated"] as const;
 
+/** Common emergency contact relationships for HR forms. */
+export const EMERGENCY_CONTACT_RELATIONSHIPS = [
+  "Father",
+  "Mother",
+  "Spouse",
+  "Sibling",
+  "Child",
+  "Relative",
+  "Friend",
+  "Other",
+] as const;
+
+/** Common Malaysian banks for payroll forms. */
+export const MALAYSIAN_BANKS = [
+  "Maybank",
+  "CIMB Bank",
+  "Public Bank",
+  "RHB Bank",
+  "Hong Leong Bank",
+  "AmBank",
+  "Bank Islam",
+  "BSN",
+  "Bank Rakyat",
+  "Affin Bank",
+  "Alliance Bank",
+  "OCBC Bank",
+  "Standard Chartered",
+  "HSBC",
+  "UOB",
+  "Agrobank",
+  "Other",
+] as const;
+
 export const LEAVE_TYPES = ["annual", "emergency", "mc"] as const;
 
 export const LEAVE_STATUSES = ["pending", "approved", "rejected"] as const;

@@ -56,6 +56,7 @@ export interface AiAgentRow {
   status: "active" | "beta" | "disabled";
   published_version_id: string | null;
   updated_at: string;
+  settings?: Record<string, unknown>;
 }
 
 export interface AiAgentVersion {
@@ -99,9 +100,10 @@ export interface KnowledgeSource {
 export interface AgentUsage7d {
   agent_slug: string;
   invocations: number;
-  avg_latency_ms: number;
-  failure_rate_pct: number;
+  /** Tenant credits charged (live ai_usage). */
+  credits: number;
   spend_myr: number;
+  failure_rate_pct: number | null;
   /** Last 7 daily buckets for the sparkline. */
   hourly: number[];
 }
@@ -117,9 +119,27 @@ export interface MarketplaceAdminRow {
   cadence: "monthly" | "yearly" | "one_time" | "included";
   included_in_tier: string[];
   is_featured: boolean;
+  is_coming_soon: boolean;
   status: "live" | "draft" | "disabled";
   /** Count of active business_addons. Filled by loadMarketplaceAdmin. */
   active_subscriptions: number;
   /** Sum of monthly recurring contribution in MYR. */
   mrr_myr: number;
+}
+
+export interface MarketplaceAddonActivation {
+  business_id: string;
+  business_name: string;
+  idcompany: string;
+  status: string;
+  qty: number;
+  activated_at: string;
+}
+
+export interface MarketplaceAddonDetail extends MarketplaceAdminRow {
+  long_desc: string | null;
+  is_coming_soon: boolean;
+  sort_order: number;
+  created_at: string;
+  recent_activations: MarketplaceAddonActivation[];
 }

@@ -1,13 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Users } from "lucide-react";
 import { AdminCatalogEmpty } from "@/components/admin/AdminCatalogUi";
 import {
-  AdminOverviewPanel,
-  AdminOverviewRow,
-} from "@/components/admin/AdminOverviewPanel";
+  ModuleListPanel,
+  ModuleListPanelFooter,
+  ModuleListTable,
+  ModuleListTableBody,
+  ModuleListTableHead,
+  MODULE_LIST_TABLE_ROW_CLASS,
+} from "@/components/dashboard/module-list-panel";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import { ListPagination } from "@/components/ui/list-pagination";
 import { formatMyr } from "@/lib/marketing/metrics";
@@ -56,6 +61,7 @@ interface LeadsListSelectableProps {
   overdueBeforeIso: string;
   pagination: { page: number; pageSize: number };
   searchParamsForPagination: Record<string, string | undefined>;
+  embedded?: boolean;
 }
 
 function toDateInput(iso: string): string {
@@ -76,6 +82,7 @@ export function LeadsListSelectable({
   overdueBeforeIso,
   pagination,
   searchParamsForPagination,
+  embedded = false,
 }: LeadsListSelectableProps) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -159,36 +166,38 @@ export function LeadsListSelectable({
   }
 
   if (leads.length === 0) {
-    return (
-      <AdminOverviewPanel title="Leads" subtitle={`${total} total`}>
-        <div className="p-4 sm:p-5">
-          <AdminCatalogEmpty
-            icon={Users}
-            title="No leads yet"
-            hint="Create one to start chasing prospects."
-            className="border-orange-200/80 bg-orange-50/30 dark:border-orange-900/40 dark:bg-orange-950/15"
-          />
-        </div>
-      </AdminOverviewPanel>
+    const empty = (
+      <div className="px-5 py-14 text-center">
+        <AdminCatalogEmpty
+          icon={Users}
+          title={embedded ? "No leads match" : "No leads yet"}
+          hint={
+            embedded
+              ? "Try another filter or create a new lead."
+              : "Create one to start chasing prospects."
+          }
+          className="border-blue-200/80 bg-blue-50/30 dark:border-blue-900/40 dark:bg-blue-950/15"
+        />
+      </div>
     );
+    if (embedded) return empty;
+    return <ModuleListPanel>{empty}</ModuleListPanel>;
   }
 
-  return (
-    <AdminOverviewPanel title="Leads" subtitle={`${total} total`}>
+  const listBody = (
+    <>
       {someSelected ? (
-        <div className="flex flex-col gap-3 border-b border-brand-200 bg-brand-50/60 px-4 py-3 dark:border-brand-800 dark:bg-brand-900/20 sm:px-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-brand-900 dark:text-brand-100">
-              {selected.size} selected
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="ml-2 text-xs font-medium text-brand-700 underline-offset-2 hover:underline dark:text-brand-300"
-              >
-                Clear
-              </button>
-            </p>
-          </div>
+        <div className="flex flex-col gap-3 border-b border-blue-200 bg-blue-50/60 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/20 sm:px-5">
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+            {selected.size} selected
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="ml-2 text-xs font-medium text-[#2563EB] underline-offset-2 hover:underline dark:text-blue-300"
+            >
+              Clear
+            </button>
+          </p>
           <div className="flex flex-wrap items-end gap-2">
             <label className="text-xs">
               <span className="font-medium text-ink-muted">Status</span>
@@ -225,7 +234,7 @@ export function LeadsListSelectable({
               type="button"
               onClick={() => void applyBulk()}
               disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-60"
             >
               {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               Apply to selected
@@ -239,85 +248,119 @@ export function LeadsListSelectable({
         </div>
       ) : null}
 
-      <div className="flex items-center gap-2 border-b border-cream-200 px-4 py-2 dark:border-hairline-dark sm:px-5">
-        <input
-          type="checkbox"
-          checked={allOnPageSelected}
-          onChange={togglePage}
-          aria-label="Select all on this page"
-          className="h-4 w-4 rounded border-cream-300"
+      <ModuleListTable>
+        <ModuleListTableHead>
+          <tr>
+            <th className="w-10 px-3 py-3">
+              <input
+                type="checkbox"
+                checked={allOnPageSelected}
+                onChange={togglePage}
+                aria-label="Select all on this page"
+                className="h-4 w-4 rounded border-cream-300 text-[#2563EB]"
+              />
+            </th>
+            <th className="px-3 py-3 text-left">Lead</th>
+            <th className="px-3 py-3 text-left">Phone</th>
+            <th className="px-3 py-3 text-left">Assignee</th>
+            <th className="px-3 py-3 text-left">Follow-up</th>
+            <th className="px-3 py-3 text-left">Status</th>
+            <th className="px-5 py-3 text-right">Value</th>
+          </tr>
+        </ModuleListTableHead>
+        <ModuleListTableBody>
+          {leads.map((lead) => {
+            const overdue =
+              lead.follow_up_at &&
+              lead.status !== "won" &&
+              lead.status !== "lost" &&
+              new Date(lead.follow_up_at) < new Date(overdueBeforeIso);
+            const checked = selected.has(lead.id);
+            return (
+              <tr
+                key={lead.id}
+                className={cn(
+                  MODULE_LIST_TABLE_ROW_CLASS,
+                  checked && "bg-blue-50/40 dark:bg-blue-950/10",
+                )}
+              >
+                <td className="px-3 py-3">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleOne(lead.id)}
+                    aria-label={`Select ${lead.name}`}
+                    className="h-4 w-4 rounded border-cream-300 text-[#2563EB]"
+                  />
+                </td>
+                <td className="px-3 py-3">
+                  <Link
+                    href={`/sales/leads/${lead.id}`}
+                    className="font-semibold text-ink hover:text-[#2563EB] dark:text-cream-100"
+                  >
+                    {lead.name}
+                  </Link>
+                </td>
+                <td className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
+                  {lead.phone_e164}
+                </td>
+                <td className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
+                  {lead.assigned_to
+                    ? (assigneeNames.get(lead.assigned_to) ?? "Assigned")
+                    : "—"}
+                </td>
+                <td
+                  className={cn(
+                    "px-3 py-3 text-xs",
+                    overdue
+                      ? "font-semibold text-rose-700 dark:text-rose-300"
+                      : "text-ink-muted dark:text-cream-400",
+                  )}
+                >
+                  {lead.follow_up_at
+                    ? toDateInput(lead.follow_up_at)
+                    : "—"}
+                  {overdue ? " · Overdue" : ""}
+                </td>
+                <td className="px-3 py-3">
+                  <StatusPill tone={STATUS_TONE[lead.status]}>
+                    {lead.status}
+                  </StatusPill>
+                </td>
+                <td className="px-5 py-3 text-right text-sm font-semibold tabular-nums text-ink-muted dark:text-cream-300">
+                  {lead.estimated_value_myr != null
+                    ? formatMyr(Number(lead.estimated_value_myr))
+                    : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </ModuleListTableBody>
+      </ModuleListTable>
+
+      {embedded ? (
+        <ModuleListPanelFooter className="p-0">
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={total}
+            basePath="/sales/leads"
+            searchParams={searchParamsForPagination}
+            className="w-full border-0"
+          />
+        </ModuleListPanelFooter>
+      ) : (
+        <ListPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={total}
+          basePath="/sales/leads"
+          searchParams={searchParamsForPagination}
         />
-        <span className="text-xs text-ink-muted">Select page</span>
-      </div>
-
-      <ul>
-        {leads.map((lead) => {
-          const overdue =
-            lead.follow_up_at &&
-            lead.status !== "won" &&
-            lead.status !== "lost" &&
-            new Date(lead.follow_up_at) < new Date(overdueBeforeIso);
-          const checked = selected.has(lead.id);
-          return (
-            <li
-              key={lead.id}
-              className={cn(
-                "flex items-stretch border-b border-cream-100 last:border-0 dark:border-hairline-dark/50",
-                checked && "bg-brand-50/40 dark:bg-brand-900/10",
-              )}
-            >
-              <label className="flex shrink-0 cursor-pointer items-center px-4 sm:px-5">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggleOne(lead.id)}
-                  aria-label={`Select ${lead.name}`}
-                  className="h-4 w-4 rounded border-cream-300"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </label>
-              <div className="min-w-0 flex-1">
-                <AdminOverviewRow
-                  href={`/sales/leads/${lead.id}`}
-                  title={lead.name}
-                  subtitle={[
-                    lead.phone_e164,
-                    lead.assigned_to
-                      ? (assigneeNames.get(lead.assigned_to) ?? "Assigned")
-                      : null,
-                    lead.follow_up_at
-                      ? `Follow-up ${toDateInput(lead.follow_up_at)}`
-                      : null,
-                    overdue ? "Overdue" : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                  badge={
-                    <StatusPill tone={STATUS_TONE[lead.status]}>
-                      {lead.status}
-                    </StatusPill>
-                  }
-                  trailing={
-                    lead.estimated_value_myr != null ? (
-                      <span className="text-sm font-semibold tabular-nums text-ink-muted">
-                        {formatMyr(Number(lead.estimated_value_myr))}
-                      </span>
-                    ) : undefined
-                  }
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-
-      <ListPagination
-        page={pagination.page}
-        pageSize={pagination.pageSize}
-        total={total}
-        basePath="/sales/leads"
-        searchParams={searchParamsForPagination}
-      />
-    </AdminOverviewPanel>
+      )}
+    </>
   );
+
+  if (embedded) return listBody;
+  return <ModuleListPanel>{listBody}</ModuleListPanel>;
 }

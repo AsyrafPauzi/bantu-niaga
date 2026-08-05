@@ -8,6 +8,11 @@ import { StatusPill } from "@/components/dashboard/status-pill";
 import { Button } from "@/components/ui/button";
 import { buildCustomersExportUrl } from "@/lib/marketing/customers-export-url";
 import { formatMyr } from "@/lib/marketing/metrics";
+import {
+  MODULE_LIST_TABLE_HEAD_CLASS,
+  MODULE_LIST_TABLE_BODY_CLASS,
+  MODULE_LIST_TABLE_ROW_CLASS,
+} from "@/components/dashboard/module-list-panel";
 import { cn } from "@/lib/utils/cn";
 
 export interface CustomerListSelectableRow {
@@ -215,7 +220,7 @@ export function CustomerListSelectable({
 
       <div className="hidden lg:block">
         <table className="min-w-full text-sm">
-          <thead className="bg-cream-100/60 text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:bg-hairline-dark/30 dark:text-cream-400">
+          <thead className={MODULE_LIST_TABLE_HEAD_CLASS}>
             <tr>
               <th className="w-10 px-3 py-3">
                 <input
@@ -258,7 +263,7 @@ export function CustomerListSelectable({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-cream-200 dark:divide-hairline-dark">
+          <tbody className={MODULE_LIST_TABLE_BODY_CLASS}>
             {rows.map((row) => {
               const seg = segmentFromTags(row.auto_tags);
               const tags = [

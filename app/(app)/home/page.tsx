@@ -48,7 +48,17 @@ export const metadata = { title: "Home" };
 export const dynamic = "force-dynamic";
 
 const TONE_TILE: Record<
-  "brand" | "accent" | "success" | "warning" | "neutral",
+  | "brand"
+  | "accent"
+  | "success"
+  | "warning"
+  | "neutral"
+  | "admin"
+  | "finance"
+  | "operations"
+  | "marketing"
+  | "sales"
+  | "hr",
   { wrap: string; icon: string }
 > = {
   brand: {
@@ -70,6 +80,30 @@ const TONE_TILE: Record<
   neutral: {
     wrap: "bg-cream-200 dark:bg-hairline-dark",
     icon: "text-ink-muted dark:text-cream-400",
+  },
+  admin: {
+    wrap: "bg-indigo-50 dark:bg-indigo-950/40",
+    icon: "text-[#4F46E5] dark:text-indigo-300",
+  },
+  finance: {
+    wrap: "bg-emerald-50 dark:bg-emerald-950/40",
+    icon: "text-[#059669] dark:text-emerald-300",
+  },
+  operations: {
+    wrap: "bg-orange-50 dark:bg-orange-950/40",
+    icon: "text-[#EA580C] dark:text-orange-300",
+  },
+  marketing: {
+    wrap: "bg-purple-50 dark:bg-purple-950/40",
+    icon: "text-[#9333EA] dark:text-purple-300",
+  },
+  sales: {
+    wrap: "bg-blue-50 dark:bg-blue-950/40",
+    icon: "text-[#2563EB] dark:text-blue-300",
+  },
+  hr: {
+    wrap: "bg-teal-50 dark:bg-teal-950/40",
+    icon: "text-[#0D9488] dark:text-teal-300",
   },
 };
 
@@ -166,7 +200,18 @@ export default async function HomePage() {
     metric: string;
     secondary: string;
     helper: string;
-    tone: "brand" | "accent" | "success" | "warning" | "neutral";
+    tone:
+      | "brand"
+      | "accent"
+      | "success"
+      | "warning"
+      | "neutral"
+      | "admin"
+      | "finance"
+      | "operations"
+      | "marketing"
+      | "sales"
+      | "hr";
     live: boolean;
   }
 
@@ -179,7 +224,7 @@ export default async function HomePage() {
       metric: String(figures.docsThisMonth),
       secondary: "docs",
       helper: `${figures.docsThisMonth} uploaded this month`,
-      tone: "brand",
+      tone: "admin",
       live: true,
     },
     {
@@ -190,7 +235,7 @@ export default async function HomePage() {
       metric: `RM ${formatMyrAmount(figures.financeMtd)}`,
       secondary: "MTD",
       helper: `${figures.outstandingInvoices} invoices outstanding`,
-      tone: "success",
+      tone: "finance",
       live: true,
     },
     {
@@ -202,7 +247,7 @@ export default async function HomePage() {
       secondary: `${figures.opsAtRisk} SLA risk`,
       helper:
         figures.opsAtRisk > 0 ? "Some orders need attention" : "All on track",
-      tone: figures.opsAtRisk > 0 ? "warning" : "brand",
+      tone: figures.opsAtRisk > 0 ? "warning" : "operations",
       live: true,
     },
     {
@@ -213,7 +258,7 @@ export default async function HomePage() {
       metric: formatCount(snapshot.totalCustomers),
       secondary: `+${formatCount(snapshot.newThisMonth)} MTD`,
       helper: "Customers in CRM",
-      tone: "accent",
+      tone: "marketing",
       live: true,
     },
     {
@@ -224,7 +269,7 @@ export default async function HomePage() {
       metric: formatCount(figures.salesTickets),
       secondary: `RM ${formatMyrAmount(figures.salesToday)} today`,
       helper: "Across all channels",
-      tone: "brand",
+      tone: "sales",
       live: true,
     },
     {
@@ -238,7 +283,7 @@ export default async function HomePage() {
         figures.hrPendingLeave > 0
           ? "Approve in HR dashboard"
           : "All caught up",
-      tone: "brand",
+      tone: "hr",
       live: true,
     },
   ];

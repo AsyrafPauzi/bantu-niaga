@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 
-import { PageHeader } from "@/components/dashboard/page-header";
+import { SettingsPageHero } from "@/components/settings/SettingsPageHero";
 import { ConsentMatrix } from "@/components/settings/privacy/ConsentMatrix";
 import { DataExportCard } from "@/components/settings/privacy/DataExportCard";
 import { DeleteAccountCard } from "@/components/settings/privacy/DeleteAccountCard";
@@ -55,10 +55,9 @@ export default async function PrivacySettingsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Settings"
+      <SettingsPageHero
         title="Privacy & data"
-        description={summaryParts.join(" · ")}
+        subcopy={summaryParts.join(" · ")}
       />
 
       {pendingDeletion ? (

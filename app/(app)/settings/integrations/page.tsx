@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { SettingsPageHero } from "@/components/settings/SettingsPageHero";
 import { IntegrationsView } from "@/components/settings/IntegrationsView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -43,10 +43,9 @@ export default async function IntegrationsSettingsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Settings"
+      <SettingsPageHero
         title="Integrations"
-        description={summaryParts.join(" · ")}
+        subcopy={summaryParts.join(" · ")}
       />
 
       <IntegrationsView

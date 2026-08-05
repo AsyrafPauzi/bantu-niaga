@@ -23,9 +23,12 @@ import {
 } from "@/components/admin/AdminComplianceDetailModal";
 import {
   AdminCatalogEmpty,
-  AdminCatalogList,
   AdminCatalogThumb,
 } from "@/components/admin/AdminCatalogUi";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+} from "@/components/dashboard/module-list-panel";
 import {
   QuickActionBar,
   QuickCreateActions,
@@ -384,93 +387,6 @@ export function AdminCompliancePanel({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as ComplianceFilter)}
-          className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          aria-label="Filter licences"
-        >
-          <option value="all">All licences</option>
-          <option value="overdue">Overdue only</option>
-          <option value="due_month">Due this month</option>
-          {ADMIN_COMPLIANCE_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {categoryLabel(c)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={sortKey}
-          onChange={(e) => setSortKey(e.target.value as SortKey)}
-          className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          aria-label="Sort licences"
-        >
-          <option value="expiry">Sort by expiry</option>
-          <option value="title">Sort by name</option>
-          <option value="category">Sort by category</option>
-        </select>
-        <div className="flex rounded-lg border border-cream-300 dark:border-hairline-dark">
-          <button
-            type="button"
-            onClick={() => setViewMode("list")}
-            className={cn(
-              "inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold",
-              viewMode === "list"
-                ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
-                : "text-ink-muted dark:text-cream-400",
-            )}
-          >
-            <LayoutGrid className="h-4 w-4" />
-            List
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("calendar")}
-            className={cn(
-              "inline-flex items-center gap-1 border-l border-cream-300 px-3 py-2 text-sm font-semibold dark:border-hairline-dark",
-              viewMode === "calendar"
-                ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
-                : "text-ink-muted dark:text-cream-400",
-            )}
-          >
-            <CalendarDays className="h-4 w-4" />
-            Calendar
-          </button>
-        </div>
-        <a
-          href="/api/admin/compliance/export?format=csv"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 px-3 py-2 text-sm font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400"
-        >
-          <Download className="h-4 w-4" />
-          CSV
-        </a>
-        <a
-          href="/api/admin/compliance/export?format=html"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 px-3 py-2 text-sm font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400"
-        >
-          <Download className="h-4 w-4" />
-          PDF / print
-        </a>
-        <Link
-          href={amirHref}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-800 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-100"
-        >
-          <Sparkles className="h-4 w-4" />
-          Ask Amir
-        </Link>
-        {missingDocCount > 0 ? (
-          <Link
-            href={amirMissingDocsHref}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm font-semibold text-[#8C5C0A] dark:text-[#F5C97A]"
-          >
-            Missing docs ({missingDocCount})
-          </Link>
-        ) : null}
-      </div>
-
       <div className="rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-white p-4 dark:border-brand-800 dark:from-brand-950/40 dark:to-panel-dark">
         <div>
           <p className="flex items-center gap-1.5 text-sm font-semibold text-ink dark:text-cream-100">
@@ -662,15 +578,108 @@ export function AdminCompliancePanel({
             </div>
           }
         />
-      ) : viewMode === "calendar" ? (
-        <AdminComplianceCalendar items={filteredItems} onSelect={openItem} />
-      ) : filteredItems.length === 0 ? (
-        <p className="rounded-xl border border-cream-200 bg-white px-4 py-8 text-center text-sm text-ink-muted dark:border-hairline-dark dark:bg-panel-dark">
-          No licences match this filter.
-        </p>
       ) : (
-        <AdminCatalogList title="Renewal tracker" total={filteredItems.length}>
-          <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+        <ModuleListPanel>
+          <ModuleListPanelFilters>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as ComplianceFilter)}
+                className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                aria-label="Filter licences"
+              >
+                <option value="all">All licences</option>
+                <option value="overdue">Overdue only</option>
+                <option value="due_month">Due this month</option>
+                {ADMIN_COMPLIANCE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {categoryLabel(c)}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                aria-label="Sort licences"
+              >
+                <option value="expiry">Sort by expiry</option>
+                <option value="title">Sort by name</option>
+                <option value="category">Sort by category</option>
+              </select>
+              <div className="flex rounded-lg border border-cream-300 dark:border-hairline-dark">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold",
+                    viewMode === "list"
+                      ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
+                      : "text-ink-muted dark:text-cream-400",
+                  )}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("calendar")}
+                  className={cn(
+                    "inline-flex items-center gap-1 border-l border-cream-300 px-3 py-2 text-sm font-semibold dark:border-hairline-dark",
+                    viewMode === "calendar"
+                      ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
+                      : "text-ink-muted dark:text-cream-400",
+                  )}
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Calendar
+                </button>
+              </div>
+              <a
+                href="/api/admin/compliance/export?format=csv"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 px-3 py-2 text-sm font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400"
+              >
+                <Download className="h-4 w-4" />
+                CSV
+              </a>
+              <a
+                href="/api/admin/compliance/export?format=html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 px-3 py-2 text-sm font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400"
+              >
+                <Download className="h-4 w-4" />
+                PDF / print
+              </a>
+              <Link
+                href={amirHref}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-800 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-100"
+              >
+                <Sparkles className="h-4 w-4" />
+                Ask Amir
+              </Link>
+              {missingDocCount > 0 ? (
+                <Link
+                  href={amirMissingDocsHref}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm font-semibold text-[#8C5C0A] dark:text-[#F5C97A]"
+                >
+                  Missing docs ({missingDocCount})
+                </Link>
+              ) : null}
+            </div>
+            <p className="mt-3 text-xs font-medium text-ink-muted dark:text-cream-400">
+              Renewal tracker · {filteredItems.length} shown
+            </p>
+          </ModuleListPanelFilters>
+
+          {viewMode === "calendar" ? (
+            <AdminComplianceCalendar items={filteredItems} onSelect={openItem} />
+          ) : filteredItems.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-ink-muted dark:text-cream-400">
+              No licences match this filter.
+            </p>
+          ) : (
+            <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
             {filteredItems.map((item) => {
               const busy = busyId === item.id;
               const days = item.days_until_expiry ?? 0;
@@ -747,7 +756,8 @@ export function AdminCompliancePanel({
               );
             })}
           </ul>
-        </AdminCatalogList>
+          )}
+        </ModuleListPanel>
       )}
 
       {selected ? (

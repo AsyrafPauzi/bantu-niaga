@@ -12,6 +12,7 @@ import {
   type BroadcastRow,
   type ResolvedRecipient,
 } from "@/lib/marketing/broadcasts";
+import { notifyMarketingBroadcastSent } from "@/lib/marketing/notify";
 import { buildMarketingEmailHtml } from "@/lib/marketing/email-broadcast-template";
 
 export const dynamic = "force-dynamic";
@@ -296,6 +297,13 @@ export async function POST(_request: Request, ctx: RouteContext) {
       status: row.status,
     }));
 
+    notifyMarketingBroadcastSent({
+      businessId: user.businessId,
+      broadcastId,
+      title: broadcast.name,
+      recipientCount: inserted.length,
+    });
+
     return NextResponse.json({
       broadcast_id: broadcastId,
       channel: "whatsapp_ctc",
@@ -391,6 +399,13 @@ export async function POST(_request: Request, ctx: RouteContext) {
       sent_at: now,
     })
     .eq("id", broadcastId);
+
+  notifyMarketingBroadcastSent({
+    businessId: user.businessId,
+    broadcastId,
+    title: broadcast.name,
+    recipientCount: inserted.length,
+  });
 
   return NextResponse.json({
     broadcast_id: broadcastId,

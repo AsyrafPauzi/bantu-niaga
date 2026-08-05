@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { SettingsPageHero } from "@/components/settings/SettingsPageHero";
 import { AiAgentsView } from "@/components/settings/AiAgentsView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { loadAgentsOverview } from "@/lib/settings/ai-agents";
@@ -40,10 +40,9 @@ export default async function AiAgentSettingsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Settings"
+      <SettingsPageHero
         title="AI agents"
-        description={buildDescription(overview)}
+        subcopy={buildDescription(overview)}
       />
 
       <AiAgentsView initial={overview} canEdit={canEdit} />

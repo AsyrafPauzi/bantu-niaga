@@ -17,6 +17,7 @@ import {
   replaceInvoiceItems,
 } from "@/lib/finance/invoice-db";
 import type { FinanceInvoiceRow } from "@/lib/finance/schemas";
+import { notifyFinanceQuoteConverted } from "@/lib/finance/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -190,5 +191,14 @@ export async function POST(
   }
 
   const full = await loadInvoiceWithItems(supabase, user.businessId, row.id);
+
+  notifyFinanceQuoteConverted({
+    businessId: user.businessId,
+    quoteNumber: quote.number,
+    invoiceId: row.id,
+    invoiceNumber: row.number,
+    customerName: quote.customer_name,
+  });
+
   return NextResponse.json({ ok: true, data: full ?? row }, { status: 201 });
 }

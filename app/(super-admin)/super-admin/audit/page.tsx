@@ -1,20 +1,51 @@
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import Link from "next/link";
+import { Suspense } from "react";
+import { UsersRound } from "lucide-react";
 import { PageTopbar } from "@/components/super-admin/PageTopbar";
-import { PageBody } from "@/components/super-admin/primitives";
+import {
+  KpiCard,
+  PageBody,
+  Section,
+  formatInt,
+} from "@/components/super-admin/primitives";
+import { AuditFilterBar } from "@/components/super-admin/AuditFilterBar";
+import { SortableTh } from "@/components/super-admin/SortableTh";
 import { ListPagination } from "@/components/ui/list-pagination";
-import { parsePagination } from "@/lib/pagination";
-import { FileClock } from "lucide-react";
+import {
+  ADMIN_DEFAULT_PAGE_SIZE,
+  ADMIN_PAGE_SIZE_OPTIONS,
+  parsePagination,
+  withPageSizeSearchParam,
+} from "@/lib/pagination";
+import { loadAuditPage, loadAuditSummary } from "@/lib/super-admin/audit-load";
+import {
+  formatAuditAction,
+  formatAuditDetails,
+  type AuditCategory,
+} from "@/lib/super-admin/audit-format";
+import { parseAuditSort } from "@/lib/super-admin/audit-sort";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Audit log · Super admin" };
 
-interface AuditRow {
-  id: string;
-  admin_email: string | null;
-  action: string;
-  target_type: string | null;
-  target_id: string | null;
-  diff: Record<string, unknown> | null;
-  created_at: string;
+function paramString(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-MY", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString("en-MY", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${date} · ${time}`;
 }
 
 export default async function SuperAdminAudit({
@@ -23,75 +54,214 @@ export default async function SuperAdminAudit({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const pagination = parsePagination(params, { defaultPageSize: 25 });
-  const svc = createServiceRoleClient();
-  const { data, count } = await svc
-    .from("super_admin_audit")
-    .select(
-      "id, admin_email, action, target_type, target_id, diff, created_at",
-      { count: "exact" },
-    )
-    .order("created_at", { ascending: false })
-    .range(pagination.from, pagination.to);
+  const pagination = parsePagination(params, {
+    defaultPageSize: ADMIN_DEFAULT_PAGE_SIZE,
+    allowedPageSizes: ADMIN_PAGE_SIZE_OPTIONS,
+  });
+  const sortState = parseAuditSort(params);
+  const q = paramString(params.q);
+  const category = (paramString(params.category) || "all") as AuditCategory;
 
-  const rows = (data ?? []) as AuditRow[];
-  const total = count ?? rows.length;
+  const [summary, { rows, total }] = await Promise.all([
+    loadAuditSummary(),
+    loadAuditPage({
+      from: pagination.from,
+      to: pagination.to,
+      filters: {
+        q: q || undefined,
+        category,
+      },
+      sort: sortState,
+    }),
+  ]);
+
+  const filterActive = Boolean(q || category !== "all");
+  const listSearchParams = withPageSizeSearchParam(
+    {
+      q: q || undefined,
+      category: category !== "all" ? category : undefined,
+      sort: sortState.field !== "when" ? sortState.field : undefined,
+      order:
+        sortState.field !== "when" || sortState.order !== "desc"
+          ? sortState.order
+          : undefined,
+    },
+    pagination.pageSize,
+  );
+  const hasListState =
+    filterActive ||
+    sortState.field !== "when" ||
+    sortState.order !== "desc" ||
+    pagination.pageSize !== ADMIN_DEFAULT_PAGE_SIZE;
 
   return (
     <>
       <PageTopbar
         title="Audit log"
-        subtitle={`${total} platform-admin actions, cross-tenant`}
+        subtitle="Platform-admin actions recorded in super_admin_audit"
+        right={
+          <Link
+            href="/super-admin/users"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100"
+          >
+            <UsersRound className="h-3.5 w-3.5" />
+            Users
+          </Link>
+        }
       />
+
       <PageBody>
-        <div className="overflow-hidden rounded-xl border border-cream-300 bg-white shadow-card">
-          <div className="grid grid-cols-[140px_180px_180px_220px_1fr] gap-3 border-b border-cream-300 bg-cream-100 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-            <span>When</span>
-            <span>Admin</span>
-            <span>Action</span>
-            <span>Target</span>
-            <span>Diff</span>
-          </div>
+        <div className="mb-3 grid grid-cols-4 gap-3">
+          <KpiCard
+            label="Total"
+            value={formatInt(summary.total)}
+            subtle="all entries"
+            trend="flat"
+          />
+          <KpiCard
+            label="Last 7 days"
+            value={formatInt(summary.last7d)}
+            subtle="recent activity"
+            trend="up"
+          />
+          <KpiCard
+            label="User actions"
+            value={formatInt(summary.userActions)}
+            subtle="suspend, role, impersonate"
+            trend="flat"
+          />
+          <KpiCard
+            label="Integrations"
+            value={formatInt(summary.integrationActions)}
+            subtle="config and tests"
+            trend="flat"
+          />
+        </div>
+
+        <Suspense
+          fallback={
+            <div className="h-[88px] animate-pulse rounded-xl border border-cream-300 bg-white" />
+          }
+        >
+          <AuditFilterBar initialQ={q} initialCategory={category} />
+        </Suspense>
+
+        <Section
+          className="!p-4 !pb-0"
+          title="Activity log"
+          description={
+            filterActive
+              ? `${formatInt(total)} matching`
+              : `${formatInt(total)} entries`
+          }
+        >
           {rows.length === 0 ? (
-            <div className="grid place-items-center px-5 py-12 text-center text-sm text-ink-muted">
-              <FileClock className="mb-3 h-7 w-7 text-ink-subtle" />
-              No platform-admin actions yet. Every super-admin mutation gets
-              recorded here.
-            </div>
+            <p className="px-5 py-10 text-center text-sm text-ink-muted">
+              {filterActive
+                ? "No audit entries match your filters."
+                : "No platform-admin actions yet. Super-admin mutations are recorded here automatically."}
+            </p>
           ) : (
-            <ul>
-              {rows.map((r) => (
-                <li
-                  key={r.id}
-                  className="grid grid-cols-[140px_180px_180px_220px_1fr] items-start gap-3 border-b border-cream-300 px-5 py-3 last:border-b-0"
-                >
-                  <span className="text-[11px] text-ink-muted">
-                    {new Date(r.created_at).toLocaleString()}
-                  </span>
-                  <span className="truncate text-xs text-ink">
-                    {r.admin_email ?? "—"}
-                  </span>
-                  <span className="truncate text-xs font-semibold text-ink">
-                    {r.action}
-                  </span>
-                  <span className="truncate text-[11px] text-ink-muted">
-                    {r.target_type ?? "—"}
-                    {r.target_id ? ` · ${r.target_id.slice(0, 8)}` : ""}
-                  </span>
-                  <code className="truncate font-mono text-[11px] text-ink-muted">
-                    {r.diff ? JSON.stringify(r.diff) : "—"}
-                  </code>
-                </li>
-              ))}
-            </ul>
+            <div className="-mx-4 mt-3 overflow-x-auto border-t border-cream-200">
+              <table className="w-full min-w-[820px] border-collapse text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-cream-300 bg-cream-50/80 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+                    <SortableTh
+                      label="When"
+                      field="when"
+                      currentSort={sortState.field}
+                      currentOrder={sortState.order}
+                      basePath="/super-admin/audit"
+                      searchParams={listSearchParams}
+                      className="px-4 py-2"
+                    />
+                    <SortableTh
+                      label="Admin"
+                      field="admin"
+                      currentSort={sortState.field}
+                      currentOrder={sortState.order}
+                      basePath="/super-admin/audit"
+                      searchParams={listSearchParams}
+                      className="px-3 py-2"
+                    />
+                    <SortableTh
+                      label="Action"
+                      field="action"
+                      currentSort={sortState.field}
+                      currentOrder={sortState.order}
+                      basePath="/super-admin/audit"
+                      searchParams={listSearchParams}
+                      className="px-3 py-2"
+                    />
+                    <SortableTh
+                      label="Tenant"
+                      field="tenant"
+                      currentSort={sortState.field}
+                      currentOrder={sortState.order}
+                      basePath="/super-admin/audit"
+                      searchParams={listSearchParams}
+                      className="px-3 py-2"
+                    />
+                    <SortableTh
+                      label="Details"
+                      field="details"
+                      currentSort={sortState.field}
+                      currentOrder={sortState.order}
+                      basePath="/super-admin/audit"
+                      searchParams={listSearchParams}
+                      className="px-3 py-2"
+                    />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-cream-200">
+                  {rows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="align-middle hover:bg-cream-50/60"
+                    >
+                      <td className="whitespace-nowrap px-4 py-2 text-[11px] text-ink-muted">
+                        {formatWhen(row.createdAt)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <p className="truncate font-medium text-ink">
+                          {row.adminEmail ?? "Unknown admin"}
+                        </p>
+                      </td>
+                      <td className="px-3 py-2 font-medium text-ink">
+                        {formatAuditAction(row.action)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.targetBusinessId ? (
+                          <Link
+                            href={`/super-admin/businesses/${row.targetBusinessId}`}
+                            className="block max-w-[180px] truncate font-medium text-brand-700 hover:underline"
+                          >
+                            {row.businessName ?? "Unknown tenant"}
+                          </Link>
+                        ) : (
+                          <span className="text-[11px] text-ink-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-[11px] text-ink-muted">
+                        {formatAuditDetails(row.action, row.diff)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
+
           <ListPagination
             page={pagination.page}
             pageSize={pagination.pageSize}
             total={total}
             basePath="/super-admin/audit"
+            searchParams={hasListState ? listSearchParams : undefined}
+            pageSizeOptions={ADMIN_PAGE_SIZE_OPTIONS}
+            defaultPageSize={ADMIN_DEFAULT_PAGE_SIZE}
           />
-        </div>
+        </Section>
       </PageBody>
     </>
   );

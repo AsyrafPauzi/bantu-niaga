@@ -9,6 +9,7 @@ import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { nextOperationsOrderNumber } from "@/lib/operations/helpers";
+import { notifyOperationsOrderCreated } from "@/lib/operations/notify";
 import {
   operationsOrderCreateSchema,
   type OperationsOrderRow,
@@ -177,6 +178,15 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  const row = data as unknown as { id: string; number: string; title: string; customer_name: string };
+  notifyOperationsOrderCreated({
+    businessId: user.businessId,
+    orderId: row.id,
+    number: row.number,
+    title: row.title,
+    customerName: row.customer_name,
+  });
 
   return NextResponse.json({ ok: true, data }, { status: 201 });
 }

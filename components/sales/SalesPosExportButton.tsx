@@ -64,7 +64,7 @@ export function SalesPosExportButton({
         onClick={() => void onExport()}
         disabled={disabled || loading}
         title="Export POS sales"
-        className="inline-flex items-center gap-1 rounded-md border border-cream-300 bg-white px-2 py-1 text-[11px] font-semibold text-ink hover:border-brand-200 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:border-brand-700 dark:hover:text-brand-200"
+        className="inline-flex items-center gap-1 rounded-md border border-cream-300 bg-white px-2 py-1 text-[11px] font-semibold text-ink hover:border-blue-200 hover:text-[#2563EB] disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:border-blue-700 dark:hover:text-blue-300"
       >
         {loading ? (
           <Loader2 className="h-3 w-3 animate-spin" />

@@ -76,7 +76,7 @@ export function HrOnboardingPanel({
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+          className="text-xs font-semibold text-[#0D9488] dark:text-teal-400"
         >
           + Add checklist item
         </button>

@@ -11,6 +11,7 @@ import {
   operationsSupplierCreateSchema,
   type OperationsSupplierRow,
 } from "@/lib/operations/schemas";
+import { notifyOperationsSupplierCreated } from "@/lib/operations/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -143,6 +144,13 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  const row = data as unknown as { id: string; name: string };
+  notifyOperationsSupplierCreated({
+    businessId: user.businessId,
+    supplierId: row.id,
+    name: row.name,
+  });
 
   return NextResponse.json({ ok: true, data }, { status: 201 });
 }

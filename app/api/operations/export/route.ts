@@ -1,4 +1,5 @@
 import { buildOperationsExportCsv } from "@/lib/operations/export";
+import { notifyOperationsExportDownloaded } from "@/lib/operations/notify";
 import { requireOperationsUser } from "@/lib/operations/require-user";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
   const to = searchParams.get("to") ?? undefined;
 
   const csv = await buildOperationsExportCsv(user.businessId, { from, to });
+  notifyOperationsExportDownloaded({ businessId: user.businessId });
   const filename = `operations-export-${new Date().toISOString().slice(0, 10)}.csv`;
 
   return new Response(csv, {

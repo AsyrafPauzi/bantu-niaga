@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageBoardroom } from "@/lib/ai/boardroom-access";
+import { trimBoardroomMeetingHistory } from "@/lib/ai/boardroom-history";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +50,7 @@ export async function GET(_request: Request, context: RouteContext) {
     supabase
       .from("boardroom_meetings")
       .select(
-        "id, status, invited_agent_ids, title, awaiting_clarifiers, credits_spent, created_at, updated_at, paused_at, ended_at",
+        "id, status, invited_agent_ids, title, awaiting_clarifiers, credits_spent, meeting_mode, depth_state, pending_actions, created_at, updated_at, paused_at, ended_at",
       )
       .eq("id", id)
       .eq("business_id", user.businessId)
@@ -230,5 +231,53 @@ export async function PATCH(request: Request, context: RouteContext) {
     content: "Meeting ended. You can export a PDF from history.",
   });
 
+  await trimBoardroomMeetingHistory(supabase, user.businessId);
+
   return NextResponse.json({ data: updated }, { status: 200 });
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const { user, response } = await requireBoardroomUser();
+  if (response) return response;
+
+  const { id } = await context.params;
+  const supabase = await createSupabaseServerClient();
+
+  const { data: meeting } = await supabase
+    .from("boardroom_meetings")
+    .select("id, status")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .maybeSingle();
+
+  if (!meeting) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  if (meeting.status !== "ended") {
+    return NextResponse.json(
+      {
+        error: "invalid_state",
+        message: "Only ended meetings can be removed from history.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const { error } = await supabase
+    .from("boardroom_meetings")
+    .delete()
+    .eq("id", id)
+    .eq("business_id", user.businessId);
+
+  if (error) {
+    return NextResponse.json(
+      { error: "delete_failed", message: error.message },
+      { status: 500 },
+    );
+  }
+
+  await trimBoardroomMeetingHistory(supabase, user.businessId);
+
+  return NextResponse.json({ ok: true }, { status: 200 });
 }

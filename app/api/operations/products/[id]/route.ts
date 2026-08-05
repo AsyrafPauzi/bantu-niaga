@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
 import { requireOperationsUser } from "@/lib/operations/require-user";
 import { operationsProductUpdateSchema } from "@/lib/operations/schemas";
+import { notifyOperationsProductLowStock } from "@/lib/operations/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,21 @@ export async function PATCH(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  const { data: existing } = await supabase
+    .from("operations_products")
+    .select("sku, name, stock_qty, low_stock_threshold")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!existing) {
+    return NextResponse.json(
+      { ok: false, error: { code: "not_found", message: "Product not found." } },
+      { status: 404 },
+    );
+  }
 
   const updatePayload = { ...parsed };
   if (parsed.image_file_id !== undefined) {
@@ -96,6 +112,28 @@ export async function PATCH(
       },
       { status },
     );
+  }
+
+  const row = data as unknown as {
+    sku: string;
+    name: string;
+    stock_qty: number | null;
+    low_stock_threshold: number;
+  };
+  const prevQty = existing.stock_qty as number | null;
+  const prevThreshold = (existing.low_stock_threshold as number) ?? 5;
+  const wasLow =
+    prevQty !== null && prevQty <= prevThreshold;
+  const isLow =
+    row.stock_qty !== null && row.stock_qty <= (row.low_stock_threshold ?? 5);
+  if (isLow && !wasLow) {
+    notifyOperationsProductLowStock({
+      businessId: user.businessId,
+      productId: id,
+      sku: row.sku,
+      name: row.name,
+      stockQty: row.stock_qty as number,
+    });
   }
 
   return NextResponse.json({ ok: true, data }, { status: 200 });

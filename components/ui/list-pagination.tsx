@@ -2,7 +2,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { totalPages } from "@/lib/pagination";
+import {
+  ADMIN_DEFAULT_PAGE_SIZE,
+  totalPages,
+} from "@/lib/pagination";
 
 interface ListPaginationProps {
   page: number;
@@ -11,6 +14,9 @@ interface ListPaginationProps {
   basePath: string;
   searchParams?: Record<string, string | undefined>;
   pageKey?: string;
+  pageSizeKey?: string;
+  defaultPageSize?: number;
+  pageSizeOptions?: readonly number[];
   className?: string;
   /** Hide when all rows fit on one page (default true). */
   hideOnSinglePage?: boolean;
@@ -19,18 +25,35 @@ interface ListPaginationProps {
 function buildHref(
   basePath: string,
   searchParams: Record<string, string | undefined>,
-  pageKey: string,
-  nextPage: number,
+  opts: { page?: number; pageSize?: number },
+  keys: {
+    pageKey: string;
+    pageSizeKey: string;
+    defaultPageSize: number;
+    currentPageSize: number;
+  },
 ): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams)) {
-    if (value !== undefined && key !== pageKey) {
+    if (
+      value !== undefined &&
+      key !== keys.pageKey &&
+      key !== keys.pageSizeKey
+    ) {
       params.set(key, value);
     }
   }
-  if (nextPage > 1) {
-    params.set(pageKey, String(nextPage));
+
+  const nextPageSize = opts.pageSize ?? keys.currentPageSize;
+  if (nextPageSize !== keys.defaultPageSize) {
+    params.set(keys.pageSizeKey, String(nextPageSize));
   }
+
+  const nextPage = opts.page ?? 1;
+  if (nextPage > 1) {
+    params.set(keys.pageKey, String(nextPage));
+  }
+
   const query = params.toString();
   return query ? `${basePath}?${query}` : basePath;
 }
@@ -93,18 +116,32 @@ export function ListPagination({
   basePath,
   searchParams = {},
   pageKey = "page",
+  pageSizeKey = "pageSize",
+  defaultPageSize = ADMIN_DEFAULT_PAGE_SIZE,
+  pageSizeOptions = [],
   className,
   hideOnSinglePage = true,
 }: ListPaginationProps) {
   const pages = totalPages(total, pageSize);
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(total, page * pageSize);
+  const hrefKeys = {
+    pageKey,
+    pageSizeKey,
+    defaultPageSize,
+    currentPageSize: pageSize,
+  };
 
-  if (total === 0 || (hideOnSinglePage && total <= pageSize)) {
+  if (total === 0) {
+    return null;
+  }
+
+  if (hideOnSinglePage && total <= pageSize && !pageSizeOptions.length) {
     return null;
   }
 
   const pageNums = visiblePageNumbers(page, pages);
+  const showPager = total > pageSize;
 
   return (
     <div
@@ -113,36 +150,85 @@ export function ListPagination({
         className,
       )}
     >
-      <span>
-        Showing {start}–{end} of {total}
-      </span>
-      <div className="flex items-center gap-1">
-        <PageLink
-          disabled={page <= 1}
-          href={buildHref(basePath, searchParams, pageKey, page - 1)}
-          label="Previous page"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </PageLink>
-        {pageNums.map((n) => (
-          <PageLink
-            key={n}
-            disabled={false}
-            href={buildHref(basePath, searchParams, pageKey, n)}
-            label={`Page ${n}`}
-            active={n === page}
-          >
-            {n}
-          </PageLink>
-        ))}
-        <PageLink
-          disabled={page >= pages}
-          href={buildHref(basePath, searchParams, pageKey, page + 1)}
-          label="Next page"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </PageLink>
+      <div className="flex flex-wrap items-center gap-3">
+        <span>
+          Showing {start}–{end} of {total}
+        </span>
+        {pageSizeOptions.length > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
+              Per page
+            </span>
+            <div className="inline-flex overflow-hidden rounded-lg border border-cream-300 bg-white">
+              {pageSizeOptions.map((size) => {
+                const active = size === pageSize;
+                return (
+                  <Link
+                    key={size}
+                    href={buildHref(
+                      basePath,
+                      searchParams,
+                      { page: 1, pageSize: size },
+                      hrefKeys,
+                    )}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "inline-flex h-7 min-w-8 items-center justify-center px-2 text-[11px] font-semibold transition-colors",
+                      active
+                        ? "bg-ink text-white"
+                        : "text-ink-muted hover:bg-cream-100 hover:text-ink",
+                      size !== pageSizeOptions[0] &&
+                        "border-l border-cream-300",
+                    )}
+                  >
+                    {size}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
+
+      {showPager ? (
+        <div className="flex items-center gap-1">
+          <PageLink
+            disabled={page <= 1}
+            href={buildHref(
+              basePath,
+              searchParams,
+              { page: page - 1 },
+              hrefKeys,
+            )}
+            label="Previous page"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </PageLink>
+          {pageNums.map((n) => (
+            <PageLink
+              key={n}
+              disabled={false}
+              href={buildHref(basePath, searchParams, { page: n }, hrefKeys)}
+              label={`Page ${n}`}
+              active={n === page}
+            >
+              {n}
+            </PageLink>
+          ))}
+          <PageLink
+            disabled={page >= pages}
+            href={buildHref(
+              basePath,
+              searchParams,
+              { page: page + 1 },
+              hrefKeys,
+            )}
+            label="Next page"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </PageLink>
+        </div>
+      ) : null}
     </div>
   );
 }

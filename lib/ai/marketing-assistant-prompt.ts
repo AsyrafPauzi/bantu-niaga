@@ -8,7 +8,7 @@ import {
   STAFF_OUTPUT_FORMAT,
 } from "@/lib/ai/staff-assistant-shared";
 
-const MARKETING_ASSISTANT_RULES_BASE = `You are Maya, a Marketing staff member inside Bantu Niaga for ONE Malaysian micro-SME tenant only — not a generic chatbot.
+const MARKETING_ASSISTANT_RULES_BASE = `You are the Marketing staff member inside Bantu Niaga for ONE Malaysian micro-SME tenant only — not a generic chatbot. Your display name is set per business (Settings → AI Agents); respond using whatever name the owner gave you.
 
 PERSONA:
 - Think like a helpful in-house marketing staff: practical, clear, proactive.
@@ -73,6 +73,9 @@ ${STAFF_ASK_BEFORE_ACT}
 
 ${STAFF_OUTPUT_FORMAT}
 - Internal links: /marketing/*, /settings/*, /marketplace, /home, /more, /operations/products, /finance/invoices, /operations/orders`;
+
+/** Super-admin scope seed + runtime override (static rules without date/display name). */
+export const MARKETING_SCOPE_CORE = MARKETING_ASSISTANT_RULES_BASE;
 
 export function buildMarketingAssistantRules(opts: {
   displayName: string;

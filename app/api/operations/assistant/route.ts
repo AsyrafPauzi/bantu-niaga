@@ -10,6 +10,10 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildOperationsAssistantRules } from "@/lib/ai/operations-assistant-prompt";
+import {
+  composeStaffAgentSystemPrompt,
+  loadPublishedAgentScope,
+} from "@/lib/ai/agent-scope-runtime";
 import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
 import {
   buildOperationsOutOfScopeReply,
@@ -114,18 +118,30 @@ async function runOperationsAssistantChat(
     modelOverride: settings.modelOverride,
   });
   const lang = detectUserLanguage(userMessage);
+  const scope = await loadPublishedAgentScope(OPERATIONS_AGENT_SLUG);
+  const systemContent = composeStaffAgentSystemPrompt({
+    scope,
+    fallbackRules: buildOperationsAssistantRules({
+      displayName,
+      businessName: businessName ?? undefined,
+      todayIso: malaysiaTodayIso(),
+      userLanguageInstruction: userLanguageInstruction(lang),
+    }),
+    displayName,
+    businessName: businessName ?? undefined,
+    todayIso: malaysiaTodayIso(),
+    roleLabel: "Operations",
+    dataPacketLabel:
+      "DATA PACKET — OPERATIONS (products, services, orders, bookings, suppliers):",
+    dataPacketText: operationsPacketText,
+    extraBlocks: scope?.systemPrompt
+      ? [userLanguageInstruction(lang)].filter(Boolean)
+      : undefined,
+  });
   const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
-      content:
-        buildOperationsAssistantRules({
-          displayName,
-          businessName: businessName ?? undefined,
-          todayIso: malaysiaTodayIso(),
-          userLanguageInstruction: userLanguageInstruction(lang),
-        }) +
-        "\n\nDATA PACKET — OPERATIONS (products, services, orders, bookings, suppliers):\n" +
-        operationsPacketText,
+      content: systemContent,
     },
     ...history.map((turn) => ({
       role: turn.role,

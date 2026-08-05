@@ -1,7 +1,12 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SufiAssistantChat } from "@/components/sales/SufiAssistantChat";
 import { SalesBackLink } from "@/components/sales/SalesBackLink";
-import { SufiAssistantShell } from "@/components/sales/layout/sufi-assistant-shell";
+import {
+  PILLAR_ASSISTANT_BODY,
+  PillarAssistantHeader,
+  PillarAssistantShell,
+} from "@/components/dashboard/pillar-assistant-shell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canUseSalesAssistant } from "@/lib/sales/access";
 import {
@@ -12,6 +17,8 @@ import {
 import { SALES_AGENT_SLUG } from "@/lib/marketplace/agent-types";
 import { chatCreditsForReasoning } from "@/lib/settings/reasoning-credits";
 import { loadShortMemory } from "@/lib/ai/short-memory";
+import { pillarClasses } from "@/lib/pillars/theme";
+import { cn } from "@/lib/utils/cn";
 
 export const metadata = { title: "Sufi · Sales AI" };
 export const dynamic = "force-dynamic";
@@ -40,22 +47,32 @@ export default async function SalesAssistantPage() {
     }),
   ]);
 
+  const theme = pillarClasses.sales;
+
   return (
-    <SufiAssistantShell
+    <PillarAssistantShell
       header={
-        <div className="shrink-0 border-b border-[#E5E0D8] px-4 py-4 dark:border-hairline-dark lg:px-8">
-          <SalesBackLink />
-          <h1 className="mt-2 text-lg font-bold text-ink dark:text-cream-100">
-            {settings.displayName} · Sales AI
-          </h1>
-          <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
-            Ask in plain language — Sufi plans like sales staff using your
-            leads and today&apos;s POS
-          </p>
-        </div>
+        <PillarAssistantHeader
+          pillar="sales"
+          eyebrow="Sales"
+          title={`${settings.displayName} · Sales AI`}
+          subtitle="Ask in plain language — Sufi plans like sales staff using your leads and today's POS"
+          prefix={<SalesBackLink />}
+          action={
+            <Link
+              href="/sales"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold shadow-sm transition-colors",
+                theme.btnSecondary,
+              )}
+            >
+              Sales hub
+            </Link>
+          }
+        />
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col px-4 py-3 lg:px-8 lg:py-4">
+      <div className={PILLAR_ASSISTANT_BODY}>
         <SufiAssistantChat
           businessId={user.businessId}
           initialStatus={{
@@ -72,6 +89,6 @@ export default async function SalesAssistantPage() {
           }}
         />
       </div>
-    </SufiAssistantShell>
+    </PillarAssistantShell>
   );
 }

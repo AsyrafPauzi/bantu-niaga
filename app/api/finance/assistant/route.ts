@@ -10,6 +10,10 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildFinanceAssistantRules } from "@/lib/ai/finance-assistant-prompt";
+import {
+  composeStaffAgentSystemPrompt,
+  loadPublishedAgentScope,
+} from "@/lib/ai/agent-scope-runtime";
 import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
 import {
   detectUserLanguage,
@@ -114,18 +118,29 @@ async function runFinanceAssistantChat(
     modelOverride: settings.modelOverride,
   });
   const lang = detectUserLanguage(userMessage);
+  const scope = await loadPublishedAgentScope(FINANCE_AGENT_SLUG);
+  const systemContent = composeStaffAgentSystemPrompt({
+    scope,
+    fallbackRules: buildFinanceAssistantRules({
+      displayName,
+      businessName: businessName ?? undefined,
+      todayIso: malaysiaTodayIso(),
+      userLanguageInstruction: userLanguageInstruction(lang),
+    }),
+    displayName,
+    businessName: businessName ?? undefined,
+    todayIso: malaysiaTodayIso(),
+    roleLabel: "Finance",
+    dataPacketLabel: "DATA PACKET — FINANCE (invoices + cash flow):",
+    dataPacketText: financePacketText,
+    extraBlocks: scope?.systemPrompt
+      ? [userLanguageInstruction(lang)].filter(Boolean)
+      : undefined,
+  });
   const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
-      content:
-        buildFinanceAssistantRules({
-          displayName,
-          businessName: businessName ?? undefined,
-          todayIso: malaysiaTodayIso(),
-          userLanguageInstruction: userLanguageInstruction(lang),
-        }) +
-        "\n\nDATA PACKET — FINANCE (invoices + cash flow):\n" +
-        financePacketText,
+      content: systemContent,
     },
     ...history.map((turn) => ({
       role: turn.role,

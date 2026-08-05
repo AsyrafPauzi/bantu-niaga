@@ -4,6 +4,11 @@ import { useState } from "react";
 import { Loader2, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import { FinanceTxnExportButton } from "@/components/finance/FinanceTxnExportButton";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+  ModuleListPanelHeader,
+} from "@/components/dashboard/module-list-panel";
 import { cn } from "@/lib/utils/cn";
 import { formatMyr, type FinanceTransactionRow } from "@/lib/finance/schemas";
 
@@ -37,6 +42,8 @@ interface FinanceTxnCompactListProps {
   exportMonth?: string;
   /** Month entry count — disables export when zero. */
   exportEntryCount?: number;
+  /** Renders inside ModuleListPanelFilters (category chips, search). */
+  filters?: React.ReactNode;
 }
 
 export function FinanceTxnCompactList({
@@ -54,6 +61,7 @@ export function FinanceTxnCompactList({
   onAttachReceipt,
   exportMonth,
   exportEntryCount,
+  filters,
 }: FinanceTxnCompactListProps) {
   const [attachRowId, setAttachRowId] = useState<string | null>(null);
   const isIncome = kind === "income";
@@ -62,26 +70,32 @@ export function FinanceTxnCompactList({
     : "text-rose-700 dark:text-rose-300";
 
   return (
-    <div className="overflow-hidden rounded-xl border border-cream-200 bg-white dark:border-hairline-dark dark:bg-panel-dark">
-      <div className="flex items-center justify-between gap-2 border-b border-cream-200 px-3 py-2 dark:border-hairline-dark">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
-          {title}
-        </p>
-        <div className="flex shrink-0 items-center gap-2">
-          {exportMonth ? (
-            <FinanceTxnExportButton
-              kind={kind}
-              month={exportMonth}
-              disabled={(exportEntryCount ?? transactions.length) === 0}
-            />
-          ) : null}
-          {transactions.length > 0 ? (
-            <span className="text-[11px] tabular-nums text-ink-muted dark:text-cream-400">
-              {transactions.length}
-            </span>
-          ) : null}
-        </div>
-      </div>
+    <ModuleListPanel>
+      {filters ? (
+        <ModuleListPanelFilters>{filters}</ModuleListPanelFilters>
+      ) : (
+        <ModuleListPanelHeader variant="compact">
+          <div className="flex w-full items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+              {title}
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              {exportMonth ? (
+                <FinanceTxnExportButton
+                  kind={kind}
+                  month={exportMonth}
+                  disabled={(exportEntryCount ?? transactions.length) === 0}
+                />
+              ) : null}
+              {transactions.length > 0 ? (
+                <span className="text-[11px] tabular-nums text-ink-muted dark:text-cream-400">
+                  {transactions.length}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </ModuleListPanelHeader>
+      )}
 
       {transactions.length === 0 ? (
         <div className="px-3 py-8 text-center">
@@ -222,6 +236,6 @@ export function FinanceTxnCompactList({
           })}
         </ul>
       )}
-    </div>
+    </ModuleListPanel>
   );
 }

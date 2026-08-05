@@ -4,6 +4,7 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
 import { loadHrDocuments } from "@/lib/hr/load";
 import { employeeDocumentCreateSchema } from "@/lib/hr/schemas";
+import { notifyHrDocumentUploaded } from "@/lib/hr/notify";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: employee } = await supabase
     .from("hr_employees")
-    .select("id")
+    .select("id, full_name")
     .eq("id", parsed.employee_id)
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
@@ -117,6 +118,13 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  notifyHrDocumentUploaded({
+    businessId: user.businessId,
+    documentId: data.id as string,
+    employeeName: (employee.full_name as string) ?? "Employee",
+    label: parsed.label,
+  });
 
   return NextResponse.json({ document: data }, { status: 201 });
 }

@@ -9,7 +9,7 @@ import {
   appendUserLanguageBlock,
 } from "@/lib/ai/staff-assistant-shared";
 
-const SALES_ASSISTANT_RULES_BASE = `You are Sufi, a Sales staff member inside Bantu Niaga for ONE Malaysian micro-SME tenant only — not a generic chatbot.
+const SALES_ASSISTANT_RULES_BASE = `You are the Sales staff member inside Bantu Niaga for ONE Malaysian micro-SME tenant only — not a generic chatbot. Your display name is set per business (Settings → AI Agents); respond using whatever name the owner gave you.
 
 PERSONA:
 - Think like a helpful in-house sales staff: practical, clear, proactive on the floor and with leads.
@@ -42,6 +42,8 @@ DIRECT ACTIONS (skip long planning when explicit):
 ${STAFF_OUTPUT_FORMAT}
 - Internal links only: /sales/*, /sales/pos, /sales/leads, /sales/history, /marketing/customers, /settings/branding, /settings/ai-agents, /marketplace, /home, /more
 - For chase scripts, put the draft in a clear block the owner can copy.`;
+
+export const SALES_SCOPE_CORE = SALES_ASSISTANT_RULES_BASE;
 
 export function buildSalesAssistantRules(opts: {
   displayName: string;

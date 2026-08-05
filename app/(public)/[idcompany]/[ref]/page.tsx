@@ -6,6 +6,9 @@ import { PayFieldCopy } from "@/components/finance/PayFieldCopy";
 import { FinancePublicCheckoutButton } from "@/components/finance/FinancePublicCheckoutButton";
 import { isFinanceBillplzCheckoutEnabled } from "@/lib/finance/billplz-config";
 import { loadPublicFinanceInvoice } from "@/lib/finance/public-invoice";
+import { loadPublicAdminFile } from "@/lib/admin/public-file";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { formatStorageBytes } from "@/lib/admin/storage-shared";
 import {
   formatFinanceShortDate,
   formatMyr,
@@ -17,6 +20,7 @@ import {
  *   bantuniaga.com/[idcompany]/inv-[hash]    → invoice
  *   bantuniaga.com/[idcompany]/book-[hash]   → customer booking
  *   bantuniaga.com/[idcompany]/leave-[hash]  → self-service leave (HR add-on)
+ *   bantuniaga.com/[idcompany]/file-[hash]   → shared admin vault file
  *
  * Next.js dynamic segments must occupy the whole folder name, so we use a
  * single `[ref]` segment and parse the prefix to dispatch.
@@ -30,6 +34,7 @@ const PREFIXES = {
   "inv-": "invoice",
   "book-": "booking",
   "leave-": "leave",
+  "file-": "file",
 } as const;
 
 type Surface = (typeof PREFIXES)[keyof typeof PREFIXES];
@@ -59,6 +64,7 @@ export default async function PublicRefPage({ params }: Props) {
     return <InvoiceView idcompany={idcompany} hash={hash} />;
   }
   if (surface === "booking") return <BookingView idcompany={idcompany} hash={hash} />;
+  if (surface === "file") return <FileView idcompany={idcompany} hash={hash} />;
   return <LeaveView idcompany={idcompany} hash={hash} />;
 }
 
@@ -385,6 +391,63 @@ function LeaveView({
         </span>{" "}
         HR add-on is enabled.
       </ScaffoldNote>
+    </div>
+  );
+}
+
+// ─── Shared admin file ─────────────────────────────────────────────────────
+
+async function FileView({
+  idcompany,
+  hash,
+}: {
+  idcompany: string;
+  hash: string;
+}) {
+  const file = await loadPublicAdminFile(idcompany, hash);
+  if (!file) notFound();
+
+  const svc = createServiceRoleClient();
+  const { data: signed } = await svc.storage
+    .from("admin-files")
+    .createSignedUrl(file.storage_path, 15 * 60, {
+      download: file.file_name,
+    });
+
+  const downloadUrl = signed?.signedUrl ?? null;
+
+  return (
+    <div className="space-y-4">
+      <header>
+        <p className="text-sm font-medium text-ink-muted">Shared document</p>
+        <h1 className="mt-1 text-2xl font-semibold text-ink">{file.business.name}</h1>
+        <p className="mt-1 text-sm text-ink-muted">{file.file_name}</p>
+      </header>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="truncate">{file.file_name}</CardTitle>
+            <Badge tone="neutral">{formatStorageBytes(file.file_size_bytes)}</Badge>
+          </div>
+        </CardHeader>
+        <CardBody className="space-y-4 text-sm text-ink-muted">
+          {file.description ? <p>{file.description}</p> : null}
+          {downloadUrl ? (
+            <a
+              href={downloadUrl}
+              className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              Download file
+            </a>
+          ) : (
+            <p>This link is no longer available. Ask the sender for a new link.</p>
+          )}
+          <p className="text-xs text-ink-subtle">
+            Secure link from {file.business.name}. Do not forward unless you trust the recipient.
+          </p>
+        </CardBody>
+      </Card>
     </div>
   );
 }

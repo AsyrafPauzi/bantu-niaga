@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -14,11 +14,17 @@ import {
   MessageSquareQuote,
   Pencil,
   Plus,
+  Search,
   Send,
   Ban,
   Sparkles,
 } from "lucide-react";
 import { ListPagination } from "@/components/ui/list-pagination";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+} from "@/components/dashboard/module-list-panel";
+import { ModuleListFilterChipLink } from "@/components/dashboard/module-list-search";
 import type { FinanceInvoicesSummary } from "@/lib/finance/invoices-summary";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -129,7 +135,11 @@ export function FinanceInvoicePanel({
   shellMode = false,
 }: FinanceInvoicePanelProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [invoices, setInvoices] = useState(initialInvoices);
+  const [query, setQuery] = useState(
+    () => searchParams.get("q")?.trim() ?? "",
+  );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [mailtoFallback, setMailtoFallback] = useState<string | null>(null);
@@ -141,6 +151,24 @@ export function FinanceInvoicePanel({
   useEffect(() => {
     setInvoices(initialInvoices);
   }, [initialInvoices]);
+
+  const filteredInvoices = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return invoices;
+    return invoices.filter((inv) => {
+      const hay = [
+        inv.number,
+        inv.customer_name,
+        inv.title,
+        inv.customer_email,
+        inv.customer_phone,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [invoices, query]);
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
@@ -548,83 +576,98 @@ export function FinanceInvoicePanel({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-1.5">
-        {filterChips.map((chip) => (
-          <Link
-            key={chip.label}
-            href={chip.href}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-              chip.active
-                ? "border-sky-500 bg-sky-500 text-white"
-                : "border-cream-300 bg-white/80 text-ink-muted hover:border-sky-200 dark:border-hairline-dark dark:bg-panel-dark/80 dark:text-cream-400",
-            )}
+      <ModuleListPanel>
+        <ModuleListPanelFilters>
+          <nav
+            aria-label="Filter invoices"
+            className="flex flex-wrap gap-1.5"
           >
-            {chip.label}
-            {chip.count !== undefined && chip.count > 0 ? (
-              <span
-                className={cn(
-                  "tabular-nums",
-                  chip.active ? "text-white/90" : "opacity-70",
-                )}
+            {filterChips.map((chip) => (
+              <ModuleListFilterChipLink
+                key={chip.label}
+                href={chip.href}
+                active={chip.active}
+                accent="sky"
+                label={chip.label}
+                count={chip.count}
+              />
+            ))}
+          </nav>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-1 items-center gap-2 rounded-xl border border-cream-300 bg-cream-50/50 px-3 py-2.5 dark:border-hairline-dark dark:bg-panel-dark/60">
+              <Search
+                className="h-4 w-4 shrink-0 text-ink-muted"
+                strokeWidth={2}
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search invoice #, customer, title…"
+                className="w-full min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100"
+              />
+            </div>
+            {query.trim() ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-xs font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
               >
-                {chip.count}
-              </span>
+                Clear
+              </button>
             ) : null}
-          </Link>
-        ))}
-      </div>
-
-      {emailError ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100">
-          <span className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {emailError}
-          </span>
-          {mailtoFallback ? (
-            <a
-              href={mailtoFallback}
-              className="font-semibold underline"
-            >
-              Open email app
-            </a>
-          ) : null}
-        </div>
-      ) : null}
-
-      {invoices.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-cream-300 bg-white/50 py-14 text-center dark:border-hairline-dark dark:bg-panel-dark/40">
-          <div className="text-4xl">
-            {documentKind === "quote" ? "📝" : "🧾"}
           </div>
-          <p className="mt-3 text-sm font-medium text-ink dark:text-cream-100">
-            {documentKind === "quote"
-              ? "No quotes here yet"
-              : statusFilter !== "all"
-                ? "Nothing in this filter"
-                : "No invoices yet"}
-          </p>
-          <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-            {documentKind === "quote"
-              ? "Send a quote first — convert to invoice when they say yes."
-              : "Create an invoice, share on WhatsApp, mark paid when money arrives."}
-          </p>
-          <Link
-            href={
-              documentKind === "quote"
-                ? "/finance/invoices/new?kind=quote"
-                : "/finance/invoices/new"
-            }
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
-          >
-            <Plus className="h-4 w-4" />
-            {documentKind === "quote" ? "New quote" : "New invoice"}
-          </Link>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
-            {invoices.map((inv) => {
+        </ModuleListPanelFilters>
+
+        {emailError ? (
+          <div className="mx-4 mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100">
+            <span className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {emailError}
+            </span>
+            {mailtoFallback ? (
+              <a href={mailtoFallback} className="font-semibold underline">
+                Open email app
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+
+        {filteredInvoices.length === 0 ? (
+          <div className="px-5 py-14 text-center">
+            <div className="text-4xl">
+              {documentKind === "quote" ? "📝" : "🧾"}
+            </div>
+            <p className="mt-3 text-sm font-medium text-ink dark:text-cream-100">
+              {query.trim()
+                ? "No invoices match your search"
+                : documentKind === "quote"
+                  ? "No quotes here yet"
+                  : statusFilter !== "all"
+                    ? "Nothing in this filter"
+                    : "No invoices yet"}
+            </p>
+            <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
+              {documentKind === "quote"
+                ? "Send a quote first — convert to invoice when they say yes."
+                : "Create an invoice, share on WhatsApp, mark paid when money arrives."}
+            </p>
+            <Link
+              href={
+                documentKind === "quote"
+                  ? "/finance/invoices/new?kind=quote"
+                  : "/finance/invoices/new"
+              }
+              className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+            >
+              <Plus className="h-4 w-4" />
+              {documentKind === "quote" ? "New quote" : "New invoice"}
+            </Link>
+          </div>
+        ) : (
+          <>
+            <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+            {filteredInvoices.map((inv) => {
             const busy = busyId === inv.id;
             const links = shareLinks(inv);
             const total = Number(inv.total_myr);
@@ -836,8 +879,9 @@ export function FinanceInvoicePanel({
               ...(customerIdFilter ? { customer_id: customerIdFilter } : {}),
             }}
           />
-        </div>
-      )}
+          </>
+        )}
+      </ModuleListPanel>
 
       {convertTarget ? (
         <div

@@ -4,6 +4,7 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { generateCouponCode } from "@/lib/marketing/coupons";
+import { notifyMarketingCouponCreated } from "@/lib/marketing/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -201,6 +202,12 @@ export async function POST(request: Request) {
       .single();
 
     if (!error) {
+      const row = data as unknown as { id: string; code: string };
+      notifyMarketingCouponCreated({
+        businessId: user.businessId,
+        couponId: row.id,
+        code: row.code,
+      });
       return NextResponse.json({ data }, { status: 201 });
     }
 

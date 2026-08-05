@@ -14,6 +14,7 @@ import {
   type FinanceTransactionRow,
 } from "@/lib/finance/schemas";
 import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
+import { notifyFinanceTransactionCreated } from "@/lib/finance/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -200,6 +201,20 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  const row = data as unknown as {
+    id: string;
+    kind: "income" | "expense";
+    description: string;
+    amount_myr: number;
+  };
+  notifyFinanceTransactionCreated({
+    businessId: user.businessId,
+    kind: row.kind,
+    description: row.description,
+    amountMyr: Number(row.amount_myr),
+    txnId: row.id,
+  });
 
   return NextResponse.json({ ok: true, data }, { status: 201 });
 }

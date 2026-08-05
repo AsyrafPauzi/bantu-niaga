@@ -1,7 +1,10 @@
 import { EMPLOYEE_DETAIL_SELECT, EMPLOYEE_LIST_SELECT } from "@/lib/hr/employee-fields";
 import { mapEmployeeDetailRow, mapEmployeeListRow } from "@/lib/hr/employee-api";
 import { loadEmployeeLeaveBalance } from "@/lib/hr/leave-balance";
+import { isEmployeeProfileIncomplete } from "@/lib/hr/profile-completion";
+import { dedupeHolidayRows } from "@/lib/hr/holiday-dedupe";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadPillarNotifications, type PillarNotificationItem } from "@/lib/notifications/load-pillar";
 
 export interface HrEmployeeLeaveBalance {
   leaveYear: number;
@@ -85,19 +88,28 @@ export interface HrHolidayRow {
   name: string;
 }
 
+export interface HrNotificationItem extends PillarNotificationItem {}
+
 export interface HrDashboardData {
   employees: HrEmployeeRow[];
-  leave: HrLeaveRow[];
+  leavePending: HrLeaveRow[];
+  leaveOnToday: HrLeaveRow[];
+  leaveRecentApproved: HrLeaveRow[];
   onboarding: HrOnboardingRow[];
   documents: HrDocumentRow[];
   holidays: HrHolidayRow[];
+  notifications: HrNotificationItem[];
   counts: {
     activeEmployees: number;
+    totalEmployees: number;
     leaveToday: number;
     pendingLeave: number;
+    approvedThisMonth: number;
+    documentCount: number;
     incompleteOnboarding: number;
     onboardingTotal: number;
     onboardingDone: number;
+    incompleteProfiles: number;
   };
 }
 
@@ -301,26 +313,63 @@ export async function loadHrPublicHolidays(
     .limit(100);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as HrHolidayRow[];
+  const rows = (data ?? []) as unknown as HrHolidayRow[];
+  return dedupeHolidayRows(rows);
 }
+
+const LEAVE_DASHBOARD_SELECT =
+  "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
+  "mc_document_path, mc_document_name, mc_document_mime, " +
+  "hr_employees(full_name, role_title)";
 
 export async function loadHrDashboard(
   businessId: string,
 ): Promise<HrDashboardData> {
   const supabase = await createSupabaseServerClient();
-  const [employees, leaveResult, onboardingResult, documents, holidays] =
-    await Promise.all([
+  const today = todayIso();
+  const monthPrefix = today.slice(0, 7);
+
+  const [
+    employees,
+    pendingResult,
+    onLeaveResult,
+    recentApprovedResult,
+    approvedMonthResult,
+    onboardingResult,
+    documents,
+    holidays,
+    notifications,
+  ] = await Promise.all([
     loadHrEmployees(businessId),
     supabase
       .from("hr_leave_records")
-      .select(
-        "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
-          "mc_document_path, mc_document_name, mc_document_mime, " +
-          "hr_employees(full_name, role_title)",
-      )
+      .select(LEAVE_DASHBOARD_SELECT)
       .eq("business_id", businessId)
-      .order("start_date", { ascending: true })
-      .limit(10),
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("hr_leave_records")
+      .select(LEAVE_DASHBOARD_SELECT)
+      .eq("business_id", businessId)
+      .eq("status", "approved")
+      .lte("start_date", today)
+      .gte("end_date", today)
+      .order("start_date", { ascending: true }),
+    supabase
+      .from("hr_leave_records")
+      .select(LEAVE_DASHBOARD_SELECT)
+      .eq("business_id", businessId)
+      .eq("status", "approved")
+      .order("start_date", { ascending: false })
+      .limit(5),
+    supabase
+      .from("hr_leave_records")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", businessId)
+      .eq("status", "approved")
+      .gte("start_date", `${monthPrefix}-01`)
+      .lte("start_date", `${monthPrefix}-31`),
     supabase
       .from("hr_onboarding_items")
       .select("id, employee_id, label, is_done, hr_employees(full_name)")
@@ -329,35 +378,45 @@ export async function loadHrDashboard(
       .limit(100),
     loadHrDocuments(businessId),
     loadHrPublicHolidays(businessId),
+    loadPillarNotifications(supabase, businessId, "hr", 12),
   ]);
 
-  if (leaveResult.error) throw new Error(leaveResult.error.message);
+  if (pendingResult.error) throw new Error(pendingResult.error.message);
+  if (onLeaveResult.error) throw new Error(onLeaveResult.error.message);
+  if (recentApprovedResult.error) throw new Error(recentApprovedResult.error.message);
   if (onboardingResult.error) throw new Error(onboardingResult.error.message);
 
-  const today = todayIso();
-  const leave = (leaveResult.data ?? []) as unknown as HrLeaveRow[];
+  const leavePending = (pendingResult.data ?? []) as unknown as HrLeaveRow[];
+  const leaveOnToday = (onLeaveResult.data ?? []) as unknown as HrLeaveRow[];
+  const leaveRecentApproved = (recentApprovedResult.data ?? []) as unknown as HrLeaveRow[];
   const onboarding = (onboardingResult.data ?? []) as unknown as HrOnboardingRow[];
   const onboardingDone = onboarding.filter((row) => row.is_done).length;
   const onboardingOpen = onboarding.length - onboardingDone;
 
+  const incompleteProfiles = employees.filter((emp) =>
+    isEmployeeProfileIncomplete(emp, documents),
+  ).length;
+
   return {
     employees,
-    leave,
-    onboarding: onboarding.filter((row) => !row.is_done).slice(0, 10),
+    leavePending,
+    leaveOnToday,
+    leaveRecentApproved,
+    onboarding: onboarding.filter((row) => !row.is_done).slice(0, 8),
     documents,
     holidays,
+    notifications,
     counts: {
       activeEmployees: employees.filter((row) => row.status === "active").length,
-      leaveToday: leave.filter(
-        (row) =>
-          row.status === "approved" &&
-          row.start_date <= today &&
-          row.end_date >= today,
-      ).length,
-      pendingLeave: leave.filter((row) => row.status === "pending").length,
+      totalEmployees: employees.length,
+      leaveToday: leaveOnToday.length,
+      pendingLeave: leavePending.length,
+      approvedThisMonth: approvedMonthResult.count ?? 0,
+      documentCount: documents.length,
       incompleteOnboarding: onboardingOpen,
       onboardingTotal: onboarding.length,
       onboardingDone,
+      incompleteProfiles,
     },
   };
 }

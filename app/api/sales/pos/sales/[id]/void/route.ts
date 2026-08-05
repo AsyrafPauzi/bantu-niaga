@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { voidPosSale } from "@/lib/sales/void-sale";
+import { notifySalesPosVoided } from "@/lib/sales/notify";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,14 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const supabase = await createSupabaseServerClient();
+
+  const { data: saleRow } = await supabase
+    .from("pos_sales")
+    .select("sale_number")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .maybeSingle();
+
   const result = await voidPosSale({
     supabase,
     businessId: user.businessId,
@@ -71,6 +80,14 @@ export async function POST(request: Request, context: RouteContext) {
           ? 409
           : 400;
     return NextResponse.json({ error: result.error }, { status });
+  }
+
+  if (saleRow?.sale_number) {
+    notifySalesPosVoided({
+      businessId: user.businessId,
+      saleId: id,
+      saleNumber: saleRow.sale_number as string,
+    });
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

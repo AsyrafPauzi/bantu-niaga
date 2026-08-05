@@ -2,14 +2,12 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { HrToast } from "@/components/hr/HrToast";
 import { ADMIN_FILE_MAX_BYTES } from "@/lib/admin/schemas";
 import type { HrEmployeeRow } from "@/lib/hr/load";
-
-const inputClass =
-  "w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-400/30 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
-
-const labelClass =
-  "block space-y-1 text-xs font-semibold text-ink-muted dark:text-cream-400";
+import { documentTypeLabel } from "@/lib/hr/profile-completion";
+import { hrClasses } from "@/lib/hr/theme";
+import { cn } from "@/lib/utils/cn";
 
 interface ApiEnvelope<T> {
   ok: boolean;
@@ -34,38 +32,43 @@ function formatBytes(bytes: number): string {
 
 export function HrDocumentCreateForm({
   employees,
+  defaultEmployeeId,
+  hideEmployeeSelect,
 }: {
   employees: HrEmployeeRow[];
+  defaultEmployeeId?: string;
+  hideEmployeeSelect?: boolean;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; kind: "ok" | "err" } | null>(null);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     setBusy(true);
-    setMessage(null);
     const formData = new FormData(form);
     const file = fileInputRef.current?.files?.[0] ?? null;
     if (!file || file.size <= 0) {
-      setMessage("Choose a file to upload.");
+      setToast({ kind: "err", message: "Choose a file to upload." });
       setBusy(false);
       return;
     }
     if (file.size > ADMIN_FILE_MAX_BYTES) {
-      setMessage(
-        `File too large (${formatBytes(file.size)}). Maximum upload size is 100 MB.`,
-      );
+      setToast({
+        kind: "err",
+        message: `File too large (${formatBytes(file.size)}). Maximum is 100 MB.`,
+      });
       setBusy(false);
       return;
     }
-    const employeeId = String(formData.get("employee_id") ?? "");
+    const employeeId =
+      defaultEmployeeId ?? String(formData.get("employee_id") ?? "");
     const documentType = String(formData.get("document_type") ?? "");
     const label =
       String(formData.get("label") ?? "").trim() ||
-      `${documentType.toUpperCase()} - ${file.name}`;
+      `${documentTypeLabel(documentType)} — ${file.name}`;
 
     try {
       const initRes = await fetch("/api/admin/storage", {
@@ -83,7 +86,10 @@ export function HrDocumentCreateForm({
         | ApiEnvelope<UploadInitResponse>
         | null;
       if (!initRes.ok || !initJson?.data) {
-        setMessage(initJson?.error?.message ?? "Could not prepare the upload.");
+        setToast({
+          kind: "err",
+          message: initJson?.error?.message ?? "Could not prepare the upload.",
+        });
         return;
       }
 
@@ -93,7 +99,7 @@ export function HrDocumentCreateForm({
         body: file,
       });
       if (!uploadRes.ok) {
-        setMessage("Could not upload the file. Please try again.");
+        setToast({ kind: "err", message: "Upload failed. Please try again." });
         return;
       }
 
@@ -113,7 +119,10 @@ export function HrDocumentCreateForm({
         | ApiEnvelope<ConfirmResponse>
         | null;
       if (!confirmRes.ok || !confirmJson?.data) {
-        setMessage(confirmJson?.error?.message ?? "Could not save the uploaded file.");
+        setToast({
+          kind: "err",
+          message: confirmJson?.error?.message ?? "Could not save the file.",
+        });
         return;
       }
 
@@ -129,11 +138,14 @@ export function HrDocumentCreateForm({
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setMessage(json?.message ?? json?.error ?? "Could not add document.");
+        setToast({
+          kind: "err",
+          message: json?.message ?? json?.error ?? "Could not link the file.",
+        });
         return;
       }
       form.reset();
-      setMessage("Document uploaded and linked to employee.");
+      setToast({ kind: "ok", message: "File uploaded" });
       router.refresh();
     } finally {
       setBusy(false);
@@ -141,60 +153,65 @@ export function HrDocumentCreateForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <p className="text-xs text-ink-muted dark:text-cream-400">
-        Upload here once. The file will also appear in Admin Storage under HR
-        documents for this account.
-      </p>
-      <label className={labelClass}>
-        Employee
-        <select name="employee_id" required className={inputClass}>
-          <option value="">Choose employee</option>
-          {employees.map((employee) => (
-            <option key={employee.id} value={employee.id}>
-              {employee.full_name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className={labelClass}>
-        Document type
-        <select name="document_type" required className={inputClass}>
-          <option value="ic">IC</option>
-          <option value="passport">Passport</option>
-          <option value="bank">Bank</option>
-          <option value="medical">Medical</option>
-          <option value="contract">Contract</option>
-          <option value="other">Other</option>
-        </select>
-      </label>
-      <label className={labelClass}>
-        Document label
-        <input
-          name="label"
-          maxLength={160}
-          placeholder="Optional label"
-          className={inputClass}
-        />
-      </label>
-      <label className={labelClass}>
-        Document file
-        <input
-          name="file"
-        ref={fileInputRef}
-          type="file"
-          accept="image/*,application/pdf,.doc,.docx,.txt,.zip"
-          className={inputClass}
-        />
-      </label>
-      {message ? <p className="text-xs text-ink-muted dark:text-cream-400">{message}</p> : null}
-      <button
-        type="submit"
-        disabled={busy || employees.length === 0}
-        className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-      >
-        {busy ? "Adding..." : "Add document record"}
-      </button>
-    </form>
+    <>
+      <form onSubmit={onSubmit} className="space-y-3">
+        <p className={hrClasses.sectionHint}>
+          Upload IC, bank proof, or contract PDFs. Files stay in your staff documents vault.
+        </p>
+        {hideEmployeeSelect && defaultEmployeeId ? (
+          <input type="hidden" name="employee_id" value={defaultEmployeeId} />
+        ) : (
+          <label className={hrClasses.label}>
+            Employee
+            <select name="employee_id" required className={hrClasses.input} defaultValue={defaultEmployeeId}>
+              <option value="">Choose employee</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.full_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className={hrClasses.label}>
+          File type
+          <select name="document_type" required className={hrClasses.input} defaultValue="ic">
+            <option value="ic">IC</option>
+            <option value="passport">Passport</option>
+            <option value="bank">Bank statement</option>
+            <option value="medical">Medical</option>
+            <option value="contract">Employment contract</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label className={hrClasses.label}>
+          Label <span className="font-normal text-ink-subtle">(optional)</span>
+          <input name="label" maxLength={160} placeholder="e.g. IC front" className={hrClasses.input} />
+        </label>
+        <label className={hrClasses.label}>
+          File
+          <input
+            ref={fileInputRef}
+            name="file"
+            type="file"
+            accept="image/*,application/pdf,.doc,.docx"
+            className={hrClasses.input}
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy || employees.length === 0}
+          className={cn(
+            "rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60",
+            hrClasses.btnPrimary,
+          )}
+        >
+          {busy ? "Uploading…" : "Upload file"}
+        </button>
+      </form>
+      {toast ? (
+        <HrToast message={toast.message} kind={toast.kind} onDismiss={() => setToast(null)} />
+      ) : null}
+    </>
   );
 }

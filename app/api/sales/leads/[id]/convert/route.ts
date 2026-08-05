@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canUseLeads } from "@/lib/sales/access";
 import { convertLeadToCustomer } from "@/lib/sales/convert-lead";
+import { notifySalesLeadConverted } from "@/lib/sales/notify";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +67,13 @@ export async function POST(_request: Request, context: RouteContext) {
         customer_id: result.customerId,
         action: result.action,
       },
+    });
+
+    notifySalesLeadConverted({
+      businessId: user.businessId,
+      leadId: lead.id,
+      name: lead.name as string,
+      customerId: result.customerId,
     });
 
     return NextResponse.json(

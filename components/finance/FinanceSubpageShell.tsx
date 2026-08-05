@@ -1,13 +1,13 @@
 import { FinanceBackLink } from "@/components/finance/FinanceBackLink";
 import {
   ModuleDashboardHero,
-  type ModuleHeroVariant,
+  type LegacyModuleHeroVariant,
 } from "@/components/dashboard/module-layout";
 
 interface FinanceSubpageShellProps {
   headline: string;
   subcopy: string;
-  variant?: ModuleHeroVariant;
+  variant?: LegacyModuleHeroVariant;
   stats: React.ReactNode;
   children: React.ReactNode;
 }
@@ -15,7 +15,7 @@ interface FinanceSubpageShellProps {
 export function FinanceSubpageShell({
   headline,
   subcopy,
-  variant = "calm",
+  variant = "default",
   stats,
   children,
 }: FinanceSubpageShellProps) {
@@ -24,6 +24,7 @@ export function FinanceSubpageShell({
       <FinanceBackLink />
       <ModuleDashboardHero
         module="Finance"
+        pillar="finance"
         headline={headline}
         subcopy={subcopy}
         variant={variant}

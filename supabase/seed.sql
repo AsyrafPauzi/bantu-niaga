@@ -283,16 +283,16 @@ values
   (
     '66666666-6666-6666-6666-666666666601',
     '11111111-1111-1111-1111-111111111111',
-    'KUL',
+    null,
     date '2026-08-31',
-    'Hari Kebangsaan'
+    'National Day'
   ),
   (
     '66666666-6666-6666-6666-666666666602',
     '11111111-1111-1111-1111-111111111111',
-    'KUL',
+    null,
     date '2026-09-16',
-    'Hari Malaysia'
+    'Malaysia Day'
   )
 on conflict (business_id, state_code, holiday_date, name) do nothing;
 

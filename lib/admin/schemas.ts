@@ -195,6 +195,8 @@ export interface AdminFileRow {
   created_at: string;
   updated_at: string;
   uploaded_by_name: string | null;
+  share_hash?: string | null;
+  share_enabled_at?: string | null;
 }
 
 export interface AdminFileUploadInitResponse {

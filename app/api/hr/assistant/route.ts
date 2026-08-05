@@ -10,6 +10,10 @@ import {
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildHrAssistantRules } from "@/lib/ai/hr-assistant-prompt";
 import {
+  composeStaffAgentSystemPrompt,
+  loadPublishedAgentScope,
+} from "@/lib/ai/agent-scope-runtime";
+import {
   HR_ASSISTANT_TOOLS,
   executeHrAssistantTool,
   isHrActionTool,
@@ -99,14 +103,23 @@ async function runHrAssistantChat(
     reasoningMode: settings.reasoningMode,
     modelOverride: settings.modelOverride,
   });
+  const scope = await loadPublishedAgentScope(HR_AGENT_SLUG);
+  const systemContent = composeStaffAgentSystemPrompt({
+    scope,
+    fallbackRules: buildHrAssistantRules({
+      displayName,
+      businessName: businessName ?? undefined,
+      todayIso: malaysiaTodayIso(),
+    }),
+    displayName,
+    businessName: businessName ?? undefined,
+    todayIso: malaysiaTodayIso(),
+    roleLabel: "HR",
+  });
   const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
-      content: buildHrAssistantRules({
-        displayName,
-        businessName: businessName ?? undefined,
-        todayIso: malaysiaTodayIso(),
-      }),
+      content: systemContent,
     },
     ...history.map((turn) => ({
       role: turn.role,

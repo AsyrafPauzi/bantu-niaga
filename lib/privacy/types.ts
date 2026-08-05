@@ -37,6 +37,12 @@ export interface DataSubjectRequest {
   updatedAt: string;
 }
 
+export interface DsrAdminRow extends DataSubjectRequest {
+  businessName?: string;
+  userDisplayName?: string | null;
+  userEmail?: string | null;
+}
+
 export type ConsentKind =
   | "terms_of_service"
   | "privacy_notice"

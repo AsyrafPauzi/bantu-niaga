@@ -10,6 +10,7 @@ import {
 import { parseManagerLeaveRequest } from "@/lib/hr/parse-manager-leave-request";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { notifyHrLeaveRequested } from "@/lib/hr/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +133,22 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  const { data: employee } = await supabase
+    .from("hr_employees")
+    .select("full_name")
+    .eq("id", data.employee_id)
+    .eq("business_id", user.businessId)
+    .maybeSingle();
+
+  notifyHrLeaveRequested({
+    businessId: user.businessId,
+    leaveId: data.id as string,
+    employeeName: (employee?.full_name as string) ?? "Employee",
+    leaveType: data.leave_type as string,
+    startDate: data.start_date as string,
+    endDate: data.end_date as string,
+  });
 
   return NextResponse.json({ leave: data }, { status: 201 });
 }

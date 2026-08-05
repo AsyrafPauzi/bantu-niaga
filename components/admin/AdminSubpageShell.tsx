@@ -1,13 +1,13 @@
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import {
   ModuleDashboardHero,
-  type ModuleHeroVariant,
+  type LegacyModuleHeroVariant,
 } from "@/components/dashboard/module-layout";
 
 interface AdminSubpageShellProps {
   headline: string;
   subcopy: string;
-  variant?: ModuleHeroVariant;
+  variant?: LegacyModuleHeroVariant;
   stats: React.ReactNode;
   children: React.ReactNode;
 }
@@ -15,7 +15,7 @@ interface AdminSubpageShellProps {
 export function AdminSubpageShell({
   headline,
   subcopy,
-  variant = "calm",
+  variant = "default",
   stats,
   children,
 }: AdminSubpageShellProps) {
@@ -24,6 +24,7 @@ export function AdminSubpageShell({
       <AdminBackLink />
       <ModuleDashboardHero
         module="Admin"
+        pillar="admin"
         headline={headline}
         subcopy={subcopy}
         variant={variant}

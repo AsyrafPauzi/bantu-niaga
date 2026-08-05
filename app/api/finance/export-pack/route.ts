@@ -3,6 +3,7 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { buildAccountantExportCsv } from "@/lib/finance/accountant-export";
 import { parseFinanceMonth } from "@/lib/finance/helpers";
+import { notifyFinanceExportDownloaded } from "@/lib/finance/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
 
   try {
     const body = await buildAccountantExportCsv(user.businessId, month);
+    notifyFinanceExportDownloaded({ businessId: user.businessId, month });
     return new NextResponse(body, {
       status: 200,
       headers: {

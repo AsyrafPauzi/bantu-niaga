@@ -10,6 +10,10 @@ import {
 } from "@/lib/finance/schemas";
 import { sendEmail } from "@/lib/marketing/email-resend";
 import { loadBusiness } from "@/lib/settings/business";
+import {
+  notifyFinanceInvoiceEmailed,
+  notifyFinanceInvoiceSent,
+} from "@/lib/finance/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -164,6 +168,23 @@ export async function POST(
     entity_id: id,
     diff: { to: invoice.customer_email, resend_id: result.id ?? null },
   });
+
+  const wasDraft = invoice.status === "draft";
+  notifyFinanceInvoiceEmailed({
+    businessId: user.businessId,
+    invoiceId: id,
+    number: invoice.number,
+    email: invoice.customer_email.trim(),
+  });
+  if (wasDraft) {
+    notifyFinanceInvoiceSent({
+      businessId: user.businessId,
+      invoiceId: id,
+      number: invoice.number,
+      customerName: invoice.customer_name,
+      totalMyr: Number(invoice.total_myr),
+    });
+  }
 
   return NextResponse.json(
     {

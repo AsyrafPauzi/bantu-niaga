@@ -11,10 +11,13 @@ import type {
   ConsentKind,
   DataExportSummary,
   DataSubjectRequest,
+  DsrAdminRow,
   DsrKind,
   DsrStatus,
   UserConsent,
 } from "./types";
+import { sortDsrRows, type DsrSortField } from "./dsr-sort";
+import type { SortOrder } from "@/lib/super-admin/table-sort";
 
 /**
  * Load the latest consent state for the current user, merged with the
@@ -127,19 +130,22 @@ export const loadPendingDeletionRequest = cache(
  * service-role client so we can see all rows regardless of RLS.
  */
 export async function loadDsrSummary(): Promise<{
-  pending: number;
+  total: number;
+  open: number;
   awaitingGrace: number;
   completed: number;
-  failed: number;
 }> {
   const supabase = createServiceRoleClient() as unknown as SupabaseClient;
   const [
+    { count: total },
     { count: pending },
     { count: inProgress },
     { count: awaitingGrace },
     { count: completed },
-    { count: failed },
   ] = await Promise.all([
+    supabase
+      .from("data_subject_requests")
+      .select("id", { count: "exact", head: true }),
     supabase
       .from("data_subject_requests")
       .select("id", { count: "exact", head: true })
@@ -156,43 +162,121 @@ export async function loadDsrSummary(): Promise<{
       .from("data_subject_requests")
       .select("id", { count: "exact", head: true })
       .eq("status", "completed"),
-    supabase
-      .from("data_subject_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "failed"),
   ]);
 
   return {
-    pending: (pending ?? 0) + (inProgress ?? 0),
+    total: total ?? 0,
+    open: (pending ?? 0) + (inProgress ?? 0),
     awaitingGrace: awaitingGrace ?? 0,
     completed: completed ?? 0,
-    failed: failed ?? 0,
   };
 }
 
-export async function loadAllDsrsPage(
-  filter: { status?: DsrStatus; kind?: DsrKind } = {},
-  opts: { from: number; to: number },
-): Promise<{ rows: DataSubjectRequest[]; total: number }> {
+export type DsrPageFilters = {
+  q?: string;
+  status?: string;
+  kind?: string;
+};
+
+export type { DsrAdminRow };
+
+export async function loadAllDsrsPage(opts: {
+  from: number;
+  to: number;
+  filters?: DsrPageFilters;
+  sort?: { field: DsrSortField; order: SortOrder };
+}): Promise<{ rows: DsrAdminRow[]; total: number }> {
   const supabase = createServiceRoleClient() as unknown as SupabaseClient;
+  const filters = opts.filters ?? {};
+  const sort = opts.sort ?? { field: "submitted", order: "desc" };
+
   let q = supabase
     .from("data_subject_requests")
     .select(
       "id, business_id, user_id, kind, status, reason, payload, scheduled_for, completed_at, cancelled_at, cancellation_reason, created_at, updated_at",
       { count: "exact" },
-    )
-    .order("created_at", { ascending: false })
-    .range(opts.from, opts.to);
+    );
 
-  if (filter.status) q = q.eq("status", filter.status);
-  if (filter.kind) q = q.eq("kind", filter.kind);
+  if (filters.status && filters.status !== "all") {
+    q = q.eq("status", filters.status);
+  }
+  if (filters.kind && filters.kind !== "all") {
+    q = q.eq("kind", filters.kind);
+  }
+
+  const search = filters.q?.trim();
+  if (search) {
+    const like = `%${search}%`;
+    const [{ data: bizMatches }, { data: userMatches }] = await Promise.all([
+      supabase
+        .from("businesses")
+        .select("id")
+        .or(`name.ilike.${like},idcompany.ilike.${like}`),
+      supabase
+        .from("users")
+        .select("id")
+        .or(`display_name.ilike.${like},email.ilike.${like}`),
+    ]);
+    const bizIds = (bizMatches ?? []).map((row) => row.id as string);
+    const userIds = (userMatches ?? []).map((row) => row.id as string);
+    const orParts = [`reason.ilike.${like}`];
+    if (bizIds.length > 0) {
+      orParts.push(`business_id.in.(${bizIds.join(",")})`);
+    }
+    if (userIds.length > 0) {
+      orParts.push(`user_id.in.(${userIds.join(",")})`);
+    }
+    q = q.or(orParts.join(","));
+  }
 
   const { data, error, count } = await q;
   if (error) throw error;
-  const rows = ((data ?? []) as unknown as Array<Record<string, unknown>>).map(
+
+  const baseRows = ((data ?? []) as unknown as Array<Record<string, unknown>>).map(
     coerceDsr,
   );
-  return { rows, total: count ?? rows.length };
+  const businessIds = [...new Set(baseRows.map((row) => row.businessId))];
+  const userIds = [...new Set(baseRows.map((row) => row.userId))];
+
+  const [{ data: businesses }, { data: users }] = await Promise.all([
+    businessIds.length > 0
+      ? supabase.from("businesses").select("id, name").in("id", businessIds)
+      : Promise.resolve({ data: [] }),
+    userIds.length > 0
+      ? supabase
+          .from("users")
+          .select("id, display_name, email")
+          .in("id", userIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const businessNames = new Map(
+    (businesses ?? []).map((row) => [row.id as string, row.name as string]),
+  );
+  const userById = new Map(
+    (users ?? []).map((row) => [
+      row.id as string,
+      {
+        displayName: (row.display_name as string | null) ?? null,
+        email: (row.email as string | null) ?? null,
+      },
+    ]),
+  );
+
+  const enriched: DsrAdminRow[] = baseRows.map((row) => {
+    const user = userById.get(row.userId);
+    return {
+      ...row,
+      businessName: businessNames.get(row.businessId),
+      userDisplayName: user?.displayName ?? null,
+      userEmail: user?.email ?? null,
+    };
+  });
+
+  const sorted = sortDsrRows(enriched, sort);
+  const total = count ?? sorted.length;
+  const rows = sorted.slice(opts.from, opts.to + 1);
+  return { rows, total };
 }
 
 export { buildExportBundle } from "@/lib/privacy/export-bundle";

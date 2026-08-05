@@ -1,4 +1,4 @@
-import type { ModuleHeroVariant } from "@/components/dashboard/module-layout";
+import type { LegacyModuleHeroVariant } from "@/components/dashboard/module-layout";
 import type { KpiSnapshotResult } from "@/lib/marketing/dashboard-queries";
 import { AUTO_SEGMENT_BLURB } from "@/lib/marketing/segment-display";
 import type { AutoSegmentKey } from "@/lib/marketing/segments-rules";
@@ -6,7 +6,7 @@ import { formatCount } from "@/lib/marketing/metrics";
 
 export function customersSubpageHero(
   snapshot: KpiSnapshotResult,
-): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     snapshot.totalCustomers === 0
       ? "Start your customer list"
@@ -44,7 +44,7 @@ export function segmentsSubpageHero(opts: {
   totalMembers: number;
   largestSegment?: { name: string; count: number } | null;
   winBackMembers?: number;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   if (opts.total === 0) {
     return {
       headline: "Segments appear with your customers",
@@ -90,7 +90,7 @@ export function segmentDetailSubpageHero(opts: {
   kind: "auto" | "custom";
   autoKey: AutoSegmentKey | null;
   memberCount: number;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   if (opts.memberCount === 0) {
     return {
       headline: opts.name,
@@ -121,7 +121,7 @@ export function broadcastsSubpageHero(opts: {
   total: number;
   draftCount: number;
   sentCount: number;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     opts.total === 0
       ? "Send your first broadcast"
@@ -139,7 +139,7 @@ export function couponsSubpageHero(opts: {
   total: number;
   activeCount: number;
   redeemedTotal: number;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     opts.total === 0
       ? "Create your first coupon"
@@ -155,7 +155,7 @@ export function couponsSubpageHero(opts: {
 
 export function newCustomerSubpageHero(
   snapshot: KpiSnapshotResult,
-): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     snapshot.totalCustomers === 0
       ? "Your first customer"
@@ -176,7 +176,7 @@ export function newCustomerSubpageHero(
 export function importCustomerSubpageHero(): {
   headline: string;
   subcopy: string;
-  variant: ModuleHeroVariant;
+  variant: LegacyModuleHeroVariant;
 } {
   return {
     headline: "Import your customer list",
@@ -192,7 +192,7 @@ export function customerDetailSubpageHero(opts: {
   totalSpendMyr: number;
   orderCount: number;
   lastPurchaseAt: string | null;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const first = opts.name.split(/\s+/)[0] ?? opts.name;
   const spend = opts.totalSpendMyr;
   const orders = opts.orderCount;
@@ -283,7 +283,7 @@ export function buildCustomerMayaInsight(opts: {
 export function newSegmentSubpageHero(opts: {
   customCount: number;
   totalMembers: number;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     opts.customCount === 0
       ? "Your first custom segment"
@@ -300,7 +300,7 @@ export function newSegmentSubpageHero(opts: {
 export function newCouponSubpageHero(opts: {
   activeCount: number;
   redeemedTotal: number;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     opts.activeCount === 0 ? "Create your first coupon" : "New coupon code";
 
@@ -321,7 +321,7 @@ export function couponDetailSubpageHero(opts: {
   status: "active" | "paused" | "expired";
   redeemedCount: number;
   totalLimit: number | null;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const discount =
     opts.type === "PCT"
       ? `${opts.value}% off`
@@ -362,7 +362,7 @@ export function couponDetailSubpageHero(opts: {
 
 export function newBroadcastSubpageHero(opts?: {
   segmentName?: string | null;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline = opts?.segmentName
     ? `Broadcast to ${opts.segmentName}`
     : "New broadcast";
@@ -382,7 +382,7 @@ export function broadcastDetailSubpageHero(opts: {
   sentCount: number;
   failedCount: number;
   segmentName: string;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const channelLabel =
     opts.channel === "whatsapp_ctc" ? "WhatsApp" : "Email";
   const status = opts.status.replace("_", " ");
@@ -428,7 +428,7 @@ export function broadcastDetailSubpageHero(opts: {
 
 export function newContentSubpageHero(opts?: {
   prefillDateLabel?: string | null;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline = opts?.prefillDateLabel
     ? `Plan a post for ${opts.prefillDateLabel}`
     : "New social post";
@@ -445,7 +445,7 @@ export function contentDetailSubpageHero(opts: {
   channel: "tiktok" | "instagram" | "facebook";
   status: "idea" | "drafted" | "scheduled" | "posted";
   scheduledAt: string | null;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const channelLabel =
     opts.channel === "tiktok"
       ? "TikTok"
@@ -499,7 +499,7 @@ export function contentSubpageHero(opts: {
   scheduledCount: number;
   draftCount: number;
   postedCount: number;
-}): { headline: string; subcopy: string; variant: ModuleHeroVariant } {
+}): { headline: string; subcopy: string; variant: LegacyModuleHeroVariant } {
   const headline =
     opts.scheduledCount > 0
       ? `${opts.scheduledCount} post${opts.scheduledCount === 1 ? "" : "s"} scheduled in ${opts.monthLabel}`

@@ -238,60 +238,91 @@
 | ✅ | Invoice supporting docs — `admin_file_id` on invoices |
 | ✅ | Quote → invoice polish — confirm dialog + due date |
 | ✅ | Email send fallback — mailto when Resend not configured |
+| ✅ | Notification feed — Finance events → `business_notifications` + overview activity panel |
 
-**Core verify before add-ons:** run `supabase db push` (incl. `20260731010000_finance_billplz_and_invoice_attachments.sql`), then smoke: log expense → send invoice → share link → export CSV.
+**Core verify before add-ons:** run `supabase db push` (incl. `20260805140000_finance_marketplace_addons.sql`), then `npm run smoke:finance` (expense → invoice → share link → export CSV).
 
-### 5.2 Finance add-ons (Marketplace) — **frozen until §5.1 verified**
+### 5.2 Finance add-ons (Marketplace) — **catalog placeholders · build later**
 
 | Status | Add-on | Slug | Notes |
 |--------|--------|------|-------|
-| ✅ | Finance AI (Fayza) | `finance-assistant` | RM 20/mo · ship only after core gate · `/finance/assistant` |
-| 🟡 | Billplz invoice checkout | — | Wired · live when `BILLPLZ_*` env set · **add-on, not core** |
-| ⬜ | LHDN e-Invoice connector | `finance-lhdn-einvoice` | |
-| ⬜ | SST advanced reporting | `finance-sst-reporting` | |
-| ⬜ | Cashflow forecast | — | |
-| ⬜ | Recurring invoices | — | |
-| ⬜ | Auto bank reconciliation | — | |
+| ✅ | Finance AI (Fayza) | `finance-assistant` | RM 20/mo · `/finance/assistant` |
+| 🟡 | Recurring invoices | `finance-recurring-invoices` | Coming soon |
+| 🟡 | LHDN e-Invoice connector | `lhdn-einvoice` | Coming soon |
+| 🟡 | SST advanced reporting | `finance-sst-reporting` | Coming soon |
+| 🟡 | Cashflow forecast | `finance-cashflow-forecast` | Coming soon |
+| 🟡 | Full ledger analytics | `finance-ledger-analytics` | Coming soon |
+| 🟡 | Payment gateway (Billplz) | `finance-payment-gateway` | Wired in code · coming soon in marketplace |
+| 🟡 | Auto bank reconciliation | `finance-bank-reconciliation` | Coming soon |
+| 🟡 | Scheduled payment reminders | `finance-payment-reminders` | Coming soon |
 
 ---
 
 ## 6. Operations module
 
 > **Unlock:** Growth+ (see entitlements).  
-> **Rule:** Core = products, orders, bookings, stock alerts. Add-ons = AI, public booking, and advanced inventory.
+> **Rule:** Core = products, services, suppliers, orders, bookings, stock alerts, export. **Add-ons wait until core is 100%.**  
+> **Gate:** Do not build §6.2 marketplace items until every §6.1 row is ✅ and verified on staging.
 
-### 6.1 Core Operations (included)
+### 6.1 Core Operations (included) — finish these first
 
 | Status | Item |
 |--------|------|
-| ✅ | Operations overview |
-| ✅ | Products catalogue |
-| ✅ | Suppliers directory |
-| ✅ | Orders pipeline |
+| ✅ | Operations overview — vertical profile, KPIs, order pipeline, today’s schedule |
+| ✅ | Products catalogue — SKU, price, category, image, stock qty |
+| ✅ | Services catalogue — pricing for booking & POS |
+| ✅ | Suppliers directory — contacts, payment terms, file attach |
+| ✅ | Orders pipeline — todo → in progress → ready → done board |
+| ✅ | Order notes, due dates, fulfillment type, supplier link |
 | ✅ | Bookings calendar + resources |
 | ✅ | Booking buffer + conflict check (create + PATCH) |
 | ✅ | Low-stock tracking + overview alerts |
+| ✅ | CSV export — `/api/operations/export` |
+| ✅ | Storage file attach — orders & suppliers (`admin_file_id`) |
+| ✅ | Notification feed — Operations events → `business_notifications` + overview activity panel |
 
-### 6.2 Operations add-ons (Marketplace)
+**Core verify before add-ons:** run `supabase db push` (incl. `20260805150000_operations_marketplace_addons_expand.sql`), then `npm run smoke:operations` (order → done → product → booking → export).
 
+### 6.2 Operations add-ons (Marketplace) — **catalog placeholders · build later**
+
+#### SCALE
 | Status | Add-on | Slug | Notes |
 |--------|--------|------|-------|
-| ✅ | Operations AI (Aiman) | `operations-assistant` | RM 20/mo · `/operations/assistant` · daily notice on Home |
-| ⬜ | Product variants | `operations-product-variants` | |
-| ⬜ | Public customer booking page | `operations-public-booking` | |
-| ⬜ | Advanced inventory / stock movements | — | |
-| ⬜ | Auto stock deduction from POS | — | Cross-pillar with Sales |
-| ⬜ | Multi-location stock | — | |
-| ⬜ | Purchase order generator | — | |
+| 🟡 | Product variants | `product-variants` | Coming soon |
+| 🟡 | Multi-location stock | `operations-multi-location-stock` | Coming soon |
+| 🟡 | Extra seats | `extra-seat` | Cross-pillar |
+
+#### EFFICIENCY
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Customer booking page | `customer-booking-page` | Public self-book · coming soon |
+| 🟡 | Advanced inventory | `operations-advanced-inventory` | Stock movements · coming soon |
+| 🟡 | Resource scheduling | `operations-resource-scheduling` | Staff/rooms on calendar · coming soon |
+| 🟡 | Supplier cost analytics | `operations-supplier-analytics` | Coming soon |
+
+#### AUTOMATE
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Auto stock deduction | `auto-stock-deduction` | POS + paid invoices · coming soon |
+| 🟡 | Purchase order generator | `operations-purchase-orders` | Coming soon |
+| 🟡 | Auto reorder reminders | `operations-auto-reorder` | Coming soon |
+
+#### AI (shipped · not SCALE/EFFICIENCY/AUTOMATE)
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ✅ | Operations AI (Aiman) | `operations-assistant` | RM 20/mo · `/operations/assistant` |
+
+**Deferred (cross-pillar):** order → Finance expense, order → Sales lead, auto stock from POS (catalog add-on when built).
 
 ---
 
 ## 7. Sales module
 
 > **Unlock:** Growth+ (see entitlements).  
-> **Rule:** Core must feel complete for counter + leads. Add-ons = controls, hardware, analytics, AI (see [05-sales.md](./pillars/05-sales.md)).
+> **Rule:** Core must feel complete for counter + leads. **Add-ons wait until core is 100%.**  
+> **Gate:** Do not build §7.2 marketplace items until every §7.1 row is ✅ and verified on staging.
 
-### 7.1 Core Sales (included)
+### 7.1 Core Sales (included) — finish these first
 
 | Status | Item |
 |--------|------|
@@ -319,30 +350,50 @@
 | ✅ | Dashboard week compare, top products, cashier summary |
 | ✅ | Receipt print view |
 | ✅ | Lead / customer → POS deep link (pre-convert name fill) |
+| ✅ | Notification feed — Sales events → `business_notifications` + overview activity panel |
 
-### 7.2 Sales add-ons (Marketplace · coming soon)
+**Core verify:** `npm run smoke:sales` (lead → POS → receipt → void → export → notifications).
 
-| Status | Add-on | Slug (planned) | Notes |
-|--------|--------|----------------|-------|
-| ✅ | Sales AI (Sufi) | `sales-assistant` | RM 20/mo · staff planner · `/sales/assistant` |
-| ⬜ | Dynamic DuitNow QR | `sales-duitnow-dynamic` | Amount-specific QR |
-| ⬜ | Refund & void approval | `sales-refund-void` | Manager PIN / approval |
-| ⬜ | Daily close-out reconciliation | `sales-daily-closeout` | End-of-day cash check |
-| ⬜ | Sales by staff report | `sales-by-staff` | Cashier performance |
-| ⬜ | Coupon-to-sales tracking | `sales-coupon-tracking` | Promo ROI with Marketing |
-| ⬜ | Hardware POS extensions | `sales-hardware-pos` | Barcode / printer |
-| 🟡 | Offline POS mode | `sales-offline-pos` | Not built · add-on |
-| ⬜ | Online storefront | `sales-storefront` | Public shop |
-| ⬜ | Stale lead alerts | `sales-stale-leads` | Auto chase |
+### 7.2 Sales add-ons (Marketplace) — **catalog placeholders · build later**
+
+#### SCALE
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Online storefront | `sales-storefront` | Coming soon |
+| 🟡 | Hardware POS extensions | `sales-hardware-pos` | Coming soon |
+| 🟡 | Extra seats | `extra-seat` | Cross-pillar |
+
+#### EFFICIENCY
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Sales by staff report | `sales-by-staff` | Coming soon |
+| 🟡 | Coupon-to-sales tracking | `sales-coupon-tracking` | Coming soon |
+| 🟡 | Daily close-out reconciliation | `sales-daily-closeout` | Coming soon |
+
+#### AUTOMATE
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Dynamic DuitNow QR | `sales-duitnow-dynamic` | Coming soon |
+| 🟡 | Refund & void approval | `sales-refund-void` | Coming soon |
+| 🟡 | Offline POS mode | `sales-offline-pos` | Coming soon |
+| 🟡 | Stale lead alerts | `sales-stale-leads` | Coming soon |
+
+#### AI (shipped · not SCALE/EFFICIENCY/AUTOMATE)
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ✅ | Sales AI (Sufi) | `sales-assistant` | RM 20/mo · `/sales/assistant` |
+
+**Deferred (cross-pillar):** auto stock deduction, coupon ROI deep-link, Marketing campaign attribution.
 
 ---
 
 ## 8. Marketing module
 
 > **Unlock:** Pro (`enterprise` tier).  
-> **Rule:** Core must feel complete. Add-ons = efficiency, automation, channel APIs (see [04-marketing.md](./pillars/04-marketing.md)).
+> **Rule:** Core must feel complete. **Add-ons wait until core is 100%.**  
+> **Gate:** Do not build §8.2 marketplace items until every §8.1 row is ✅ and verified on staging.
 
-### 8.1 Core Marketing (Pro included)
+### 8.1 Core Marketing (Pro included) — finish these first
 
 | Status | Item |
 |--------|------|
@@ -363,28 +414,50 @@
 | ✅ | First-visit Marketing guide (skip/cancel = done) |
 | ✅ | Nightly auto-tag refresh cron (`/api/cron/marketing-tag-refresh`) |
 | ✅ | POS + invoice line items on customer Orders tab |
+| ✅ | Customer activity feed (event outbox on overview) |
+| ✅ | Team notification feed — Marketing events → `business_notifications` |
 
-### 8.2 Marketing add-ons (Marketplace · coming soon)
+**Core verify:** `npm run smoke:marketing` · full CSV flow: `npm run smoke:m3`.
 
+### 8.2 Marketing add-ons (Marketplace) — **catalog placeholders · build later**
+
+#### SCALE
 | Status | Add-on | Slug | Notes |
 |--------|--------|------|-------|
-| ⬜ | Meta Social (FB + IG) | `meta-social` | Publish + insights — **not core** |
-| ✅ | Marketing AI (Maya) | `marketing-assistant` | RM 20/mo · staff planner (CRM + sales + products) · `/marketing/assistant` |
-| ⬜ | WhatsApp Business API | `whatsapp-business` | Official API |
-| ⬜ | TikTok Shop sync | `tiktok-sync` | |
-| ⬜ | Email campaign automation | `email-campaign-automation` | |
-| ⬜ | Dormant reactivation | `dormant-reactivation` | Auto win-back |
-| ⬜ | Campaign analytics | `campaign-analytics` | |
-| ⬜ | Loyalty & reviews | `loyalty-reviews` | |
-| ⬜ | CLV report | `clv-report` | |
+| 🟡 | Audience export packs | `marketing-audience-export` | Coming soon |
+| 🟡 | Loyalty & reviews | `loyalty-reviews` | Coming soon |
+| 🟡 | CLV report | `clv-report` | Coming soon |
+| 🟡 | Extra seats | `extra-seat` | Cross-pillar |
 
-Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_coming_soon = true`.
+#### EFFICIENCY
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Meta Social (FB + IG) | `meta-social` | Coming soon |
+| 🟡 | Campaign performance analytics | `campaign-analytics` | Coming soon |
+| 🟡 | TikTok Shop sync | `tiktok-sync` | Coming soon |
+
+#### AUTOMATE
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | WhatsApp Business API | `whatsapp-business` | Coming soon |
+| 🟡 | Email campaign automation | `email-campaign-automation` | Coming soon |
+| 🟡 | Dormant reactivation | `dormant-reactivation` | Coming soon |
+
+#### AI (shipped · not SCALE/EFFICIENCY/AUTOMATE)
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ✅ | Marketing AI (Maya) | `marketing-assistant` | RM 20/mo · `/marketing/assistant` |
+
+Migration `20260711090000_marketing_addons_coming_soon.sql` + `20260805160000_marketing_sales_hr_marketplace_addons.sql`.
 
 ---
 
 ## 9. HR module
 
-### 9.1 Core HR (Growth/Pro)
+> **Unlock:** Growth+ (see entitlements).  
+> **Rule:** Core = employees, leave, documents, onboarding. **Add-ons wait until core is 100%.**
+
+### 9.1 Core HR (included) — finish these first
 
 | Status | Item |
 |--------|------|
@@ -401,40 +474,46 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` marks these `is_comi
 | ✅ | Pending leave approve/reject |
 | ✅ | Manager record leave + MC upload |
 | ✅ | Share-link leave form (staff, no login) |
-| ✅ | Staff self-service portal (`/hr/me`) — staff role; requires `hr-staff-portal` add-on + `hr_employees.user_id` link |
-| ✅ | Staff portal: view AL balance + apply leave (annual / emergency / MC upload) |
-| ✅ | Staff portal: leave history + cancel pending requests |
-| ✅ | Staff portal: read-only onboarding checklist |
-| ✅ | Staff portal RLS (`20260730130000_hr_staff_self_service_rls.sql`) |
-| ✅ | Leave history |
-| ✅ | Limited AL balance (entitlement − taken, working days excl. weekends + holidays) |
-| ✅ | Balance updates on approve/reject |
-| ✅ | Soft warning when AL over balance |
+| ✅ | Staff self-service portal (`/hr/me`) |
+| ✅ | Leave history + AL balance |
 | ✅ | Onboarding checklist per employee |
-| ✅ | Default onboarding items on new employee |
-| ✅ | Onboarding progress (employee + HR overview) |
-| ✅ | IC/bank encryption at rest (AES-256-GCM sealed fields) |
+| ✅ | IC/bank encryption at rest |
 | ✅ | Audit log on HR mutations |
-| ✅ | First-visit HR guide (skip/cancel = done) |
+| ✅ | First-visit HR guide |
+| ✅ | Notification feed — HR events → `business_notifications` + overview activity panel |
 
-### 9.2 HR add-ons
+**Core verify:** `npm run smoke:hr` (employee → leave → approve → notifications).
 
+### 9.2 HR add-ons (Marketplace) — **catalog + shipped mix**
+
+#### SCALE
 | Status | Add-on | Slug | Notes |
 |--------|--------|------|-------|
-| ✅ | HR AI Assistant (Hana) | `hr-assistant` | RM 20/mo · staff planner + leave tools · 100 credits |
-| ✅ | Public Holiday Calendar | `hr-public-holidays` | Free · MyCal import · state-aware |
-| ✅ | Staff Appraisal Checker | `hr-staff-appraisal` | RM 29/mo · schedule reviews · overdue tracking |
-| ✅ | Self-Service Leave Forms | — | Share link (`/staff/leave/[token]`) + logged-in portal (`/hr/me`) |
-| ⬜ | Advanced Leave Policy | `hr-advanced-leave-policy` | Marketplace placeholder · UI at `/hr/leave/policy` |
-| ⬜ | Contract & Letter Generator | `hr-contract-letters` | Coming soon in marketplace |
-| ⬜ | Shift Roster | `hr-shift-roster` | Coming soon |
-| ⬜ | Time Clock | `hr-time-clock` | Coming soon |
-| ⬜ | Payroll & Statutory Pack | `hr-payroll-pack` | Coming soon |
-| ⬜ | HR Reminder Pack | `hr-reminder-pack` | Coming soon |
-| ✅ | Staff Self-Service Portal | `hr-staff-portal` | Staff app at `/hr/me`; owner upsell page at `/hr/staff-portal` |
-| ⬜ | AL carry-forward automation | — | Ships with Advanced Leave Policy add-on |
-| ⬜ | Per-business holiday overrides | — | Phase 2 HR feature · feeds Operations calendar (see §9.4) |
-| ⬜ | Operations integration (block bookings on PH) | — | Phase 2 · consumes HR effective calendar (see §9.4) |
+| 🟡 | Shift roster | `hr-shift-roster` | Coming soon |
+| 🟡 | Time clock | `hr-time-clock` | Coming soon |
+| 🟡 | Payroll & statutory pack | `hr-payroll-pack` | Coming soon |
+| 🟡 | Extra seats | `extra-seat` | Cross-pillar |
+
+#### EFFICIENCY
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ✅ | Public holiday calendar | `hr-public-holidays` | Free · MyCal import |
+| ✅ | Staff appraisal checker | `hr-staff-appraisal` | RM 29/mo |
+| 🟡 | Advanced leave policy | `hr-advanced-leave-policy` | Coming soon |
+| 🟡 | Contract & letter generator | `hr-contract-letters` | Coming soon |
+
+#### AUTOMATE
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | HR reminder pack | `hr-reminder-pack` | Coming soon |
+| ✅ | Staff self-service portal | `hr-staff-portal` | `/hr/me` |
+
+#### AI (shipped · not SCALE/EFFICIENCY/AUTOMATE)
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ✅ | HR AI (Hana) | `hr-assistant` | RM 20/mo · `/hr/assistant` |
+
+**Deferred (cross-pillar):** holiday overrides → Operations booking block, leave → Operations calendar.
 
 ### 9.3 HR AI (Hana) capabilities
 

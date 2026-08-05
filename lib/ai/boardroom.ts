@@ -47,11 +47,35 @@ export async function loadActiveAiAgentSlugs(
 export async function loadBoardroomStatus(
   businessId: string,
 ): Promise<BoardroomStatus> {
-  const activeSlugs = await loadActiveAiAgentSlugs(businessId);
-  const agents = BOARDROOM_AGENTS.map((agent) => ({
-    ...agent,
-    live: activeSlugs.has(agent.addonSlug),
-  }));
+  const supabase = await createSupabaseServerClient();
+  const [activeSlugs, settingsRes] = await Promise.all([
+    loadActiveAiAgentSlugs(businessId, supabase),
+    supabase
+      .from("business_agent_settings")
+      .select("agent_slug, display_name, assistant_enabled")
+      .eq("business_id", businessId),
+  ]);
+
+  if (settingsRes.error) {
+    throw new Error(settingsRes.error.message);
+  }
+
+  const settingsBySlug = new Map(
+    (settingsRes.data ?? []).map((row) => [row.agent_slug, row]),
+  );
+
+  const agents = BOARDROOM_AGENTS.map((agent) => {
+    const stored = settingsBySlug.get(agent.id);
+    const subscribed = activeSlugs.has(agent.addonSlug);
+    const assistantOn = stored?.assistant_enabled ?? subscribed;
+    const label = stored?.display_name?.trim() || agent.label;
+    return {
+      ...agent,
+      label,
+      subscribed,
+      live: subscribed && assistantOn,
+    };
+  });
   const activeCount = agents.filter((a) => a.live).length;
   return {
     agents,

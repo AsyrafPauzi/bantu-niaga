@@ -10,6 +10,10 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildSalesAssistantRules } from "@/lib/ai/sales-assistant-prompt";
+import {
+  composeStaffAgentSystemPrompt,
+  loadPublishedAgentScope,
+} from "@/lib/ai/agent-scope-runtime";
 import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
 import {
   detectUserLanguage,
@@ -104,18 +108,29 @@ async function runSufiAssistantChat(
     modelOverride: settings.modelOverride,
   });
   const lang = detectUserLanguage(userMessage);
+  const scope = await loadPublishedAgentScope(SALES_AGENT_SLUG);
+  const systemContent = composeStaffAgentSystemPrompt({
+    scope,
+    fallbackRules: buildSalesAssistantRules({
+      displayName,
+      businessName: businessName ?? undefined,
+      todayIso: malaysiaTodayIso(),
+      userLanguageInstruction: userLanguageInstruction(lang),
+    }),
+    displayName,
+    businessName: businessName ?? undefined,
+    todayIso: malaysiaTodayIso(),
+    roleLabel: "Sales",
+    dataPacketLabel: "DATA PACKET — SALES (leads + POS today):",
+    dataPacketText: salesPacketText,
+    extraBlocks: scope?.systemPrompt
+      ? [userLanguageInstruction(lang)].filter(Boolean)
+      : undefined,
+  });
   const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
-      content:
-        buildSalesAssistantRules({
-          displayName,
-          businessName: businessName ?? undefined,
-          todayIso: malaysiaTodayIso(),
-          userLanguageInstruction: userLanguageInstruction(lang),
-        }) +
-        "\n\nDATA PACKET — SALES (leads + POS today):\n" +
-        salesPacketText,
+      content: systemContent,
     },
     ...history.map((turn) => ({
       role: turn.role,

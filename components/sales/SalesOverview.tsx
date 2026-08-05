@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   Banknote,
   Bot,
+  Clock,
   CreditCard,
   Plus,
   ShoppingCart,
@@ -25,6 +26,10 @@ import { SalesMobileFab } from "@/components/sales/SalesMobileFab";
 import { formatMyr } from "@/lib/marketing/metrics";
 import type { SalesDashboardData } from "@/lib/sales/dashboard";
 import { cn } from "@/lib/utils/cn";
+import { fmtRelTime } from "@/lib/utils/relative-time";
+import { pillarClasses } from "@/lib/pillars/theme";
+
+const salesTheme = pillarClasses.sales;
 
 function fmtTodayLabel(ymd: string): string {
   return new Date(`${ymd}T12:00:00`).toLocaleDateString("en-MY", {
@@ -76,7 +81,7 @@ export function SalesOverview({
   showAssistant = false,
   showHistory = false,
 }: SalesOverviewProps) {
-  const { summary, leads, recentSales, todayYmd, week, topProducts, cashiers } =
+  const { summary, leads, recentSales, todayYmd, week, topProducts, cashiers, notifications } =
     data;
   const hasSalesToday = summary.txnToday > 0;
   const weekDelta =
@@ -133,7 +138,6 @@ export function SalesOverview({
           icon: ShoppingCart,
           title: "POS counter",
           subtitle: "Ring up a sale",
-          accent: "from-orange-500 to-amber-600",
         }
       : null,
     showLeads
@@ -142,7 +146,6 @@ export function SalesOverview({
           icon: Users,
           title: "Leads",
           subtitle: "Pipeline & follow-ups",
-          accent: "from-sky-500 to-blue-600",
         }
       : null,
     showAssistant
@@ -151,7 +154,6 @@ export function SalesOverview({
           icon: Bot,
           title: "Ask Sufi",
           subtitle: "Sales copilot",
-          accent: "from-violet-500 to-purple-600",
         }
       : null,
     showHistory
@@ -160,7 +162,6 @@ export function SalesOverview({
           icon: CreditCard,
           title: "History",
           subtitle: "Receipts & export",
-          accent: "from-amber-500 to-orange-600",
         }
       : null,
   ].filter(Boolean) as Array<{
@@ -168,7 +169,6 @@ export function SalesOverview({
     icon: typeof ShoppingCart;
     title: string;
     subtitle: string;
-    accent: string;
   }>;
 
   return (
@@ -177,14 +177,17 @@ export function SalesOverview({
 
       <ModuleDashboardHero
         module="Sales"
+        pillar="sales"
         headline={heroHeadline}
         subcopy={heroSub}
-        variant={attentionItems.some((i) => i.tone === "danger") ? "attention" : "sales"}
         cta={
           showPos ? (
             <Link
               href="/sales/pos"
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+              className={cn(
+                "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
+                salesTheme.btnPrimary,
+              )}
             >
               <Plus className="h-4 w-4" strokeWidth={2} />
               New sale
@@ -198,28 +201,28 @@ export function SalesOverview({
             value={formatMyr(summary.salesTodayMyr)}
             hint={hasSalesToday ? `${summary.txnToday} ticket${summary.txnToday === 1 ? "" : "s"}` : "No tickets yet"}
             icon={ShoppingCart}
-            iconClassName="text-orange-700 dark:text-orange-300"
+            iconClassName={salesTheme.eyebrow}
           />
           <ModuleHeroStat
             label="Avg ticket"
             value={hasSalesToday ? formatMyr(summary.avgTicketMyr) : "—"}
             hint={hasSalesToday ? "Per transaction" : "Opens after first sale"}
             icon={CreditCard}
-            iconClassName="text-amber-700 dark:text-amber-300"
+            iconClassName={salesTheme.eyebrow}
           />
           <ModuleHeroStat
             label="Cash"
             value={formatMyr(summary.cashTodayMyr)}
             hint={hasSalesToday ? `${summary.cashPct}% of today` : "—"}
             icon={Banknote}
-            iconClassName="text-emerald-700 dark:text-emerald-300"
+            iconClassName={salesTheme.eyebrow}
           />
           <ModuleHeroStat
             label="DuitNow QR"
             value={formatMyr(summary.duitnowTodayMyr)}
             hint={hasSalesToday ? `${summary.duitnowPct}% of today` : "—"}
             icon={Smartphone}
-            iconClassName="text-sky-700 dark:text-sky-300"
+            iconClassName={salesTheme.eyebrow}
           />
         </div>
 
@@ -311,14 +314,14 @@ export function SalesOverview({
           showHistory ? (
             <Link
               href="/sales/history"
-              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+              className="text-xs font-semibold text-[#2563EB] hover:text-blue-800 dark:text-blue-300"
             >
               View history
             </Link>
           ) : showPos ? (
             <Link
               href="/sales/pos"
-              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+              className="text-xs font-semibold text-[#2563EB] hover:text-blue-800 dark:text-blue-300"
             >
               Open POS
             </Link>
@@ -339,14 +342,17 @@ export function SalesOverview({
                 showPos ? (
                   <Link
                     href="/sales/pos"
-                    className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white",
+                      salesTheme.btnPrimary,
+                    )}
                   >
                     <ShoppingCart className="h-4 w-4" />
                     Open POS
                   </Link>
                 ) : undefined
               }
-              className="border-orange-200/80 bg-orange-50/30 dark:border-orange-900/40 dark:bg-orange-950/15"
+              className={cn("p-4 sm:p-5", salesTheme.sectionPanel)}
             />
           </div>
         ) : (
@@ -385,8 +391,43 @@ export function SalesOverview({
         )}
       </AdminOverviewPanel>
 
+      <AdminOverviewPanel
+        title="Activity feed"
+        subtitle="Recent sales events for your team"
+      >
+        <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
+          {notifications.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-ink-muted sm:px-5 dark:text-cream-400">
+              Leads, POS sales, and exports will appear here.
+            </div>
+          ) : (
+            notifications.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start gap-3 px-4 py-3 sm:px-5"
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg",
+                    salesTheme.iconBox,
+                  )}
+                >
+                  <Clock className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink dark:text-cream-100">{item.message}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                    {fmtRelTime(item.created_at)}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </AdminOverviewPanel>
+
       {quickActions.length > 0 ? (
-        <ModuleQuickActions module="Sales" actions={quickActions} />
+        <ModuleQuickActions module="Sales" pillar="sales" actions={quickActions} />
       ) : null}
 
       {showPos ? <SalesMobileFab /> : null}

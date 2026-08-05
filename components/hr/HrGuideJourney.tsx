@@ -22,7 +22,7 @@ const STEPS = [
   },
   {
     title: "1 · Employees",
-    body: "Add staff profiles, employment type, and contacts. Incomplete profiles show gaps so you can finish IC, bank, and emergency details later.",
+    body: "Add staff profiles, employment type, and contacts. A setup checklist shows what is still missing — phone, bank, IC, and contract.",
     href: "/hr/employees",
     cta: "Open employees",
     icon: Users,
@@ -36,7 +36,7 @@ const STEPS = [
   },
   {
     title: "3 · Documents",
-    body: "Upload contracts, IC copies, and MC files. Files stay scoped to your business and link to Admin storage when needed.",
+    body: "Upload contracts, IC copies, and MC files. Files stay scoped to your business as staff documents.",
     href: "/hr/documents",
     cta: "Open documents",
     icon: FileText,

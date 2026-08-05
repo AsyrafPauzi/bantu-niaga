@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { SettingsPageHero } from "@/components/settings/SettingsPageHero";
 import { BrandingForm } from "@/components/settings/BrandingForm";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { loadBusiness } from "@/lib/settings/business";
@@ -27,10 +27,9 @@ export default async function BrandingSettingsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Settings"
+      <SettingsPageHero
         title="Branding"
-        description={summaryParts.join(" · ")}
+        subcopy={summaryParts.join(" · ")}
       />
 
       <BrandingForm

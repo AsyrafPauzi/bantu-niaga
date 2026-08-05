@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { settingsClasses } from "@/lib/settings/theme";
+import { cn } from "@/lib/utils/cn";
 
 export function SettingsSubpageShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -17,7 +19,7 @@ export function SettingsSubpageShell({ children }: { children: ReactNode }) {
     <div className="space-y-6">
       <Link
         href="/settings"
-        className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
+        className={cn("inline-flex items-center gap-1.5 text-sm", settingsClasses.link)}
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2} />
         Back to settings

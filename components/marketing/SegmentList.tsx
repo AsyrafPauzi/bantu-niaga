@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { ChevronRight, Lock, Send, Sparkles, Users } from "lucide-react";
 import { StatusPill } from "@/components/dashboard/status-pill";
+import {
+  ModuleListPanel,
+  ModuleListPanelHeader,
+} from "@/components/dashboard/module-list-panel";
 import { SegmentListQuickActions } from "@/components/marketing/SegmentListQuickActions";
 import {
   AUTO_KEY_LABEL,
@@ -149,19 +153,46 @@ function SegmentCard({ row }: { row: SegmentListRow }) {
 export function SegmentList({ autoRows, customRows }: SegmentListProps) {
   if (autoRows.length === 0 && customRows.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-cream-300 bg-cream-50/50 px-6 py-12 text-center dark:border-hairline-dark dark:bg-hairline-dark/20">
-        <p className="text-sm font-semibold text-ink dark:text-cream-100">
-          No segments yet
-        </p>
-        <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-          Built-in segments appear once your CRM has customers with auto-tags.
-        </p>
-      </div>
+      <ModuleListPanel>
+        <ModuleListPanelHeader
+          title="Segments"
+          subtitle="Group customers for targeted broadcasts"
+          action={
+            <Link
+              href="/marketing/segments/new"
+              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
+            >
+              New segment
+            </Link>
+          }
+        />
+        <div className="px-4 py-12 text-center sm:px-5">
+          <p className="text-sm font-semibold text-ink dark:text-cream-100">
+            No segments yet
+          </p>
+          <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
+            Built-in segments appear once your CRM has customers with auto-tags.
+          </p>
+        </div>
+      </ModuleListPanel>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <ModuleListPanel>
+      <ModuleListPanelHeader
+        title="Segments"
+        subtitle={`${autoRows.length + customRows.length} total · ${autoRows.length} built-in`}
+        action={
+          <Link
+            href="/marketing/segments/new"
+            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
+          >
+            New segment
+          </Link>
+        }
+      />
+      <div className="space-y-8 p-4 sm:p-5">
       {autoRows.length > 0 ? (
         <section>
           <div className="mb-3 flex items-baseline justify-between gap-3">
@@ -222,6 +253,7 @@ export function SegmentList({ autoRows, customRows }: SegmentListProps) {
           </div>
         )}
       </section>
-    </div>
+      </div>
+    </ModuleListPanel>
   );
 }

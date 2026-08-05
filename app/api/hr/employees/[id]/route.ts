@@ -100,6 +100,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
+  if (parsed.annual_leave_entitlement_days !== undefined) {
+    const leaveYear = new Date().getFullYear();
+    await supabase
+      .from("hr_leave_balances")
+      .update({ entitlement_days: parsed.annual_leave_entitlement_days })
+      .eq("business_id", user.businessId)
+      .eq("employee_id", id)
+      .eq("leave_year", leaveYear);
+  }
+
   await writeAuditLog(supabase, {
     businessId: user.businessId,
     actorUserId: user.id,

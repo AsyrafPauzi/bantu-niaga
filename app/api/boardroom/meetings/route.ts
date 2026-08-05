@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import {
-  BOARDROOM_INVITABLE_V1,
+  BOARDROOM_INVITABLE,
+  boardroomAgentLabel,
   canManageBoardroom,
-  isInvitableV1,
+  isBoardroomInvitable,
 } from "@/lib/ai/boardroom-access";
 import { loadBoardroomStatus } from "@/lib/ai/boardroom";
+import {
+  BOARDROOM_HISTORY_LIMIT,
+  BOARDROOM_MAX_INVITEES,
+} from "@/lib/ai/boardroom-shared";
+import { trimBoardroomMeetingHistory } from "@/lib/ai/boardroom-history";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -39,9 +45,10 @@ const startSchema = z.object({
   invited_agent_ids: z
     .array(z.string())
     .min(2)
-    .max(5),
+    .max(BOARDROOM_MAX_INVITEES),
   title: z.string().trim().max(200).optional(),
   replace_paused: z.boolean().optional(),
+  meeting_mode: z.enum(["normal", "depth"]).optional(),
 });
 
 /** GET /api/boardroom/meetings — active/paused + recent ended. */
@@ -56,7 +63,7 @@ export async function GET() {
     supabase
       .from("boardroom_meetings")
       .select(
-        "id, status, invited_agent_ids, title, awaiting_clarifiers, credits_spent, created_at, updated_at, paused_at, ended_at",
+        "id, status, invited_agent_ids, title, awaiting_clarifiers, credits_spent, meeting_mode, depth_state, created_at, updated_at, paused_at, ended_at",
       )
       .eq("business_id", user.businessId)
       .in("status", ["active", "paused"])
@@ -70,15 +77,16 @@ export async function GET() {
       .eq("business_id", user.businessId)
       .eq("status", "ended")
       .order("ended_at", { ascending: false })
-      .limit(20),
+      .limit(BOARDROOM_HISTORY_LIMIT),
   ]);
 
-  const invitable = BOARDROOM_INVITABLE_V1.map((id) => {
+  const invitable = BOARDROOM_INVITABLE.map((id) => {
     const agent = status.agents.find((a) => a.id === id);
     return {
       id,
       label: agent?.label ?? id,
       role: agent?.role ?? "",
+      subscribed: agent?.subscribed ?? false,
       live: agent?.live ?? false,
     };
   });
@@ -117,12 +125,14 @@ export async function POST(request: Request) {
     throw e;
   }
 
-  const invited = [...new Set(parsed.invited_agent_ids)].filter(isInvitableV1);
+  const invited = [...new Set(parsed.invited_agent_ids)].filter(
+    isBoardroomInvitable,
+  );
   if (invited.length < 2) {
     return NextResponse.json(
       {
         error: "need_two_agents",
-        message: "Invite at least 2 live agents (Maya, Hana, or Sufi).",
+        message: "Invite at least 2 team members who are switched on.",
       },
       { status: 400 },
     );
@@ -134,10 +144,11 @@ export async function POST(request: Request) {
   );
   const notLive = invited.filter((id) => !liveIds.has(id));
   if (notLive.length > 0) {
+    const names = notLive.map((id) => boardroomAgentLabel(id)).join(", ");
     return NextResponse.json(
       {
         error: "agent_not_live",
-        message: `Activate these agents in Marketplace first: ${notLive.join(", ")}`,
+        message: `Switch on these team members in Settings first: ${names}`,
       },
       { status: 400 },
     );
@@ -147,7 +158,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "boardroom_locked",
-        message: "Activate at least 2 AI agents in Marketplace to unlock Boardroom.",
+        message:
+          "Switch on at least 2 module assistants in Settings to unlock Boardroom.",
       },
       { status: 403 },
     );
@@ -200,6 +212,7 @@ export async function POST(request: Request) {
       })
       .eq("id", paused.id)
       .eq("business_id", user.businessId);
+    await trimBoardroomMeetingHistory(supabase, user.businessId);
   }
 
   const { data: meeting, error } = await supabase
@@ -210,9 +223,19 @@ export async function POST(request: Request) {
       status: "active",
       invited_agent_ids: invited,
       title: parsed.title?.trim() || null,
+      meeting_mode: parsed.meeting_mode ?? "normal",
+      depth_state:
+        parsed.meeting_mode === "depth"
+          ? {
+              round: 1,
+              confidence: 0,
+              credits_since_checkpoint: 0,
+              paused_at_checkpoint: false,
+            }
+          : null,
     })
     .select(
-      "id, status, invited_agent_ids, title, awaiting_clarifiers, credits_spent, created_at",
+      "id, status, invited_agent_ids, title, awaiting_clarifiers, credits_spent, meeting_mode, depth_state, created_at",
     )
     .single();
 
@@ -223,11 +246,12 @@ export async function POST(request: Request) {
     );
   }
 
+  const attendeeLabels = invited.map((id) => boardroomAgentLabel(id)).join(", ");
   await supabase.from("boardroom_messages").insert({
     business_id: user.businessId,
     meeting_id: meeting.id,
     role: "system",
-    content: `Meeting started with ${invited.join(", ")}. Ask the room anything.`,
+    content: `Meeting started with ${attendeeLabels}. Ask the room anything.`,
   });
 
   return NextResponse.json({ data: meeting }, { status: 201 });

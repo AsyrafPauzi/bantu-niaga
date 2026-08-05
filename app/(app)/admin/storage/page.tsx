@@ -164,6 +164,8 @@ export default async function StoragePage({ searchParams }: PageProps) {
     created_at: row.created_at,
     uploaded_by: row.uploaded_by,
     uploader_name: nameLookup.get(row.uploaded_by) ?? null,
+    share_hash: row.share_hash,
+    share_enabled_at: row.share_enabled_at,
   }));
 
   const employees = canManageHrCore(user.role)

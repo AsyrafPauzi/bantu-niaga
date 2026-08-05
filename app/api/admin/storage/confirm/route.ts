@@ -12,6 +12,7 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { logger } from "@/lib/logger";
+import { postBusinessNotification } from "@/lib/notifications/post";
 import {
   ADMIN_FILE_MAX_BYTES,
   adminFileConfirmSchema,
@@ -347,6 +348,13 @@ export async function POST(request: Request) {
     uploaded_by_name:
       (profile as { display_name?: string | null } | null)?.display_name ?? null,
   };
+
+  void postBusinessNotification({
+    businessId: user.businessId,
+    eventType: "storage.uploaded",
+    message: `New file uploaded: ${row.file_name}`,
+    meta: { file_id: row.id, category: row.category },
+  });
 
   return NextResponse.json({ ok: true, data: row }, { status: 201 });
 }

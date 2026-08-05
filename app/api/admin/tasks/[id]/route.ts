@@ -12,6 +12,7 @@ import { adminTaskUpdateSchema } from "@/lib/admin/task-compliance-schemas";
 import { assertAdminFileOwned } from "@/lib/admin/validate-admin-file";
 import { getTaskColumnIsDone } from "@/lib/admin/task-columns";
 import { enrichAdminTasks } from "@/lib/admin/tasks-enrich";
+import { postBusinessNotification } from "@/lib/notifications/post";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +95,7 @@ export async function PATCH(
 
   const { data: existing, error: lookupErr } = await supabase
     .from("admin_tasks")
-    .select("id, assignee_user_id")
+    .select("id, assignee_user_id, title, completed_at")
     .eq("id", id)
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
@@ -186,6 +187,15 @@ export async function PATCH(
       },
       { status: 500 },
     );
+  }
+
+  if (patch.completed_at && !existing.completed_at) {
+    void postBusinessNotification({
+      businessId: user.businessId,
+      eventType: "task.completed",
+      message: `Task completed: ${existing.title}`,
+      meta: { task_id: id },
+    });
   }
 
   const [enriched] = await enrichAdminTasks(supabase, user.businessId, [

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { SettingsPageHero } from "@/components/settings/SettingsPageHero";
 import { BillingView } from "@/components/settings/BillingView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -61,15 +61,15 @@ export default async function BillingSettingsPage() {
 
   return (
     <>
-      <PageHeader
+      <SettingsPageHero
         eyebrow="Settings · Account"
         title="Billing & payment"
-        description="Invoices, payment methods, and Fast Credits."
-        action={
+        subcopy="Invoices, payment methods, and Fast Credits."
+        cta={
           canEdit ? (
             <Link
               href="/settings/subscription"
-              className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+              className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
             >
               Manage plan
             </Link>

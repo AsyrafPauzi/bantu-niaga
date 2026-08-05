@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { SettingsPageHero } from "@/components/settings/SettingsPageHero";
 import { TeamView } from "@/components/settings/TeamView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { isSaasDeployment } from "@/lib/platform/deployment";
@@ -49,10 +49,9 @@ export default async function TeamSettingsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Settings"
+      <SettingsPageHero
         title="Team"
-        description={summaryParts.join(" · ")}
+        subcopy={summaryParts.join(" · ")}
       />
 
       <TeamView

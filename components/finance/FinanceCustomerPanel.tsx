@@ -10,12 +10,16 @@ import {
   Mail,
   MessageCircle,
   Plus,
-  Search,
   Trash2,
   User,
   Wallet,
 } from "lucide-react";
 import { ListPagination } from "@/components/ui/list-pagination";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+} from "@/components/dashboard/module-list-panel";
+import { ModuleListSearchBar } from "@/components/dashboard/module-list-search";
 import {
   QuickActionBar,
   QuickCreateActions,
@@ -235,21 +239,7 @@ export function FinanceCustomerPanel({
           else toggleForm();
         }}
         actionLabel="Add customer"
-      >
-        <form
-          onSubmit={onSearch}
-          className="relative min-w-0 flex-1 sm:max-w-xs"
-        >
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted dark:text-cream-400" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, phone, email…"
-            className="w-full rounded-full border border-cream-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          />
-        </form>
-      </QuickActionBar>
+      />
 
       <QuickCreatePanel
         open={showForm}
@@ -318,7 +308,24 @@ export function FinanceCustomerPanel({
           ) : null}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+        <ModuleListPanel>
+          <ModuleListPanelFilters>
+            <form onSubmit={onSearch}>
+              <ModuleListSearchBar
+                value={search}
+                onChange={setSearch}
+                placeholder="Search name, phone, email…"
+                onClear={
+                  search.trim()
+                    ? () => {
+                        setSearch("");
+                        router.push("/finance/customers");
+                      }
+                    : undefined
+                }
+              />
+            </form>
+          </ModuleListPanelFilters>
           <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
           {customers.map((c) => {
             const busy = busyId === c.id;
@@ -442,7 +449,7 @@ export function FinanceCustomerPanel({
             searchParams={{ q: searchQuery || undefined }}
             className="border-t border-cream-200 dark:border-hairline-dark"
           />
-        </div>
+        </ModuleListPanel>
       )}
     </div>
   );

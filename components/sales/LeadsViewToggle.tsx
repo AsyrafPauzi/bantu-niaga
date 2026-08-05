@@ -22,7 +22,7 @@ export function LeadsViewToggle({ view, baseHref }: LeadsViewToggleProps) {
         className={cn(
           "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold",
           view === "list"
-            ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200"
+            ? "bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
             : "text-ink-muted hover:text-ink",
         )}
       >
@@ -34,7 +34,7 @@ export function LeadsViewToggle({ view, baseHref }: LeadsViewToggleProps) {
         className={cn(
           "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold",
           view === "kanban"
-            ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200"
+            ? "bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
             : "text-ink-muted hover:text-ink",
         )}
       >

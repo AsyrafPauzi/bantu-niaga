@@ -12,7 +12,7 @@ export function HrPageShell({ header, children, className }: HrPageShellProps) {
   return (
     <div
       className={cn(
-        "flex w-full flex-col bg-[#FFFEFB] dark:bg-surface-dark",
+        "flex w-full flex-col bg-surface-light dark:bg-surface-dark",
         className,
       )}
     >

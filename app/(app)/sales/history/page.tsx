@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Receipt } from "lucide-react";
-import {
-  AdminOverviewPanel,
-  AdminOverviewRow,
-} from "@/components/admin/AdminOverviewPanel";
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
+import {
+  ModuleListPanel,
+  ModuleListPanelFilters,
+  ModuleListTable,
+  ModuleListTableBody,
+  ModuleListTableHead,
+  MODULE_LIST_TABLE_ROW_CLASS,
+} from "@/components/dashboard/module-list-panel";
+import { ModuleListFilterChipLink } from "@/components/dashboard/module-list-search";
 import { SalesPosExportButton } from "@/components/sales/SalesPosExportButton";
 import { SalesSubpageShell } from "@/components/sales/SalesSubpageShell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
@@ -17,7 +22,6 @@ import {
 } from "@/lib/sales/history";
 import { historySubpageHero } from "@/lib/sales/subpage-hero";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { cn } from "@/lib/utils/cn";
 
 export const metadata = { title: "Sales history" };
 export const dynamic = "force-dynamic";
@@ -69,6 +73,13 @@ export default async function SalesHistoryPage({ searchParams }: PageProps) {
     return next === "today" ? "/sales/history" : `/sales/history?period=${next}`;
   }
 
+  const periodLabel =
+    period === "today"
+      ? "Today"
+      : period === "week"
+        ? "This week"
+        : "This month";
+
   return (
     <SalesSubpageShell
       headline={hero.headline}
@@ -82,84 +93,105 @@ export default async function SalesHistoryPage({ searchParams }: PageProps) {
             value={String(history.txnCount)}
             hint="Completed sales"
             icon={Receipt}
-            iconClassName="text-orange-700 dark:text-orange-300"
+            iconClassName="text-blue-700 dark:text-blue-300"
           />
           <ModuleHeroStat
             label="Total"
             value={formatMyr(history.salesMyr)}
-            hint={
-              period === "today"
-                ? "Today"
-                : period === "week"
-                  ? "Last 7 days"
-                  : "This month"
-            }
+            hint={periodLabel}
             icon={Receipt}
             iconClassName="text-emerald-700 dark:text-emerald-300"
           />
         </div>
       }
     >
-      <div className="flex flex-wrap gap-2">
-        {(["today", "week", "month"] as const).map((p) => (
-          <Link
-            key={p}
-            href={periodHref(p)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-semibold capitalize",
-              period === p
-                ? "border-brand-500 bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200"
-                : "border-cream-300 text-ink-muted hover:border-brand-300 dark:border-hairline-dark",
-            )}
+      <ModuleListPanel>
+        <ModuleListPanelFilters>
+          <nav
+            aria-label="Filter by period"
+            className="flex flex-wrap gap-2"
           >
-            {p === "today" ? "Today" : p === "week" ? "This week" : "This month"}
-          </Link>
-        ))}
-      </div>
-
-      <AdminOverviewPanel
-        title="Receipts"
-        subtitle={
-          period === "today"
-            ? "Today's POS sales"
-            : period === "week"
-              ? "Last 7 days"
-              : "This month"
-        }
-      >
-        {history.rows.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-ink-muted">
-            No sales in this period.{" "}
-            <Link href="/sales/pos" className="font-semibold text-brand-700">
-              Open POS
-            </Link>
+            {(["today", "week", "month"] as const).map((p) => (
+              <ModuleListFilterChipLink
+                key={p}
+                href={periodHref(p)}
+                active={period === p}
+                accent="blue"
+                label={
+                  p === "today"
+                    ? "Today"
+                    : p === "week"
+                      ? "This week"
+                      : "This month"
+                }
+              />
+            ))}
+          </nav>
+          <p className="mt-3 text-xs font-medium text-[#2563EB] dark:text-blue-300">
+            {history.txnCount} receipt{history.txnCount === 1 ? "" : "s"} ·{" "}
+            {periodLabel.toLowerCase()}
           </p>
-        ) : (
-          <ul>
-            {history.rows.map((row) => (
-              <li key={row.id}>
-                <AdminOverviewRow
-                  href={`/sales/receipts/${row.id}`}
-                  title={`${row.sale_number} · ${row.customer_name?.trim() || "Walk-in"}`}
-                  subtitle={new Date(row.created_at).toLocaleString("en-MY", {
-                    timeZone: "Asia/Kuala_Lumpur",
-                  })}
-                  badge={
-                    <span className="rounded-full bg-cream-100 px-2 py-0.5 text-[10px] font-semibold text-ink-muted dark:bg-hairline-dark">
+        </ModuleListPanelFilters>
+
+        <ModuleListTable>
+          <ModuleListTableHead>
+            <tr>
+              <th className="px-5 py-3 text-left">Receipt</th>
+              <th className="px-3 py-3 text-left">Customer</th>
+              <th className="px-3 py-3 text-left">Payment</th>
+              <th className="px-3 py-3 text-left">When</th>
+              <th className="px-5 py-3 text-right">Amount</th>
+            </tr>
+          </ModuleListTableHead>
+          <ModuleListTableBody>
+            {history.rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="px-5 py-12 text-center text-sm text-ink-muted dark:text-cream-400"
+                >
+                  No sales in this period.{" "}
+                  <Link
+                    href="/sales/pos"
+                    className="font-semibold text-[#2563EB] hover:underline"
+                  >
+                    Open POS
+                  </Link>
+                </td>
+              </tr>
+            ) : (
+              history.rows.map((row) => (
+                <tr key={row.id} className={MODULE_LIST_TABLE_ROW_CLASS}>
+                  <td className="px-5 py-3">
+                    <Link
+                      href={`/sales/receipts/${row.id}`}
+                      className="font-mono text-sm font-semibold text-ink hover:text-[#2563EB] dark:text-cream-100"
+                    >
+                      {row.sale_number}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-3 text-sm text-ink dark:text-cream-100">
+                    {row.customer_name?.trim() || "Walk-in"}
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className="rounded-full bg-cream-100 px-2 py-0.5 text-[10px] font-semibold text-ink-muted dark:bg-hairline-dark dark:text-cream-400">
                       {payLabel(row.payment_method)}
                     </span>
-                  }
-                  trailing={
-                    <span className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
-                      +{formatMyr(row.total_myr)}
-                    </span>
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </AdminOverviewPanel>
+                  </td>
+                  <td className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
+                    {new Date(row.created_at).toLocaleString("en-MY", {
+                      timeZone: "Asia/Kuala_Lumpur",
+                    })}
+                  </td>
+                  <td className="px-5 py-3 text-right text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                    +{formatMyr(row.total_myr)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </ModuleListTableBody>
+        </ModuleListTable>
+      </ModuleListPanel>
     </SalesSubpageShell>
   );
 }

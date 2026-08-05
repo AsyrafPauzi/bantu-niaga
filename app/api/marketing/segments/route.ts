@@ -7,6 +7,7 @@ import {
   SegmentRulesSchema,
   type SegmentRules,
 } from "@/lib/marketing/segments-rules";
+import { notifyMarketingSegmentCreated } from "@/lib/marketing/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -184,6 +185,13 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  const row = data as unknown as { id: string; name: string };
+  notifyMarketingSegmentCreated({
+    businessId: user.businessId,
+    segmentId: row.id,
+    name: row.name,
+  });
 
   return NextResponse.json({ data }, { status: 201 });
 }

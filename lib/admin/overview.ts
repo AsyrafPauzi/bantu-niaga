@@ -11,6 +11,9 @@ import {
   daysUntil,
 } from "@/lib/admin/task-compliance-schemas";
 import { tierBy } from "@/lib/settings/plans";
+import { fmtRelTime } from "@/lib/utils/relative-time";
+
+export { fmtRelTime };
 
 const STORAGE_ADDON_SLUG = "storage-10gb";
 const STORAGE_ADDON_GB = 10;
@@ -62,17 +65,14 @@ export interface AdminOverviewData {
   renewalsCompletedThisWeek: number;
   checklist: AdminChecklistItem[];
   hasAdminAssistant: boolean;
+  notifications: AdminNotificationItem[];
 }
 
-export function fmtRelTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  const diffSec = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (diffSec < 60) return "just now";
-  if (diffSec < 3600) return `${Math.round(diffSec / 60)}m ago`;
-  if (diffSec < 86400) return `${Math.round(diffSec / 3600)}h ago`;
-  const days = Math.round(diffSec / 86400);
-  if (days < 30) return `${days}d ago`;
-  return `${Math.round(days / 30)}mo ago`;
+export interface AdminNotificationItem {
+  id: string;
+  message: string;
+  event_type: string;
+  created_at: string;
 }
 
 export function fileCategoryLabel(category: string | null): string {
@@ -313,6 +313,7 @@ export async function loadAdminOverview(
     tasksDoneRes,
     renewalsDoneRes,
     storageAddonRes,
+    notificationsRes,
   ] = await Promise.all([
     options.canStorage
       ? supabase
@@ -408,6 +409,13 @@ export async function loadAdminOverview(
       .eq("business_id", businessId)
       .eq("status", "active")
       .eq("marketplace_addons.slug", STORAGE_ADDON_SLUG),
+    supabase
+      .from("business_notifications")
+      .select("id, message, event_type, created_at")
+      .eq("business_id", businessId)
+      .eq("pillar", "admin")
+      .order("created_at", { ascending: false })
+      .limit(12),
   ]);
 
   const fileMeta = (fileMetaRes.data ?? []) as Array<{
@@ -495,6 +503,7 @@ export async function loadAdminOverview(
     renewalsCompletedThisWeek: renewalsDoneRes.count ?? 0,
     checklist,
     hasAdminAssistant: options.hasAdminAssistant,
+    notifications: (notificationsRes.data ?? []) as AdminNotificationItem[],
   };
 }
 

@@ -1,0 +1,145 @@
+-- Operations marketplace add-ons: expand catalog placeholders (is_coming_soon = true).
+-- Aiman (operations-assistant) stays shippable under AI agents.
+
+insert into public.marketplace_addons (
+  slug,
+  name,
+  short_desc,
+  long_desc,
+  pillar,
+  icon,
+  price_cents,
+  cadence,
+  sort_order,
+  is_featured,
+  is_coming_soon
+)
+values
+  (
+    'product-variants',
+    'Product variants',
+    'Size, colour, and package options under one SKU.',
+    'Add size, colour, flavour, weight, or package variants under a single product — ideal for apparel, footwear, and retail. Coming soon.',
+    'operations',
+    'layers',
+    2900,
+    'monthly',
+    20,
+    true,
+    true
+  ),
+  (
+    'operations-multi-location-stock',
+    'Multi-location stock',
+    'Track quantities across branches, counters, and warehouses.',
+    'See stock by location, transfer between sites, and avoid overselling when you grow beyond one store. Coming soon.',
+    'operations',
+    'map-pin',
+    3900,
+    'monthly',
+    21,
+    true,
+    true
+  ),
+  (
+    'customer-booking-page',
+    'Customer booking page',
+    'Public link for customers to self-book services.',
+    'Share a secure booking page so customers pick a service, date, and time without calling or messaging you. Coming soon.',
+    'operations',
+    'calendar-check',
+    2900,
+    'monthly',
+    22,
+    true,
+    true
+  ),
+  (
+    'operations-advanced-inventory',
+    'Advanced inventory',
+    'Stock movements, adjustments, and movement history.',
+    'Full stock ledger with receipts, adjustments, and audit trail — beyond basic quantity on the product card. Coming soon.',
+    'operations',
+    'package-search',
+    3900,
+    'monthly',
+    23,
+    false,
+    true
+  ),
+  (
+    'operations-resource-scheduling',
+    'Resource scheduling',
+    'Staff, rooms, and equipment on the booking calendar.',
+    'Assign people or assets to appointments and see capacity at a glance. Coming soon.',
+    'operations',
+    'users-round',
+    2900,
+    'monthly',
+    24,
+    false,
+    true
+  ),
+  (
+    'operations-supplier-analytics',
+    'Supplier cost analytics',
+    'Spend trends and cost history by vendor.',
+    'Track what you buy from each supplier over time and spot price drift before reordering. Coming soon.',
+    'operations',
+    'line-chart',
+    2900,
+    'monthly',
+    25,
+    false,
+    true
+  ),
+  (
+    'auto-stock-deduction',
+    'Auto stock deduction',
+    'POS and paid invoices reduce stock automatically.',
+    'When a sale completes in POS or an invoice is marked paid, stock quantities update without manual adjustments. Coming soon.',
+    'operations',
+    'package-minus',
+    2500,
+    'monthly',
+    26,
+    true,
+    true
+  ),
+  (
+    'operations-purchase-orders',
+    'Purchase order generator',
+    'Draft POs from low-stock alerts and send to suppliers.',
+    'Turn low-stock warnings into purchase orders with one click — email or PDF to your vendor. Coming soon.',
+    'operations',
+    'file-input',
+    2900,
+    'monthly',
+    27,
+    false,
+    true
+  ),
+  (
+    'operations-auto-reorder',
+    'Auto reorder reminders',
+    'Proactive nudges when SKUs hit reorder points.',
+    'Scheduled reminders and suggested reorder quantities based on your thresholds and lead times. Coming soon.',
+    'operations',
+    'bell-ring',
+    1900,
+    'monthly',
+    28,
+    false,
+    true
+  )
+on conflict (slug) do update set
+  name             = excluded.name,
+  short_desc       = excluded.short_desc,
+  long_desc        = excluded.long_desc,
+  pillar           = excluded.pillar,
+  icon             = excluded.icon,
+  price_cents      = excluded.price_cents,
+  cadence          = excluded.cadence,
+  sort_order       = excluded.sort_order,
+  is_featured      = excluded.is_featured,
+  is_coming_soon   = excluded.is_coming_soon;

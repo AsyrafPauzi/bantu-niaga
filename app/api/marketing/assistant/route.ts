@@ -9,6 +9,10 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildMarketingAssistantRules } from "@/lib/ai/marketing-assistant-prompt";
+import {
+  composeStaffAgentSystemPrompt,
+  loadPublishedAgentScope,
+} from "@/lib/ai/agent-scope-runtime";
 import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
 import {
   detectUserLanguage,
@@ -103,18 +107,29 @@ async function runMayaAssistantChat(
     modelOverride: settings.modelOverride,
   });
   const lang = detectUserLanguage(userMessage);
+  const scope = await loadPublishedAgentScope(MARKETING_AGENT_SLUG);
+  const systemContent = composeStaffAgentSystemPrompt({
+    scope,
+    fallbackRules: buildMarketingAssistantRules({
+      displayName,
+      businessName: businessName ?? undefined,
+      todayIso: malaysiaTodayIso(),
+      userLanguageInstruction: userLanguageInstruction(lang),
+    }),
+    displayName,
+    businessName: businessName ?? undefined,
+    todayIso: malaysiaTodayIso(),
+    roleLabel: "Marketing",
+    dataPacketLabel: "DATA PACKET — COMMERCE (products + monthly sales):",
+    dataPacketText: commerceText,
+    extraBlocks: scope?.systemPrompt
+      ? [userLanguageInstruction(lang)].filter(Boolean)
+      : undefined,
+  });
   const baseMessages: AgentChatMessage[] = [
     {
       role: "system",
-      content:
-        buildMarketingAssistantRules({
-          displayName,
-          businessName: businessName ?? undefined,
-          todayIso: malaysiaTodayIso(),
-          userLanguageInstruction: userLanguageInstruction(lang),
-        }) +
-        "\n\nDATA PACKET — COMMERCE (products + monthly sales):\n" +
-        commerceText,
+      content: systemContent,
     },
     ...history.map((turn) => ({
       role: turn.role,

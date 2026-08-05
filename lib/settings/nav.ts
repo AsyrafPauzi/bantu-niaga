@@ -1,4 +1,5 @@
 import {
+  Building2,
   CreditCard,
   Crown,
   Image as ImageIcon,
@@ -101,6 +102,12 @@ export function buildSettingsNavGroups(
     {
       title: "Workspace",
       items: [
+        {
+          href: "/settings/business",
+          label: "Business profile",
+          description: "Company name, state, and contact details.",
+          icon: Building2,
+        },
         {
           href: "/settings/team",
           label: "Team",

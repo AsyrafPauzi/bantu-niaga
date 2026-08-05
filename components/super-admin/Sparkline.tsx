@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils/cn";
+
 /**
  * Tiny SVG sparkline. Designed for inline usage in cards/tables.
  * Receives raw numeric values; auto-normalises to the SVG viewport.
@@ -10,6 +12,8 @@ export function Sparkline({
   fill = "transparent",
   strokeWidth = 2,
   label,
+  responsive = false,
+  className,
 }: {
   values: number[];
   width?: number;
@@ -18,13 +22,18 @@ export function Sparkline({
   fill?: string;
   strokeWidth?: number;
   label?: string;
+  /** Stretch to parent width (use inside a bounded container). */
+  responsive?: boolean;
+  className?: string;
 }) {
   if (values.length === 0) {
     return (
       <svg
-        width={width}
+        className={cn(responsive && "block w-full max-w-full", className)}
+        width={responsive ? "100%" : width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
         aria-label={label}
         role="img"
       />
@@ -45,9 +54,11 @@ export function Sparkline({
 
   return (
     <svg
-      width={width}
+      className={cn(responsive && "block w-full max-w-full", className)}
+      width={responsive ? "100%" : width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
       aria-label={label}
       role="img"
     >

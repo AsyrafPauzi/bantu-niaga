@@ -13,9 +13,9 @@ import {
   Tag,
   Trash2,
 } from "lucide-react";
+import { ModuleListFilterChipLink } from "@/components/dashboard/module-list-search";
 import {
   OperationsCatalogEditShell,
-  OperationsCatalogEmpty,
   OperationsCatalogList,
 } from "@/components/operations/OperationsCatalogUi";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
@@ -503,67 +503,7 @@ export function OperationsProductPanel({
           }
         }}
         actionLabel="Add product"
-      >
-        <form
-          onSubmit={onSearch}
-          className="relative min-w-[12rem] flex-1 sm:max-w-xs"
-        >
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search SKU or name…"
-            className="w-full rounded-lg border border-cream-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          />
-        </form>
-      </QuickActionBar>
-
-      {(allCategories.length > 0 || lowStockOnly) && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={buildListUrl({ category: "all", lowStock: false })}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-              categoryFilter === "all" && !lowStockOnly
-                ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100"
-                : "border-cream-300 bg-white text-ink-muted hover:border-emerald-200 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400",
-            )}
-          >
-            <Package className="h-3.5 w-3.5" />
-            All
-          </Link>
-          {allCategories.map((cat) => {
-            const active = categoryFilter === cat && !lowStockOnly;
-            return (
-              <Link
-                key={cat}
-                href={buildListUrl({ category: cat, lowStock: false })}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-                  active
-                    ? "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100"
-                    : "border-cream-300 bg-white text-ink-muted hover:border-sky-200 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400",
-                )}
-              >
-                <span aria-hidden>{categoryEmoji(cat)}</span>
-                {cat}
-              </Link>
-            );
-          })}
-          <Link
-            href={buildListUrl({ lowStock: !lowStockOnly })}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-              lowStockOnly
-                ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100"
-                : "border-cream-300 bg-white text-ink-muted hover:border-amber-200 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400",
-            )}
-          >
-            ⚠️ Low stock
-          </Link>
-        </div>
-      )}
+      />
 
       <QuickCreatePanel
         open={showForm}
@@ -616,28 +556,93 @@ export function OperationsProductPanel({
         </OperationsCatalogEditShell>
       ) : null}
 
-      {products.length === 0 ? (
-        <OperationsCatalogEmpty
-          icon={hasFilters ? "🔍" : "📦"}
-          title={hasFilters ? "No products match your filters" : "No products yet"}
-          hint={
-            hasFilters
-              ? "Try another category or clear search."
-              : "Tap Add product — your first SKU takes under a minute."
-          }
-          action={
-            hasFilters ? (
-              <Link
-                href="/operations/products"
-                className="text-sm font-semibold text-brand-700 hover:underline dark:text-brand-300"
+      <OperationsCatalogList
+        title="Catalog"
+        total={total}
+        filters={
+          <>
+            {(allCategories.length > 0 || lowStockOnly) ? (
+              <nav
+                aria-label="Filter products"
+                className="mb-3 flex flex-wrap gap-2"
               >
-                Clear filters
-              </Link>
-            ) : undefined
-          }
-        />
-      ) : (
-        <OperationsCatalogList title="Catalog" total={total}>
+                <ModuleListFilterChipLink
+                  href={buildListUrl({ category: "all", lowStock: false })}
+                  active={categoryFilter === "all" && !lowStockOnly}
+                  accent="emerald"
+                  label="All"
+                />
+                {allCategories.map((cat) => (
+                  <ModuleListFilterChipLink
+                    key={cat}
+                    href={buildListUrl({ category: cat, lowStock: false })}
+                    active={categoryFilter === cat && !lowStockOnly}
+                    accent="sky"
+                    label={`${categoryEmoji(cat)} ${cat}`}
+                  />
+                ))}
+                <ModuleListFilterChipLink
+                  href={buildListUrl({ lowStock: !lowStockOnly })}
+                  active={lowStockOnly}
+                  accent="amber"
+                  label="⚠️ Low stock"
+                />
+              </nav>
+            ) : null}
+            <form
+              onSubmit={onSearch}
+              className="flex flex-col gap-3 lg:flex-row lg:items-center"
+            >
+              <div className="flex flex-1 items-center gap-2 rounded-xl border border-cream-300 bg-cream-50/50 px-3 py-2.5 dark:border-hairline-dark dark:bg-panel-dark/60">
+                <Search
+                  className="h-4 w-4 shrink-0 text-ink-muted"
+                  strokeWidth={2}
+                />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search SKU or name…"
+                  className="w-full min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="submit"
+                  className="rounded-lg bg-brand-500 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-600"
+                >
+                  Search
+                </button>
+                {hasFilters ? (
+                  <Link
+                    href="/operations/products"
+                    className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-xs font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
+                  >
+                    Clear
+                  </Link>
+                ) : null}
+              </div>
+            </form>
+          </>
+        }
+      >
+        {products.length === 0 ? (
+          <div className="px-5 py-14 text-center">
+            <p className="text-4xl" aria-hidden>
+              {hasFilters ? "🔍" : "📦"}
+            </p>
+            <p className="mt-3 text-sm font-semibold text-ink dark:text-cream-100">
+              {hasFilters
+                ? "No products match your filters"
+                : "No products yet"}
+            </p>
+            <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
+              {hasFilters
+                ? "Try another category or clear search."
+                : "Tap Add product — your first SKU takes under a minute."}
+            </p>
+          </div>
+        ) : (
           <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
             {products.map((p) => {
               const busy = busyId === p.id;
@@ -796,8 +801,8 @@ export function OperationsProductPanel({
               );
             })}
           </ul>
-        </OperationsCatalogList>
-      )}
+        )}
+      </OperationsCatalogList>
 
       <ListPagination
         page={page}

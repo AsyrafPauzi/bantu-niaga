@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Calendar,
   Camera,
+  Clock,
   Eye,
   Facebook,
   Gift,
@@ -45,7 +46,12 @@ import type {
   TopCustomerRow,
   UpcomingContentRow,
 } from "@/lib/marketing/dashboard-queries";
+import type { PillarNotificationItem } from "@/lib/notifications/load-pillar";
 import { cn } from "@/lib/utils/cn";
+import { fmtRelTime } from "@/lib/utils/relative-time";
+import { pillarClasses } from "@/lib/pillars/theme";
+
+const marketingTheme = pillarClasses.marketing;
 
 const QUICK_ACTIONS = [
   {
@@ -53,35 +59,30 @@ const QUICK_ACTIONS = [
     icon: Send,
     title: "Send broadcast",
     subtitle: "WhatsApp or email",
-    accent: "from-violet-500 to-purple-600",
   },
   {
     href: "/marketing/customers?bulk=tag",
     icon: Tag,
     title: "Refresh tags",
     subtitle: "Recompute auto-tags",
-    accent: "from-amber-500 to-orange-500",
   },
   {
     href: "/marketing/coupons/new",
     icon: Gift,
     title: "Create coupon",
     subtitle: "% or RM off",
-    accent: "from-rose-500 to-pink-600",
   },
   {
     href: "/marketing/content/new",
     icon: Calendar,
     title: "Plan content",
     subtitle: "Calendar drafts",
-    accent: "from-sky-500 to-blue-600",
   },
   {
     href: "/marketing/assistant",
     icon: Sparkles,
     title: "Ask Maya",
     subtitle: "Campaign ideas",
-    accent: "from-fuchsia-500 to-violet-600",
   },
 ] as const;
 
@@ -153,6 +154,7 @@ export interface MarketingOverviewProps {
   upcoming: UpcomingContentRow[];
   topContent: TopContentRow[];
   activity: ActivityRow[];
+  teamNotifications: PillarNotificationItem[];
 }
 
 export function MarketingOverview({
@@ -163,6 +165,7 @@ export function MarketingOverview({
   upcoming,
   topContent,
   activity,
+  teamNotifications,
 }: MarketingOverviewProps) {
   const totalCustomers = snapshot.totalCustomers;
   const vipCount = snapshot.vipCount;
@@ -291,23 +294,27 @@ export function MarketingOverview({
 
       <ModuleDashboardHero
         module="Marketing"
+        pillar="marketing"
         headline={heroHeadline}
         subcopy={heroSub}
-        variant={
-          atRiskCount > 0 ? "attention" : totalCustomers === 0 ? "calm" : "marketing"
-        }
         cta={
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Link
               href="/marketing/customers"
-              className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-violet-800 shadow-sm transition-colors hover:bg-white dark:border-violet-900/50 dark:bg-panel-dark/80 dark:text-violet-200"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl border bg-white/80 px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors hover:bg-white dark:bg-panel-dark/80",
+                marketingTheme.btnSecondary,
+              )}
             >
               <Users className="h-4 w-4" strokeWidth={2} />
               All customers
             </Link>
             <Link
               href="/marketing/customers/new"
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
+                marketingTheme.btnPrimary,
+              )}
             >
               <Plus className="h-4 w-4" strokeWidth={2} />
               New customer
@@ -325,7 +332,7 @@ export function MarketingOverview({
                 : "active in CRM"
             }
             icon={Users}
-            iconClassName="text-violet-700 dark:text-violet-300"
+            iconClassName={marketingTheme.eyebrow}
             href="/marketing/customers"
           />
           <ModuleHeroStat
@@ -333,7 +340,7 @@ export function MarketingOverview({
             value={formatCount(newCount)}
             hint={newHint}
             icon={UserPlus}
-            iconClassName="text-emerald-700 dark:text-emerald-300"
+            iconClassName={marketingTheme.eyebrow}
             href="/marketing/customers?tags=new"
           />
           <ModuleHeroStat
@@ -341,7 +348,7 @@ export function MarketingOverview({
             value={formatCount(vipCount)}
             hint={vipCount > 0 ? "top spenders" : "none yet"}
             icon={Star}
-            iconClassName="text-amber-700 dark:text-amber-300"
+            iconClassName={marketingTheme.eyebrow}
             href="/marketing/customers?tags=vip"
           />
           <ModuleHeroStat
@@ -353,7 +360,7 @@ export function MarketingOverview({
                 : "from all customers"
             }
             icon={TrendingUp}
-            iconClassName="text-fuchsia-700 dark:text-fuchsia-300"
+            iconClassName={marketingTheme.eyebrow}
           />
         </div>
       </ModuleDashboardHero>
@@ -698,7 +705,42 @@ export function MarketingOverview({
         </AdminOverviewPanel>
       ) : null}
 
-      <ModuleQuickActions module="Marketing" actions={QUICK_ACTIONS} />
+      <AdminOverviewPanel
+        title="Team activity feed"
+        subtitle="Recent marketing events for your team"
+      >
+        <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
+          {teamNotifications.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-ink-muted sm:px-5 dark:text-cream-400">
+              Customers, coupons, broadcasts, and imports will appear here.
+            </div>
+          ) : (
+            teamNotifications.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start gap-3 px-4 py-3 sm:px-5"
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg",
+                    marketingTheme.iconBox,
+                  )}
+                >
+                  <Clock className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink dark:text-cream-100">{item.message}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                    {fmtRelTime(item.created_at)}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </AdminOverviewPanel>
+
+      <ModuleQuickActions module="Marketing" pillar="marketing" actions={QUICK_ACTIONS} />
     </ModuleDashboardShell>
   );
 }

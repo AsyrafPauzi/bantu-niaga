@@ -18,6 +18,11 @@ import {
 } from "@/lib/finance/invoice-db";
 import { resolveAdminFileIdPatch, loadAdminFileNames } from "@/lib/admin/validate-admin-file";
 import {
+  notifyFinanceInvoicePaid,
+  notifyFinanceInvoiceSent,
+  notifyFinanceInvoiceVoided,
+} from "@/lib/finance/notify";
+import {
   financeInvoiceUpdateSchema,
   type FinanceInvoiceRow,
 } from "@/lib/finance/schemas";
@@ -335,6 +340,37 @@ export async function PATCH(
     await recordInvoiceIncome(admin, user.businessId, user.id, row);
   }
 
+  if (row && parsed.status && parsed.status !== current.status) {
+    if (
+      parsed.status === "sent" &&
+      row.document_kind === "invoice"
+    ) {
+      notifyFinanceInvoiceSent({
+        businessId: user.businessId,
+        invoiceId: row.id,
+        number: row.number,
+        customerName: row.customer_name,
+        totalMyr: Number(row.total_myr),
+      });
+    }
+    if (parsed.status === "paid" && row.document_kind === "invoice") {
+      notifyFinanceInvoicePaid({
+        businessId: user.businessId,
+        invoiceId: row.id,
+        number: row.number,
+        customerName: row.customer_name,
+        totalMyr: Number(row.total_myr),
+      });
+    }
+    if (parsed.status === "void") {
+      notifyFinanceInvoiceVoided({
+        businessId: user.businessId,
+        invoiceId: row.id,
+        number: row.number,
+      });
+    }
+  }
+
   return NextResponse.json({ ok: true, data: row ?? data }, { status: 200 });
 }
 
@@ -348,6 +384,15 @@ export async function DELETE(
   const { user } = auth;
 
   const supabase = await createSupabaseServerClient();
+
+  const { data: existing } = await supabase
+    .from("finance_invoices")
+    .select("number")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("finance_invoices")
     .update({ deleted_at: new Date().toISOString(), status: "void" })
@@ -360,6 +405,14 @@ export async function DELETE(
       { ok: false, error: { code: "delete_failed", message: error.message } },
       { status: 500 },
     );
+  }
+
+  if (existing?.number) {
+    notifyFinanceInvoiceVoided({
+      businessId: user.businessId,
+      invoiceId: id,
+      number: existing.number as string,
+    });
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

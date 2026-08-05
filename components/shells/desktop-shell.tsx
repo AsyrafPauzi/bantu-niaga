@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
   FileText,
@@ -18,6 +18,7 @@ import {
   Settings,
   LogOut,
   CircleHelp,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -73,6 +74,7 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
           { href: "/admin/storage", label: "Storage" },
           { href: "/admin/tasks", label: "Tasks" },
           { href: "/admin/compliance", label: "Compliance" },
+          { href: "/admin/documents", label: "Templates & notes" },
         ],
       },
       {
@@ -141,12 +143,20 @@ const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
   {
     label: "Platform",
     items: [
-      { href: "/boardroom", label: "AI Boardroom", icon: Sparkles },
+      { href: "/boardroom", label: "Boardroom", icon: Sparkles },
       { href: "/marketplace", label: "Marketplace", icon: Store },
       { href: "/settings", label: "Settings", icon: Settings },
     ],
   },
 ];
+
+function isSidebarSectionActive(href: string, pathname: string): boolean {
+  if (href === "/") return pathname === "/";
+  if (href === "/hr") {
+    return pathname === "/hr" || pathname.startsWith("/hr/");
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function DesktopShell({
   tier,
@@ -164,6 +174,9 @@ export function DesktopShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({});
   const sidebarGroups = useMemo(() => {
     const opsSubItems = getOperationsNavSubItems(businessType);
     return SIDEBAR_GROUPS.map((group) => ({
@@ -175,6 +188,18 @@ export function DesktopShell({
       ),
     }));
   }, [businessType]);
+
+  useEffect(() => {
+    for (const group of sidebarGroups) {
+      for (const item of group.items) {
+        if (isSidebarSectionActive(item.href, pathname)) {
+          setExpandedSections((prev) => ({ ...prev, [item.href]: true }));
+          return;
+        }
+      }
+    }
+  }, [pathname, sidebarGroups]);
+
   const isHrRoute = pathname === "/hr" || pathname.startsWith("/hr/");
   const isSettingsRoute =
     pathname === "/settings" || pathname.startsWith("/settings/");
@@ -223,12 +248,10 @@ export function DesktopShell({
                   {group.items.map(
                     ({ href, label, icon: Icon, pillar, subItems }) => {
                       const isOverviewActive = pathname === href;
-                      const isSectionActive =
-                        href === "/"
-                          ? pathname === "/"
-                          : href === "/hr"
-                            ? pathname === "/hr" || pathname.startsWith("/hr/")
-                            : pathname === href || pathname.startsWith(`${href}/`);
+                      const isSectionActive = isSidebarSectionActive(
+                        href,
+                        pathname,
+                      );
                       const locked = pillar ? !hasPillar(tier, pillar) : false;
                       const minTier = locked
                         ? tierBy(minimumTierFor(pillar!))
@@ -246,42 +269,75 @@ export function DesktopShell({
                         ) ?? []),
                         ...(sidebarAssistants[href] ?? []),
                       ];
-                      const showSubItems =
-                        !locked &&
-                        visibleSubItems.length > 0 &&
-                        isSectionActive;
+                      const hasSubItems =
+                        !locked && visibleSubItems.length > 0;
+                      const isExpanded =
+                        expandedSections[href] ?? isSectionActive;
+                      const showSubItems = hasSubItems && isExpanded;
                       return (
                         <li key={href}>
-                          <Link
-                            href={lockedHref}
-                            title={
-                              locked
-                                ? `Available on ${minTier?.label ?? "a higher"} plan`
-                                : undefined
-                            }
-                            className={cn(
-                              "flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                              isOverviewActive
-                                ? "bg-[#EEF3FE] font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
-                                : isSectionActive && !locked
-                                  ? "font-semibold text-brand-700 dark:text-brand-200"
-                                  : locked
-                                    ? "text-ink-subtle hover:bg-cream-100 hover:text-ink-muted dark:text-cream-500 dark:hover:bg-hairline-dark/60"
-                                    : "text-ink-muted hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
-                            )}
-                          >
-                            <span className="flex items-center gap-3 min-w-0">
-                              <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
-                              <span className="truncate">{label}</span>
-                            </span>
-                            {locked ? (
-                              <Lock
-                                className="h-3.5 w-3.5 shrink-0 text-ink-subtle dark:text-cream-500"
-                                strokeWidth={2}
-                                aria-label="Locked on this plan"
-                              />
+                          <div className="flex items-stretch gap-0.5">
+                            <Link
+                              href={lockedHref}
+                              title={
+                                locked
+                                  ? `Available on ${minTier?.label ?? "a higher"} plan`
+                                  : undefined
+                              }
+                              className={cn(
+                                "flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                                isOverviewActive
+                                  ? "bg-[#EEF3FE] font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
+                                  : isSectionActive && !locked
+                                    ? "font-semibold text-brand-700 dark:text-brand-200"
+                                    : locked
+                                      ? "text-ink-subtle hover:bg-cream-100 hover:text-ink-muted dark:text-cream-500 dark:hover:bg-hairline-dark/60"
+                                      : "text-ink-muted hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
+                              )}
+                            >
+                              <span className="flex items-center gap-3 min-w-0">
+                                <Icon
+                                  className="h-4 w-4 shrink-0"
+                                  strokeWidth={2}
+                                />
+                                <span className="truncate">{label}</span>
+                              </span>
+                              {locked ? (
+                                <Lock
+                                  className="h-3.5 w-3.5 shrink-0 text-ink-subtle dark:text-cream-500"
+                                  strokeWidth={2}
+                                  aria-label="Locked on this plan"
+                                />
+                              ) : null}
+                            </Link>
+                            {hasSubItems ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedSections((prev) => ({
+                                    ...prev,
+                                    [href]: !isExpanded,
+                                  }))
+                                }
+                                aria-expanded={isExpanded}
+                                aria-label={`${isExpanded ? "Collapse" : "Expand"} ${label} submenu`}
+                                className={cn(
+                                  "flex shrink-0 items-center justify-center rounded-lg px-2 py-2.5 text-ink-muted transition-colors hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
+                                  isSectionActive &&
+                                    !locked &&
+                                    "text-brand-700 dark:text-brand-200",
+                                )}
+                              >
+                                <ChevronDown
+                                  className={cn(
+                                    "h-4 w-4 transition-transform duration-200",
+                                    isExpanded && "rotate-180",
+                                  )}
+                                  strokeWidth={2}
+                                />
+                              </button>
                             ) : null}
-                          </Link>
+                          </div>
                           {showSubItems ? (
                             <ul className="mb-1 ml-3 mt-0.5 space-y-0.5 border-l border-[#E5E0D8] pl-3 dark:border-hairline-dark">
                               {visibleSubItems.map((sub) => {
@@ -355,10 +411,10 @@ export function DesktopShell({
               isAssistantRoute
                 ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
                 : isHrRoute
-                  ? "mx-auto h-full min-h-0 overflow-y-auto"
+                  ? "mx-auto h-full min-h-0 max-w-6xl overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-6"
                   : isSettingsRoute
-                    ? "h-full min-h-0 w-full overflow-y-auto px-6 py-8 lg:px-10 lg:py-10"
-                    : "mx-auto h-full min-h-0 max-w-6xl overflow-y-auto px-6 py-8 lg:px-10 lg:py-10",
+                    ? "mx-auto h-full min-h-0 max-w-6xl overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-6"
+                    : "mx-auto h-full min-h-0 max-w-6xl overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-6",
             )}
           >
             {children}

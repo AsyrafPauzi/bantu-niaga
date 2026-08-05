@@ -40,6 +40,9 @@ import {
   taskDueLabel,
 } from "@/lib/admin/overview";
 import { cn } from "@/lib/utils/cn";
+import { pillarClasses } from "@/lib/pillars/theme";
+
+const adminTheme = pillarClasses.admin;
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -148,7 +151,6 @@ export function AdminOverview({
           icon: ListChecks,
           title: "Tasks",
           subtitle: "To do · Doing · Done",
-          accent: "from-violet-500 to-purple-600",
         }
       : null,
     canCompliance
@@ -157,7 +159,6 @@ export function AdminOverview({
           icon: ShieldCheck,
           title: "Compliance",
           subtitle: "Licences & renewals",
-          accent: "from-amber-500 to-orange-500",
         }
       : null,
     canStorage
@@ -166,7 +167,6 @@ export function AdminOverview({
           icon: FolderOpen,
           title: "Storage",
           subtitle: "Document vault",
-          accent: "from-sky-500 to-blue-600",
         }
       : null,
     {
@@ -174,14 +174,16 @@ export function AdminOverview({
       icon: Bot,
       title: "Amir AI",
       subtitle: data.hasAdminAssistant ? "Admin copilot" : "View in Marketplace",
-      accent: "from-indigo-500 to-fuchsia-600",
     },
   ].filter(Boolean) as ModuleQuickAction[];
 
   const primaryCta = canStorage ? (
     <Link
       href="/admin/storage"
-      className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+      className={cn(
+        "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
+        adminTheme.btnPrimary,
+      )}
     >
       <Upload className="h-4 w-4" strokeWidth={2} />
       Upload document
@@ -189,7 +191,10 @@ export function AdminOverview({
   ) : canTasks ? (
     <Link
       href="/admin/tasks"
-      className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+      className={cn(
+        "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
+        adminTheme.btnPrimary,
+      )}
     >
       <Plus className="h-4 w-4" strokeWidth={2} />
       Add task
@@ -197,7 +202,10 @@ export function AdminOverview({
   ) : canCompliance ? (
     <Link
       href="/admin/compliance"
-      className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+      className={cn(
+        "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
+        adminTheme.btnPrimary,
+      )}
     >
       <CalendarPlus className="h-4 w-4" strokeWidth={2} />
       Add renewal
@@ -208,9 +216,9 @@ export function AdminOverview({
     <ModuleDashboardShell>
       <ModuleDashboardHero
         module="Admin"
+        pillar="admin"
         headline={heroHeadline}
         subcopy={heroSub}
-        variant={needsAttention ? "attention" : "calm"}
         cta={primaryCta}
       >
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
@@ -224,7 +232,7 @@ export function AdminOverview({
                   : `${formatBytes(data.totalStorageBytes)} stored`
               }
               icon={FolderOpen}
-              iconClassName="text-sky-700 dark:text-sky-300"
+              iconClassName={adminTheme.eyebrow}
             />
           ) : null}
           {canTasks ? (
@@ -233,7 +241,7 @@ export function AdminOverview({
               value={data.openTaskCount}
               hint={`${data.tasksCompletedThisWeek} done this week`}
               icon={Clock}
-              iconClassName="text-violet-700 dark:text-violet-300"
+              iconClassName={adminTheme.eyebrow}
             />
           ) : null}
           {canCompliance ? (
@@ -242,7 +250,7 @@ export function AdminOverview({
               value={renewalsKpi.value}
               hint="within 30 days or overdue"
               icon={AlertTriangle}
-              iconClassName="text-amber-700 dark:text-amber-300"
+              iconClassName={adminTheme.eyebrow}
             />
           ) : null}
           {canStorage && data.storageUsagePct != null ? (
@@ -253,7 +261,7 @@ export function AdminOverview({
                 data.storageUsagePct >= 80 ? "Consider extra space" : "Plan quota"
               }
               icon={FolderOpen}
-              iconClassName="text-emerald-700 dark:text-emerald-300"
+              iconClassName={adminTheme.eyebrow}
               href="/admin/storage"
             />
           ) : null}
@@ -261,7 +269,7 @@ export function AdminOverview({
       </ModuleDashboardHero>
 
       {data.checklist.length > 0 ? (
-        <section className="rounded-2xl border border-violet-200/80 bg-violet-50/40 p-4 dark:border-violet-900/40 dark:bg-violet-950/20 sm:p-5">
+        <section className={cn("p-4 sm:p-5", adminTheme.sectionPanel)}>
           <div className="flex items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
@@ -277,9 +285,12 @@ export function AdminOverview({
               <li key={item.id}>
                 <Link
                   href={item.href}
-                  className="flex items-center gap-3 rounded-xl border border-violet-200/60 bg-white/80 px-3 py-2.5 text-sm transition-colors hover:bg-white dark:border-violet-900/50 dark:bg-panel-dark/80 dark:hover:bg-panel-dark"
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-white dark:hover:bg-panel-dark",
+                    adminTheme.sectionPanelItem,
+                  )}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+                  <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", adminTheme.iconBox)}>
                     <ListChecks className="h-4 w-4" strokeWidth={2} />
                   </span>
                   <span className="font-medium text-ink dark:text-cream-100">
@@ -311,7 +322,7 @@ export function AdminOverview({
             </div>
             <Link
               href="/admin/storage"
-              className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+              className="text-xs font-semibold text-[#4F46E5] dark:text-indigo-300"
             >
               Open storage
             </Link>
@@ -333,7 +344,7 @@ export function AdminOverview({
                     ? "bg-status-danger"
                     : data.storageUsagePct >= 80
                       ? "bg-status-warning"
-                      : "bg-brand-500",
+                      : "bg-[#4F46E5]",
                 )}
                 style={{ width: `${data.storageUsagePct}%` }}
               />
@@ -350,7 +361,7 @@ export function AdminOverview({
             action={
               <Link
                 href="/admin/tasks"
-                className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+                className="text-xs font-semibold text-[#4F46E5] dark:text-indigo-300"
               >
                 View board
               </Link>
@@ -414,7 +425,7 @@ export function AdminOverview({
             action={
               <Link
                 href="/admin/compliance"
-                className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+                className="text-xs font-semibold text-[#4F46E5] dark:text-indigo-300"
               >
                 View tracker
               </Link>
@@ -466,6 +477,38 @@ export function AdminOverview({
             </div>
           </AdminOverviewPanel>
         ) : null}
+
+        <AdminOverviewPanel
+          title="Activity feed"
+          subtitle="Recent admin events for your team"
+        >
+          <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
+            {data.notifications.length === 0 ? (
+              <div className="px-4 py-6 text-sm text-ink-muted sm:px-5">
+                Uploads, tasks, and compliance updates will appear here.
+              </div>
+            ) : (
+              data.notifications.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-start gap-3 px-4 py-3 sm:px-5"
+                >
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-cream-100 text-brand-700 dark:bg-panel-dark">
+                    <Clock className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-ink dark:text-cream-100">
+                      {item.message}
+                    </p>
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      {fmtRelTime(item.created_at)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </AdminOverviewPanel>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -476,7 +519,7 @@ export function AdminOverview({
             action={
               <Link
                 href="/admin/storage"
-                className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+                className="text-xs font-semibold text-[#4F46E5] dark:text-indigo-300"
               >
                 Open storage
               </Link>
@@ -579,7 +622,7 @@ export function AdminOverview({
       </div>
 
       {quickActions.length > 0 ? (
-        <ModuleQuickActions module="Admin" actions={quickActions} />
+        <ModuleQuickActions module="Admin" pillar="admin" actions={quickActions} />
       ) : null}
 
       {data.hasAdminAssistant ? (

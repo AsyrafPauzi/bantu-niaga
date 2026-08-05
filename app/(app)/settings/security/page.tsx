@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { SettingsPageHero } from "@/components/settings/SettingsPageHero";
 import { SecurityView } from "@/components/settings/SecurityView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -92,11 +92,7 @@ export default async function SecuritySettingsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Settings"
-        title="Security"
-        description={email}
-      />
+      <SettingsPageHero title="Security" subcopy={email} />
 
       <SecurityView
         email={email}

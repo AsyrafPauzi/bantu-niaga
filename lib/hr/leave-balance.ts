@@ -69,9 +69,20 @@ export async function getOrCreateLeaveBalance(
     .maybeSingle();
 
   if (existing) {
+    const takenDays = Number(existing.taken_days);
+    const storedEntitlement = Number(existing.entitlement_days);
+    if (storedEntitlement !== entitlementDays) {
+      const { error: syncError } = await supabase
+        .from("hr_leave_balances")
+        .update({ entitlement_days: entitlementDays })
+        .eq("id", existing.id);
+
+      if (syncError) throw new Error(syncError.message);
+    }
+
     return {
-      takenDays: Number(existing.taken_days),
-      entitlementDays: Number(existing.entitlement_days),
+      takenDays,
+      entitlementDays,
     };
   }
 

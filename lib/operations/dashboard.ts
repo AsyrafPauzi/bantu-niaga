@@ -40,6 +40,13 @@ export interface OperationsDashboardWeekStats {
   done_prev_week: number;
 }
 
+export interface OperationsNotificationItem {
+  id: string;
+  message: string;
+  event_type: string;
+  created_at: string;
+}
+
 export interface OperationsDashboardData {
   summary: OperationsSummary;
   recentOrders: OperationsDashboardOrder[];
@@ -47,6 +54,7 @@ export interface OperationsDashboardData {
   todaySchedule: OperationsDashboardBooking[];
   lowStockProducts: OperationsDashboardLowStock[];
   weekStats: OperationsDashboardWeekStats;
+  notifications: OperationsNotificationItem[];
 }
 
 export async function loadOperationsDashboard(
@@ -64,8 +72,15 @@ export async function loadOperationsDashboard(
   const twoWeeksAgo = new Date(now);
   twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
-  const [ordersRes, bookingsRes, todayBookingsRes, resourcesRes, lowStockRes, completedOrdersRes] =
-    await Promise.all([
+  const [
+    ordersRes,
+    bookingsRes,
+    todayBookingsRes,
+    resourcesRes,
+    lowStockRes,
+    completedOrdersRes,
+    notificationsRes,
+  ] = await Promise.all([
     admin
       .from("operations_orders")
       .select("id, number, customer_name, title, status, due_date, amount_myr")
@@ -118,6 +133,13 @@ export async function loadOperationsDashboard(
       .is("deleted_at", null)
       .not("completed_at", "is", null)
       .gte("completed_at", twoWeeksAgo.toISOString()),
+    admin
+      .from("business_notifications")
+      .select("id, message, event_type, created_at")
+      .eq("business_id", businessId)
+      .eq("pillar", "operations")
+      .order("created_at", { ascending: false })
+      .limit(12),
   ]);
 
   const resourceLookup = new Map(
@@ -173,5 +195,6 @@ export async function loadOperationsDashboard(
     todaySchedule,
     lowStockProducts,
     weekStats: { done_this_week, done_prev_week },
+    notifications: (notificationsRes.data ?? []) as OperationsNotificationItem[],
   };
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canUseLeads } from "@/lib/sales/access";
+import { notifySalesLeadCreated } from "@/lib/sales/notify";
 import {
   assertLeadAssignee,
 } from "@/lib/sales/convert-lead";
@@ -198,6 +199,12 @@ export async function POST(request: Request) {
     entity_type: "sales_lead",
     entity_id: data.id,
     diff: { name: data.name, phone_e164: data.phone_e164 },
+  });
+
+  notifySalesLeadCreated({
+    businessId: user.businessId,
+    leadId: data.id as string,
+    name: data.name as string,
   });
 
   return NextResponse.json({ data }, { status: 201 });

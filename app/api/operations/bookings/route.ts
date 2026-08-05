@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { nextOperationsBookingNumber } from "@/lib/operations/helpers";
+import { notifyOperationsBookingCreated } from "@/lib/operations/notify";
 import { requireOperationsUser } from "@/lib/operations/require-user";
 import {
   operationsBookingCreateSchema,
@@ -161,6 +162,20 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  const row = data as unknown as {
+    id: string;
+    number: string;
+    service_title: string;
+    customer_name: string;
+  };
+  notifyOperationsBookingCreated({
+    businessId: user.businessId,
+    bookingId: row.id,
+    number: row.number,
+    serviceTitle: row.service_title,
+    customerName: row.customer_name,
+  });
 
   return NextResponse.json({ ok: true, data }, { status: 201 });
 }

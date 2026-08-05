@@ -10,6 +10,10 @@ import {
 } from "@/lib/ai/assistant-clarifier";
 import { spendCredits, isInsufficientCreditsError } from "@/lib/ai/credits";
 import { buildAdminAssistantRules } from "@/lib/ai/admin-assistant-prompt";
+import {
+  composeStaffAgentSystemPrompt,
+  loadPublishedAgentScope,
+} from "@/lib/ai/agent-scope-runtime";
 import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
 import {
   detectUserLanguage,
@@ -105,18 +109,29 @@ async function runAdminAssistantChat(
     modelOverride: settings.modelOverride,
   });
   const lang = detectUserLanguage(userMessage);
+  const scope = await loadPublishedAgentScope(ADMIN_AGENT_SLUG);
+  const systemContent = composeStaffAgentSystemPrompt({
+    scope,
+    fallbackRules: buildAdminAssistantRules({
+      displayName,
+      businessName: businessName ?? undefined,
+      todayIso: malaysiaTodayYmd(),
+      userLanguageInstruction: userLanguageInstruction(lang),
+    }),
+    displayName,
+    businessName: businessName ?? undefined,
+    todayIso: malaysiaTodayYmd(),
+    roleLabel: "Admin",
+    dataPacketLabel: "DATA PACKET — ADMIN (tasks + compliance + storage):",
+    dataPacketText: adminPacketText,
+    extraBlocks: scope?.systemPrompt
+      ? [userLanguageInstruction(lang)].filter(Boolean)
+      : undefined,
+  });
   const messages: AgentChatMessage[] = [
     {
       role: "system",
-      content:
-        buildAdminAssistantRules({
-          displayName,
-          businessName: businessName ?? undefined,
-          todayIso: malaysiaTodayYmd(),
-          userLanguageInstruction: userLanguageInstruction(lang),
-        }) +
-        "\n\nDATA PACKET — ADMIN (tasks + compliance + storage):\n" +
-        adminPacketText,
+      content: systemContent,
     },
     ...history.map((turn) => ({
       role: turn.role,

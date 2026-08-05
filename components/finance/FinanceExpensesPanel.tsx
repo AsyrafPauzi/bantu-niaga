@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { FinanceTxnCompactList } from "@/components/finance/FinanceTxnCompactList";
+import { ModuleListFilterChipButton } from "@/components/dashboard/module-list-search";
+import { FinanceTxnExportButton } from "@/components/finance/FinanceTxnExportButton";
 import { FinanceTxnDocumentField } from "@/components/finance/FinanceTxnDocumentField";
 import { useStagedReceipt } from "@/components/finance/use-staged-receipt";
 import {
@@ -144,8 +146,19 @@ export function FinanceExpensesPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [listFilter, setListFilter] = useState<string>("all");
 
   const refresh = useCallback(() => router.refresh(), [router]);
+
+  const listCategories = useMemo(() => {
+    const set = new Set(transactions.map((t) => t.category ?? "other"));
+    return ["all", ...Array.from(set)];
+  }, [transactions]);
+
+  const filteredTransactions = useMemo(() => {
+    if (listFilter === "all") return transactions;
+    return transactions.filter((t) => (t.category ?? "other") === listFilter);
+  }, [transactions, listFilter]);
 
   const topCategory = categories[0];
   const maxCategoryAmt = categories[0]?.amount_myr ?? 1;
@@ -564,7 +577,7 @@ export function FinanceExpensesPanel({
         emptyIcon="🕵️"
         emptyTitle="Nothing logged yet"
         emptyHint="Your first expense goes above — future you will thank you at tax time."
-        transactions={transactions}
+        transactions={filteredTransactions}
         kind="expense"
         categoryMeta={categoryMeta}
         busyId={busyId}
@@ -574,6 +587,38 @@ export function FinanceExpensesPanel({
         onAttachReceipt={attachReceipt}
         exportMonth={monthLabel}
         exportEntryCount={loggedCount}
+        filters={
+          <>
+            <nav
+              aria-label="Filter expenses by category"
+              className="flex flex-wrap gap-2"
+            >
+              {listCategories.map((cat) => (
+                <ModuleListFilterChipButton
+                  key={cat}
+                  active={listFilter === cat}
+                  accent="amber"
+                  label={cat === "all" ? "All" : categoryMeta(cat).label}
+                  onClick={() => setListFilter(cat)}
+                />
+              ))}
+            </nav>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-medium text-rose-700 dark:text-rose-300">
+                Showing {filteredTransactions.length} entr
+                {filteredTransactions.length === 1 ? "y" : "ies"}
+                {listFilter !== "all"
+                  ? ` · ${categoryMeta(listFilter).label}`
+                  : ""}
+              </p>
+              <FinanceTxnExportButton
+                kind="expense"
+                month={monthLabel}
+                disabled={loggedCount === 0}
+              />
+            </div>
+          </>
+        }
       />
     </div>
   );

@@ -82,3 +82,65 @@ export function describeProfileGaps(gaps: ProfileCompletionGap): string {
   }
   return parts.join(" · ");
 }
+
+export type SetupChecklistItemId =
+  | "phone"
+  | "bank"
+  | "ic_file"
+  | "contract_file";
+
+export interface SetupChecklistItem {
+  id: SetupChecklistItemId;
+  label: string;
+  done: boolean;
+  /** DOM id to scroll to when user taps Add now */
+  scrollTarget: string;
+  tab?: "profile" | "documents";
+}
+
+/** Four-item setup checklist shown on employee profile (core HR). */
+export function getEmployeeSetupChecklist(
+  employee: HrEmployeeRow,
+  documents: HrDocumentRow[],
+): SetupChecklistItem[] {
+  const uploaded = getEmployeeUploadedDocumentTypes(documents, employee.id);
+  const hasPhone = Boolean(employee.phone_e164?.trim());
+  const hasBank =
+    Boolean(employee.bank_name?.trim()) &&
+    Boolean(employee.bank_account_no || employee.bank_account_no_sealed);
+
+  return [
+    {
+      id: "phone",
+      label: "Phone number",
+      done: hasPhone,
+      scrollTarget: "hr-field-phone",
+      tab: "profile",
+    },
+    {
+      id: "bank",
+      label: "Bank name and account",
+      done: hasBank,
+      scrollTarget: "hr-field-bank-name",
+      tab: "profile",
+    },
+    {
+      id: "ic_file",
+      label: "IC file uploaded",
+      done: uploaded.has("ic") || uploaded.has("passport"),
+      scrollTarget: "hr-section-documents",
+      tab: "documents",
+    },
+    {
+      id: "contract_file",
+      label: "Employment contract uploaded",
+      done: uploaded.has("contract"),
+      scrollTarget: "hr-section-documents",
+      tab: "documents",
+    },
+  ];
+}
+
+export function isSetupChecklistComplete(items: SetupChecklistItem[]): boolean {
+  return items.every((item) => item.done);
+}

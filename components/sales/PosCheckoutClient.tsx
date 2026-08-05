@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { SalesBackLink } from "@/components/sales/SalesBackLink";
 import { formatMyr } from "@/lib/marketing/metrics";
+import { salesClasses } from "@/lib/sales/theme";
 import { cn } from "@/lib/utils/cn";
 
 interface PosProduct {
@@ -422,12 +423,12 @@ export function PosCheckoutClient({
       <div className="space-y-4 pb-8">
         <SalesBackLink />
         <div className="mx-auto max-w-md">
-          <div className="overflow-hidden rounded-2xl border border-orange-200/80 bg-gradient-to-br from-orange-50 via-white to-amber-50 shadow-card dark:border-orange-900/40 dark:from-orange-950/30 dark:via-panel-dark dark:to-amber-950/20">
-            <div className="border-b border-orange-200/60 bg-orange-500/10 px-6 py-5 text-center dark:border-orange-900/40">
-              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-orange-500 text-white">
+          <div className="overflow-hidden rounded-2xl border border-blue-200/80 bg-gradient-to-br from-blue-50 via-white to-cream-100 shadow-card dark:border-blue-900/40 dark:from-blue-950/30 dark:via-panel-dark dark:to-cream-100/20">
+            <div className="border-b border-blue-200/60 bg-[#2563EB]/10 px-6 py-5 text-center dark:border-blue-900/40">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#2563EB] text-white">
                 <Check className="h-6 w-6" strokeWidth={2.5} />
               </div>
-              <p className="text-xs font-bold uppercase tracking-widest text-orange-700 dark:text-orange-300">
+              <p className="text-xs font-bold uppercase tracking-widest text-blue-700 dark:text-blue-300">
                 Sale complete
               </p>
               <h2 className="mt-1 text-xl font-bold text-ink dark:text-cream-100">
@@ -482,7 +483,7 @@ export function PosCheckoutClient({
                   setReceipt(null);
                   setShareDone(false);
                 }}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-3.5 text-sm font-bold text-white transition hover:bg-orange-600 active:scale-[0.98]"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3.5 text-sm font-bold text-white transition hover:bg-[#1D4ED8] active:scale-[0.98]"
               >
                 <Zap className="h-4 w-4" />
                 Next sale
@@ -508,7 +509,7 @@ export function PosCheckoutClient({
               {receipt.sale.id ? (
                 <Link
                   href={`/sales/receipts/${receipt.sale.id}`}
-                  className="flex items-center justify-center gap-1.5 text-xs font-semibold text-orange-700 dark:text-orange-300"
+                  className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300"
                 >
                   <Receipt className="h-3.5 w-3.5" />
                   View full receipt
@@ -524,30 +525,56 @@ export function PosCheckoutClient({
   return (
     <div className="space-y-4 pb-20 lg:pb-8">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <SalesBackLink />
-          <h1 className="text-2xl font-bold tracking-tight text-ink dark:text-cream-100">
-            Point of sale
-          </h1>
-          <p className="text-sm text-ink-muted">{businessName}</p>
+      <section
+        className={cn(
+          "rounded-xl border p-4 shadow-sm sm:p-5",
+          salesClasses.heroBorder,
+          salesClasses.heroBg,
+        )}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <SalesBackLink />
+            <p
+              className={cn(
+                "text-[11px] font-semibold uppercase tracking-widest",
+                salesClasses.textMuted,
+              )}
+            >
+              Sales
+            </p>
+            <h1 className="text-xl font-bold tracking-tight text-ink dark:text-cream-100 sm:text-2xl">
+              Point of sale
+            </h1>
+            <p className="text-sm text-ink-muted dark:text-cream-400">{businessName}</p>
+          </div>
+          <div
+            className={cn(
+              "rounded-xl border px-4 py-2.5 text-right",
+              salesClasses.sectionPanelItem,
+            )}
+          >
+            <p
+              className={cn(
+                "text-[10px] font-bold uppercase tracking-wider",
+                salesClasses.eyebrow,
+              )}
+            >
+              Today
+            </p>
+            <p className="text-lg font-bold tabular-nums text-ink dark:text-cream-100">
+              {formatMyr(todaySalesMyr)}
+            </p>
+            <p className="text-xs text-ink-muted">
+              {todayTxnCount} sale{todayTxnCount === 1 ? "" : "s"}
+            </p>
+          </div>
         </div>
-        <div className="rounded-xl border border-orange-200/80 bg-orange-50/60 px-4 py-2.5 text-right dark:border-orange-900/40 dark:bg-orange-950/20">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-300">
-            Today
-          </p>
-          <p className="text-lg font-bold tabular-nums text-ink dark:text-cream-100">
-            {formatMyr(todaySalesMyr)}
-          </p>
-          <p className="text-xs text-ink-muted">
-            {todayTxnCount} sale{todayTxnCount === 1 ? "" : "s"}
-          </p>
-        </div>
-      </div>
+      </section>
 
       {/* Lead / customer pre-fill chip */}
       {(initialLeadId || initialCustomerId) && customerName ? (
-        <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-900 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-100">
+        <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-900 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100">
           <Sparkles className="h-3.5 w-3.5" />
           {initialLeadId ? "Lead" : "Customer"}: {customerName}
           {initialLeadPhone ? ` · ${initialLeadPhone}` : ""}
@@ -570,7 +597,7 @@ export function PosCheckoutClient({
                   className={cn(
                     "flex-1 rounded-lg px-3 py-2 text-xs font-bold capitalize transition",
                     catalogMode === mode
-                      ? "bg-white text-orange-800 shadow-sm dark:bg-panel-dark dark:text-orange-200"
+                      ? "bg-white text-blue-800 shadow-sm dark:bg-panel-dark dark:text-blue-200"
                       : "text-ink-muted hover:text-ink",
                   )}
                 >
@@ -584,7 +611,7 @@ export function PosCheckoutClient({
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search…"
-                className="w-full rounded-xl border border-cream-200 bg-cream-50/50 py-2 pl-9 pr-3 text-sm outline-none focus:border-orange-300 dark:border-hairline-dark dark:bg-panel-dark"
+                className="w-full rounded-xl border border-cream-200 bg-cream-50/50 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-300 dark:border-hairline-dark dark:bg-panel-dark"
               />
             </div>
           </div>
@@ -597,7 +624,7 @@ export function PosCheckoutClient({
                 className={cn(
                   "shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition",
                   !categoryFilter
-                    ? "bg-orange-500 text-white"
+                    ? "bg-[#2563EB] text-white"
                     : "bg-cream-100 text-ink-muted hover:bg-cream-200 dark:bg-hairline-dark/40",
                 )}
               >
@@ -611,7 +638,7 @@ export function PosCheckoutClient({
                   className={cn(
                     "shrink-0 rounded-full px-3 py-1 text-xs font-semibold capitalize transition",
                     categoryFilter === cat
-                      ? "bg-orange-500 text-white"
+                      ? "bg-[#2563EB] text-white"
                       : "bg-cream-100 text-ink-muted hover:bg-cream-200 dark:bg-hairline-dark/40",
                   )}
                 >
@@ -624,7 +651,7 @@ export function PosCheckoutClient({
           <div className="p-3">
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-16 text-sm text-ink-muted">
-                <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+                <Loader2 className="h-5 w-5 animate-spin text-[#2563EB]" />
                 Loading catalog…
               </div>
             ) : filtered.length === 0 ? (
@@ -639,7 +666,7 @@ export function PosCheckoutClient({
                       ? "/operations/products"
                       : "/operations/services"
                   }
-                  className="mt-1 inline-block text-sm font-semibold text-orange-700 dark:text-orange-300"
+                  className="mt-1 inline-block text-sm font-semibold text-blue-700 dark:text-blue-300"
                 >
                   Add in Operations
                 </Link>
@@ -660,8 +687,8 @@ export function PosCheckoutClient({
                           onClick={() => addProduct(p)}
                           className={cn(
                             "group relative flex flex-col rounded-xl border p-3 text-left transition active:scale-[0.97]",
-                            "border-cream-200 hover:border-orange-300 hover:bg-orange-50/50 dark:border-hairline-dark dark:hover:border-orange-800 dark:hover:bg-orange-950/20",
-                            addedPulse === key && "ring-2 ring-orange-400",
+                            "border-cream-200 hover:border-blue-300 hover:bg-blue-50/50 dark:border-hairline-dark dark:hover:border-blue-800 dark:hover:bg-blue-950/20",
+                            addedPulse === key && "ring-2 ring-blue-400",
                             low && "border-amber-300/80",
                           )}
                         >
@@ -677,11 +704,11 @@ export function PosCheckoutClient({
                             </div>
                           ) : null}
                           {inCart ? (
-                            <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+                            <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2563EB] px-1 text-[10px] font-bold text-white">
                               {inCart.quantity}
                             </span>
                           ) : null}
-                          <p className="line-clamp-2 pr-6 text-sm font-bold leading-snug text-ink group-hover:text-orange-900 dark:text-cream-100 dark:group-hover:text-orange-100">
+                          <p className="line-clamp-2 pr-6 text-sm font-bold leading-snug text-ink group-hover:text-blue-900 dark:text-cream-100 dark:group-hover:text-blue-100">
                             {p.name}
                           </p>
                           {p.category ? (
@@ -694,7 +721,7 @@ export function PosCheckoutClient({
                               {p.stock_qty} left
                             </p>
                           ) : null}
-                          <p className="mt-auto pt-2 text-base font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                          <p className="mt-auto pt-2 text-base font-bold tabular-nums text-blue-600 dark:text-blue-400">
                             {money(p.price_myr)}
                           </p>
                         </button>
@@ -711,12 +738,12 @@ export function PosCheckoutClient({
                           type="button"
                           onClick={() => addService(s)}
                           className={cn(
-                            "group relative flex flex-col rounded-xl border border-cream-200 p-3 text-left transition active:scale-[0.97] hover:border-orange-300 hover:bg-orange-50/50 dark:border-hairline-dark dark:hover:border-orange-800 dark:hover:bg-orange-950/20",
-                            addedPulse === key && "ring-2 ring-orange-400",
+                            "group relative flex flex-col rounded-xl border border-cream-200 p-3 text-left transition active:scale-[0.97] hover:border-blue-300 hover:bg-blue-50/50 dark:border-hairline-dark dark:hover:border-blue-800 dark:hover:bg-blue-950/20",
+                            addedPulse === key && "ring-2 ring-blue-400",
                           )}
                         >
                           {inCart ? (
-                            <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+                            <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2563EB] px-1 text-[10px] font-bold text-white">
                               {inCart.quantity}
                             </span>
                           ) : null}
@@ -728,7 +755,7 @@ export function PosCheckoutClient({
                               {s.duration_minutes} min
                             </p>
                           ) : null}
-                          <p className="mt-auto pt-2 text-base font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                          <p className="mt-auto pt-2 text-base font-bold tabular-nums text-blue-600 dark:text-blue-400">
                             {money(s.price_myr)}
                           </p>
                         </button>
@@ -744,7 +771,7 @@ export function PosCheckoutClient({
           <div className="border-b border-cream-200 px-4 py-3 dark:border-hairline-dark">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-white">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2563EB] text-white">
                   <ShoppingBag className="h-4 w-4" />
                 </div>
                 <div>
@@ -756,7 +783,7 @@ export function PosCheckoutClient({
                   </p>
                 </div>
               </div>
-              <p className="text-xl font-bold tabular-nums text-orange-600 dark:text-orange-400">
+              <p className="text-xl font-bold tabular-nums text-blue-600 dark:text-blue-400">
                 {money(total)}
               </p>
             </div>
@@ -851,7 +878,7 @@ export function PosCheckoutClient({
                   className={cn(
                     "flex items-center justify-center gap-1.5 rounded-xl border-2 py-2.5 text-xs font-bold transition",
                     payMethod === "cash"
-                      ? "border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-950/30 dark:text-orange-200"
+                      ? "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-200"
                       : "border-cream-200 text-ink-muted dark:border-hairline-dark",
                   )}
                 >
@@ -864,7 +891,7 @@ export function PosCheckoutClient({
                   className={cn(
                     "flex items-center justify-center gap-1.5 rounded-xl border-2 py-2.5 text-xs font-bold transition",
                     payMethod === "duitnow_qr_static"
-                      ? "border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-950/30 dark:text-orange-200"
+                      ? "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-200"
                       : "border-cream-200 text-ink-muted dark:border-hairline-dark",
                   )}
                 >
@@ -885,7 +912,7 @@ export function PosCheckoutClient({
                     value={cashReceived}
                     onChange={(e) => setCashReceived(e.target.value)}
                     placeholder={total.toFixed(2)}
-                    className="mt-1 w-full rounded-xl border border-cream-200 px-3 py-2.5 text-sm font-semibold tabular-nums outline-none focus:border-orange-300 dark:border-hairline-dark dark:bg-panel-dark"
+                    className="mt-1 w-full rounded-xl border border-cream-200 px-3 py-2.5 text-sm font-semibold tabular-nums outline-none focus:border-blue-300 dark:border-hairline-dark dark:bg-panel-dark"
                   />
                   {changeDue > 0 ? (
                     <p className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
@@ -911,7 +938,7 @@ export function PosCheckoutClient({
                 <p className="mb-3 text-xs text-ink-muted">
                   <Link
                     href="/settings/branding"
-                    className="font-semibold text-orange-700 dark:text-orange-300"
+                    className="font-semibold text-blue-700 dark:text-blue-300"
                   >
                     Upload DuitNow QR
                   </Link>{" "}
@@ -1019,7 +1046,7 @@ export function PosCheckoutClient({
                 type="button"
                 disabled={!canCheckout || busy || total <= 0}
                 onClick={() => void completeSale()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-3.5 text-sm font-bold text-white transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3.5 text-sm font-bold text-white transition hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-50"
               >
                 {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

@@ -7,7 +7,7 @@ import {
   STAFF_OUTPUT_FORMAT,
 } from "@/lib/ai/staff-assistant-shared";
 
-const OPERATIONS_ASSISTANT_RULES_BASE = `You are Aiman, an Operations staff member inside Bantu Niaga for ONE Malaysian micro-SME tenant only — not a generic chatbot.
+const OPERATIONS_ASSISTANT_RULES_BASE = `You are the Operations staff member inside Bantu Niaga for ONE Malaysian micro-SME tenant only — not a generic chatbot. Your display name is set per business (Settings → AI Agents); respond using whatever name the owner gave you.
 
 PERSONA:
 - Think like a helpful in-house ops staff: practical, clear, focused on stock, orders, and bookings.
@@ -58,6 +58,8 @@ ${STAFF_ASK_BEFORE_ACT}
 
 ${STAFF_OUTPUT_FORMAT}
 - Internal links only: /operations/*, /settings/ai-agents, /marketplace, /home, /more`;
+
+export const OPERATIONS_SCOPE_CORE = OPERATIONS_ASSISTANT_RULES_BASE;
 
 export function buildOperationsAssistantRules(opts: {
   displayName: string;

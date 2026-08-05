@@ -1,6 +1,12 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, Sparkles } from "lucide-react";
+import type { Pillar } from "@/lib/permissions";
+import {
+  getPillarClasses,
+  pillarFromModule,
+  type PillarClasses,
+} from "@/lib/pillars/theme";
 import { cn } from "@/lib/utils/cn";
 
 export function ModuleDashboardShell({
@@ -13,35 +19,42 @@ export function ModuleDashboardShell({
   return <div className={cn("space-y-6 pb-8", className)}>{children}</div>;
 }
 
-export type ModuleHeroVariant = "calm" | "attention" | "finance-up" | "finance-down" | "marketing" | "sales";
+export type ModuleHeroVariant =
+  | "default"
+  | "attention"
+  | "finance-up"
+  | "finance-down";
 
-const HERO_VARIANT_CLASS: Record<ModuleHeroVariant, string> = {
-  calm: "border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-teal-50 dark:border-sky-900/40 dark:from-sky-950/30 dark:via-panel-dark dark:to-teal-950/20",
-  attention:
-    "border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:border-amber-900/40 dark:from-amber-950/30 dark:via-panel-dark dark:to-orange-950/20",
-  "finance-up":
-    "border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-brand-50 dark:border-emerald-900/40 dark:from-emerald-950/30 dark:via-panel-dark dark:to-brand-950/20",
-  "finance-down":
-    "border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-amber-50 dark:border-rose-900/40 dark:from-rose-950/30 dark:via-panel-dark dark:to-amber-950/20",
-  marketing:
-    "border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:border-violet-900/40 dark:from-violet-950/30 dark:via-panel-dark dark:to-fuchsia-950/20",
-  sales:
-    "border-orange-200/80 bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:border-orange-900/40 dark:from-orange-950/30 dark:via-panel-dark dark:to-amber-950/20",
-};
+/** Legacy variants map to pillar default or semantic states. */
+export type LegacyModuleHeroVariant =
+  | "calm"
+  | "marketing"
+  | "sales"
+  | ModuleHeroVariant;
 
-const MODULE_EYEBROW_CLASS: Record<string, string> = {
-  Operations: "text-sky-700 dark:text-sky-300",
-  Admin: "text-violet-700 dark:text-violet-300",
-  Finance: "text-emerald-700 dark:text-emerald-300",
-  Marketing: "text-violet-700 dark:text-violet-300",
-  Sales: "text-orange-700 dark:text-orange-300",
-};
+function normalizeVariant(
+  variant: LegacyModuleHeroVariant | undefined,
+): ModuleHeroVariant {
+  if (!variant || variant === "calm" || variant === "marketing" || variant === "sales") {
+    return "default";
+  }
+  return variant;
+}
+
+function heroClassFor(
+  _pillar: Pillar,
+  _variant: ModuleHeroVariant,
+  classes: PillarClasses,
+): string {
+  return cn(classes.heroBorder, classes.heroBg);
+}
 
 interface ModuleDashboardHeroProps {
   module: string;
   headline: string;
   subcopy: string;
-  variant?: ModuleHeroVariant;
+  pillar?: Pillar;
+  variant?: LegacyModuleHeroVariant;
   emoji?: string;
   cta?: React.ReactNode;
   headerExtra?: React.ReactNode;
@@ -52,17 +65,22 @@ export function ModuleDashboardHero({
   module,
   headline,
   subcopy,
-  variant = "calm",
+  pillar: pillarProp,
+  variant = "default",
   emoji,
   cta,
   headerExtra,
   children,
 }: ModuleDashboardHeroProps) {
+  const pillar = pillarProp ?? pillarFromModule(module);
+  const classes = getPillarClasses(pillar);
+  const resolvedVariant = normalizeVariant(variant);
+
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-2xl border p-5 shadow-card sm:p-6",
-        HERO_VARIANT_CLASS[variant],
+        "relative overflow-hidden rounded-xl border p-4 shadow-sm sm:p-5",
+        heroClassFor(pillar, resolvedVariant, classes),
       )}
     >
       {emoji ? (
@@ -70,25 +88,25 @@ export function ModuleDashboardHero({
           {emoji}
         </div>
       ) : null}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           {headerExtra}
           <p
             className={cn(
-              "text-xs font-semibold uppercase tracking-wide",
-              MODULE_EYEBROW_CLASS[module] ?? "text-brand-700 dark:text-brand-200",
+              "text-[11px] font-semibold uppercase tracking-widest",
+              classes.eyebrow,
             )}
           >
             {module}
           </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink dark:text-cream-100 sm:text-3xl">
+          <h1 className="mt-1 text-xl font-bold tracking-tight text-ink dark:text-cream-100 sm:text-2xl">
             {headline}
           </h1>
-          <p className="mt-2 max-w-xl text-sm text-ink-muted dark:text-cream-300">
+          <p className="mt-0.5 max-w-xl text-sm text-ink-muted dark:text-cream-400">
             {subcopy}
           </p>
         </div>
-        {cta}
+        {cta ? <div className="shrink-0">{cta}</div> : null}
       </div>
       {children}
     </section>
@@ -102,6 +120,7 @@ interface ModuleHeroStatProps {
   icon?: LucideIcon;
   iconClassName?: string;
   href?: string;
+  pillar?: Pillar;
 }
 
 export function ModuleHeroStat({
@@ -111,7 +130,9 @@ export function ModuleHeroStat({
   icon: Icon,
   iconClassName,
   href,
+  pillar,
 }: ModuleHeroStatProps) {
+  const classes = pillar ? getPillarClasses(pillar) : null;
   const inner = (
     <>
       <p
@@ -135,11 +156,15 @@ export function ModuleHeroStat({
   const className =
     "rounded-xl border border-white/60 bg-white/70 p-3 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80";
 
+  const hoverClass =
+    classes?.quickActionHover ??
+    "hover:border-brand-200 dark:hover:border-brand-700";
+
   if (href) {
     return (
       <Link
         href={href}
-        className={cn(className, "transition-colors hover:border-brand-200 dark:hover:border-brand-700")}
+        className={cn(className, "transition-colors", hoverClass)}
       >
         {inner}
       </Link>
@@ -200,7 +225,7 @@ export function ModulePanel({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark",
+        "rounded-xl border border-cream-200 bg-white shadow-sm dark:border-hairline-dark dark:bg-panel-dark",
         className,
       )}
     >
@@ -225,22 +250,27 @@ export interface ModuleQuickAction {
   icon: LucideIcon;
   title: string;
   subtitle: string;
-  accent: string;
+  accent?: string;
 }
 
 export function ModuleQuickActions({
   module,
   actions,
   footer,
+  pillar: pillarProp,
 }: {
   module: string;
   actions: readonly ModuleQuickAction[];
   footer?: React.ReactNode;
+  pillar?: Pillar;
 }) {
+  const pillar = pillarProp ?? pillarFromModule(module);
+  const classes = getPillarClasses(pillar);
+
   return (
     <section>
       <div className="mb-3 flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-brand-600 dark:text-brand-300" />
+        <Sparkles className={cn("h-4 w-4", classes.text)} />
         <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
           Everything in {module}
         </h2>
@@ -250,12 +280,15 @@ export function ModuleQuickActions({
           <Link
             key={action.href + action.title}
             href={action.href}
-            className="group relative overflow-hidden rounded-2xl border border-cream-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md dark:border-hairline-dark dark:bg-panel-dark dark:hover:border-brand-800"
+            className={cn(
+              "group relative overflow-hidden rounded-xl border border-cream-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-hairline-dark dark:bg-panel-dark",
+              classes.quickActionHover,
+            )}
           >
             <div
               className={cn(
                 "mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm",
-                action.accent,
+                action.accent ?? classes.accentGradient,
               )}
             >
               <action.icon className="h-5 w-5" strokeWidth={2} />

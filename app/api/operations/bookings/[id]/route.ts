@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireOperationsUser } from "@/lib/operations/require-user";
 import { operationsBookingUpdateSchema } from "@/lib/operations/schemas";
+import { notifyOperationsBookingStatusChanged } from "@/lib/operations/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export async function PATCH(
   const supabase = await createSupabaseServerClient();
   const { data: existing } = await supabase
     .from("operations_bookings")
-    .select("resource_id, starts_at, ends_at")
+    .select("resource_id, starts_at, ends_at, number, service_title, status")
     .eq("id", id)
     .eq("business_id", user.businessId)
     .is("deleted_at", null)
@@ -160,6 +161,21 @@ export async function PATCH(
       },
       { status },
     );
+  }
+
+  const row = data as unknown as {
+    number: string;
+    service_title: string;
+    status: string;
+  };
+  if (parsed.status && parsed.status !== existing.status) {
+    notifyOperationsBookingStatusChanged({
+      businessId: user.businessId,
+      bookingId: id,
+      number: row.number,
+      serviceTitle: row.service_title,
+      status: row.status,
+    });
   }
 
   return NextResponse.json({ ok: true, data }, { status: 200 });

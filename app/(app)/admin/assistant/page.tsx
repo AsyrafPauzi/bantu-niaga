@@ -1,6 +1,11 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminAssistantChat } from "@/components/admin/AdminAssistantChat";
-import { SufiAssistantShell } from "@/components/sales/layout/sufi-assistant-shell";
+import {
+  PILLAR_ASSISTANT_BODY,
+  PillarAssistantHeader,
+  PillarAssistantShell,
+} from "@/components/dashboard/pillar-assistant-shell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canUseAdminAssistant } from "@/lib/admin/access";
 import {
@@ -11,6 +16,8 @@ import {
 import { ADMIN_AGENT_SLUG } from "@/lib/marketplace/agent-types";
 import { chatCreditsForReasoning } from "@/lib/settings/reasoning-credits";
 import { loadShortMemory } from "@/lib/ai/short-memory";
+import { pillarClasses } from "@/lib/pillars/theme";
+import { cn } from "@/lib/utils/cn";
 
 export const metadata = { title: "Amir · Admin AI" };
 export const dynamic = "force-dynamic";
@@ -44,21 +51,31 @@ export default async function AdminAssistantPage({
     }),
   ]);
 
+  const theme = pillarClasses.admin;
+
   return (
-    <SufiAssistantShell
+    <PillarAssistantShell
       header={
-        <div className="shrink-0 border-b border-[#E5E0D8] px-4 py-4 dark:border-hairline-dark lg:px-8">
-          <h1 className="text-lg font-bold text-ink dark:text-cream-100">
-            {settings.displayName} · Admin AI
-          </h1>
-          <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
-            Ask in plain language — Amir plans like back-office staff using your
-            tasks, renewals, and document storage
-          </p>
-        </div>
+        <PillarAssistantHeader
+          pillar="admin"
+          eyebrow="Admin"
+          title={`${settings.displayName} · Admin AI`}
+          subtitle="Ask in plain language — Amir plans like back-office staff using your tasks, renewals, and document storage"
+          action={
+            <Link
+              href="/admin"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold shadow-sm transition-colors",
+                theme.btnSecondary,
+              )}
+            >
+              Back to Admin
+            </Link>
+          }
+        />
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col px-4 py-3 lg:px-8 lg:py-4">
+      <div className={PILLAR_ASSISTANT_BODY}>
         <AdminAssistantChat
           businessId={user.businessId}
           initialPrompt={initialPrompt ?? null}
@@ -76,6 +93,6 @@ export default async function AdminAssistantPage({
           }}
         />
       </div>
-    </SufiAssistantShell>
+    </PillarAssistantShell>
   );
 }

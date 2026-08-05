@@ -152,14 +152,14 @@ export default async function SalesReceiptPage({ params }: PageProps) {
           <SalesReceiptPrintButton />
           <Link
             href="/sales/pos"
-            className="w-full rounded-xl bg-brand-500 py-3 text-center text-sm font-semibold text-white hover:bg-brand-600"
+            className="w-full rounded-xl bg-[#2563EB] py-3 text-center text-sm font-semibold text-white hover:bg-[#1D4ED8]"
           >
             New sale
           </Link>
           {canVoid && !isVoided ? <PosSaleVoidButton saleId={sale.id} /> : null}
           <Link
             href="/sales/history"
-            className="w-full rounded-xl border border-cream-300 py-3 text-center text-sm font-semibold text-ink-muted hover:border-brand-300 dark:border-hairline-dark"
+            className="w-full rounded-xl border border-cream-300 py-3 text-center text-sm font-semibold text-ink-muted hover:border-blue-300 dark:border-hairline-dark"
           >
             Back to history
           </Link>

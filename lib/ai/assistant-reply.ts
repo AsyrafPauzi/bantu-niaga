@@ -202,8 +202,23 @@ export function beautifyAssistantMarkdown(raw: string): string {
   return fixBrokenBoldMarkdown(text.replace(/\n{3,}/g, "\n\n").trim());
 }
 
+/** Boardroom / chair JSON must not pass through markdown sanitizers (they truncate on MTD Income etc.). */
+export function isStructuredModelJson(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("```")) return false;
+  const body =
+    trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim() ?? trimmed;
+  return (
+    /"headline"\s*:/.test(body) ||
+    /"verdict"\s*:/.test(body) ||
+    /"decisions"\s*:/.test(body) ||
+    /"score"\s*:/.test(body)
+  );
+}
+
 /** Sanitize leaked reasoning, then beautify markdown structure. */
 export function formatAssistantReply(raw: string): string {
+  if (isStructuredModelJson(raw)) return raw.trim();
   return beautifyAssistantMarkdown(sanitizeAssistantReply(raw));
 }
 

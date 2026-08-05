@@ -4,6 +4,7 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { BroadcastRow } from "@/lib/marketing/broadcasts";
+import { notifyMarketingBroadcastCreated } from "@/lib/marketing/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -186,6 +187,13 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  const row = data as unknown as { id: string; name: string };
+  notifyMarketingBroadcastCreated({
+    businessId: user.businessId,
+    broadcastId: row.id,
+    title: row.name,
+  });
 
   return NextResponse.json({ data }, { status: 201 });
 }

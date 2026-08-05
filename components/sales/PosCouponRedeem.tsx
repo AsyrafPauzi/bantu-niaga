@@ -124,7 +124,7 @@ export function PosCouponRedeem() {
           placeholder="RAYA20"
           maxLength={32}
           disabled={busy}
-          className="rounded-lg border border-cream-300 bg-white px-3 py-2 font-mono text-sm uppercase tracking-wider text-ink shadow-card focus:border-brand-500 focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+          className="rounded-lg border border-cream-300 bg-white px-3 py-2 font-mono text-sm uppercase tracking-wider text-ink shadow-card focus:border-[#2563EB] focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
         />
         <div className="relative">
           <input
@@ -135,7 +135,7 @@ export function PosCouponRedeem() {
             min={0}
             step={0.01}
             disabled={busy}
-            className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 pr-10 text-sm text-ink shadow-card focus:border-brand-500 focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 pr-10 text-sm text-ink shadow-card focus:border-[#2563EB] focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink-muted dark:text-cream-400">
             MYR
@@ -144,7 +144,7 @@ export function PosCouponRedeem() {
         <button
           type="submit"
           disabled={busy || !code.trim()}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-brand-600 active:bg-brand-700 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-[#1D4ED8] active:bg-[#1D4ED8] disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} /> : null}
           Apply
