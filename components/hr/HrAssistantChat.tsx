@@ -1,9 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Loader2, MessageSquarePlus, PauseCircle, Send, Sparkles } from "lucide-react";
 import { HR_ASSISTANT_SUGGESTIONS } from "@/lib/ai/hr-assistant-prompt";
+import type {
+  PillarAssistantChatHandle,
+  PillarAssistantChatTurn,
+  PillarAssistantChatVariant,
+  PillarAssistantStatus,
+} from "@/lib/ai/pillar-assistant-types";
 import { HrAssistantGate } from "@/components/hr/HrAssistantGate";
 import { HrAssistantMessage } from "@/components/hr/HrAssistantMessage";
 import { HR_CREDIT_COST_CHAT } from "@/lib/marketplace/agent-types";
@@ -15,43 +28,28 @@ function storageKey(businessId: string): string {
   return `bn-hr-assistant-chat-v1-${businessId}`;
 }
 
-type ChatRole = "user" | "assistant";
-
-interface ChatTurn {
-  role: ChatRole;
-  content: string;
-}
-
-interface AssistantStatus {
-  addon_active: boolean;
-  assistant_enabled: boolean;
-  display_name: string;
-  credit_balance: number;
-  credit_cost_chat?: number;
-  reasoning_mode?: string;
-  credits_paused?: boolean;
-  business_id?: string;
-  recent_turns?: ChatTurn[];
-}
-
 interface HrAssistantChatProps {
   businessId: string;
-  initialStatus?: AssistantStatus | null;
+  initialStatus?: PillarAssistantStatus | null;
+  /** Pre-fill the message box (e.g. from a floating panel CTA). */
+  initialSeed?: string;
+  variant?: PillarAssistantChatVariant;
+  onStatusChange?: (status: PillarAssistantStatus) => void;
 }
 
-function loadSession(businessId: string): ChatTurn[] {
+function loadSession(businessId: string): PillarAssistantChatTurn[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = sessionStorage.getItem(storageKey(businessId));
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as ChatTurn[];
+    const parsed = JSON.parse(raw) as PillarAssistantChatTurn[];
     return Array.isArray(parsed) ? parsed.slice(-MAX_MESSAGES) : [];
   } catch {
     return [];
   }
 }
 
-function saveSession(businessId: string, turns: ChatTurn[]) {
+function saveSession(businessId: string, turns: PillarAssistantChatTurn[]) {
   if (typeof window === "undefined") return;
   try {
     sessionStorage.setItem(
@@ -63,15 +61,25 @@ function saveSession(businessId: string, turns: ChatTurn[]) {
   }
 }
 
-export function HrAssistantChat({
-  businessId,
-  initialStatus,
-}: HrAssistantChatProps) {
-  const [status, setStatus] = useState<AssistantStatus | null>(
+export const HrAssistantChat = forwardRef<
+  PillarAssistantChatHandle,
+  HrAssistantChatProps
+>(function HrAssistantChat(
+  {
+    businessId,
+    initialStatus,
+    initialSeed,
+    variant = "page",
+    onStatusChange,
+  },
+  ref,
+) {
+  const isPanel = variant === "panel";
+  const [status, setStatus] = useState<PillarAssistantStatus | null>(
     initialStatus ?? null,
   );
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const [input, setInput] = useState("");
+  const [turns, setTurns] = useState<PillarAssistantChatTurn[]>([]);
+  const [input, setInput] = useState(initialSeed ?? "");
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(!initialStatus);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +88,24 @@ export function HrAssistantChat({
   );
   const listRef = useRef<HTMLDivElement>(null);
   const hydrated = useRef(false);
+
+  const patchStatus = useCallback(
+    (patch: Partial<PillarAssistantStatus>) => {
+      setStatus((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, ...patch };
+        onStatusChange?.(next);
+        return next;
+      });
+    },
+    [onStatusChange],
+  );
+
+  useEffect(() => {
+    if (initialSeed) {
+      setInput(initialSeed);
+    }
+  }, [initialSeed]);
 
   useEffect(() => {
     if (!hydrated.current) {
@@ -103,12 +129,13 @@ export function HrAssistantChat({
     setStatusLoading(true);
     try {
       const res = await fetch("/api/hr/assistant");
-      const json = (await res.json()) as AssistantStatus & {
+      const json = (await res.json()) as PillarAssistantStatus & {
         error?: string;
       };
       if (res.ok) {
         setStatus(json);
         setCreditBalance(json.credit_balance);
+        onStatusChange?.(json);
         if (
           turns.length === 0 &&
           json.recent_turns &&
@@ -120,7 +147,7 @@ export function HrAssistantChat({
     } finally {
       setStatusLoading(false);
     }
-  }, []);
+  }, [onStatusChange, turns.length]);
 
   useEffect(() => {
     if (!initialStatus) {
@@ -128,24 +155,27 @@ export function HrAssistantChat({
     }
   }, [initialStatus, refreshStatus]);
 
-  function newChat() {
+  const newChat = useCallback(() => {
     setTurns([]);
     setError(null);
     setInput("");
     sessionStorage.removeItem(storageKey(businessId));
-    void fetch("/api/hr/assistant", { method: "DELETE" }).catch(() => undefined);
-  }
+    void fetch("/api/hr/assistant", { method: "DELETE" }).catch(
+      () => undefined,
+    );
+  }, [businessId]);
+
+  useImperativeHandle(ref, () => ({ newChat }), [newChat]);
 
   async function sendMessage(text: string) {
     const message = text.trim();
     if (!message || loading) return;
-    // Low balance still allowed — clarifying questions are free on the server.
 
     setError(null);
     setLoading(true);
     setInput("");
 
-    const userTurn: ChatTurn = { role: "user", content: message };
+    const userTurn: PillarAssistantChatTurn = { role: "user", content: message };
     setTurns((prev) => [...prev, userTurn]);
 
     try {
@@ -167,18 +197,16 @@ export function HrAssistantChat({
       };
 
       if (res.status === 403 && data.error === "addon_required") {
-        setStatus((s) => (s ? { ...s, addon_active: false } : s));
+        patchStatus({ addon_active: false });
         setTurns((prev) => prev.slice(0, -1));
         setInput(message);
         return;
       }
 
-      if (
-        res.status === 402 &&
-        data.error === "insufficient_credits"
-      ) {
+      if (res.status === 402 && data.error === "insufficient_credits") {
         if (typeof data.credit_balance === "number") {
           setCreditBalance(data.credit_balance);
+          patchStatus({ credit_balance: data.credit_balance });
         }
         setTurns((prev) => prev.slice(0, -1));
         setInput(message);
@@ -207,6 +235,7 @@ export function HrAssistantChat({
 
       if (data.credits) {
         setCreditBalance(data.credits.balance);
+        patchStatus({ credit_balance: data.credits.balance });
       }
     } catch (e) {
       const msg =
@@ -232,7 +261,12 @@ export function HrAssistantChat({
 
   if (statusLoading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center text-sm text-ink-muted">
+      <div
+        className={cn(
+          "flex items-center justify-center text-sm text-ink-muted dark:text-cream-400",
+          isPanel ? "flex-1" : "min-h-[200px]",
+        )}
+      >
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Loading…
       </div>
@@ -245,7 +279,14 @@ export function HrAssistantChat({
 
   if (!status.assistant_enabled) {
     return (
-      <div className="rounded-2xl border border-[#E5E0D8] bg-white p-6 text-center text-sm text-ink-muted dark:border-hairline-dark dark:bg-panel-dark">
+      <div
+        className={cn(
+          "text-center text-sm text-ink-muted dark:text-cream-400",
+          isPanel
+            ? "flex flex-1 items-center justify-center p-6"
+            : "rounded-2xl border border-[#E5E0D8] bg-white p-6 dark:border-hairline-dark dark:bg-panel-dark",
+        )}
+      >
         HR Assistant is turned off. Enable it in{" "}
         <a href="/settings/ai-agents" className="font-semibold text-brand-700">
           Settings → AI Agents
@@ -260,46 +301,57 @@ export function HrAssistantChat({
   const creditsPaused =
     creditBalance !== null && creditBalance < chatCost;
 
+  const shellClass = isPanel
+    ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+    : "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark";
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E5E0D8] px-4 py-3 dark:border-hairline-dark">
-        <div className="flex items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
-          <Sparkles className="h-4 w-4 text-brand-600" />
-          {displayName}
-        </div>
-        <div className="flex items-center gap-2">
-          {creditBalance !== null ? (
-            <span
-              className={cn(
-                "text-xs font-medium",
-                creditsPaused
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-ink-muted dark:text-cream-400",
-              )}
+    <div className={shellClass}>
+      {!isPanel ? (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E5E0D8] px-4 py-3 dark:border-hairline-dark">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
+            <Sparkles className="h-4 w-4 text-brand-600" />
+            {displayName}
+          </div>
+          <div className="flex items-center gap-2">
+            {creditBalance !== null ? (
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  creditsPaused
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-ink-muted dark:text-cream-400",
+                )}
+              >
+                {creditsPaused ? (
+                  <>
+                    <PauseCircle className="mr-1 inline h-3.5 w-3.5" />
+                    Paused · 0 credits
+                  </>
+                ) : (
+                  <>⚡ {creditBalance} shared credits left</>
+                )}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={newChat}
+              className="inline-flex items-center gap-1 rounded-lg border border-[#E5E0D8] px-2.5 py-1 text-xs font-medium text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400"
             >
-              {creditsPaused ? (
-                <>
-                  <PauseCircle className="mr-1 inline h-3.5 w-3.5" />
-                  Paused · 0 credits
-                </>
-              ) : (
-                <>⚡ {creditBalance} shared credits left</>
-              )}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            onClick={newChat}
-            className="inline-flex items-center gap-1 rounded-lg border border-[#E5E0D8] px-2.5 py-1 text-xs font-medium text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400"
-          >
-            <MessageSquarePlus className="h-3.5 w-3.5" />
-            New chat
-          </button>
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+              New chat
+            </button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {creditsPaused ? (
-        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+        <div
+          className={cn(
+            "shrink-0 border-b border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100",
+            isPanel ? "px-4 py-2.5 text-xs" : "px-4 py-3 text-sm",
+          )}
+        >
           Shared credits are low — clarifying questions stay free. Plans and
           leave actions need credits.{" "}
           <Link
@@ -314,10 +366,18 @@ export function HrAssistantChat({
 
       <div
         ref={listRef}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5"
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+          isPanel ? "space-y-3 p-3" : "space-y-4 p-4 sm:p-5",
+        )}
       >
         {turns.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div
+            className={cn(
+              "flex flex-col items-center justify-center text-center",
+              isPanel ? "py-6" : "py-8",
+            )}
+          >
             <p className="text-sm font-semibold text-ink dark:text-cream-100">
               Ask {displayName} like your HR staff
             </p>
@@ -326,7 +386,12 @@ export function HrAssistantChat({
               clarifies first, then plans — and can record or approve leave when
               you confirm.
             </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <div
+              className={cn(
+                "flex flex-wrap justify-center gap-2",
+                isPanel ? "mt-4" : "mt-5",
+              )}
+            >
               {HR_ASSISTANT_SUGGESTIONS.map((prompt) => (
                 <button
                   key={prompt}
@@ -345,7 +410,10 @@ export function HrAssistantChat({
             <div
               key={`${turn.role}-${i}`}
               className={cn(
-                "max-w-[min(90%,42rem)] rounded-2xl px-4 py-3 text-sm",
+                "text-sm",
+                isPanel
+                  ? "max-w-[90%] rounded-xl px-3 py-2"
+                  : "max-w-[min(90%,42rem)] rounded-2xl px-4 py-3",
                 turn.role === "user"
                   ? "ml-auto bg-brand-500 text-white"
                   : "mr-auto border border-[#E5E0D8] bg-[#FFFEFB] text-ink dark:border-hairline-dark dark:bg-surface-dark dark:text-cream-100",
@@ -370,14 +438,22 @@ export function HrAssistantChat({
       </div>
 
       {error ? (
-        <p className="px-4 pb-2 text-xs text-red-600 dark:text-red-400">
+        <p
+          className={cn(
+            "text-xs text-red-600 dark:text-red-400",
+            isPanel ? "px-3 pb-1" : "px-4 pb-2",
+          )}
+        >
           {error}
         </p>
       ) : null}
 
       <form
         onSubmit={handleSubmit}
-        className="shrink-0 border-t border-[#E5E0D8] bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark"
+        className={cn(
+          "shrink-0 border-t border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark",
+          isPanel ? "p-3" : "p-4",
+        )}
       >
         <div className="flex items-center gap-2">
           <input
@@ -401,11 +477,13 @@ export function HrAssistantChat({
             )}
           </button>
         </div>
-        <p className="mt-2 text-[11px] text-ink-muted dark:text-cream-500">
-          Clarifying questions are free. Plans and leave actions use credits.
-          Not legal advice.
-        </p>
+        {!isPanel ? (
+          <p className="mt-2 text-[11px] text-ink-muted dark:text-cream-500">
+            Clarifying questions are free. Plans and leave actions use credits.
+            Not legal advice.
+          </p>
+        ) : null}
       </form>
     </div>
   );
-}
+});

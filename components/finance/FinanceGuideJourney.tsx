@@ -45,7 +45,7 @@ const STEPS = [
   {
     title: "5 · Ask Fayza",
     body: "Fayza reads your real numbers — and can log expenses, create invoices, chase payments, and more.",
-    href: "/finance/assistant",
+    href: "/finance?fayza=open",
     cta: "Chat with Fayza",
     icon: Sparkles,
   },

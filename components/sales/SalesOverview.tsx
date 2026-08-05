@@ -150,7 +150,7 @@ export function SalesOverview({
       : null,
     showAssistant
       ? {
-          href: "/sales/assistant",
+          href: "/sales?sufi=open",
           icon: Bot,
           title: "Ask Sufi",
           subtitle: "Sales copilot",

@@ -25,7 +25,7 @@ describe("assistant-pillar-guard", () => {
       "Chase unpaid invoices this week",
     );
     expect(redirect?.agentName).toBe("Fayza");
-    expect(redirect?.chatHref).toBe("/finance/assistant");
+    expect(redirect?.chatHref).toBe("/finance?fayza=open");
   });
 
   it("redirects HR topics", () => {
@@ -46,10 +46,10 @@ describe("assistant-pillar-guard", () => {
     const reply = buildOperationsOutOfScopeReply("Aiman", {
       pillar: "Finance",
       agentName: "Fayza",
-      chatHref: "/finance/assistant",
+      chatHref: "/finance?fayza=open",
     });
     expect(reply).toContain("Aiman");
     expect(reply).toContain("Fayza");
-    expect(reply).toContain("/finance/assistant");
+    expect(reply).toContain("/finance?fayza=open");
   });
 });

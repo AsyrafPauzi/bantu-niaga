@@ -79,7 +79,7 @@ const QUICK_ACTION_DEFS: Record<
     subtitle: "Vendor contacts",
   },
   assistant: {
-    href: "/operations/assistant",
+    href: "/operations?aiman=open",
     icon: Bot,
     title: "Aiman AI",
     subtitle: "Ops copilot",

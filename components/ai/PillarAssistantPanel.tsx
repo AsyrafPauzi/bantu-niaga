@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   MessageSquarePlus,
   PauseCircle,
@@ -10,32 +16,49 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import {
-  MayaAssistantChat,
-  type MayaAssistantChatHandle,
-  type MayaAssistantStatus,
-} from "@/components/marketing/MayaAssistantChat";
-import { MayaAssistantGate } from "@/components/marketing/MayaAssistantGate";
+import type { PillarAssistantChatHandle } from "@/lib/ai/pillar-assistant-types";
+import type { PillarAssistantStatus } from "@/lib/ai/pillar-assistant-types";
+import type { PillarAssistantFloatMeta } from "@/lib/ai/pillar-assistant-float-meta";
 import { HR_CREDIT_COST_CHAT } from "@/lib/marketplace/agent-types";
 import { cn } from "@/lib/utils/cn";
 
-export function MayaPanel(props: {
+export function PillarAssistantPanel(props: {
+  config: PillarAssistantFloatMeta;
   businessId: string;
-  initialStatus: MayaAssistantStatus;
+  initialStatus: PillarAssistantStatus;
+  gate: ReactNode;
+  children: (ctx: {
+    chatRef: React.RefObject<PillarAssistantChatHandle | null>;
+    seed?: string;
+    onStatusChange: (status: PillarAssistantStatus) => void;
+  }) => ReactNode;
+  fabClassName: string;
 }) {
   return (
     <Suspense fallback={null}>
-      <MayaPanelInner {...props} />
+      <PillarAssistantPanelInner {...props} />
     </Suspense>
   );
 }
 
-function MayaPanelInner({
+function PillarAssistantPanelInner({
+  config,
   businessId,
   initialStatus,
+  gate,
+  children,
+  fabClassName,
 }: {
+  config: PillarAssistantFloatMeta;
   businessId: string;
-  initialStatus: MayaAssistantStatus;
+  initialStatus: PillarAssistantStatus;
+  gate: ReactNode;
+  children: (ctx: {
+    chatRef: React.RefObject<PillarAssistantChatHandle | null>;
+    seed?: string;
+    onStatusChange: (status: PillarAssistantStatus) => void;
+  }) => ReactNode;
+  fabClassName: string;
 }) {
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -44,29 +67,41 @@ function MayaPanelInner({
   const [creditBalance, setCreditBalance] = useState<number | null>(
     initialStatus.credit_balance ?? null,
   );
-  const chatRef = useRef<MayaAssistantChatHandle>(null);
+  const chatRef = useRef<PillarAssistantChatHandle>(null);
 
   useEffect(() => {
-    if (searchParams.get("maya") === "open") {
+    if (searchParams.get(config.queryParam) === "open") {
       setOpen(true);
-      const urlSeed = searchParams.get("seed")?.trim();
+      const urlSeed =
+        searchParams.get("seed")?.trim() ??
+        searchParams.get("q")?.trim();
       if (urlSeed) {
         setSeed(urlSeed.slice(0, 2000));
       }
     }
-  }, [searchParams]);
+  }, [searchParams, config.queryParam]);
 
-  const displayName = status.display_name || "Maya";
+  const displayName = status.display_name || config.defaultName;
   const chatCost = status.credit_cost_chat ?? HR_CREDIT_COST_CHAT;
   const creditsPaused =
     creditBalance !== null && creditBalance < chatCost;
+
+  const onStatusChange = (next: PillarAssistantStatus) => {
+    setStatus(next);
+    if (typeof next.credit_balance === "number") {
+      setCreditBalance(next.credit_balance);
+    }
+  };
 
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-brand-600"
+        className={cn(
+          "fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg",
+          fabClassName,
+        )}
       >
         <Sparkles className="h-4 w-4" />
         Ask {displayName}
@@ -83,7 +118,7 @@ function MayaPanelInner({
             {displayName}
           </p>
           <p className="truncate text-[11px] text-ink-muted dark:text-cream-400">
-            Marketing AI
+            {config.roleTitle}
             {creditBalance !== null ? (
               <span
                 className={cn(
@@ -121,7 +156,7 @@ function MayaPanelInner({
           <Link
             href="/settings/ai-agents"
             className="grid h-8 w-8 place-items-center rounded-md text-ink-muted hover:bg-cream-200 dark:hover:bg-hairline-dark"
-            aria-label="Configure Maya"
+            aria-label={`Configure ${displayName}`}
           >
             <Settings2 className="h-4 w-4" />
           </Link>
@@ -138,9 +173,7 @@ function MayaPanelInner({
 
       <div className="flex min-h-0 flex-1 flex-col">
         {!status.addon_active ? (
-          <div className="flex flex-1 flex-col justify-center p-4">
-            <MayaAssistantGate />
-          </div>
+          <div className="flex flex-1 flex-col justify-center p-4">{gate}</div>
         ) : !status.assistant_enabled ? (
           <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-ink-muted dark:text-cream-400">
             {displayName} is turned off. Enable in{" "}
@@ -153,19 +186,7 @@ function MayaPanelInner({
             .
           </div>
         ) : (
-          <MayaAssistantChat
-            ref={chatRef}
-            businessId={businessId}
-            initialStatus={status}
-            initialSeed={seed}
-            variant="panel"
-            onStatusChange={(next) => {
-              setStatus(next);
-              if (typeof next.credit_balance === "number") {
-                setCreditBalance(next.credit_balance);
-              }
-            }}
-          />
+          children({ chatRef, seed, onStatusChange })
         )}
       </div>
     </div>

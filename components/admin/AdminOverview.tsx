@@ -170,7 +170,7 @@ export function AdminOverview({
         }
       : null,
     {
-      href: data.hasAdminAssistant ? "/admin/assistant" : "/marketplace",
+      href: data.hasAdminAssistant ? "/admin?amir=open" : "/marketplace",
       icon: Bot,
       title: "Amir AI",
       subtitle: data.hasAdminAssistant ? "Admin copilot" : "View in Marketplace",
@@ -630,7 +630,7 @@ export function AdminOverview({
           label="Amir · Admin AI"
           message={buildAdminAiMessage(data)}
           cta="Chat with Amir"
-          href="/admin/assistant"
+          href="/admin?amir=open"
         />
       ) : (
         <AiBanner

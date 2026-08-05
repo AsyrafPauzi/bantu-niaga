@@ -46,7 +46,7 @@ const STEPS = [
   {
     title: "5 · Ask Aiman",
     body: "Aiman reads your live ops data — and can update orders, check stock, and plan your week.",
-    href: "/operations/assistant",
+    href: "/operations?aiman=open",
     cta: "Chat with Aiman",
     icon: Bot,
   },

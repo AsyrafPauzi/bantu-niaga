@@ -1,32 +1,23 @@
-import { redirect } from "next/navigation";
-import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { requirePillar } from "@/lib/auth/require-pillar";
-import { HrGuideJourney } from "@/components/hr/HrGuideJourney";
-import { HrNavAddonProvider } from "@/components/hr/layout/hr-nav-addon-context";
-import { HR_ADDON_SLUGS } from "@/lib/hr/addon-nav";
-import { loadAddonFeatureStates } from "@/lib/marketplace/addon-availability";
+import { PillarAssistantFloat } from "@/components/ai/PillarAssistantFloat";
+import { canAccessPillarAssistantFloat } from "@/lib/ai/pillar-assistant-float-config";
 
 export default async function HrPillarLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await requirePillar("hr");
-
-  let user;
-  try {
-    user = await getCurrentUser();
-  } catch (error) {
-    if (error instanceof UnauthorizedError) redirect("/sign-in");
-    throw error;
-  }
-
-  const addonStates = await loadAddonFeatureStates(user.businessId, HR_ADDON_SLUGS);
-
+  const { user } = await requirePillar("hr");
   return (
-    <HrNavAddonProvider states={addonStates}>
-      <HrGuideJourney businessId={user.businessId} />
+    <>
       {children}
-    </HrNavAddonProvider>
+      {canAccessPillarAssistantFloat("hr", user.role) ? (
+        <PillarAssistantFloat
+          pillar="hr"
+          businessId={user.businessId}
+          userId={user.id}
+        />
+      ) : null}
+    </>
   );
 }

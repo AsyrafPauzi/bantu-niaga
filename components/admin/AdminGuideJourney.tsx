@@ -46,7 +46,7 @@ const STEPS = [
   {
     title: "5 · Ask Amir",
     body: "Amir reads your tasks, renewals, and storage — and suggests what to tackle next.",
-    href: "/admin/assistant",
+    href: "/admin?amir=open",
     cta: "Chat with Amir",
     icon: Bot,
   },

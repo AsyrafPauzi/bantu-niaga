@@ -11,10 +11,18 @@ import {
 } from "react";
 import { Loader2, MessageSquarePlus, PauseCircle, Send, Sparkles } from "lucide-react";
 import { MARKETING_ASSISTANT_SUGGESTIONS } from "@/lib/ai/marketing-assistant-prompt";
+import type {
+  PillarAssistantChatHandle as MayaAssistantChatHandle,
+  PillarAssistantChatTurn,
+  PillarAssistantChatVariant,
+  PillarAssistantStatus as MayaAssistantStatus,
+} from "@/lib/ai/pillar-assistant-types";
 import { MayaAssistantGate } from "@/components/marketing/MayaAssistantGate";
 import { MayaAssistantMessage } from "@/components/marketing/MayaAssistantMessage";
 import { HR_CREDIT_COST_CHAT } from "@/lib/marketplace/agent-types";
 import { cn } from "@/lib/utils/cn";
+
+export type { MayaAssistantStatus, MayaAssistantChatHandle };
 
 const MAX_MESSAGES = 20;
 
@@ -22,51 +30,28 @@ function storageKey(businessId: string): string {
   return `bn-maya-assistant-chat-v1-${businessId}`;
 }
 
-type ChatRole = "user" | "assistant";
-
-interface ChatTurn {
-  role: ChatRole;
-  content: string;
-}
-
-export interface MayaAssistantStatus {
-  addon_active: boolean;
-  assistant_enabled: boolean;
-  display_name: string;
-  credit_balance: number;
-  credit_cost_chat?: number;
-  reasoning_mode?: string;
-  credits_paused?: boolean;
-  business_id?: string;
-  recent_turns?: ChatTurn[];
-}
-
-export interface MayaAssistantChatHandle {
-  newChat: () => void;
-}
-
 interface MayaAssistantChatProps {
   businessId: string;
   initialStatus?: MayaAssistantStatus | null;
   /** Pre-fill the message box (e.g. from customer win-back CTA). */
   initialSeed?: string;
-  variant?: "page" | "panel";
+  variant?: PillarAssistantChatVariant;
   onStatusChange?: (status: MayaAssistantStatus) => void;
 }
 
-function loadSession(businessId: string): ChatTurn[] {
+function loadSession(businessId: string): PillarAssistantChatTurn[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = sessionStorage.getItem(storageKey(businessId));
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as ChatTurn[];
+    const parsed = JSON.parse(raw) as PillarAssistantChatTurn[];
     return Array.isArray(parsed) ? parsed.slice(-MAX_MESSAGES) : [];
   } catch {
     return [];
   }
 }
 
-function saveSession(businessId: string, turns: ChatTurn[]) {
+function saveSession(businessId: string, turns: PillarAssistantChatTurn[]) {
   if (typeof window === "undefined") return;
   try {
     sessionStorage.setItem(
@@ -95,7 +80,7 @@ export const MayaAssistantChat = forwardRef<
   const [status, setStatus] = useState<MayaAssistantStatus | null>(
     initialStatus ?? null,
   );
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [turns, setTurns] = useState<PillarAssistantChatTurn[]>([]);
   const [input, setInput] = useState(initialSeed ?? "");
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(!initialStatus);
@@ -191,7 +176,7 @@ export const MayaAssistantChat = forwardRef<
     setLoading(true);
     setInput("");
 
-    const userTurn: ChatTurn = { role: "user", content: message };
+    const userTurn: PillarAssistantChatTurn = { role: "user", content: message };
     setTurns((prev) => [...prev, userTurn]);
 
     try {

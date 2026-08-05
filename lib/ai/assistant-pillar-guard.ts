@@ -19,7 +19,7 @@ const OTHER_PILLAR_RULES: Array<{
     redirect: {
       pillar: "Finance",
       agentName: "Fayza",
-      chatHref: "/finance/assistant",
+      chatHref: "/finance?fayza=open",
     },
     patterns: [
       /\b(invoice|invoices|quotation|quotations)\b/i,
@@ -34,7 +34,7 @@ const OTHER_PILLAR_RULES: Array<{
     redirect: {
       pillar: "HR",
       agentName: "Hana",
-      chatHref: "/hr/assistant",
+      chatHref: "/hr?hana=open",
     },
     patterns: [
       /\b(leave request|on leave|mc letter|medical certificate|payroll|payslip|payslips)\b/i,
@@ -60,7 +60,7 @@ const OTHER_PILLAR_RULES: Array<{
     redirect: {
       pillar: "Sales",
       agentName: "Sufi",
-      chatHref: "/sales/assistant",
+      chatHref: "/sales?sufi=open",
     },
     patterns: [
       /\b(sales lead|sales leads|lead pipeline)\b/i,
@@ -73,7 +73,7 @@ const OTHER_PILLAR_RULES: Array<{
     redirect: {
       pillar: "Admin",
       agentName: "Amir",
-      chatHref: "/admin/assistant",
+      chatHref: "/admin?amir=open",
     },
     patterns: [
       /\b(compliance renewal|license renewal)\b/i,

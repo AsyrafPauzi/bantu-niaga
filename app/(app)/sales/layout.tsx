@@ -1,25 +1,23 @@
 import { requirePillar } from "@/lib/auth/require-pillar";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { SalesGuideJourney } from "@/components/sales/SalesGuideJourney";
+import { PillarAssistantFloat } from "@/components/ai/PillarAssistantFloat";
+import { canAccessPillarAssistantFloat } from "@/lib/ai/pillar-assistant-float-config";
 
 export default async function SalesPillarLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await requirePillar("sales");
-  let businessId: string | null = null;
-  try {
-    const user = await getCurrentUser();
-    businessId = user.businessId;
-  } catch {
-    businessId = null;
-  }
-
+  const { user } = await requirePillar("sales");
   return (
     <>
-      {businessId ? <SalesGuideJourney businessId={businessId} /> : null}
       {children}
+      {canAccessPillarAssistantFloat("sales", user.role) ? (
+        <PillarAssistantFloat
+          pillar="sales"
+          businessId={user.businessId}
+          userId={user.id}
+        />
+      ) : null}
     </>
   );
 }

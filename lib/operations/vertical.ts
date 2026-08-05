@@ -40,7 +40,7 @@ const SURFACE_META: Record<
   services: { href: "/operations/services", label: "Services" },
   bookings: { href: "/operations/bookings", label: "Bookings" },
   suppliers: { href: "/operations/suppliers", label: "Suppliers" },
-  assistant: { href: "/operations/assistant", label: "Aiman AI" },
+  assistant: { href: "/operations?aiman=open", label: "Aiman AI" },
 };
 
 const CATEGORY_PRESETS: Record<BusinessType, readonly string[]> = {

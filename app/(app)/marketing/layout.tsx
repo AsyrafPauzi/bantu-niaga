@@ -1,6 +1,6 @@
 import { requirePillar } from "@/lib/auth/require-pillar";
-import { canManageMarketingCore } from "@/lib/marketing/access";
-import { MayaFloatingAssistant } from "@/components/marketing/MayaFloatingAssistant";
+import { PillarAssistantFloat } from "@/components/ai/PillarAssistantFloat";
+import { canAccessPillarAssistantFloat } from "@/lib/ai/pillar-assistant-float-config";
 
 export default async function MarketingPillarLayout({
   children,
@@ -11,8 +11,9 @@ export default async function MarketingPillarLayout({
   return (
     <>
       {children}
-      {canManageMarketingCore(user.role) ? (
-        <MayaFloatingAssistant
+      {canAccessPillarAssistantFloat("marketing", user.role) ? (
+        <PillarAssistantFloat
+          pillar="marketing"
           businessId={user.businessId}
           userId={user.id}
         />

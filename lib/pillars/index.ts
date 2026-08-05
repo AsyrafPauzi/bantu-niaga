@@ -88,7 +88,6 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
     surfaces: [
       { href: "/sales/pos", label: "POS", primary: "mobile" },
       { href: "/sales/leads", label: "Leads", primary: "both" },
-      { href: "/sales/assistant", label: "AI Assistant", primary: "both" },
     ],
   },
   hr: {
@@ -106,7 +105,6 @@ export const PILLAR_META: Record<Pillar, PillarMeta> = {
       { href: "/hr/holidays", label: "Public holidays", primary: "desktop" },
       { href: "/hr/appraisals", label: "Staff appraisals", primary: "desktop" },
       { href: "/hr/documents", label: "Staff documents", primary: "desktop" },
-      { href: "/hr/assistant", label: "AI Assistant", primary: "both" },
     ],
   },
 };

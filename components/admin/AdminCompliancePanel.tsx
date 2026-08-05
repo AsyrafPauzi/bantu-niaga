@@ -314,8 +314,8 @@ export function AdminCompliancePanel({
     }
   }, [selected]);
 
-  const amirHref = `/admin/assistant?q=${encodeURIComponent(AMIR_RENEWALS_PROMPT)}`;
-  const amirMissingDocsHref = `/admin/assistant?q=${encodeURIComponent(AMIR_MISSING_DOCS_PROMPT)}`;
+  const amirHref = `/admin?amir=open&seed=${encodeURIComponent(AMIR_RENEWALS_PROMPT)}`;
+  const amirMissingDocsHref = `/admin?amir=open&seed=${encodeURIComponent(AMIR_MISSING_DOCS_PROMPT)}`;
   const missingDocCount = items.filter((i) => !i.admin_file_id).length;
 
   return (

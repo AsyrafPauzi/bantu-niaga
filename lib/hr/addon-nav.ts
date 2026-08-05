@@ -12,7 +12,6 @@ export const HR_ADDON_ROUTES: ReadonlyArray<{ href: string; addonSlug: string }>
   { href: "/hr/leave/policy", addonSlug: HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG },
   { href: "/hr/appraisals", addonSlug: HR_STAFF_APPRAISAL_ADDON_SLUG },
   { href: "/hr/holidays", addonSlug: HR_PUBLIC_HOLIDAYS_ADDON_SLUG },
-  { href: "/hr/assistant", addonSlug: HR_ASSISTANT_ADDON_SLUG },
 ];
 
 export const HR_ADDON_SLUGS = [

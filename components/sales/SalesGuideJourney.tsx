@@ -44,7 +44,7 @@ const STEPS = [
   {
     title: "4 · Leads",
     body: "Ask Sufi (Sales AI) about overdue leads and today\u2019s POS — or open Leads to chase yourself. Convert won leads into Marketing customers.",
-    href: "/sales/assistant",
+    href: "/sales?sufi=open",
     cta: "Open Sufi",
     icon: Users,
   },

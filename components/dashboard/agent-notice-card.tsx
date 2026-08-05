@@ -11,7 +11,7 @@ interface AgentNoticeCardProps {
 export function AgentNoticeCard({
   title,
   body,
-  assistantHref = "/hr/assistant",
+  assistantHref = "/hr?hana=open",
   assistantName = "Hana",
 }: AgentNoticeCardProps) {
   return (

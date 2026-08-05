@@ -127,7 +127,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
       "Tax-saving suggestions",
       "Daily Finance notice on Home",
     ],
-    chatHref: "/finance/assistant",
+    chatHref: "/finance?fayza=open",
     supportsDailyNotice: true,
   },
   {
@@ -148,7 +148,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
       "Stays in Operations — redirects Finance/HR/Marketing/Sales questions",
       "Daily Operations notice on Home",
     ],
-    chatHref: "/operations/assistant",
+    chatHref: "/operations?aiman=open",
     supportsDailyNotice: true,
   },
   {
@@ -171,7 +171,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
       "Daily sales notice on Home (optional toggle)",
       "Answers in Bahasa Malaysia or English",
     ],
-    chatHref: "/sales/assistant",
+    chatHref: "/sales?sufi=open",
     supportsDailyNotice: true,
   },
   {
@@ -196,7 +196,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
       "Daily HR notice on Home (optional toggle)",
       "Answers in Bahasa Malaysia or English",
     ],
-    chatHref: "/hr/assistant",
+    chatHref: "/hr?hana=open",
     supportsDailyNotice: true,
   },
   {
@@ -216,7 +216,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
       "Recent activity summaries",
       "Daily Admin notice on Home",
     ],
-    chatHref: "/admin/assistant",
+    chatHref: "/admin?amir=open",
     supportsDailyNotice: true,
   },
   {

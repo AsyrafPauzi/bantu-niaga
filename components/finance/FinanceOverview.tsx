@@ -668,7 +668,7 @@ export function FinanceOverview({
             : "Ask Fayza to check cash flow, create invoices, log expenses, or chase unpaid bills."
         }
         cta="Chat with Fayza"
-        href="/finance/assistant"
+        href="/finance?fayza=open"
       />
     </ModuleDashboardShell>
   );

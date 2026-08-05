@@ -14,7 +14,6 @@ const HR_LINKS = [
   { href: "/hr/holidays", label: "Holidays", exact: false },
   { href: "/hr/appraisals", label: "Appraisals", exact: false },
   { href: "/hr/documents", label: "Documents", exact: false },
-  { href: "/hr/assistant", label: "Assistant", exact: false },
 ] as const;
 
 function addonSlugForHref(href: string): string | null {
