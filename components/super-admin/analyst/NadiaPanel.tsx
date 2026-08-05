@@ -25,6 +25,7 @@ import {
 import { playBase64Audio, unlockBrowserAudio } from "@/lib/client/play-audio";
 import { cn } from "@/lib/utils/cn";
 import type { NadiaSettings } from "@/lib/super-admin/nadia-settings";
+import { NadiaAssistantMessage } from "@/components/super-admin/analyst/NadiaAssistantMessage";
 
 type ChatMessage = {
   id: string;
@@ -465,7 +466,11 @@ function MessageBubble({
             : "border border-cream-300 bg-cream-50 text-ink",
         )}
       >
-        <p className="whitespace-pre-wrap">{msg.text}</p>
+        {isUser ? (
+          <p className="whitespace-pre-wrap">{msg.text}</p>
+        ) : (
+          <NadiaAssistantMessage content={msg.text} />
+        )}
         {!isUser && msg.transcript && !msg.showTranscript ? (
           <p className="mt-1 text-[10px] text-amber-700">{msg.transcript}</p>
         ) : null}

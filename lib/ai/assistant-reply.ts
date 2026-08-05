@@ -47,7 +47,7 @@ const SUCCESS_LINE =
   /^(?:✅\s*)?(?:Entri berjaya dicatatkan|Berjaya dicatat|Successfully (?:logged|recorded)|Recorded successfully)/i;
 
 const INTERNAL_PATH =
-  /\/(?:finance|operations|sales|settings|marketplace|home|more|admin|hr|marketing)(?:\/[a-z][a-z0-9/-]*)?/i;
+  /\/(?:finance|operations|sales|settings|marketplace|home|more|admin|hr|marketing|super-admin)(?:\/[a-z][a-z0-9/-]*)?/i;
 
 const MARKDOWN_LINK = /\[[^\]]*\]\([^)]*\)/g;
 
@@ -189,6 +189,18 @@ export function beautifyAssistantMarkdown(raw: string): string {
   // Break before major section headers when glued to prior text
   text = text.replace(
     /([^\n])\s+(\*\*(?:Ringkasan|Kesan|Langkah|MTD|Summary|Impact|Transaksi)[^*]+\*\*:?)/gi,
+    "$1\n\n$2",
+  );
+
+  // Blank line after intro sentence before first bullet list
+  text = text.replace(
+    /([.!?])\n(- \*\*)/,
+    "$1\n\n$2",
+  );
+
+  // Platform analyst headings (BM + EN)
+  text = text.replace(
+    /([^\n])\s+(\*\*(?:Ringkasan|Platform snapshot|Penyewa|Tenants?|Kutipan|Collections?)[^*]*\*\*:?)/gi,
     "$1\n\n$2",
   );
 

@@ -7,6 +7,7 @@ import {
   openaiChat,
   type ChatCompletionResponse,
 } from "@/lib/ai/openai";
+import { formatAssistantReply } from "@/lib/ai/assistant-reply";
 import { logger } from "@/lib/logger";
 import {
   buildPlatformAnalystSnapshot,
@@ -18,6 +19,8 @@ import {
   includesTextOutput,
   includesVoiceOutput,
 } from "@/lib/super-admin/nadia-settings";
+import { NADIA_OUTPUT_FORMAT } from "@/lib/super-admin/nadia-output-format";
+import { stripMarkdownForSpeech } from "@/lib/super-admin/nadia-speech-text";
 
 const NADIA_MODEL = "ilmu-v3.1";
 
@@ -55,13 +58,13 @@ export async function runNadiaChat(question: string): Promise<NadiaChatResult> {
     messages: [
       {
         role: "system",
-        content: `${systemPrompt}\n\nPlatform snapshot (generated ${snapshot.generatedAt}):\n${snapshotJson}`,
+        content: `${systemPrompt}\n\n${NADIA_OUTPUT_FORMAT}\n\nPlatform snapshot (generated ${snapshot.generatedAt}):\n${snapshotJson}`,
       },
       { role: "user", content: question.trim() },
     ],
   });
 
-  const reply = extractChatAssistantText(completion);
+  const reply = formatAssistantReply(extractChatAssistantText(completion));
   const usage = (completion as { usage?: { prompt_tokens?: number; completion_tokens?: number } })
     .usage;
   const tokensIn = usage?.prompt_tokens ?? 2500;
@@ -76,7 +79,7 @@ export async function runNadiaChat(question: string): Promise<NadiaChatResult> {
   let ttsError: string | null = null;
 
   if (showVoice) {
-    voiceScript = buildVoiceScript(reply);
+    voiceScript = buildVoiceScript(stripMarkdownForSpeech(reply));
     try {
       const speech = await ilmuSynthesizeSpeech({ text: voiceScript });
       audioBase64 = Buffer.from(speech.audio).toString("base64");

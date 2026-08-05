@@ -53,6 +53,7 @@ export const ASSISTANT_PATH_PREFIXES = {
     "/home",
     "/more",
   ],
+  platform: ["/super-admin", "/settings"],
 } as const;
 
 export type AssistantMessagePillar = keyof typeof ASSISTANT_PATH_PREFIXES;
@@ -288,7 +289,7 @@ function renderBlock(
   const introLines = lines.filter((line) => !/^[-*•]\s+/.test(line));
   const summaryCard =
     introLines.some((line) =>
-      /ringkasan|summary|transaksi|pelanggan|customer|tugas|task|compliance|lesen/i.test(
+      /ringkasan|summary|transaksi|pelanggan|customer|tugas|task|compliance|lesen|penyewa|tenant|kutipan|collection|mrr|revenue/i.test(
         line,
       ),
     ) && listLines.length > 0;
