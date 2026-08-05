@@ -71,6 +71,7 @@ const csp = [
   "base-uri 'self'",
   "form-action 'self' https://www.facebook.com",
   "manifest-src 'self'",
+  "media-src 'self' blob: data:",
   "worker-src 'self' blob:",
   isProd ? "upgrade-insecure-requests" : "",
 ]

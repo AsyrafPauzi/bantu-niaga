@@ -66,6 +66,7 @@ export async function ilmuSynthesizeSpeech(opts: {
       model: TTS_MODEL,
       input,
       voice: opts.voice ?? TTS_DEFAULT_VOICE,
+      response_format: "mp3",
     }),
     signal: AbortSignal.timeout(60_000),
   });

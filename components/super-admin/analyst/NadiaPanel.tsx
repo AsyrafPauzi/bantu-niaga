@@ -22,6 +22,7 @@ import {
   recorderBlobType,
   stopMicStream,
 } from "@/lib/client/mic-capture";
+import { playBase64Audio, unlockBrowserAudio } from "@/lib/client/play-audio";
 import { cn } from "@/lib/utils/cn";
 import type { NadiaSettings } from "@/lib/super-admin/nadia-settings";
 
@@ -52,7 +53,6 @@ export function NadiaPanel({
   const mediaRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const releaseMic = useCallback(() => {
@@ -82,14 +82,17 @@ export function NadiaPanel({
   }, [open, releaseMic]);
 
   const playAudio = useCallback(
-    (base64: string, contentType: string) => {
-      if (muted || !settings.voice_auto_play) return;
-      if (audioRef.current) {
-        audioRef.current.pause();
+    async (
+      base64: string,
+      contentType: string,
+      opts?: { autoplay?: boolean },
+    ): Promise<boolean> => {
+      const autoplay = opts?.autoplay ?? false;
+      if (autoplay && (muted || !settings.voice_auto_play)) {
+        return false;
       }
-      const audio = new Audio(`data:${contentType};base64,${base64}`);
-      audioRef.current = audio;
-      void audio.play().catch(() => undefined);
+      const result = await playBase64Audio(base64, contentType);
+      return result.ok;
     },
     [muted, settings.voice_auto_play],
   );
@@ -120,6 +123,11 @@ export function NadiaPanel({
         }
 
         const replyText = data.reply ?? data.transcript ?? "No response.";
+        let playbackHint: string | undefined;
+        if (data.showVoice && !data.voiceGenerated && data.ttsError) {
+          playbackHint = "Voice unavailable — text only.";
+        }
+
         const assistantMsg: ChatMessage = {
           id: `a-${Date.now()}`,
           role: "assistant",
@@ -127,15 +135,26 @@ export function NadiaPanel({
           audioBase64: data.audioBase64,
           audioContentType: data.audioContentType,
           showTranscript: data.showText === false,
-          transcript:
-            data.showVoice && !data.voiceGenerated && data.ttsError
-              ? "Voice unavailable — text only."
-              : undefined,
+          transcript: playbackHint,
         };
         setMessages((m) => [...m, assistantMsg]);
 
         if (data.audioBase64 && data.audioContentType && data.showVoice) {
-          playAudio(data.audioBase64, data.audioContentType);
+          const played = await playAudio(data.audioBase64, data.audioContentType, {
+            autoplay: true,
+          });
+          if (!played) {
+            setMessages((m) =>
+              m.map((msg) =>
+                msg.id === assistantMsg.id
+                  ? {
+                      ...msg,
+                      transcript: "Tap Play response to hear Nadia.",
+                    }
+                  : msg,
+              ),
+            );
+          }
         }
       } catch (err) {
         const detail = err instanceof Error ? err.message : "chat_failed";
@@ -184,6 +203,7 @@ export function NadiaPanel({
   }, [releaseMic]);
 
   const openPanel = () => {
+    unlockBrowserAudio();
     if (isMicCaptureSupported()) {
       void attachMicFromGesture();
     }
@@ -284,7 +304,8 @@ export function NadiaPanel({
             type="button"
             onClick={() => setMuted((m) => !m)}
             className="grid h-8 w-8 place-items-center rounded-md text-ink-muted hover:bg-cream-200"
-            aria-label={muted ? "Unmute" : "Mute"}
+            aria-label={muted ? "Mute auto-play" : "Unmute auto-play"}
+            title={muted ? "Auto-play off — tap Play response to hear replies" : "Auto-play on"}
           >
             {muted ? (
               <VolumeX className="h-4 w-4" />
@@ -345,6 +366,7 @@ export function NadiaPanel({
           className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            unlockBrowserAudio();
             void sendMessage(input);
           }}
         >
@@ -403,7 +425,7 @@ function MessageBubble({
   onPlay,
 }: {
   msg: ChatMessage;
-  onPlay: (base64: string, contentType: string) => void;
+  onPlay: (base64: string, contentType: string) => Promise<boolean>;
 }) {
   const [showTranscript, setShowTranscript] = useState(false);
   const isUser = msg.role === "user";
@@ -414,7 +436,7 @@ function MessageBubble({
         {msg.audioBase64 && msg.audioContentType ? (
           <button
             type="button"
-            onClick={() => onPlay(msg.audioBase64!, msg.audioContentType!)}
+            onClick={() => void onPlay(msg.audioBase64!, msg.audioContentType!)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand-100 px-3 py-2 text-xs font-semibold text-brand-800"
           >
             <Volume2 className="h-3.5 w-3.5" />
@@ -450,7 +472,7 @@ function MessageBubble({
         {!isUser && msg.audioBase64 && msg.audioContentType ? (
           <button
             type="button"
-            onClick={() => onPlay(msg.audioBase64!, msg.audioContentType!)}
+            onClick={() => void onPlay(msg.audioBase64!, msg.audioContentType!)}
             className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700"
           >
             <Volume2 className="h-3 w-3" />
