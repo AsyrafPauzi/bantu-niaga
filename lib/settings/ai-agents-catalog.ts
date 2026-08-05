@@ -107,7 +107,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
       "Customer notes and tags",
       "Daily Marketing notice",
     ],
-    chatHref: "/marketing/assistant",
+    chatHref: "/marketing?maya=open",
     supportsDailyNotice: true,
   },
   {

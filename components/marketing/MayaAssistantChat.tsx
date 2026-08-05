@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Loader2, MessageSquarePlus, PauseCircle, Send, Sparkles } from "lucide-react";
 import { MARKETING_ASSISTANT_SUGGESTIONS } from "@/lib/ai/marketing-assistant-prompt";
 import { MayaAssistantGate } from "@/components/marketing/MayaAssistantGate";
@@ -22,7 +29,7 @@ interface ChatTurn {
   content: string;
 }
 
-interface AssistantStatus {
+export interface MayaAssistantStatus {
   addon_active: boolean;
   assistant_enabled: boolean;
   display_name: string;
@@ -34,11 +41,17 @@ interface AssistantStatus {
   recent_turns?: ChatTurn[];
 }
 
+export interface MayaAssistantChatHandle {
+  newChat: () => void;
+}
+
 interface MayaAssistantChatProps {
   businessId: string;
-  initialStatus?: AssistantStatus | null;
-  /** Pre-fill the message box (e.g. from customer detail win-back CTA). */
+  initialStatus?: MayaAssistantStatus | null;
+  /** Pre-fill the message box (e.g. from customer win-back CTA). */
   initialSeed?: string;
+  variant?: "page" | "panel";
+  onStatusChange?: (status: MayaAssistantStatus) => void;
 }
 
 function loadSession(businessId: string): ChatTurn[] {
@@ -65,12 +78,21 @@ function saveSession(businessId: string, turns: ChatTurn[]) {
   }
 }
 
-export function MayaAssistantChat({
-  businessId,
-  initialStatus,
-  initialSeed,
-}: MayaAssistantChatProps) {
-  const [status, setStatus] = useState<AssistantStatus | null>(
+export const MayaAssistantChat = forwardRef<
+  MayaAssistantChatHandle,
+  MayaAssistantChatProps
+>(function MayaAssistantChat(
+  {
+    businessId,
+    initialStatus,
+    initialSeed,
+    variant = "page",
+    onStatusChange,
+  },
+  ref,
+) {
+  const isPanel = variant === "panel";
+  const [status, setStatus] = useState<MayaAssistantStatus | null>(
     initialStatus ?? null,
   );
   const [turns, setTurns] = useState<ChatTurn[]>([]);
@@ -83,6 +105,24 @@ export function MayaAssistantChat({
   );
   const listRef = useRef<HTMLDivElement>(null);
   const hydrated = useRef(false);
+
+  const patchStatus = useCallback(
+    (patch: Partial<MayaAssistantStatus>) => {
+      setStatus((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, ...patch };
+        onStatusChange?.(next);
+        return next;
+      });
+    },
+    [onStatusChange],
+  );
+
+  useEffect(() => {
+    if (initialSeed) {
+      setInput(initialSeed);
+    }
+  }, [initialSeed]);
 
   useEffect(() => {
     if (!hydrated.current) {
@@ -106,12 +146,13 @@ export function MayaAssistantChat({
     setStatusLoading(true);
     try {
       const res = await fetch("/api/marketing/assistant");
-      const json = (await res.json()) as AssistantStatus & {
+      const json = (await res.json()) as MayaAssistantStatus & {
         error?: string;
       };
       if (res.ok) {
         setStatus(json);
         setCreditBalance(json.credit_balance);
+        onStatusChange?.(json);
         if (
           turns.length === 0 &&
           json.recent_turns &&
@@ -123,7 +164,7 @@ export function MayaAssistantChat({
     } finally {
       setStatusLoading(false);
     }
-  }, [turns.length]);
+  }, [onStatusChange, turns.length]);
 
   useEffect(() => {
     if (!initialStatus) {
@@ -131,18 +172,21 @@ export function MayaAssistantChat({
     }
   }, [initialStatus, refreshStatus]);
 
-  function newChat() {
+  const newChat = useCallback(() => {
     setTurns([]);
     setError(null);
     setInput("");
     sessionStorage.removeItem(storageKey(businessId));
-    void fetch("/api/marketing/assistant", { method: "DELETE" }).catch(() => undefined);
-  }
+    void fetch("/api/marketing/assistant", { method: "DELETE" }).catch(
+      () => undefined,
+    );
+  }, [businessId]);
+
+  useImperativeHandle(ref, () => ({ newChat }), [newChat]);
 
   async function sendMessage(text: string) {
     const message = text.trim();
     if (!message || loading) return;
-    // Low balance: still allow send — clarifying questions are free on the server.
     setError(null);
     setLoading(true);
     setInput("");
@@ -169,18 +213,16 @@ export function MayaAssistantChat({
       };
 
       if (res.status === 403 && data.error === "addon_required") {
-        setStatus((s) => (s ? { ...s, addon_active: false } : s));
+        patchStatus({ addon_active: false });
         setTurns((prev) => prev.slice(0, -1));
         setInput(message);
         return;
       }
 
-      if (
-        res.status === 402 &&
-        data.error === "insufficient_credits"
-      ) {
+      if (res.status === 402 && data.error === "insufficient_credits") {
         if (typeof data.credit_balance === "number") {
           setCreditBalance(data.credit_balance);
+          patchStatus({ credit_balance: data.credit_balance });
         }
         setTurns((prev) => prev.slice(0, -1));
         setInput(message);
@@ -192,9 +234,7 @@ export function MayaAssistantChat({
       }
 
       if (res.status === 403 && data.error === "assistant_disabled") {
-        setStatus((s) =>
-          s ? { ...s, assistant_enabled: false } : s,
-        );
+        patchStatus({ assistant_enabled: false });
         setTurns((prev) => prev.slice(0, -1));
         setInput(message);
         setError(
@@ -228,6 +268,7 @@ export function MayaAssistantChat({
 
       if (data.credits) {
         setCreditBalance(data.credits.balance);
+        patchStatus({ credit_balance: data.credits.balance });
       }
     } catch (e) {
       const msg =
@@ -260,7 +301,12 @@ export function MayaAssistantChat({
 
   if (statusLoading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center text-sm text-ink-muted">
+      <div
+        className={cn(
+          "flex items-center justify-center text-sm text-ink-muted dark:text-cream-400",
+          isPanel ? "flex-1" : "min-h-[200px]",
+        )}
+      >
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Loading…
       </div>
@@ -273,7 +319,14 @@ export function MayaAssistantChat({
 
   if (!status.assistant_enabled) {
     return (
-      <div className="rounded-2xl border border-[#E5E0D8] bg-white p-6 text-center text-sm text-ink-muted dark:border-hairline-dark dark:bg-panel-dark">
+      <div
+        className={cn(
+          "text-center text-sm text-ink-muted dark:text-cream-400",
+          isPanel
+            ? "flex flex-1 items-center justify-center p-6"
+            : "rounded-2xl border border-[#E5E0D8] bg-white p-6 dark:border-hairline-dark dark:bg-panel-dark",
+        )}
+      >
         Maya is turned off. Enable it in{" "}
         <a href="/settings/ai-agents" className="font-semibold text-brand-700">
           Settings → AI Agents
@@ -288,48 +341,53 @@ export function MayaAssistantChat({
   const creditsPaused =
     creditBalance !== null && creditBalance < chatCost;
 
+  const shellClass = isPanel
+    ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+    : "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark";
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E5E0D8] px-4 py-3 dark:border-hairline-dark">
-        <div className="flex items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
-          <Sparkles className="h-4 w-4 text-brand-600" />
-          {displayName}
-        </div>
-        <div className="flex items-center gap-2">
-          {creditBalance !== null ? (
-            <span
-              className={cn(
-                "text-xs font-medium",
-                creditsPaused
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-ink-muted dark:text-cream-400",
-              )}
+    <div className={shellClass}>
+      {!isPanel ? (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E5E0D8] px-4 py-3 dark:border-hairline-dark">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink dark:text-cream-100">
+            <Sparkles className="h-4 w-4 text-brand-600" />
+            {displayName}
+          </div>
+          <div className="flex items-center gap-2">
+            {creditBalance !== null ? (
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  creditsPaused
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-ink-muted dark:text-cream-400",
+                )}
+              >
+                {creditsPaused ? (
+                  <>
+                    <PauseCircle className="mr-1 inline h-3.5 w-3.5" />
+                    Paused · 0 credits
+                  </>
+                ) : (
+                  <>⚡ {creditBalance} shared credits left</>
+                )}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={newChat}
+              className="inline-flex items-center gap-1 rounded-lg border border-[#E5E0D8] px-2.5 py-1 text-xs font-medium text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400"
             >
-              {creditsPaused ? (
-                <>
-                  <PauseCircle className="mr-1 inline h-3.5 w-3.5" />
-                  Paused · 0 credits
-                </>
-              ) : (
-                <>⚡ {creditBalance} shared credits left</>
-              )}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            onClick={newChat}
-            className="inline-flex items-center gap-1 rounded-lg border border-[#E5E0D8] px-2.5 py-1 text-xs font-medium text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400"
-          >
-            <MessageSquarePlus className="h-3.5 w-3.5" />
-            New chat
-          </button>
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+              New chat
+            </button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {creditsPaused ? (
-        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
-          Shared credits are low — clarifying questions stay free. Plans and
-          actions need credits.{" "}
+        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+          Shared credits are low — clarifying questions stay free.{" "}
           <Link
             href="/settings/billing"
             className="font-semibold underline hover:text-amber-950 dark:hover:text-amber-50"
@@ -342,19 +400,18 @@ export function MayaAssistantChat({
 
       <div
         ref={listRef}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3"
       >
         {turns.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="flex flex-col items-center justify-center py-6 text-center">
             <p className="text-sm font-semibold text-ink dark:text-cream-100">
               Ask {displayName} about your Marketing records
             </p>
-          <p className="mt-1 max-w-sm text-xs text-ink-muted dark:text-cream-400">
-              Ask like you would a marketing staff — she uses your CRM, products,
-              and monthly sales. She asks a few questions, then plans and can
-              create drafts.
+            <p className="mt-1 max-w-sm text-xs text-ink-muted dark:text-cream-400">
+              She uses your CRM, products, and monthly sales — then plans and
+              can create drafts.
             </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
               {MARKETING_ASSISTANT_SUGGESTIONS.map((prompt) => (
                 <button
                   key={prompt}
@@ -373,7 +430,7 @@ export function MayaAssistantChat({
             <div
               key={`${turn.role}-${i}`}
               className={cn(
-                "max-w-[min(90%,42rem)] rounded-2xl px-4 py-3 text-sm",
+                "max-w-[90%] rounded-xl px-3 py-2 text-sm",
                 turn.role === "user"
                   ? "ml-auto bg-brand-500 text-white"
                   : "mr-auto border border-[#E5E0D8] bg-[#FFFEFB] text-ink dark:border-hairline-dark dark:bg-surface-dark dark:text-cream-100",
@@ -398,14 +455,14 @@ export function MayaAssistantChat({
       </div>
 
       {error ? (
-        <p className="px-4 pb-2 text-xs text-red-600 dark:text-red-400">
+        <p className="px-3 pb-1 text-xs text-red-600 dark:text-red-400">
           {error}
         </p>
       ) : null}
 
       <form
         onSubmit={handleSubmit}
-        className="shrink-0 border-t border-[#E5E0D8] bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark"
+        className="shrink-0 border-t border-[#E5E0D8] bg-white p-3 dark:border-hairline-dark dark:bg-panel-dark"
       >
         <div className="flex items-end gap-2">
           <textarea
@@ -416,12 +473,12 @@ export function MayaAssistantChat({
             maxLength={2000}
             rows={1}
             disabled={loading}
-            className="max-h-32 min-h-[42px] flex-1 resize-none rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            className="max-h-28 min-h-[40px] flex-1 resize-none rounded-lg border border-[#E5E0D8] bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="inline-flex items-center justify-center rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -430,11 +487,7 @@ export function MayaAssistantChat({
             )}
           </button>
         </div>
-        <p className="mt-2 text-[11px] text-ink-muted dark:text-cream-500">
-          Enter to send · Shift+Enter for new line. Clarifying questions are
-          free. Plans and actions use credits. Not marketing or legal advice.
-        </p>
       </form>
     </div>
   );
-}
+});

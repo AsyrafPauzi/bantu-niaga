@@ -47,7 +47,7 @@ const OTHER_PILLAR_RULES: Array<{
     redirect: {
       pillar: "Marketing",
       agentName: "Maya",
-      chatHref: "/marketing/assistant",
+      chatHref: "/marketing?maya=open",
     },
     patterns: [
       /\b(coupon|coupons|broadcast|broadcasts)\b/i,

@@ -333,7 +333,7 @@ export function ContentDetailView({
 
           <MarketingAddonTeaser
             title="Maya · Marketing AI"
-            description={`Ask Maya to rewrite captions, draft broadcasts, or estimate reach (e.g. ${forecastLabel}). Chat at /marketing/assistant after activating.`}
+            description={`Ask Maya to rewrite captions, draft broadcasts, or estimate reach (e.g. ${forecastLabel}). Use the Ask Maya button on any Marketing page after activating.`}
             slug="marketing-assistant"
             comingSoon={false}
             ctaLabel="Open Maya / Marketplace →"

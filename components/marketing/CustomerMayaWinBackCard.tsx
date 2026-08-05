@@ -43,7 +43,7 @@ export function CustomerMayaWinBackCard({
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
-              href={`/marketing/assistant?seed=${encodeURIComponent(mayaSeed)}`}
+              href={`?maya=open&seed=${encodeURIComponent(mayaSeed)}`}
               className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
             >
               <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />

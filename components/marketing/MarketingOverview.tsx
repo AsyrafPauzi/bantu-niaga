@@ -79,7 +79,7 @@ const QUICK_ACTIONS = [
     subtitle: "Calendar drafts",
   },
   {
-    href: "/marketing/assistant",
+    href: "/marketing?maya=open",
     icon: Sparkles,
     title: "Ask Maya",
     subtitle: "Campaign ideas",
