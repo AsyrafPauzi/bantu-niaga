@@ -89,7 +89,7 @@ const securityHeaders = [
   {
     key: "Permissions-Policy",
     value:
-      "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()",
+      "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(self), payment=(), usb=(), interest-cohort=()",
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },

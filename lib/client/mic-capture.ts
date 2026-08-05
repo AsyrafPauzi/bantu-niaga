@@ -14,7 +14,7 @@ export function micErrorMessage(code: MicAccessError): string {
     case "unsupported":
       return "This browser does not support voice recording. Use Chrome or Safari, or type your question.";
     case "denied":
-      return "Microphone blocked. Allow mic for this site in browser settings, then try again.";
+      return "Microphone blocked. Click the lock icon in the address bar → allow Microphone for this site, then reload.";
     case "unavailable":
       return "No microphone found. Connect a mic or use text input.";
     default:

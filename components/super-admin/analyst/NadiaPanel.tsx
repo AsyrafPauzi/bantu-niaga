@@ -47,6 +47,7 @@ export function NadiaPanel({
   const [recording, setRecording] = useState(false);
   const [muted, setMuted] = useState(false);
   const [micReady, setMicReady] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
   const [settings] = useState(initialSettings);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -156,91 +157,96 @@ export function NadiaPanel({
     [loading, playAudio],
   );
 
-  const ensureMic = useCallback(async (): Promise<boolean> => {
+  const attachMicFromGesture = useCallback((): Promise<boolean> => {
     if (streamRef.current?.active) {
       setMicReady(true);
-      return true;
+      setMicError(null);
+      return Promise.resolve(true);
     }
-    try {
-      const stream = await acquireMicStream();
-      streamRef.current = stream;
-      setMicReady(true);
-      return true;
-    } catch (err) {
-      releaseMic();
-      const code = classifyMicError(err);
-      setMessages((m) => [
-        ...m,
-        {
-          id: `e-${Date.now()}`,
-          role: "assistant",
-          text: micErrorMessage(code),
-        },
-      ]);
-      return false;
+    if (!isMicCaptureSupported()) {
+      return Promise.resolve(false);
     }
+    // Invoke getUserMedia in the same synchronous turn as the click/pointer event.
+    const pending = acquireMicStream();
+    return pending
+      .then((stream) => {
+        streamRef.current = stream;
+        setMicReady(true);
+        setMicError(null);
+        return true;
+      })
+      .catch((err) => {
+        releaseMic();
+        const code = classifyMicError(err);
+        setMicError(micErrorMessage(code));
+        return false;
+      });
   }, [releaseMic]);
 
-  const openPanel = async () => {
-    setOpen(true);
+  const openPanel = () => {
     if (isMicCaptureSupported()) {
-      await ensureMic();
+      void attachMicFromGesture();
     }
+    setOpen(true);
   };
 
-  const startRecording = async () => {
+  const startRecording = () => {
     if (recording) return;
-    const ok = await ensureMic();
-    if (!ok || !streamRef.current) return;
 
-    try {
-      const recorder = createMicRecorder(streamRef.current);
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = async () => {
-        const blobType = recorderBlobType(recorder);
-        const blob = new Blob(chunksRef.current, { type: blobType });
-        const ext = blobType.includes("mp4") ? "m4a" : "webm";
-        const form = new FormData();
-        form.append("audio", blob, `recording.${ext}`);
-        setLoading(true);
-        try {
-          const res = await fetch("/api/super-admin/analyst/transcribe", {
-            method: "POST",
-            body: form,
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error);
-          setLoading(false);
-          await sendMessage(data.transcript, { skipLoadingGuard: true });
-        } catch {
-          setMessages((m) => [
-            ...m,
-            {
-              id: `e-${Date.now()}`,
-              role: "assistant",
-              text: "Could not transcribe audio. Try typing your question.",
-            },
-          ]);
-          setLoading(false);
-        }
-      };
-      mediaRef.current = recorder;
-      recorder.start(250);
-      setRecording(true);
-    } catch (err) {
-      const code = classifyMicError(err);
-      setMessages((m) => [
-        ...m,
-        {
-          id: `e-${Date.now()}`,
-          role: "assistant",
-          text: micErrorMessage(code),
-        },
-      ]);
+    const begin = (stream: MediaStream) => {
+      try {
+        const recorder = createMicRecorder(stream);
+        chunksRef.current = [];
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data);
+        };
+        recorder.onstop = async () => {
+          const blobType = recorderBlobType(recorder);
+          const blob = new Blob(chunksRef.current, { type: blobType });
+          const ext = blobType.includes("mp4") ? "m4a" : "webm";
+          const form = new FormData();
+          form.append("audio", blob, `recording.${ext}`);
+          setLoading(true);
+          try {
+            const res = await fetch("/api/super-admin/analyst/transcribe", {
+              method: "POST",
+              body: form,
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            setLoading(false);
+            await sendMessage(data.transcript, { skipLoadingGuard: true });
+          } catch {
+            setMessages((m) => [
+              ...m,
+              {
+                id: `e-${Date.now()}`,
+                role: "assistant",
+                text: "Could not transcribe audio. Try typing your question.",
+              },
+            ]);
+            setLoading(false);
+          }
+        };
+        mediaRef.current = recorder;
+        recorder.start(250);
+        setRecording(true);
+      } catch (err) {
+        const code = classifyMicError(err);
+        setMicError(micErrorMessage(code));
+      }
+    };
+
+    if (streamRef.current?.active) {
+      begin(streamRef.current);
+      return;
     }
+
+    if (!isMicCaptureSupported()) return;
+
+    void attachMicFromGesture().then((ok) => {
+      if (ok && streamRef.current) begin(streamRef.current);
+    });
   };
 
   const stopRecording = () => {
@@ -323,6 +329,18 @@ export function NadiaPanel({
       </div>
 
       <footer className="border-t border-cream-300 p-3">
+        {micError ? (
+          <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+            <p>{micError}</p>
+            <button
+              type="button"
+              onClick={() => void attachMicFromGesture()}
+              className="shrink-0 font-semibold underline"
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
         <form
           className="flex items-center gap-2"
           onSubmit={(e) => {
@@ -332,10 +350,10 @@ export function NadiaPanel({
         >
           <button
             type="button"
-            onMouseDown={(e) => e.preventDefault()}
+            onPointerDown={(e) => e.preventDefault()}
             onClick={() => {
               if (recording) stopRecording();
-              else void startRecording();
+              else startRecording();
             }}
             disabled={loading}
             className={cn(
