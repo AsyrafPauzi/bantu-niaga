@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { unauthorized } from "@/lib/api/response";
+import { getRequestId, requireCronAuth } from "@/lib/api/require-cron";
 import { processUndispatchedOutbox } from "@/lib/events/dispatcher";
 import "@/lib/events/register-handlers";
 import { logger } from "@/lib/logger";
@@ -13,17 +13,9 @@ export const runtime = "nodejs";
  * Replays undispatched `events_outbox` rows (cross-pillar sync recovery).
  */
 export async function GET(request: Request) {
-  const requestId =
-    request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) {
-    return unauthorized("CRON_SECRET is not configured.", { requestId });
-  }
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return unauthorized("Invalid cron credentials.", { requestId });
-  }
+  const requestId = getRequestId(request);
+  const denied = requireCronAuth(request, requestId);
+  if (denied) return denied;
 
   try {
     const admin = createServiceRoleClient();

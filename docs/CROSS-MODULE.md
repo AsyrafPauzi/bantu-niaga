@@ -172,6 +172,9 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | MC legacy backfill | `npm run backfill:mc-admin-files` | ✅ |
 | Leave → Operations bookings | `leave.approved` / `leave.rejected` events | ✅ |
 | Booking API blocks staff on leave | When `operations_booking_resources.employee_id` set | ✅ |
+| Holiday overrides → effective calendar | `business_holiday_overrides` merged with `hr_public_holidays` | ✅ |
+| Effective calendar → leave counting | `lib/hr/effective-calendar.ts` + leave balance | ✅ |
+| Effective calendar → booking blocks | `lib/operations/booking-holidays.ts` — `business_closure` on create/PATCH | ✅ |
 | Resource ↔ employee UI | Staff picker on Bookings page | ✅ |
 | Leave banner on calendar | `loadActiveLeaveBlocks` | ✅ |
 | Payroll → Finance | Marketplace `hr-payroll-pack` | 🏪 Deferred |
@@ -237,6 +240,8 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | `POST /api/operations/orders` | Create order; auto-lead if phone present |
 | `GET /finance/invoices/new?kind=quote&lead_id=` | Create quote for lead |
 | `GET /finance/expenses?txn=` | Deep link to expense row |
+| `GET/POST /api/hr/holiday-overrides` | List / create per-business holiday overrides |
+| `DELETE /api/hr/holiday-overrides/{id}` | Remove override |
 
 ---
 
@@ -252,8 +257,9 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | `20260805200000_cross_pillar_event_dispatcher.sql` | Outbox index for cross-pillar cron |
 | `20260805210000_invoice_items_product_id.sql` | Invoice line `product_id` + handler dedup |
 | `20260805220000_extend_cross_pillar_event_index.sql` | Index incl. `invoice.paid` + `customer.*` |
+| `20260806100000_business_holiday_overrides.sql` | Per-business holiday overrides |
 
-Apply on remote: `npx supabase db push` ✅ (deployed 2026-08-05)
+Apply on remote: `npx supabase db push` ✅ (deployed 2026-08-06)
 
 ---
 
@@ -279,8 +285,8 @@ _All core cross-module bridges shipped._ Marketplace add-ons only (see §14).
 
 | Item | Why |
 |------|-----|
-| Marketing campaign assets in Admin Storage | Separate `marketing-media` bucket by design |
-| Per-business public holiday overrides | By design |
+| Enterprise SSO (SAML / OIDC per tenant) | Out of scope for this system |
+| Marketing campaign bytes in Admin vault | Separate `marketing-media` bucket; bridge link in Storage panel only |
 
 ---
 

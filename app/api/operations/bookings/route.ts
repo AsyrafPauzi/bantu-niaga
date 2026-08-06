@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
 import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -31,13 +32,7 @@ export async function GET() {
     .order("starts_at", { ascending: true });
 
   if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "list_failed", message: error.message },
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse("list_failed", error, "operations.api.list_failed");
   }
 
   const rows = (data ?? []) as unknown as OperationsBookingRow[];
@@ -159,6 +154,31 @@ export async function POST(request: Request) {
     }
   }
 
+  const supabaseHolidayCheck = await createSupabaseServerClient();
+  const { findBookingHolidayConflicts, formatHolidayConflictMessage } =
+    await import("@/lib/operations/booking-holidays");
+  const holidayConflicts = await findBookingHolidayConflicts(
+    supabaseHolidayCheck,
+    user.businessId,
+    {
+      startsAt: parsed.starts_at,
+      endsAt: parsed.ends_at,
+    },
+  );
+  if (holidayConflicts.length > 0) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "business_closure",
+          message: formatHolidayConflictMessage(holidayConflicts),
+          conflicts: holidayConflicts,
+        },
+      },
+      { status: 409 },
+    );
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("operations_bookings")
@@ -181,13 +201,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "create_failed", message: error.message },
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse("create_failed", error, "operations.api.create_failed");
   }
 
   const row = data as unknown as {

@@ -5,7 +5,7 @@ import type { Pillar } from "@/lib/permissions";
 
 import { buildAdminSnapshot } from "./admin";
 import { buildFinanceSnapshot } from "./finance";
-import { buildHrSnapshot } from "./hr";
+import { buildCachedHrSnapshot } from "./hr-cache";
 import { buildMarketingSnapshot } from "./marketing";
 import { buildOperationsSnapshot } from "./operations";
 import { buildSalesSnapshot } from "./sales";
@@ -41,7 +41,7 @@ const BUILDERS: Record<
   marketing: buildMarketingSnapshot,
   operations: buildOperationsSnapshot,
   sales: buildSalesSnapshot,
-  hr: buildHrSnapshot,
+  hr: buildCachedHrSnapshot,
 };
 
 /**

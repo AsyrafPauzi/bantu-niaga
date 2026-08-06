@@ -1,3 +1,4 @@
+import { enforceRateLimit } from "@/lib/api/enforce-rate-limit";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
@@ -49,6 +50,14 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
+
+  const limited = enforceRateLimit({
+    bucket: "sales.pos.checkout",
+    identifier: `user:${user.id}`,
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   if (user.role === "sales_rep") {
     return NextResponse.json(

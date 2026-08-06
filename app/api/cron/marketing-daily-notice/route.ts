@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
+import { getRequestId, requireCronAuth } from "@/lib/api/require-cron";
 
-import { ok, unauthorized } from "@/lib/api/response";
+import { ok } from "@/lib/api/response";
 import { buildMarketingSnapshot } from "@/lib/ai/context/marketing";
 import { buildMarketingDailyNotice } from "@/lib/ai/marketing-daily-notice";
 import { malaysiaTodayIso } from "@/lib/ai/marketing-assistant-tools";
@@ -12,17 +14,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const requestId =
-    request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) {
-    return unauthorized("CRON_SECRET is not configured.", { requestId });
-  }
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return unauthorized("Invalid cron credentials.", { requestId });
-  }
+  const requestId = getRequestId(request);
+  const denied = requireCronAuth(request, requestId);
+  if (denied) return denied;
 
   const admin = createServiceRoleClient();
   const noticeDate = malaysiaTodayIso();
@@ -39,7 +33,7 @@ export async function GET(request: Request) {
       error: error.message,
       requestId,
     });
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return dbErrorResponse("rpc_failed", error, "cron.job_failed", { requestId });
   }
 
   for (const row of addons ?? []) {

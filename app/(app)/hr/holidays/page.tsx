@@ -1,13 +1,16 @@
 import { redirect } from "next/navigation";
 import { Card, CardBody } from "@/components/ui/card";
+import { HrHolidayOverridesPanel } from "@/components/hr/HrHolidayOverridesPanel";
 import { HrHolidaysView } from "@/components/hr/HrHolidaysView";
 import { HrPublicHolidaysGate } from "@/components/hr/HrPublicHolidaysGate";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
+import { loadHrHolidayOverrides } from "@/lib/hr/effective-calendar";
 import { loadHrPublicHolidays } from "@/lib/hr/load";
 import { hasPublicHolidaysAddon } from "@/lib/marketplace/entitlements";
 import { loadBusiness } from "@/lib/settings/business";
 import { STATE_LABELS } from "@/lib/hr/state-codes";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Public holidays" };
 export const dynamic = "force-dynamic";
@@ -37,6 +40,9 @@ export default async function HolidaysPage() {
     hasPublicHolidaysAddon(user.businessId),
   ]);
 
+  const supabase = await createSupabaseServerClient();
+  const overrides = await loadHrHolidayOverrides(supabase, user.businessId);
+
   if (!addonActive) {
     return <HrPublicHolidaysGate />;
   }
@@ -50,6 +56,7 @@ export default async function HolidaysPage() {
   return (
     <HrHolidaysView
       holidays={holidays}
+      overrides={overrides}
       stateLabel={stateLabel}
       hasState={hasState}
       year={year}

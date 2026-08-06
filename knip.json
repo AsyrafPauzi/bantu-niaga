@@ -1,0 +1,31 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "app/**/*.{ts,tsx}",
+    "middleware.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.{ts,tsx}"
+  ],
+  "project": ["**/*.{ts,tsx}"],
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "supabase/functions/**"
+  ],
+  "ignoreDependencies": [
+    "autoprefixer",
+    "postcss",
+    "tailwindcss",
+    "eslint",
+    "eslint-config-next"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "next": {
+    "entry": [
+      "app/**/{page,layout,loading,error,not-found,route,default,template}.{ts,tsx}",
+      "app/**/opengraph-image.{ts,tsx}",
+      "app/**/icon.{ts,tsx}",
+      "middleware.{ts,js}"
+    ]
+  }
+}

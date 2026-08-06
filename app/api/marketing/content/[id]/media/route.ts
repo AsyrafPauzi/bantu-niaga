@@ -1,3 +1,4 @@
+import { requireMarketingSurface } from "@/lib/marketing/require-user";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import {
@@ -21,39 +22,12 @@ import { contentMediaAttachSchema } from "@/lib/marketing/schemas";
 
 export const dynamic = "force-dynamic";
 
-async function requireUser() {
-  try {
-    const user = await getCurrentUser();
-    if (!canSurface(user.role, "marketing", "content")) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          { error: "forbidden", reason: "marketing.content access denied" },
-          { status: 403 },
-        ),
-      };
-    }
-    return { user, response: null };
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          { error: "unauthorized", code: e.code },
-          { status: 401 },
-        ),
-      };
-    }
-    throw e;
-  }
-}
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const auth = await requireUser();
+  const auth = await requireMarketingSurface("content");
   if (auth.response) return auth.response;
   const user = auth.user!;
 
@@ -131,7 +105,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const auth = await requireUser();
+  const auth = await requireMarketingSurface("content");
   if (auth.response) return auth.response;
   const user = auth.user!;
 

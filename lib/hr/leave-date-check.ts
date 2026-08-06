@@ -1,7 +1,5 @@
-import {
-  countWorkingLeaveDays,
-  loadHolidayDateSet,
-} from "@/lib/hr/leave-balance";
+import { loadEffectiveHolidayCalendar } from "@/lib/hr/effective-calendar";
+import { countWorkingLeaveDays } from "@/lib/hr/leave-balance";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const WEEKEND_SAT = 6;
@@ -33,16 +31,8 @@ export async function analyzeLeaveDateRange(
   startDate: string,
   endDate: string,
 ): Promise<LeaveDateAnalysis> {
-  const { data: holidayRows } = await supabase
-    .from("hr_public_holidays")
-    .select("holiday_date, name")
-    .or(`business_id.is.null,business_id.eq.${businessId}`);
-
-  const holidayByDate = new Map<string, string>();
-  for (const row of holidayRows ?? []) {
-    holidayByDate.set(String(row.holiday_date), String(row.name));
-  }
-  const holidayDates = new Set(holidayByDate.keys());
+  const { holidayByDate, nonWorkingDates: holidayDates } =
+    await loadEffectiveHolidayCalendar(supabase, businessId);
 
   const weekendDates: string[] = [];
   const holidayHits: Array<{ date: string; name: string }> = [];
@@ -86,5 +76,8 @@ export async function loadHolidayDateSetForBusiness(
   supabase: SupabaseClient,
   businessId: string,
 ): Promise<Set<string>> {
-  return loadHolidayDateSet(supabase, businessId);
+  const { loadEffectiveHolidayDateSet } = await import(
+    "@/lib/hr/effective-calendar"
+  );
+  return loadEffectiveHolidayDateSet(supabase, businessId);
 }

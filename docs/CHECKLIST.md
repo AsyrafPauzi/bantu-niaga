@@ -1,10 +1,10 @@
 # Bantu Niaga — Project Checklist
 
-> **Last updated:** 2026-08-05 (event bus + ops deploy; see [`CROSS-MODULE.md`](./CROSS-MODULE.md))  
+> **Last updated:** 2026-08-06 (cross-pillar sections per module; Marketplace add-on tiers aligned)  
 > **Purpose:** Single place to see what is **done**, **pending** (partially shipped or needs deploy/config), and **not done yet** across the system.  
 > **Legend:** ✅ Done · 🟡 Pending · ⬜ Not done · — N/A or removed by design
 
-**Module sections (§4–§9):** Each pillar uses the same shape — **Core** (included on plan) and **Add-ons** (Marketplace, paid or coming soon). Platform, Settings, Integrations, and Super Admin use a single table because they are not product pillars.
+**Module sections (§4–§9):** Each pillar uses the same shape — **Core** (included on plan), **Add-ons** (Marketplace: SCALE · EFFICIENCY · AUTOMATE · AI), and **↔ other modules (cross-pillar)**. Platform, Settings, Integrations, and Super Admin use a single table because they are not product pillars.
 
 ---
 
@@ -41,10 +41,10 @@
 | Cross-pillar event bus | ✅ | Sync dispatcher + Marketing RPC + cron replay |
 | Stock via event bus | ✅ | POS + invoice paid (`product_id` on line items) |
 | Marketing `customer.*` / metric events | ✅ | Sync dispatcher (Edge listener optional fallback) |
-| Per-business holiday overrides → Ops bookings | — | Not planned (by design) |
-| Marketing assets in Admin Storage | — | Not planned (separate bucket) |
+| Per-business holiday overrides → Ops bookings | ✅ | `business_holiday_overrides` + effective calendar |
+| Marketing assets in Admin Storage | ✅ | Bridge link in Storage panel → `/marketing/content` (separate bucket) |
 
-**Deploy:** `npx supabase db push` ✅ (2026-08-05).
+**Deploy:** `npx supabase db push` ✅ (2026-08-06).
 
 ---
 
@@ -67,7 +67,6 @@
 | ✅ | Staff login portal (`/hr/me`) — balance, apply leave, history, cancel pending, onboarding view; gated by `hr-staff-portal` add-on + linked `user_id` |
 | ✅ | Google social login (sign-in via Supabase OAuth) — existing accounts / invites only |
 | 🟡 | Google OAuth production config — enable Google provider in Supabase + Google Cloud OAuth client; redirect `https://<domain>/auth/callback` |
-| ⬜ | Enterprise SSO (SAML / OIDC per tenant) — out of scope Phase 1 |
 | ✅ | Organisation multi-company switching — sidebar dropdown, `/add-company`, `user_business_memberships` |
 | ✅ | Auth rate limiting — sign-up, forgot password, reset password (IP-based) |
 | ✅ | Free-first sign-up — default Free path + optional Starter trial |
@@ -119,7 +118,7 @@
 | ✅ | AI Agent activation page (7 agents, daily budget, rename) |
 | 🟡 | Billplz live checkout for top-ups — webhook + pending invoice wired; set `BILLPLZ_*` in prod |
 | 🟡 | Billplz auto-renew for subscription — renewal cron still issues invoices only (no charge yet) |
-| 🟡 | Recent migrations may need `supabase db push` on remote — see §12 migrations table |
+| ✅ | Recent migrations applied on remote — `npx supabase db push` (incl. `20260806100000_business_holiday_overrides`) |
 | ✅ | Multiple payment methods stored in UI |
 | ✅ | Accountant export pack |
 | ✅ | Usage-based billing reports |
@@ -200,18 +199,31 @@
 | ✅ | `/admin/documents` redirects to Storage (Documents add-on stub hidden) |
 | ✅ | RLS + role gates (owner/manager/hr_officer storage scoping) |
 
-### 4.2 Admin add-ons (Marketplace)
+### 4.2 Admin add-ons (Marketplace) — **catalog placeholders · build later**
 
+#### SCALE
 | Status | Add-on | Slug | Notes |
 |--------|--------|------|-------|
-| ✅ | Admin AI (Amir) | `admin-assistant` | RM 20/mo · `/admin/assistant` · missing certs + storage gaps |
-| 🟡 | Smart compliance alerts | `admin-compliance-alerts` | In-app alerts shipped; Marketplace listing coming soon |
-| ⬜ | Digital signature | `admin-digital-signature` | |
-| ⬜ | Custom document builder | `admin-doc-builder` | |
-| ⬜ | Approval workflow | `admin-approval-workflow` | |
-| ⬜ | Admin audit export report | — | Core report, not a paid add-on |
-| ⬜ | Auto document categorization | — | |
-| 🟡 | Extra storage packs | `storage-10gb` | Quota logic in app; Marketplace pack UX TBD |
+| 🟡 | Extra storage packs | `storage-10gb` | +10 GB vault quota · coming soon |
+| 🟡 | Extra seats | `extra-seat` | Cross-pillar |
+
+#### EFFICIENCY
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Smart compliance alerts | `admin-compliance-alerts` | Proactive renewal nudges · coming soon |
+| 🟡 | Smart document vault | `admin-smart-vault` | Auto-sort uploads · coming soon |
+| 🟡 | Custom document builder | `admin-doc-builder` | Branded templates · coming soon |
+
+#### AUTOMATE
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Digital signature | `admin-digital-signature` | Sign from secure link · coming soon |
+| 🟡 | Approval workflow | `admin-approval-workflow` | Owner/manager approvals · coming soon |
+
+#### AI (shipped · not SCALE/EFFICIENCY/AUTOMATE)
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| ✅ | Admin AI (Amir) | `admin-assistant` | RM 20/mo · `/admin/assistant` |
 
 ### 4.3 Admin ↔ other modules (cross-pillar)
 
@@ -270,17 +282,52 @@
 
 ### 5.2 Finance add-ons (Marketplace) — **catalog placeholders · build later**
 
+#### SCALE
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Extra seats | `extra-seat` | Cross-pillar |
+
+#### EFFICIENCY
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | SST advanced reporting | `finance-sst-reporting` | Filing-ready SST summaries · coming soon |
+| 🟡 | Cashflow forecast | `finance-cashflow-forecast` | 30–90 day projection · coming soon |
+| 🟡 | Full ledger analytics | `finance-ledger-analytics` | Margin by product/customer · coming soon |
+| 🟡 | Payment gateway (Billplz) | `finance-payment-gateway` | FPX on public invoice · wired in code · coming soon |
+| 🟡 | LHDN e-Invoice connector | `lhdn-einvoice` | MyInvois integration · coming soon |
+
+#### AUTOMATE
+| Status | Add-on | Slug | Notes |
+|--------|--------|------|-------|
+| 🟡 | Recurring invoices | `finance-recurring-invoices` | Retainers & monthly billing · coming soon |
+| 🟡 | Auto bank reconciliation | `finance-bank-reconciliation` | Match bank CSV to ledger · coming soon |
+| 🟡 | Scheduled payment reminders | `finance-payment-reminders` | Auto chase overdue invoices · coming soon |
+
+#### AI (shipped · not SCALE/EFFICIENCY/AUTOMATE)
 | Status | Add-on | Slug | Notes |
 |--------|--------|------|-------|
 | ✅ | Finance AI (Fayza) | `finance-assistant` | RM 20/mo · `/finance/assistant` |
-| 🟡 | Recurring invoices | `finance-recurring-invoices` | Coming soon |
-| 🟡 | LHDN e-Invoice connector | `lhdn-einvoice` | Coming soon |
-| 🟡 | SST advanced reporting | `finance-sst-reporting` | Coming soon |
-| 🟡 | Cashflow forecast | `finance-cashflow-forecast` | Coming soon |
-| 🟡 | Full ledger analytics | `finance-ledger-analytics` | Coming soon |
-| 🟡 | Payment gateway (Billplz) | `finance-payment-gateway` | Wired in code · coming soon in marketplace |
-| 🟡 | Auto bank reconciliation | `finance-bank-reconciliation` | Coming soon |
-| 🟡 | Scheduled payment reminders | `finance-payment-reminders` | Coming soon |
+
+### 5.3 Finance ↔ other modules (cross-pillar)
+
+> Full matrix: [`docs/CROSS-MODULE.md`](./CROSS-MODULE.md)
+
+| Module | Connection | How | Status |
+|--------|------------|-----|--------|
+| **Admin** | Expense receipts in Storage | `finance_transactions.admin_file_id`; attach on `/finance/expenses` | ✅ |
+| **Admin** | Invoice supporting docs | `finance_invoices.admin_file_id` → Storage vault | ✅ |
+| **Admin** | Storage “Used by” deep links | Expense `?txn=` · invoice edit from vault | ✅ |
+| **Operations** | Order → expense | `operations_order_id` on txn; manual API + `order.completed` event | ✅ |
+| **Sales** | POS → ledger income | `sale.completed` → `postPosSaleToFinance` | ✅ |
+| **Sales** | Quote on lead | `finance_invoices.sales_lead_id` + create-quote CTA | ✅ |
+| **Sales** | POS void reversal | `sale.voided` soft-deletes linked finance txn | ✅ |
+| **Marketing** | Shared customers | `finance_customers` / invoice history on CRM profile | ✅ |
+| **Marketing** | Paid invoice → CRM metrics | `invoice.paid` → `marketing_apply_metric_event` RPC | ✅ |
+| **Operations** | Invoice paid → stock | `invoice.paid` → `stock.decrement` (line `product_id`) | ✅ |
+| **Settings** | Subscription billing | Plan invoices, top-ups, Billplz intents | ✅ |
+| **Home** | Overview | Finance pillar snapshot on dashboard | ✅ |
+| **Marketplace** | Fayza add-on | `finance-assistant` unlocks `/finance/assistant` | ✅ |
+| **Platform** | Billplz webhook | `finance_complete_billplz` + `dispatchInvoicePaid` | ✅ |
 
 ---
 
@@ -343,7 +390,25 @@
 |--------|--------|------|-------|
 | ✅ | Operations AI (Aiman) | `operations-assistant` | RM 20/mo · `/operations/assistant` |
 
-**Cross-pillar still open (non-addon):** stock decrement via full event bus (🟡 — POS direct path works). See [`CROSS-MODULE.md`](./CROSS-MODULE.md) §12.
+### 6.3 Operations ↔ other modules (cross-pillar)
+
+> Full matrix: [`docs/CROSS-MODULE.md`](./CROSS-MODULE.md)
+
+| Module | Connection | How | Status |
+|--------|------------|-----|--------|
+| **Admin** | Supplier / order file attach | `operations_suppliers.admin_file_id`, `operations_orders.admin_file_id` | ✅ |
+| **Admin** | Product spec sheet | `operations_products.spec_file_id` → Storage | ✅ |
+| **Admin** | Storage deep links | `?supplier=` `?order=` `?product=` row highlight | ✅ |
+| **Finance** | Order → expense | Manual button + `order.completed` event → Finance txn | ✅ |
+| **Sales** | Product & service catalog | POS grid APIs read `operations_products` / `operations_services` | ✅ |
+| **Sales** | Stock decrement / restore | `stock.decrement` / `stock.restore` from POS + invoice paid | ✅ |
+| **Sales** | Order → lead | `sales_leads.source_order_id`; `order.created` event + manual API | ✅ |
+| **HR** | Leave → booking blocks | `leave.approved` / `leave.rejected` → availability blocks | ✅ |
+| **HR** | Staff on booking resource | `operations_booking_resources.employee_id` + leave conflict check | ✅ |
+| **HR** | Leave banner on calendar | `loadActiveLeaveBlocks` on bookings page | ✅ |
+| **Home** | Overview | Operations pillar snapshot + low-stock attention | ✅ |
+| **Marketplace** | Aiman add-on | `operations-assistant` unlocks `/operations/assistant` | ✅ |
+| **Admin AI** | Low stock in Amir context | `lib/ai/context/admin.ts` + notifications | ✅ |
 
 ---
 
@@ -415,7 +480,24 @@
 |--------|--------|------|-------|
 | ✅ | Sales AI (Sufi) | `sales-assistant` | RM 20/mo · `/sales/assistant` |
 
-**Cross-pillar still open (non-addon):** coupon ROI / campaign attribution (🏪 add-on). See [`CROSS-MODULE.md`](./CROSS-MODULE.md).
+### 7.3 Sales ↔ other modules (cross-pillar)
+
+> Full matrix: [`docs/CROSS-MODULE.md`](./CROSS-MODULE.md)
+
+| Module | Connection | How | Status |
+|--------|------------|-----|--------|
+| **Admin** | Lead proposal in Storage | `sales_leads.admin_file_id` | ✅ |
+| **Finance** | POS → income txn | `sale.completed` event bus | ✅ |
+| **Finance** | POS void reversal | `sale.voided` → finance txn soft-delete | ✅ |
+| **Finance** | Quote on lead | `finance_invoices.sales_lead_id` + create-quote deep link | ✅ |
+| **Operations** | POS product / service grid | Operations catalog APIs | ✅ |
+| **Operations** | Stock on sale / void | `sale.completed` / `sale.voided` → `stock.*` events | ✅ |
+| **Operations** | Lead from order | `sales_leads.source_order_id` when Ops creates order with phone | ✅ |
+| **Marketing** | Lead won → customer | `POST /api/sales/leads/[id]/convert` | ✅ |
+| **Marketing** | Coupon at checkout | `coupon_code` on POS checkout | ✅ |
+| **Marketing** | Customer → POS link | Pre-fill from Marketing customer detail | ✅ |
+| **Home** | Overview | Sales pillar snapshot (POS + pipeline KPIs) | ✅ |
+| **Marketplace** | Sufi add-on | `sales-assistant` unlocks `/sales/assistant` | ✅ |
 
 ---
 
@@ -480,7 +562,22 @@
 |--------|--------|------|-------|
 | ✅ | Marketing AI (Maya) | `marketing-assistant` | RM 20/mo · `/marketing/assistant` |
 
-Migration `20260711090000_marketing_addons_coming_soon.sql` + `20260805160000_marketing_sales_hr_marketplace_addons.sql`.
+### 8.3 Marketing ↔ other modules (cross-pillar)
+
+> Full matrix: [`docs/CROSS-MODULE.md`](./CROSS-MODULE.md)
+
+| Module | Connection | How | Status |
+|--------|------------|-----|--------|
+| **Admin** | Storage bridge | Separate `marketing-media` bucket; link from Admin Storage UI | ✅ |
+| **Sales** | Lead convert → customer | Sales convert flow creates / updates CRM record | ✅ |
+| **Sales** | Coupon redeem at POS | Coupon code validated at checkout | ✅ |
+| **Sales** | Customer → POS deep link | Marketing customer detail → `/sales/pos` | ✅ |
+| **Finance** | Customer invoice history | Finance invoices on customer Orders tab | ✅ |
+| **Finance** | POS + invoice line items | Purchase history on customer profile | ✅ |
+| **Finance** | Metric events | `invoice.paid` / `order.delivered` / `booking.completed` / `lead.converted` via sync dispatcher | ✅ |
+| **Platform** | Customer lifecycle events | `customer.created` / `updated` / `deleted` / `merged` / `tag_changed` ack + cron | ✅ |
+| **Home** | Overview | Marketing pillar snapshot + activity feed | ✅ |
+| **Marketplace** | Maya add-on | `marketing-assistant` unlocks `/marketing/assistant` | ✅ |
 
 ---
 
@@ -518,7 +615,7 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` + `20260805160000_ma
 
 **Core verify:** `npm run smoke:hr` (employee → leave → approve → notifications).
 
-### 9.2 HR add-ons (Marketplace) — **catalog + shipped mix**
+### 9.2 HR add-ons (Marketplace) — **catalog placeholders · build later**
 
 #### SCALE
 | Status | Add-on | Slug | Notes |
@@ -547,9 +644,26 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` + `20260805160000_ma
 |--------|--------|------|-------|
 | ✅ | HR AI (Hana) | `hr-assistant` | RM 20/mo · `/hr/assistant` |
 
-**Cross-pillar still open (non-addon):** payroll → Finance (🏪 add-on). See [`CROSS-MODULE.md`](./CROSS-MODULE.md).
+### 9.3 HR ↔ other modules (cross-pillar)
 
-### 9.3 HR AI (Hana) capabilities
+> Full matrix: [`docs/CROSS-MODULE.md`](./CROSS-MODULE.md)
+
+| Module | Connection | How | Status |
+|--------|------------|-----|--------|
+| **Admin** | Employee documents in Storage | `hr_employee_documents.admin_file_id` | ✅ |
+| **Admin** | MC documents in vault | `hr_leave_records.admin_file_id` (new uploads + backfill script) | ✅ |
+| **Admin** | HR doc upload from Storage | HR category + staff picker on vault | ✅ |
+| **Operations** | Leave → booking blocks | `leave.approved` / `leave.rejected` events → availability blocks | ✅ |
+| **Operations** | Booking conflict on leave | API rejects when resource `employee_id` is on approved leave | ✅ |
+| **Operations** | Staff picker on resources | `operations_booking_resources.employee_id` UI | ✅ |
+| **Operations** | Leave banner on calendar | `loadActiveLeaveBlocks` | ✅ |
+| **Operations** | Holiday / closure → bookings | Effective calendar blocks create + PATCH (`business_closure`) | ✅ |
+| **Settings** | Team roles / RBAC | `hr_officer` and pillar roles in `lib/permissions.ts` | ✅ |
+| **Home** | Overview | HR pillar snapshot + daily notice | ✅ |
+| **Marketplace** | Hana + portal add-ons | `hr-assistant`, `hr-staff-portal`, `hr-public-holidays` | ✅ |
+| **Staff portal** | Self-service leave | `/hr/me` — apply leave, balance, MC upload | ✅ |
+
+### 9.4 HR AI (Hana) capabilities
 
 | Status | Capability |
 |--------|------------|
@@ -568,14 +682,14 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` + `20260805160000_ma
 | ✅ | Shared credit pool + pause at 0 credits |
 | ⬜ | Dedicated appraisal tools in chat (create/complete via Hana) |
 
-### 9.4 Holiday overrides ↔ Operations (related, not the same)
+### 9.5 Holiday overrides ↔ Operations (related, not the same)
 
 | Piece | Owner | What it does | Status |
 |-------|-------|--------------|--------|
 | **Public holiday import** | HR | Federal + state days from MyCal API | ✅ (`hr-public-holidays`) |
-| **Per-business holiday overrides** | HR | Add company closure, hide a gazetted day, or move a replacement day (`business_holiday_overrides` table) | ⬜ Phase 2 |
-| **Effective working calendar** | HR | Imported holidays **merged with** overrides → used for leave day counting | 🟡 Leave uses holidays today; overrides not editable yet |
-| **Operations integration** | Operations | Read the **same effective calendar** to block or warn on bookings during public holidays / company closures | ⬜ Phase 2 (after overrides + event outbox) |
+| **Per-business holiday overrides** | HR | Add company closure, hide a gazetted day, or move a replacement day (`business_holiday_overrides` table) | ✅ `/hr/holidays` |
+| **Effective working calendar** | HR | Imported holidays **merged with** overrides → used for leave day counting | ✅ `lib/hr/effective-calendar.ts` |
+| **Operations integration** | Operations | Read the **same effective calendar** to block bookings during public holidays / company closures | ✅ `lib/operations/booking-holidays.ts` |
 
 **Relationship:** Overrides are an **HR data** feature. Operations integration is a **consumer** of that calendar — it does not replace overrides. Build order: (1) overrides in HR → (2) expose effective dates → (3) Operations bookings respect them.
 
@@ -652,6 +766,7 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` + `20260805160000_ma
 | `20260805180000_cross_module_bridges.sql` | Spec sheets, order expense FK, lead quote FK, MC vault, leave blocks |
 | `20260805190000_cross_module_polish.sql` | `sales_leads.source_order_id`, resource employee index |
 | `20260805220000_extend_cross_pillar_event_index.sql` | Index incl. invoice.paid + customer.* |
+| `20260806100000_business_holiday_overrides.sql` | Per-business holiday overrides + effective calendar |
 
 ---
 
@@ -670,7 +785,6 @@ Migration `20260711090000_marketing_addons_coming_soon.sql` + `20260805160000_ma
 ### After cores settle (add-ons — do not start early)
 
 - Finance: Billplz live keys, LHDN, recurring invoices, SST reports, bank reconciliation
-- Per-business public holiday overrides (HR) → then Operations holiday blocking on bookings
 - **Cross-pillar event bus / outbox** — ✅ sync dispatcher shipped; Marketing `customer.*` remains async Edge listener
 - **Onboarding Phase 2** — one-click bundle activate + discounted billing
 - Paid HR add-ons: advanced leave, payroll, roster, time clock, contracts

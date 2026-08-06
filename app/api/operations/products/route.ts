@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
+import { withApiHandler } from "@/lib/api/handler";
+import { ok } from "@/lib/api/response";
 import { ZodError } from "zod";
 import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -15,43 +18,42 @@ const PRODUCT_SELECT =
   "id, business_id, sku, name, description, category, price_myr, " +
   "is_active, stock_qty, low_stock_threshold, notes, image_file_id, spec_file_id, created_by, created_at, updated_at";
 
-export async function GET(request: Request) {
-  const auth = await requireOperationsUser();
-  if (auth.response) return auth.response;
-  const { user } = auth;
+export const GET = withApiHandler(
+  { module: "operations.products.list", auth: "none" },
+  async ({ request, requestId }) => {
+    const auth = await requireOperationsUser();
+    if (auth.response) return auth.response;
+    const { user } = auth;
 
-  const { searchParams } = new URL(request.url);
-  const category = searchParams.get("category");
+    const { searchParams } = new URL(request.url);
+    const category = searchParams.get("category");
 
-  const supabase = await createSupabaseServerClient();
-  let query = supabase
-    .from("operations_products")
-    .select(PRODUCT_SELECT)
-    .eq("business_id", user.businessId)
-    .is("deleted_at", null)
-    .order("name", { ascending: true });
+    const supabase = await createSupabaseServerClient();
+    let query = supabase
+      .from("operations_products")
+      .select(PRODUCT_SELECT)
+      .eq("business_id", user.businessId)
+      .is("deleted_at", null)
+      .order("name", { ascending: true });
 
-  if (category) {
-    query = query.eq("category", category);
-  }
+    if (category) {
+      query = query.eq("category", category);
+    }
 
-  const { data, error } = await query;
+    const { data, error } = await query;
 
-  if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "list_failed", message: error.message },
-      },
-      { status: 500 },
-    );
-  }
+    if (error) {
+      return dbErrorResponse(
+        "list_failed",
+        error,
+        "operations.products.list_failed",
+        { requestId },
+      );
+    }
 
-  return NextResponse.json(
-    { ok: true, data: (data ?? []) as unknown as OperationsProductRow[] },
-    { status: 200 },
-  );
-}
+    return ok((data ?? []) as unknown as OperationsProductRow[], { requestId });
+  },
+);
 
 export async function POST(request: Request) {
   const auth = await requireOperationsUser();
@@ -149,7 +151,7 @@ export async function POST(request: Request) {
           message:
             code === "duplicate_sku"
               ? "That SKU already exists."
-              : error.message,
+              : "Could not complete request.",
         },
       },
       { status: code === "duplicate_sku" ? 409 : 500 },

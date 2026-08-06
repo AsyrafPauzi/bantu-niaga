@@ -189,6 +189,42 @@ export const holidayCreateSchema = z
   })
   .strict();
 
+export const holidayOverrideCreateSchema = z
+  .object({
+    override_type: z.enum(["add", "suppress", "replace"]),
+    holiday_date: isoDate,
+    replaces_holiday_id: z.string().uuid().optional().nullable(),
+    name: z.string().trim().min(1).max(160).optional().nullable(),
+    notes: optionalText(500),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.override_type === "add" && !value.name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Name is required for company closures.",
+        path: ["name"],
+      });
+    }
+    if (value.override_type === "replace" && !value.replaces_holiday_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Pick the gazetted holiday to move.",
+        path: ["replaces_holiday_id"],
+      });
+    }
+    if (
+      value.override_type === "suppress" &&
+      !value.replaces_holiday_id
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Pick the gazetted holiday to hide.",
+        path: ["replaces_holiday_id"],
+      });
+    }
+  });
+
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
 export type EmployeeUpdateInput = z.infer<typeof employeeUpdateSchema>;
 export type LeaveCreateInput = z.infer<typeof leaveCreateSchema>;
@@ -204,3 +240,6 @@ export type OnboardingStatusUpdateInput = z.infer<
 export type AppraisalCreateInput = z.infer<typeof appraisalCreateSchema>;
 export type AppraisalUpdateInput = z.infer<typeof appraisalUpdateSchema>;
 export type HolidayCreateInput = z.infer<typeof holidayCreateSchema>;
+export type HolidayOverrideCreateInput = z.infer<
+  typeof holidayOverrideCreateSchema
+>;

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { ok, unauthorized } from "@/lib/api/response";
+import { ok } from "@/lib/api/response";
+import { dbErrorResponse } from "@/lib/api/db-error";
+import { getRequestId, requireCronAuth } from "@/lib/api/require-cron";
 import { logger } from "@/lib/logger";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -38,22 +40,9 @@ interface SweepRow {
 }
 
 export async function GET(request: Request) {
-  const requestId =
-    request.headers.get("x-request-id") ?? crypto.randomUUID();
-
-  // ── Auth: CRON_SECRET or Vercel's built-in cron header.
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    logger.warn("privacy.sweep.no_cron_secret_configured", { requestId });
-    return unauthorized(
-      "Privacy sweep is disabled — CRON_SECRET is not configured.",
-      { requestId },
-    );
-  }
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return unauthorized("Invalid cron credentials.", { requestId });
-  }
+  const requestId = getRequestId(request);
+  const denied = requireCronAuth(request, requestId);
+  if (denied) return denied;
 
   const admin = createServiceRoleClient();
 
@@ -63,13 +52,11 @@ export async function GET(request: Request) {
   );
 
   if (rpcErr) {
-    logger.error("privacy.sweep.rpc_failed", {
-      requestId,
-      error: rpcErr.message,
-    });
-    return NextResponse.json(
-      { ok: false, error: { code: "rpc_failed", message: rpcErr.message } },
-      { status: 500, headers: { "X-Request-Id": requestId } },
+    return dbErrorResponse(
+      "rpc_failed",
+      rpcErr,
+      "privacy.sweep.rpc_failed",
+      { requestId },
     );
   }
 

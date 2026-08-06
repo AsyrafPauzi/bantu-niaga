@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
 
-import { ok, unauthorized } from "@/lib/api/response";
+import { ok } from "@/lib/api/response";
+import { getRequestId, requireCronAuth } from "@/lib/api/require-cron";
 import { buildBoardroomWeeklyDigest } from "@/lib/ai/boardroom-weekly-digest";
 import { logger } from "@/lib/logger";
 import { sendPlatformEmail } from "@/lib/privacy/platform-email";
@@ -11,19 +13,12 @@ export const runtime = "nodejs";
 
 /** Sunday cron — emails owners with the Boardroom weekly digest add-on. */
 export async function GET(request: Request) {
-  const requestId =
-    request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
+  const requestId = getRequestId(request);
+  const denied = requireCronAuth(request, requestId);
+  if (denied) return denied;
+
   const apiKey = process.env.RESEND_API_KEY ?? "";
   const fromEmail = process.env.MARKETING_FROM_EMAIL ?? "";
-
-  if (!cronSecret) {
-    return unauthorized("CRON_SECRET is not configured.", { requestId });
-  }
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return unauthorized("Invalid cron credentials.", { requestId });
-  }
 
   const admin = createServiceRoleClient();
   let sent = 0;
@@ -40,7 +35,7 @@ export async function GET(request: Request) {
       error: error.message,
       requestId,
     });
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return dbErrorResponse("rpc_failed", error, "cron.job_failed", { requestId });
   }
 
   for (const row of addons ?? []) {

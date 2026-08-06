@@ -9,15 +9,7 @@ import {
 } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  getCustomerGrowthSeries,
-  getKpiDeltas,
-  getKpiSnapshot,
-  getRecentActivity,
-  getTopCustomers,
-  getTopPostedContent,
-  getUpcomingContent,
-} from "@/lib/marketing/dashboard-queries";
+import { loadCachedMarketingDashboard } from "@/lib/marketing/dashboard-cache";
 import { loadPillarNotifications } from "@/lib/notifications/load-pillar";
 
 export const metadata = { title: "Marketing" };
@@ -49,7 +41,12 @@ export default async function MarketingOverviewPage() {
   }
 
   const supabase = await createSupabaseServerClient();
-  const [
+  const [dashboard, teamNotifications] = await Promise.all([
+    loadCachedMarketingDashboard(user.businessId),
+    loadPillarNotifications(supabase, user.businessId, "marketing", 12),
+  ]);
+
+  const {
     snapshot,
     deltas,
     growth,
@@ -57,17 +54,7 @@ export default async function MarketingOverviewPage() {
     upcoming,
     activity,
     topContent,
-    teamNotifications,
-  ] = await Promise.all([
-    getKpiSnapshot(supabase, user.businessId),
-    getKpiDeltas(supabase, user.businessId),
-    getCustomerGrowthSeries(supabase, user.businessId, 12),
-    getTopCustomers(supabase, user.businessId, 5),
-    getUpcomingContent(supabase, user.businessId, 7),
-    getRecentActivity(supabase, user.businessId, 5),
-    getTopPostedContent(supabase, user.businessId, 4),
-    loadPillarNotifications(supabase, user.businessId, "marketing", 12),
-  ]);
+  } = dashboard;
 
   return (
     <div className="space-y-4">

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
 import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireOperationsUser } from "@/lib/operations/require-user";
@@ -62,7 +63,7 @@ export async function PATCH(
         ok: false,
         error: {
           code: status === 404 ? "not_found" : "update_failed",
-          message: status === 404 ? "Resource not found." : error.message,
+          message: status === 404 ? "Resource not found." : "Could not complete request.",
         },
       },
       { status },
@@ -90,13 +91,7 @@ export async function DELETE(
     .is("deleted_at", null);
 
   if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "delete_failed", message: error.message },
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse("delete_failed", error, "operations.api.delete_failed");
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

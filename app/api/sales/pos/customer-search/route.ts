@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { searchCustomers } from "@/lib/customers/search";
 import { canUsePos } from "@/lib/sales/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -41,24 +42,17 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const safe = parsed.data.q.replace(/[\\*,()]/g, "");
-
-  const { data, error } = await supabase
-    .from("customers")
-    .select("id, name, phone_e164")
-    .eq("business_id", user.businessId)
-    .is("deleted_at", null)
-    .is("merged_into_id", null)
-    .or(`name.ilike.*${safe}*,phone_e164.ilike.${safe}*`)
-    .order("name", { ascending: true })
-    .limit(parsed.data.limit);
-
-  if (error) {
+  try {
+    const rows = await searchCustomers(supabase, {
+      businessId: user.businessId,
+      query: parsed.data.q,
+      limit: parsed.data.limit,
+    });
+    return NextResponse.json({ data: rows }, { status: 200 });
+  } catch {
     return NextResponse.json(
-      { error: "search_failed", message: error.message },
+      { error: "search_failed", message: "Could not search customers." },
       { status: 500 },
     );
   }
-
-  return NextResponse.json({ data: data ?? [] }, { status: 200 });
 }

@@ -1,7 +1,6 @@
+import { requireMarketingSurface } from "@/lib/marketing/require-user";
 import { NextResponse } from "next/server";
 import { ZodError, z } from "zod";
-import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
-import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SegmentRulesSchema } from "@/lib/marketing/segments-rules";
 import {
@@ -32,22 +31,10 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-async function requireUser() {
-  try {
-    return await getCurrentUser();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      throw e;
-    }
-    throw e;
-  }
-}
-
-function unauthorizedResponse(e: UnauthorizedError) {
-  return NextResponse.json(
-    { error: "unauthorized", code: e.code },
-    { status: 401 },
-  );
+async function requireSegmentsUser() {
+  const auth = await requireMarketingSurface("segments");
+  if (auth.response) return { user: null as null, response: auth.response };
+  return { user: auth.user, response: null as null };
 }
 
 /**
@@ -60,19 +47,9 @@ function unauthorizedResponse(e: UnauthorizedError) {
  * silently skip the cache write.
  */
 export async function GET(_request: Request, ctx: RouteContext) {
-  let user;
-  try {
-    user = await requireUser();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) return unauthorizedResponse(e);
-    throw e;
-  }
-  if (!canSurface(user.role, "marketing", "segments")) {
-    return NextResponse.json(
-      { error: "forbidden", reason: "marketing.segments access denied" },
-      { status: 403 },
-    );
-  }
+  const auth = await requireSegmentsUser();
+  if (auth.response) return auth.response;
+  const user = auth.user!;
 
   const params = await ctx.params;
   const parsedParams = PARAM_SHAPE.safeParse(params);
@@ -133,19 +110,9 @@ export async function GET(_request: Request, ctx: RouteContext) {
  * UPDATE policy enforces the same guarantee.
  */
 export async function PATCH(request: Request, ctx: RouteContext) {
-  let user;
-  try {
-    user = await requireUser();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) return unauthorizedResponse(e);
-    throw e;
-  }
-  if (!canSurface(user.role, "marketing", "segments")) {
-    return NextResponse.json(
-      { error: "forbidden", reason: "marketing.segments access denied" },
-      { status: 403 },
-    );
-  }
+  const auth = await requireSegmentsUser();
+  if (auth.response) return auth.response;
+  const user = auth.user!;
 
   const params = await ctx.params;
   const parsedParams = PARAM_SHAPE.safeParse(params);
@@ -237,19 +204,9 @@ export async function PATCH(request: Request, ctx: RouteContext) {
  * allowed (no unique constraint on name).
  */
 export async function DELETE(_request: Request, ctx: RouteContext) {
-  let user;
-  try {
-    user = await requireUser();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) return unauthorizedResponse(e);
-    throw e;
-  }
-  if (!canSurface(user.role, "marketing", "segments")) {
-    return NextResponse.json(
-      { error: "forbidden", reason: "marketing.segments access denied" },
-      { status: 403 },
-    );
-  }
+  const auth = await requireSegmentsUser();
+  if (auth.response) return auth.response;
+  const user = auth.user!;
 
   const params = await ctx.params;
   const parsedParams = PARAM_SHAPE.safeParse(params);

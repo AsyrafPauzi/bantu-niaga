@@ -1,10 +1,6 @@
+import { requireMarketingSurface } from "@/lib/marketing/require-user";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import {
-  getCurrentUser,
-  UnauthorizedError,
-} from "@/lib/auth/current-user";
-import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   contentEntryCreateSchema,
@@ -27,33 +23,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-async function requireUser() {
-  try {
-    const user = await getCurrentUser();
-    if (!canSurface(user.role, "marketing", "content")) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          { error: "forbidden", reason: "marketing.content access denied" },
-          { status: 403 },
-        ),
-      };
-    }
-    return { user, response: null };
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          { error: "unauthorized", code: e.code },
-          { status: 401 },
-        ),
-      };
-    }
-    throw e;
-  }
-}
-
 const CONTENT_SELECT =
   "id, business_id, channel, status, scheduled_at, hook, caption, " +
   "hashtags, views, likes, comments_count, shares, saves, " +
@@ -61,7 +30,7 @@ const CONTENT_SELECT =
   "created_by, posted_at, created_at, updated_at";
 
 export async function GET(request: Request) {
-  const auth = await requireUser();
+  const auth = await requireMarketingSurface("content");
   if (auth.response) return auth.response;
   const user = auth.user!;
 
@@ -165,7 +134,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser();
+  const auth = await requireMarketingSurface("content");
   if (auth.response) return auth.response;
   const user = auth.user!;
 

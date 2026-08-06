@@ -100,7 +100,7 @@ export function withApiHandler<Params = Record<string, string>>(
   fn: HandlerFn<Params>,
 ): (
   request: NextRequest,
-  ctx?: NextRouteContext<Params>,
+  ctx: NextRouteContext<Params>,
 ) => Promise<NextResponse> {
   return async (request, ctx) => {
     const start = Date.now();
@@ -111,7 +111,7 @@ export function withApiHandler<Params = Record<string, string>>(
     // Resolve dynamic params (Next 15 makes these a Promise).
     let params: Params;
     try {
-      params = ctx?.params ? await ctx.params : ({} as Params);
+      params = await ctx.params;
     } catch (e) {
       log.error("params_resolve_failed", undefined, e);
       return serverError(requestId);

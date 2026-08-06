@@ -44,13 +44,10 @@ export async function loadHolidayDateSet(
   supabase: SupabaseClient,
   businessId: string,
 ): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from("hr_public_holidays")
-    .select("holiday_date")
-    .or(`business_id.is.null,business_id.eq.${businessId}`);
-
-  if (error) throw new Error(error.message);
-  return new Set((data ?? []).map((row) => String(row.holiday_date)));
+  const { loadEffectiveHolidayDateSet } = await import(
+    "@/lib/hr/effective-calendar"
+  );
+  return loadEffectiveHolidayDateSet(supabase, businessId);
 }
 
 export async function getOrCreateLeaveBalance(

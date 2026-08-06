@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { CalendarDays, MapPin, Settings } from "lucide-react";
+import { HrHolidayOverridesPanel } from "@/components/hr/HrHolidayOverridesPanel";
 import { HrHolidayCreateForm } from "@/components/hr/HrHolidayCreateForm";
 import { HrHolidayImportButton } from "@/components/hr/HrHolidayImportButton";
 import { HrHolidaysPanel } from "@/components/hr/HrHolidaysPanel";
 import { HolidaysNoState } from "@/components/hr/HolidaysNoState";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
+import type { HrHolidayOverrideRow } from "@/lib/hr/effective-calendar";
 import type { HrHolidayRow } from "@/lib/hr/load";
 import { hrClasses } from "@/lib/hr/theme";
 import { cn } from "@/lib/utils/cn";
@@ -25,6 +27,7 @@ function fmtShortDate(iso: string): string {
 
 export interface HrHolidaysViewProps {
   holidays: HrHolidayRow[];
+  overrides: HrHolidayOverrideRow[];
   stateLabel: string | null;
   hasState: boolean;
   year: number;
@@ -32,6 +35,7 @@ export interface HrHolidaysViewProps {
 
 export function HrHolidaysView({
   holidays,
+  overrides,
   stateLabel,
   hasState,
   year,
@@ -202,6 +206,10 @@ export function HrHolidaysView({
           ) : (
             <HolidaysNoState />
           )}
+
+          {hasState ? (
+            <HrHolidayOverridesPanel holidays={holidays} overrides={overrides} />
+          ) : null}
         </aside>
       </div>
     </div>

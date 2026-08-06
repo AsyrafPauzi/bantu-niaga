@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
+import { withApiHandler } from "@/lib/api/handler";
+import { ok } from "@/lib/api/response";
 import { ZodError } from "zod";
-import {
-  getCurrentUser,
-  UnauthorizedError,
-  type CurrentUser,
-} from "@/lib/auth/current-user";
-import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireOperationsUser } from "@/lib/operations/require-user";
 import {
   operationsSupplierCreateSchema,
   type OperationsSupplierRow,
@@ -15,77 +13,37 @@ import { notifyOperationsSupplierCreated } from "@/lib/operations/notify";
 
 export const dynamic = "force-dynamic";
 
-async function requireOperationsUser(): Promise<
-  | { user: CurrentUser; response: null }
-  | { user: null; response: NextResponse }
-> {
-  try {
-    const user = await getCurrentUser();
-    if (!can(user.role, "operations")) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          {
-            ok: false,
-            error: {
-              code: "forbidden",
-              message: "You don't have permission to access Operations.",
-            },
-          },
-          { status: 403 },
-        ),
-      };
-    }
-    return { user, response: null };
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          {
-            ok: false,
-            error: { code: "unauthorized", message: "Authentication required." },
-          },
-          { status: 401 },
-        ),
-      };
-    }
-    throw e;
-  }
-}
-
 const SUPPLIER_SELECT =
   "id, business_id, name, contact_name, phone, email, address, " +
   "payment_terms, notes, created_by, created_at, updated_at";
 
-export async function GET() {
-  const auth = await requireOperationsUser();
-  if (auth.response) return auth.response;
-  const { user } = auth;
+export const GET = withApiHandler(
+  { module: "operations.suppliers.list", auth: "none" },
+  async ({ requestId }) => {
+    const auth = await requireOperationsUser();
+    if (auth.response) return auth.response;
+    const { user } = auth;
 
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("operations_suppliers")
-    .select(SUPPLIER_SELECT)
-    .eq("business_id", user.businessId)
-    .is("deleted_at", null)
-    .order("name", { ascending: true });
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("operations_suppliers")
+      .select(SUPPLIER_SELECT)
+      .eq("business_id", user.businessId)
+      .is("deleted_at", null)
+      .order("name", { ascending: true });
 
-  if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "list_failed", message: error.message },
-      },
-      { status: 500 },
-    );
-  }
+    if (error) {
+      return dbErrorResponse(
+        "list_failed",
+        error,
+        "operations.suppliers.list_failed",
+        { requestId },
+      );
+    }
 
-  return NextResponse.json(
-    { ok: true, data: (data ?? []) as unknown as OperationsSupplierRow[] },
-    { status: 200 },
-  );
-}
+    return ok((data ?? []) as unknown as OperationsSupplierRow[], { requestId });
+  },
+);
 
 export async function POST(request: Request) {
   const auth = await requireOperationsUser();
@@ -136,13 +94,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "create_failed", message: error.message },
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse("create_failed", error, "operations.api.create_failed");
   }
 
   const row = data as unknown as { id: string; name: string };

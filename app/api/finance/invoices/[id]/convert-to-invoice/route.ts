@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
+import { requireFinanceUser } from "@/lib/finance/require-user";
 import {
   getCurrentUser,
   UnauthorizedError,
@@ -20,42 +22,6 @@ import type { FinanceInvoiceRow } from "@/lib/finance/schemas";
 import { notifyFinanceQuoteConverted } from "@/lib/finance/notify";
 
 export const dynamic = "force-dynamic";
-
-async function requireFinanceUser(): Promise<
-  | { user: CurrentUser; response: null }
-  | { user: null; response: NextResponse }
-> {
-  try {
-    const user = await getCurrentUser();
-    if (!can(user.role, "finance")) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          {
-            ok: false,
-            error: { code: "forbidden", message: "Finance access denied." },
-          },
-          { status: 403 },
-        ),
-      };
-    }
-    return { user, response: null };
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          {
-            ok: false,
-            error: { code: "unauthorized", message: "Authentication required." },
-          },
-          { status: 401 },
-        ),
-      };
-    }
-    throw e;
-  }
-}
 
 /** POST /api/finance/invoices/[id]/convert-to-invoice — copy quote to invoice. */
 export async function POST(
@@ -149,10 +115,7 @@ export async function POST(
     .single();
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: { code: "create_failed", message: error.message } },
-      { status: 500 },
-    );
+    return dbErrorResponse("create_failed", error, "finance.api.create_failed", { route: "create_failed" });
   }
 
   const row = data as unknown as FinanceInvoiceRow;

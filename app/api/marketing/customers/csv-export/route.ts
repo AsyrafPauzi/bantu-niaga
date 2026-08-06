@@ -1,6 +1,7 @@
+import { enforceRateLimit } from "@/lib/api/enforce-rate-limit";
+import { requireMarketingSurface } from "@/lib/marketing/require-user";
 import { NextResponse } from "next/server";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
-import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { toCsv } from "@/lib/marketing/csv";
 
@@ -66,24 +67,17 @@ function todayUtcDateStamp(): string {
 }
 
 export async function GET(request: Request) {
-  let user;
-  try {
-    user = await getCurrentUser();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return NextResponse.json(
-        { error: "unauthorized", code: e.code },
-        { status: 401 },
-      );
-    }
-    throw e;
-  }
-  if (!canSurface(user.role, "marketing", "customers")) {
-    return NextResponse.json(
-      { error: "forbidden", reason: "marketing.csv_import access denied" },
-      { status: 403 },
-    );
-  }
+  const auth = await requireMarketingSurface("customers");
+  if (auth.response) return auth.response;
+  const { user } = auth;
+
+  const limited = enforceRateLimit({
+    bucket: "marketing.customers.csv_export",
+    identifier: `user:${user.id}`,
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim() || undefined;

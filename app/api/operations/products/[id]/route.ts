@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
 import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
@@ -121,7 +122,7 @@ export async function PATCH(
               ? "Product not found."
               : status === 409
                 ? "That SKU already exists."
-                : error.message,
+                : "Could not complete request.",
         },
       },
       { status },
@@ -171,13 +172,7 @@ export async function DELETE(
     .is("deleted_at", null);
 
   if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "delete_failed", message: error.message },
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse("delete_failed", error, "operations.api.delete_failed");
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

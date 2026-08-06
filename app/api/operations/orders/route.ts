@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
 import { ZodError } from "zod";
 import {
   getCurrentUser,
@@ -77,13 +78,7 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "list_failed", message: error.message },
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse("list_failed", error, "operations.api.list_failed");
   }
 
   const rows = (data ?? []) as unknown as OperationsOrderRow[];
@@ -172,13 +167,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "create_failed", message: error.message },
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse("create_failed", error, "operations.api.create_failed");
   }
 
   const row = data as unknown as { id: string; number: string; title: string; customer_name: string };

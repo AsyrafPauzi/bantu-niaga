@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
+import { requireFinanceUser } from "@/lib/finance/require-user";
 import { ZodError } from "zod";
 import {
   getCurrentUser,
@@ -11,42 +13,6 @@ import { financeCustomerUpdateSchema } from "@/lib/finance/schemas";
 import { normalizeMyPhone } from "@/lib/marketing/phone";
 
 export const dynamic = "force-dynamic";
-
-async function requireFinanceUser(): Promise<
-  | { user: CurrentUser; response: null }
-  | { user: null; response: NextResponse }
-> {
-  try {
-    const user = await getCurrentUser();
-    if (!can(user.role, "finance")) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          {
-            ok: false,
-            error: { code: "forbidden", message: "Finance access denied." },
-          },
-          { status: 403 },
-        ),
-      };
-    }
-    return { user, response: null };
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return {
-        user: null,
-        response: NextResponse.json(
-          {
-            ok: false,
-            error: { code: "unauthorized", message: "Authentication required." },
-          },
-          { status: 401 },
-        ),
-      };
-    }
-    throw e;
-  }
-}
 
 const CUSTOMER_SELECT =
   "id, business_id, name, phone_e164, email, address, notes, created_at, updated_at";
@@ -116,10 +82,7 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: { code: "update_failed", message: error.message } },
-      { status: 500 },
-    );
+    return dbErrorResponse("update_failed", error, "finance.api.update_failed", { route: "update_failed" });
   }
 
   return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -143,10 +106,7 @@ export async function DELETE(
     .is("deleted_at", null);
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: { code: "delete_failed", message: error.message } },
-      { status: 500 },
-    );
+    return dbErrorResponse("delete_failed", error, "finance.api.delete_failed", { route: "delete_failed" });
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

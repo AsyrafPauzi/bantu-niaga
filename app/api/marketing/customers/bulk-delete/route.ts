@@ -1,10 +1,7 @@
+import { enforceRateLimit } from "@/lib/api/enforce-rate-limit";
+import { requireMarketingSurface } from "@/lib/marketing/require-user";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  getCurrentUser,
-  UnauthorizedError,
-} from "@/lib/auth/current-user";
-import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -20,19 +17,17 @@ const BodySchema = z.object({
  * Soft-delete multiple customers (hidden from CRM, links preserved).
  */
 export async function POST(request: Request) {
-  let user;
-  try {
-    user = await getCurrentUser();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    throw e;
-  }
+  const auth = await requireMarketingSurface("customers");
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
-  if (!canSurface(user.role, "marketing", "customers")) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
+  const limited = enforceRateLimit({
+    bucket: "marketing.customers.bulk_delete",
+    identifier: `user:${user.id}`,
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   let body: unknown;
   try {

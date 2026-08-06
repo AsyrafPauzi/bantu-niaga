@@ -123,9 +123,8 @@ export interface KpiDeltas {
  */
 export async function getKpiDeltas(
   supabase: Supabase,
-  _businessId: string,
+  businessId: string,
 ): Promise<KpiDeltas> {
-  void _businessId;
   const now = new Date();
   const startOfThisMonth = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -137,6 +136,7 @@ export async function getKpiDeltas(
   const { data, error } = await supabase
     .from("customers")
     .select("created_at, total_spend_myr, order_count")
+    .eq("business_id", businessId)
     .is("deleted_at", null)
     .is("merged_into_id", null)
     .gte("created_at", startOfPrevMonth.toISOString());
@@ -191,10 +191,9 @@ export interface GrowthPoint {
 
 export async function getCustomerGrowthSeries(
   supabase: Supabase,
-  _businessId: string,
+  businessId: string,
   months = 12,
 ): Promise<GrowthPoint[]> {
-  void _businessId;
   const now = new Date();
   const cutoff = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1, 1),
@@ -203,6 +202,7 @@ export async function getCustomerGrowthSeries(
   const { data, error } = await supabase
     .from("customers")
     .select("created_at")
+    .eq("business_id", businessId)
     .is("merged_into_id", null);
 
   if (error || !data) {
@@ -277,12 +277,12 @@ const SEGMENT_LABEL: Record<SegmentKey, string> = {
 
 export async function getSegmentBreakdown(
   supabase: Supabase,
-  _businessId: string,
+  businessId: string,
 ): Promise<SegmentSlice[]> {
-  void _businessId;
   const { data, error } = await supabase
     .from("customers")
     .select("auto_tags")
+    .eq("business_id", businessId)
     .is("deleted_at", null)
     .is("merged_into_id", null);
 
@@ -348,13 +348,13 @@ export interface TopCustomerRow {
 
 export async function getTopCustomers(
   supabase: Supabase,
-  _businessId: string,
+  businessId: string,
   limit = 5,
 ): Promise<TopCustomerRow[]> {
-  void _businessId;
   const { data, error } = await supabase
     .from("customers")
     .select("id, name, phone_e164, total_spend_myr, order_count, auto_tags")
+    .eq("business_id", businessId)
     .is("deleted_at", null)
     .is("merged_into_id", null)
     .order("total_spend_myr", { ascending: false })
@@ -387,16 +387,16 @@ export interface UpcomingContentRow {
 
 export async function getUpcomingContent(
   supabase: Supabase,
-  _businessId: string,
+  businessId: string,
   days = 7,
 ): Promise<UpcomingContentRow[]> {
-  void _businessId;
   const now = new Date();
   const cutoff = new Date(now.getTime() + days * MS_PER_DAY);
 
   const { data, error } = await supabase
     .from("content_plan")
     .select("id, hook, channel, status, scheduled_at")
+    .eq("business_id", businessId)
     .in("status", ["scheduled", "drafted"])
     .gte("scheduled_at", now.toISOString())
     .lte("scheduled_at", cutoff.toISOString())
@@ -436,13 +436,13 @@ export interface ActivityRow {
 
 export async function getRecentActivity(
   supabase: Supabase,
-  _businessId: string,
+  businessId: string,
   limit = 8,
 ): Promise<ActivityRow[]> {
-  void _businessId;
   const { data, error } = await supabase
     .from("events_outbox")
     .select("id, name, payload, emitted_at")
+    .eq("business_id", businessId)
     .in("name", ACTIVITY_EVENT_NAMES as unknown as string[])
     .order("emitted_at", { ascending: false })
     .limit(limit);
@@ -527,12 +527,12 @@ const SPEND_BUCKETS: ReadonlyArray<{
 
 export async function getSpendDistribution(
   supabase: Supabase,
-  _businessId: string,
+  businessId: string,
 ): Promise<SpendBucket[]> {
-  void _businessId;
   const { data, error } = await supabase
     .from("customers")
     .select("total_spend_myr")
+    .eq("business_id", businessId)
     .is("deleted_at", null)
     .is("merged_into_id", null);
 
@@ -563,16 +563,16 @@ export interface SparkPoint {
  */
 export async function getNewCustomersSparkline(
   supabase: Supabase,
-  _businessId: string,
+  businessId: string,
   days = 7,
 ): Promise<SparkPoint[]> {
-  void _businessId;
   const now = new Date();
   const cutoff = new Date(now.getTime() - (days - 1) * MS_PER_DAY);
 
   const { data, error } = await supabase
     .from("customers")
     .select("created_at")
+    .eq("business_id", businessId)
     .gte("created_at", cutoff.toISOString())
     .is("merged_into_id", null);
 

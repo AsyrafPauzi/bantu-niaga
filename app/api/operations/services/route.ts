@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
 import { ZodError } from "zod";
 import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -28,13 +29,7 @@ export async function GET() {
     .order("name", { ascending: true });
 
   if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "list_failed", message: error.message },
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse("list_failed", error, "operations.api.list_failed");
   }
 
   return NextResponse.json(
@@ -119,7 +114,7 @@ export async function POST(request: Request) {
           message:
             code === "duplicate_name"
               ? "A service with that name already exists."
-              : error.message,
+              : "Could not complete request.",
         },
       },
       { status: code === "duplicate_name" ? 409 : 500 },

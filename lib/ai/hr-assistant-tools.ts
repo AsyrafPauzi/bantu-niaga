@@ -592,11 +592,7 @@ export async function executeHrAssistantTool(
   return { ok: false, action: name, message: "Unknown action." };
 }
 
-export function malaysiaTodayIso(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kuala_Lumpur",
-  }).format(new Date());
-}
+export { malaysiaTodayIso } from "@/lib/ai/malaysia-today";
 
 export function isHrActionTool(name: string): boolean {
   return (

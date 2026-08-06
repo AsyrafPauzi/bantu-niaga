@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api/db-error";
+import { withApiHandler } from "@/lib/api/handler";
+import { ok } from "@/lib/api/response";
 import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireOperationsUser } from "@/lib/operations/require-user";
@@ -13,37 +16,35 @@ const RESOURCE_SELECT =
   "id, business_id, name, description, buffer_minutes, is_active, employee_id, " +
   "created_by, created_at, updated_at";
 
-export async function GET() {
-  const auth = await requireOperationsUser();
-  if (auth.response) return auth.response;
-  const { user } = auth;
+export const GET = withApiHandler(
+  { module: "operations.booking_resources.list", auth: "none" },
+  async ({ requestId }) => {
+    const auth = await requireOperationsUser();
+    if (auth.response) return auth.response;
+    const { user } = auth;
 
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("operations_booking_resources")
-    .select(RESOURCE_SELECT)
-    .eq("business_id", user.businessId)
-    .is("deleted_at", null)
-    .order("name", { ascending: true });
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("operations_booking_resources")
+      .select(RESOURCE_SELECT)
+      .eq("business_id", user.businessId)
+      .is("deleted_at", null)
+      .order("name", { ascending: true });
 
-  if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "list_failed", message: error.message },
-      },
-      { status: 500 },
-    );
-  }
+    if (error) {
+      return dbErrorResponse(
+        "list_failed",
+        error,
+        "operations.booking_resources.list_failed",
+        { requestId },
+      );
+    }
 
-  return NextResponse.json(
-    {
-      ok: true,
-      data: (data ?? []) as unknown as OperationsBookingResourceRow[],
-    },
-    { status: 200 },
-  );
-}
+    return ok((data ?? []) as unknown as OperationsBookingResourceRow[], {
+      requestId,
+    });
+  },
+);
 
 export async function POST(request: Request) {
   const auth = await requireOperationsUser();
@@ -91,13 +92,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { code: "create_failed", message: error.message },
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse("create_failed", error, "operations.api.create_failed");
   }
 
   return NextResponse.json({ ok: true, data }, { status: 201 });
