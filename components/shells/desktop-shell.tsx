@@ -19,9 +19,12 @@ import {
   LogOut,
   CircleHelp,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useSidebarCollapsed } from "@/lib/navigation/use-sidebar-collapsed";
 import type { BusinessType } from "@/lib/onboarding/plan-quiz";
 import { getOperationsNavSubItems } from "@/lib/operations/vertical";
 import { signOutAction } from "@/app/sign-in/actions";
@@ -174,6 +177,8 @@ export function DesktopShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const { collapsed: sidebarCollapsed, toggle: toggleSidebar, ready: sidebarReady } =
+    useSidebarCollapsed();
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >({});
@@ -200,17 +205,29 @@ export function DesktopShell({
     }
   }, [pathname, sidebarGroups]);
 
-  const isHrRoute = pathname === "/hr" || pathname.startsWith("/hr/");
-  const isSettingsRoute =
-    pathname === "/settings" || pathname.startsWith("/settings/");
   const isAssistantRoute = isAssistantChatRoute(pathname);
+
+  const pageContentClass = cn(
+    "mx-auto h-full min-h-0 overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-6",
+    sidebarCollapsed ? "max-w-none" : "max-w-6xl",
+    sidebarCollapsed && "pt-14",
+  );
 
   return (
     <div className="h-dvh overflow-hidden bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
       <div className="flex h-dvh min-h-0 overflow-hidden">
-        <aside className="sticky top-0 hidden h-dvh w-[272px] shrink-0 flex-col border-r border-[#E5E0D8] bg-white dark:border-hairline-dark dark:bg-panel-dark lg:flex">
+        <aside
+          className={cn(
+            "sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-[#E5E0D8] bg-white transition-[width,border-color] duration-300 ease-in-out dark:border-hairline-dark dark:bg-panel-dark lg:flex",
+            sidebarCollapsed ? "w-0 border-r-0" : "w-[272px]",
+            !sidebarReady && "w-[272px]",
+          )}
+          aria-hidden={sidebarCollapsed}
+        >
+          <div className="flex w-[272px] shrink-0 flex-col h-full">
           <div className="border-b border-[#D5E2FB] bg-[#EEF3FE] px-5 py-5 dark:border-hairline-dark dark:bg-brand-900/30">
-            <Link href="/" className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-2">
+              <Link href="/" className="flex min-w-0 flex-1 items-center gap-3">
               <Image
                 src="/icon.png"
                 alt="Bantu Niaga"
@@ -229,6 +246,16 @@ export function DesktopShell({
                 </p>
               </div>
             </Link>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-white/80 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100"
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+              >
+                <PanelLeftClose className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
           </div>
 
           <div className="border-b border-[#D5E2FB] bg-[#EEF3FE] px-4 py-3 dark:border-hairline-dark dark:bg-brand-900/30">
@@ -396,25 +423,33 @@ export function DesktopShell({
               </button>
             </form>
           </div>
+          </div>
         </aside>
 
         <main
           className={cn(
-            "min-h-0 min-w-0 flex-1",
+            "relative min-h-0 min-w-0 flex-1",
             isAssistantRoute
               ? "flex min-h-0 flex-col overflow-hidden"
               : "overflow-hidden",
           )}
         >
+          {sidebarCollapsed ? (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="absolute left-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E0D8] bg-white text-ink-muted shadow-sm transition-colors hover:bg-cream-100 hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100 lg:flex"
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <PanelLeftOpen className="h-4 w-4" strokeWidth={2} />
+            </button>
+          ) : null}
           <div
             className={cn(
               isAssistantRoute
                 ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
-                : isHrRoute
-                  ? "mx-auto h-full min-h-0 max-w-6xl overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-6"
-                  : isSettingsRoute
-                    ? "mx-auto h-full min-h-0 max-w-6xl overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-6"
-                    : "mx-auto h-full min-h-0 max-w-6xl overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-6",
+                : pageContentClass,
             )}
           >
             {children}
