@@ -486,7 +486,7 @@ export default async function HomePage() {
           subtitle="Inflow vs outflow · last 7 days"
           className="lg:col-span-2"
           action={
-            <span className="inline-flex items-center gap-3 text-[11px] font-medium text-ink-muted dark:text-cream-400">
+            <span className="inline-flex flex-wrap items-center gap-2 text-[11px] font-medium text-ink-muted dark:text-cream-400 sm:gap-3">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-brand-500" />
                 Inflow
@@ -498,7 +498,7 @@ export default async function HomePage() {
             </span>
           }
         >
-          <div className="flex h-44 items-end gap-3 sm:h-52">
+          <div className="flex h-44 items-end gap-1 sm:gap-3 sm:h-52">
             {figures.cashflow.map((d) => (
               <div
                 key={d.day}
@@ -522,7 +522,7 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
-          <div className="mt-5 grid grid-cols-3 gap-4 border-t border-cream-200 pt-4 text-sm dark:border-hairline-dark">
+          <div className="mt-5 grid grid-cols-1 gap-3 border-t border-cream-200 pt-4 text-sm sm:grid-cols-3 sm:gap-4 dark:border-hairline-dark">
             <div>
               <p className="font-semibold text-status-success">
                 +RM {formatMyrAmount(inflow7d)}

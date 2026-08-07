@@ -420,7 +420,7 @@ export function PosCheckoutClient({
 
   if (receipt) {
     return (
-      <div className="space-y-4 pb-8">
+      <div className="space-y-4 pb-20 lg:pb-8">
         <SalesBackLink />
         <div className="mx-auto max-w-md">
           <div className="overflow-hidden rounded-2xl border border-blue-200/80 bg-gradient-to-br from-blue-50 via-white to-cream-100 shadow-card dark:border-blue-900/40 dark:from-blue-950/30 dark:via-panel-dark dark:to-cream-100/20">
@@ -584,8 +584,8 @@ export function PosCheckoutClient({
       <div className="grid gap-4 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_360px]">
         {/* Catalog */}
         <section className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <div className="flex items-center gap-2 border-b border-cream-200 p-3 dark:border-hairline-dark">
-            <div className="flex flex-1 gap-1 rounded-xl bg-cream-100 p-1 dark:bg-hairline-dark/40">
+          <div className="flex flex-col gap-2 border-b border-cream-200 p-3 sm:flex-row sm:flex-wrap sm:items-center dark:border-hairline-dark">
+            <div className="flex flex-1 gap-1 rounded-xl bg-cream-100 p-1 dark:bg-hairline-dark/40 sm:min-w-[10rem] sm:flex-none">
               {(["products", "services"] as const).map((mode) => (
                 <button
                   key={mode}
@@ -605,7 +605,7 @@ export function PosCheckoutClient({
                 </button>
               ))}
             </div>
-            <div className="relative min-w-0 flex-[2]">
+            <div className="relative min-w-0 w-full sm:flex-[2]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
               <input
                 value={q}

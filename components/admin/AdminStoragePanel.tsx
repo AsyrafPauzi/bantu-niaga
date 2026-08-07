@@ -600,7 +600,7 @@ export function AdminStoragePanel({
         <main className="min-w-0 flex-1 p-3 sm:p-4">
           {/* Mobile folder chips */}
           {!hrDocsOnly ? (
-            <div className="mb-3 flex flex-wrap gap-1.5 md:hidden">
+            <div className="mb-3 -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {folderItems.map((item) => {
                 const active =
                   (item.key === "" && !activeCategory) ||
@@ -610,7 +610,7 @@ export function AdminStoragePanel({
                     key={item.key || "all"}
                     href={item.href}
                     className={cn(
-                      "rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                      "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
                       active
                         ? "bg-brand-500 text-white"
                         : "border border-cream-300 bg-white text-ink-muted dark:border-hairline-dark dark:bg-panel-dark",

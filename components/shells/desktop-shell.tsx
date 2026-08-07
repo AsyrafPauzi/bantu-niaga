@@ -5,28 +5,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  LayoutDashboard,
-  FileText,
-  Banknote,
-  Boxes,
   Lock,
-  Megaphone,
-  ShoppingCart,
-  Users,
-  Sparkles,
-  Store,
-  Settings,
   LogOut,
   CircleHelp,
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
-  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useSidebarCollapsed } from "@/lib/navigation/use-sidebar-collapsed";
+import {
+  buildAppNavGroups,
+  isNavSectionActive,
+  isNavSubItemActive,
+} from "@/lib/navigation/app-nav";
 import type { BusinessType } from "@/lib/onboarding/plan-quiz";
-import { getOperationsNavSubItems } from "@/lib/operations/vertical";
 import { signOutAction } from "@/app/sign-in/actions";
 import type { TierKey } from "@/lib/settings/plans";
 import type { BusinessMembership } from "@/lib/auth/memberships";
@@ -38,127 +31,6 @@ import {
 } from "@/lib/auth/entitlements";
 import { tierBy } from "@/lib/settings/plans";
 import { isAssistantChatRoute } from "@/lib/navigation/assistant-routes";
-
-interface SidebarSubItem {
-  href: string;
-  label: string;
-}
-
-interface SidebarItem {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  /** When set, the sidebar checks the current tier against this pillar. */
-  pillar?: Pillar;
-  /** Optional sub-pages, shown indented when the parent is the active section. */
-  subItems?: readonly SidebarSubItem[];
-}
-
-interface SidebarGroup {
-  label: string;
-  items: SidebarItem[];
-}
-
-const SIDEBAR_GROUPS: readonly SidebarGroup[] = [
-  {
-    label: "Overview",
-    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }],
-  },
-  {
-    label: "Modules",
-    items: [
-      {
-        href: "/admin",
-        label: "Admin",
-        icon: FileText,
-        pillar: "admin",
-        subItems: [
-          { href: "/admin/storage", label: "Storage" },
-          { href: "/admin/tasks", label: "Tasks" },
-          { href: "/admin/compliance", label: "Compliance" },
-          { href: "/admin/documents", label: "Templates & notes" },
-        ],
-      },
-      {
-        href: "/finance",
-        label: "Finance",
-        icon: Banknote,
-        pillar: "finance",
-        subItems: [
-          { href: "/finance/invoices", label: "Invoices" },
-          { href: "/finance/income", label: "Income" },
-          { href: "/finance/expenses", label: "Expenses" },
-          { href: "/finance/reports", label: "Reports" },
-          { href: "/finance/customers", label: "Customers" },
-        ],
-      },
-      {
-        href: "/operations",
-        label: "Operations",
-        icon: Boxes,
-        pillar: "operations",
-        subItems: [
-          { href: "/operations/orders", label: "Orders" },
-          { href: "/operations/products", label: "Products" },
-          { href: "/operations/services", label: "Services" },
-          { href: "/operations/bookings", label: "Bookings" },
-          { href: "/operations/suppliers", label: "Suppliers" },
-        ],
-      },
-      {
-        href: "/marketing",
-        label: "Marketing",
-        icon: Megaphone,
-        pillar: "marketing",
-        subItems: [
-          { href: "/marketing/customers", label: "Customers" },
-          { href: "/marketing/segments", label: "Segments" },
-          { href: "/marketing/content", label: "Content" },
-          { href: "/marketing/broadcasts", label: "Broadcasts" },
-          { href: "/marketing/coupons", label: "Coupons" },
-        ],
-      },
-      {
-        href: "/sales",
-        label: "Sales",
-        icon: ShoppingCart,
-        pillar: "sales",
-        subItems: [
-          { href: "/sales/pos", label: "POS" },
-          { href: "/sales/leads", label: "Leads" },
-        ],
-      },
-      {
-        href: "/hr",
-        label: "HR",
-        icon: Users,
-        pillar: "hr",
-        subItems: [
-          { href: "/hr", label: "Overview" },
-          { href: "/hr/employees", label: "Employees" },
-          { href: "/hr/leave", label: "Leave" },
-          { href: "/hr/holidays", label: "Public holidays" },
-        ],
-      },
-    ],
-  },
-  {
-    label: "Platform",
-    items: [
-      { href: "/boardroom", label: "Boardroom", icon: Sparkles },
-      { href: "/marketplace", label: "Marketplace", icon: Store },
-      { href: "/settings", label: "Settings", icon: Settings },
-    ],
-  },
-];
-
-function isSidebarSectionActive(href: string, pathname: string): boolean {
-  if (href === "/") return pathname === "/";
-  if (href === "/hr") {
-    return pathname === "/hr" || pathname.startsWith("/hr/");
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
 
 export function DesktopShell({
   tier,
@@ -179,22 +51,15 @@ export function DesktopShell({
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >({});
-  const sidebarGroups = useMemo(() => {
-    const opsSubItems = getOperationsNavSubItems(businessType);
-    return SIDEBAR_GROUPS.map((group) => ({
-      ...group,
-      items: group.items.map((item) =>
-        item.href === "/operations"
-          ? { ...item, subItems: opsSubItems }
-          : item,
-      ),
-    }));
-  }, [businessType]);
+  const sidebarGroups = useMemo(
+    () => buildAppNavGroups(businessType),
+    [businessType],
+  );
 
   useEffect(() => {
     for (const group of sidebarGroups) {
       for (const item of group.items) {
-        if (isSidebarSectionActive(item.href, pathname)) {
+        if (isNavSectionActive(item.href, pathname)) {
           setExpandedSections((prev) => ({ ...prev, [item.href]: true }));
           return;
         }
@@ -272,7 +137,7 @@ export function DesktopShell({
                   {group.items.map(
                     ({ href, label, icon: Icon, pillar, subItems }) => {
                       const isOverviewActive = pathname === href;
-                      const isSectionActive = isSidebarSectionActive(
+                      const isSectionActive = isNavSectionActive(
                         href,
                         pathname,
                       );
@@ -363,11 +228,10 @@ export function DesktopShell({
                           {showSubItems ? (
                             <ul className="mb-1 ml-3 mt-0.5 space-y-0.5 border-l border-[#E5E0D8] pl-3 dark:border-hairline-dark">
                               {visibleSubItems.map((sub) => {
-                                const subActive =
-                                  sub.href === "/hr"
-                                    ? pathname === "/hr"
-                                    : pathname === sub.href ||
-                                      pathname.startsWith(`${sub.href}/`);
+                                const subActive = isNavSubItemActive(
+                                  sub.href,
+                                  pathname,
+                                );
                                 return (
                                   <li key={sub.href}>
                                     <Link

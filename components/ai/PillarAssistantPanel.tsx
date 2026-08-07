@@ -16,8 +16,11 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import type { PillarAssistantChatHandle } from "@/lib/ai/pillar-assistant-types";
-import type { PillarAssistantStatus } from "@/lib/ai/pillar-assistant-types";
+import { MOBILE_FLOAT_ABOVE_NAV } from "@/lib/navigation/mobile-chrome";
+import type {
+  PillarAssistantChatHandle,
+  PillarAssistantStatus,
+} from "@/lib/ai/pillar-assistant-types";
 import type { PillarAssistantFloatMeta } from "@/lib/ai/pillar-assistant-float-meta";
 import { HR_CREDIT_COST_CHAT } from "@/lib/marketplace/agent-types";
 import { cn } from "@/lib/utils/cn";
@@ -99,7 +102,8 @@ function PillarAssistantPanelInner({
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg",
+          "fixed right-6 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg",
+          MOBILE_FLOAT_ABOVE_NAV,
           fabClassName,
         )}
       >
@@ -110,7 +114,7 @@ function PillarAssistantPanelInner({
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex h-[min(520px,80vh)] w-[min(400px,92vw)] flex-col overflow-hidden rounded-2xl border border-cream-300 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark">
+    <div className={cn("fixed right-6 z-40 flex h-[min(520px,80vh)] w-[min(400px,92vw)] flex-col overflow-hidden rounded-2xl border border-cream-300 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark", MOBILE_FLOAT_ABOVE_NAV)}>
       <header className="flex items-center justify-between border-b border-cream-300 bg-cream-50 px-4 py-3 dark:border-hairline-dark dark:bg-surface-dark">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-sm font-bold text-ink dark:text-cream-100">

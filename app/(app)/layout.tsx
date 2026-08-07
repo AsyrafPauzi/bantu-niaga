@@ -15,6 +15,7 @@ import type { TierKey } from "@/lib/settings/plans";
 import { ImpersonationBanner } from "@/components/super-admin/ImpersonationBanner";
 import { normalizeBusinessType } from "@/lib/operations/vertical";
 import type { BusinessType } from "@/lib/onboarding/plan-quiz";
+import type { Role } from "@/lib/permissions";
 
 // Authenticated app surface — keep it out of search engines + previews.
 export const metadata: Metadata = {
@@ -41,8 +42,10 @@ export default async function AppLayout({
   let canCreateCompany = true;
   let analyticsConsent = false;
   let businessType: BusinessType = "other";
+  let role: Role = "manager";
   try {
     const user = await getCurrentUser();
+    role = user.role;
     const supabase = await createSupabaseServerClient();
     const [{ data }, loadedMemberships, ownedCount, consentFlags] =
       await Promise.all([
@@ -71,6 +74,7 @@ export default async function AppLayout({
       memberships={memberships}
       canCreateCompany={canCreateCompany}
       businessType={businessType}
+      role={role}
     >
       <SessionRegistrar />
       <ProductAnalytics enabled={analyticsConsent} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { TABLET_MEDIA_QUERY } from "@/lib/navigation/breakpoints";
 
 const STORAGE_KEY = "bantuniaga.sidebar.collapsed";
 
@@ -10,7 +11,13 @@ export function useSidebarCollapsed() {
 
   useEffect(() => {
     try {
-      setCollapsed(window.localStorage.getItem(STORAGE_KEY) === "1");
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored !== null) {
+        setCollapsed(stored === "1");
+      } else {
+        const tablet = window.matchMedia(TABLET_MEDIA_QUERY).matches;
+        setCollapsed(tablet);
+      }
     } catch {
       // private mode / quota — keep default expanded
     }
