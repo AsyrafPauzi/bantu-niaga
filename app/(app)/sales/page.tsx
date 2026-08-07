@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { SalesOverview } from "@/components/sales/SalesOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
-import { canManageSalesCore, canUseLeads, canUsePos, canUseSalesAssistant } from "@/lib/sales/access";
+import { canManageSalesCore, canUseLeads, canUsePos } from "@/lib/sales/access";
 import { loadSalesDashboard } from "@/lib/sales/dashboard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -25,7 +25,6 @@ export default async function SalesPage() {
       data={data}
       showPos={canUsePos(user.role)}
       showLeads={canUseLeads(user.role)}
-      showAssistant={canUseSalesAssistant(user.role)}
       showHistory={canManageSalesCore(user.role)}
     />
   );

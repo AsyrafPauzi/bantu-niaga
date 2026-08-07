@@ -5,7 +5,15 @@ import {
   myrToCredits,
 } from "@/lib/settings/credit-pricing";
 
-export const HR_ASSISTANT_ADDON_SLUG = "hr-assistant";
+export {
+  ADMIN_ASSISTANT_ADDON_SLUG,
+  FINANCE_ASSISTANT_ADDON_SLUG,
+  HR_ASSISTANT_ADDON_SLUG,
+  MARKETING_ASSISTANT_ADDON_SLUG,
+  OPERATIONS_ASSISTANT_ADDON_SLUG,
+  SALES_ASSISTANT_ADDON_SLUG,
+} from "@/lib/marketplace/agent-addon-slugs";
+
 export const HR_PUBLIC_HOLIDAYS_ADDON_SLUG = "hr-public-holidays";
 export const HR_STAFF_APPRAISAL_ADDON_SLUG = "hr-staff-appraisal";
 export const HR_STAFF_PORTAL_ADDON_SLUG = "hr-staff-portal";
@@ -13,23 +21,18 @@ export const HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG = "hr-advanced-leave-policy";
 export const HR_AGENT_SLUG = "hr";
 export const HR_ASSISTANT_MONTHLY_CREDITS = 100;
 
-export const MARKETING_ASSISTANT_ADDON_SLUG = "marketing-assistant";
 export const MARKETING_AGENT_SLUG = "marketing";
 export const MARKETING_ASSISTANT_MONTHLY_CREDITS = 100;
 
-export const SALES_ASSISTANT_ADDON_SLUG = "sales-assistant";
 export const SALES_AGENT_SLUG = "sales";
 export const SALES_ASSISTANT_MONTHLY_CREDITS = 100;
 
-export const FINANCE_ASSISTANT_ADDON_SLUG = "finance-assistant";
 export const FINANCE_AGENT_SLUG = "finance";
 export const FINANCE_ASSISTANT_MONTHLY_CREDITS = 100;
 
-export const OPERATIONS_ASSISTANT_ADDON_SLUG = "operations-assistant";
 export const OPERATIONS_AGENT_SLUG = "operations";
 export const OPERATIONS_ASSISTANT_MONTHLY_CREDITS = 100;
 
-export const ADMIN_ASSISTANT_ADDON_SLUG = "admin-assistant";
 export const ADMIN_AGENT_SLUG = "admin";
 export const ADMIN_ASSISTANT_MONTHLY_CREDITS = 100;
 /** Baseline fast-mode costs — prefer `chatCreditsForReasoning` / `actionCreditsForReasoning`. */

@@ -23,6 +23,7 @@ export function BundleCard({
   const purchasableLines = pricing.lines.filter(
     (line) => !line.comingSoon && !line.active && !line.includedInTier,
   );
+  const allStackComingSoon = pricing.allStackComingSoon;
 
   return (
     <article className="flex flex-col gap-4 rounded-2xl border border-cream-300 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
@@ -31,7 +32,7 @@ export function BundleCard({
           <Package className="h-5 w-5" strokeWidth={2} />
         </span>
         <span className="inline-flex items-center rounded-full bg-accent-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-700">
-          {recommendedTierLabel} plan
+          Best on {recommendedTierLabel}
         </span>
       </div>
 
@@ -52,18 +53,23 @@ export function BundleCard({
 
       <div className="mt-auto rounded-xl bg-cream-100/80 p-4 dark:bg-hairline-dark/40">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-subtle">
-          Bundle estimate / month
+          {allStackComingSoon ? "Add-ons coming soon" : "Add-ons / month"}
         </p>
         <div className="mt-1 flex flex-wrap items-end gap-2">
           <p className="text-2xl font-bold text-ink dark:text-cream-100">
-            {formatMyr(pricing.totalBundleCents)}
+            {formatMyr(pricing.bundleAddonSubtotalCents)}
           </p>
-          {pricing.totalAlaCarteCents > pricing.totalBundleCents ? (
+          {pricing.addonSubtotalCents > pricing.bundleAddonSubtotalCents ? (
             <p className="text-sm text-ink-muted line-through dark:text-cream-500">
-              {formatMyr(pricing.totalAlaCarteCents)}
+              {formatMyr(pricing.addonSubtotalCents)}
             </p>
           ) : null}
         </div>
+        {allStackComingSoon ? (
+          <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
+            Estimated stack price — activation opens when modules ship.
+          </p>
+        ) : null}
         {pricing.savingsCents > 0 ? (
           <p className="mt-1 text-xs font-medium text-status-success">
             Save {formatMyr(pricing.savingsCents)} on add-ons (
@@ -71,8 +77,10 @@ export function BundleCard({
           </p>
         ) : null}
         <p className="mt-2 text-[11px] text-ink-subtle dark:text-cream-500">
-          Includes {recommendedTierLabel} plan + listed modules. Discount applies
-          to add-ons when activated together as a pack.
+          Plan subscription is separate.{" "}
+          {allStackComingSoon
+            ? "Prices shown for planning — not billed until add-ons launch."
+            : `${Math.round(BUNDLE_ADDON_DISCOUNT_RATE * 100)}% off when you activate these add-ons together.`}
         </p>
       </div>
 
@@ -95,8 +103,13 @@ export function BundleCard({
           </Link>
         ) : purchasableLines.length > 0 ? (
           <p className="rounded-lg bg-status-warning/10 px-3 py-2 text-xs text-ink-muted dark:text-cream-400">
-            Activate each module below, or use one-click pack activation when it
-            ships.
+            Activate each ready module below, or use one-click pack activation when
+            it ships.
+          </p>
+        ) : allStackComingSoon ? (
+          <p className="rounded-lg bg-cream-100 px-3 py-2 text-xs text-ink-muted dark:text-cream-400">
+            All add-ons in this bundle are coming soon. Shipped modules stay
+            available in the main catalog.
           </p>
         ) : (
           <p className="rounded-lg bg-status-success/10 px-3 py-2 text-xs font-medium text-status-success">
@@ -113,22 +126,27 @@ function BundleLineItem({ line }: { line: BundlePricingLine }) {
     ? "Active"
     : line.includedInTier
       ? "Included in plan"
-      : line.comingSoon
-        ? "Coming soon"
-        : line.optional
-          ? "Optional"
-          : formatMyr(line.priceCents);
+      : line.optional
+        ? `${formatMyr(line.priceCents)} · optional`
+        : formatMyr(line.priceCents);
 
   return (
     <li className="flex items-center justify-between gap-2">
-      <span className="text-ink dark:text-cream-100">{line.name}</span>
+      <span className="text-ink dark:text-cream-100">
+        {line.name}
+        {line.comingSoon && !line.active && !line.includedInTier ? (
+          <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
+            soon
+          </span>
+        ) : null}
+      </span>
       <span
         className={cn(
           "shrink-0 text-xs font-medium",
           line.active || line.includedInTier
             ? "text-status-success"
             : line.comingSoon
-              ? "text-ink-subtle"
+              ? "text-ink-muted dark:text-cream-400"
               : "text-ink-muted dark:text-cream-400",
         )}
       >

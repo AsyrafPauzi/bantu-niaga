@@ -7,9 +7,9 @@ export function HrAdvancedLeavePolicyGate() {
       icon={FileCheck}
       title="Advanced Leave Policy"
       description="Automate AL carry-forward with caps, pro-rated entitlement for mid-year joiners, custom emergency and MC rules, hard balance enforcement, and team leave calendar views."
-      priceLabel="RM 29/month (planned)"
+      priceLabel="RM 29/month"
       comingSoon
-      marketplaceHint="Placeholder add-on · extends the free core leave balance"
+      marketplaceHint="Extends the free core leave balance when activated"
     />
   );
 }

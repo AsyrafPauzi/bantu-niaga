@@ -28,6 +28,13 @@ import {
   financeInvoiceCreateSchema,
   type FinanceInvoiceRow,
 } from "@/lib/finance/schemas";
+import {
+  assertFreeTierDuitNowAllowed,
+  assertFreeTierInvoiceQuota,
+  assertFreeTierQuotesAllowed,
+  isFreeTierLimitError,
+} from "@/lib/settings/free-tier-limits";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +110,29 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const tier = await loadBusinessTier(user.businessId, supabase);
+
+  try {
+    const documentKind = parsed.document_kind ?? "invoice";
+    if (documentKind === "quote") {
+      assertFreeTierQuotesAllowed(tier);
+    } else {
+      await assertFreeTierInvoiceQuota(supabase, user.businessId, tier);
+    }
+    assertFreeTierDuitNowAllowed(tier, parsed.show_duitnow);
+  } catch (e) {
+    if (isFreeTierLimitError(e)) {
+      return NextResponse.json(
+        { ok: false, error: e.payload },
+        { status: 403 },
+      );
+    }
+    throw e;
+  }
+
+  if (tier === "starter" && parsed.show_duitnow) {
+    parsed = { ...parsed, show_duitnow: false };
+  }
   const customer = await resolveCustomerSnapshot(
     supabase,
     user.businessId,

@@ -9,6 +9,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { tierBundledCredits } from "../lib/settings/tier-agents";
 
 const DEMO_BUSINESS_ID = "11111111-1111-1111-1111-111111111111";
 const DEFAULT_EMAIL = "owner@demo.bantuniaga.local";
@@ -407,13 +408,14 @@ async function main(): Promise<void> {
     .eq("id", bizId)
     .single();
   const balance = biz?.credit_balance ?? 0;
-  if (balance < 200) {
+  const targetCredits = tierBundledCredits("enterprise");
+  if (balance < targetCredits) {
     const { error: credErr } = await supabase
       .from("businesses")
-      .update({ credit_balance: 500 })
+      .update({ credit_balance: targetCredits })
       .eq("id", bizId);
     if (credErr) console.warn(`[seed:ai] credits: ${credErr.message}`);
-    else console.log(`[seed:ai] credit_balance set to 500 (was ${balance})`);
+    else console.log(`[seed:ai] credit_balance set to ${targetCredits} (was ${balance})`);
   } else {
     console.log(`[seed:ai] credits OK (${balance})`);
   }

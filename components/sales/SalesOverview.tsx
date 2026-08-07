@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   Banknote,
-  Bot,
   Clock,
   CreditCard,
   Plus,
@@ -70,7 +69,6 @@ interface SalesOverviewProps {
   data: SalesDashboardData;
   showPos: boolean;
   showLeads: boolean;
-  showAssistant?: boolean;
   showHistory?: boolean;
 }
 
@@ -78,7 +76,6 @@ export function SalesOverview({
   data,
   showPos,
   showLeads,
-  showAssistant = false,
   showHistory = false,
 }: SalesOverviewProps) {
   const { summary, leads, recentSales, todayYmd, week, topProducts, cashiers, notifications } =
@@ -146,14 +143,6 @@ export function SalesOverview({
           icon: Users,
           title: "Leads",
           subtitle: "Pipeline & follow-ups",
-        }
-      : null,
-    showAssistant
-      ? {
-          href: "/sales?sufi=open",
-          icon: Bot,
-          title: "Ask Sufi",
-          subtitle: "Sales copilot",
         }
       : null,
     showHistory

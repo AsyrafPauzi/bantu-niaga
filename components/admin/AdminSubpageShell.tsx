@@ -8,7 +8,7 @@ interface AdminSubpageShellProps {
   headline: string;
   subcopy: string;
   variant?: LegacyModuleHeroVariant;
-  stats: React.ReactNode;
+  stats?: React.ReactNode;
   children: React.ReactNode;
 }
 

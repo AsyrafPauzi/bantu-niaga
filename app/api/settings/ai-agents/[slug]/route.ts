@@ -12,6 +12,8 @@ import {
   myrToCredits,
 } from "@/lib/settings/credit-pricing";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
+import { tierAllowsDeepReasoning } from "@/lib/settings/tier-agents";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +94,20 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const supabase = await createSupabaseServerClient();
+
+    if (parsed.reasoning_mode === "deep") {
+      const tier = await loadBusinessTier(user.businessId, supabase);
+      if (!tierAllowsDeepReasoning(tier)) {
+        return NextResponse.json(
+          {
+            error: "deep_not_allowed",
+            message:
+              "Deep reasoning is available on Solo and higher plans. Upgrade to unlock ilmu-v3.1.",
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     const { data: existing } = await supabase
       .from("business_agent_settings")

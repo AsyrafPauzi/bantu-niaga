@@ -49,14 +49,17 @@ export default async function FinancePage({
     appUrl,
   });
 
+  const expensesAllowed = business?.tier !== "starter";
+
   return (
     <div className="space-y-4">
       <FinanceGuideJourney businessId={user.businessId} />
       <FinanceOverview
         data={data}
         businessName={business?.name ?? "us"}
+        expensesAllowed={expensesAllowed}
       />
-      <FinanceMobileExpenseFab />
+      <FinanceMobileExpenseFab expensesAllowed={expensesAllowed} />
     </div>
   );
 }

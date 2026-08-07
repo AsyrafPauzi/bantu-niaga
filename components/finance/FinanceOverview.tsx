@@ -20,7 +20,6 @@ import {
   AdminOverviewPanel,
   AdminOverviewRow,
 } from "@/components/admin/AdminOverviewPanel";
-import { AiBanner } from "@/components/dashboard/ai-banner";
 import {
   ModuleAttentionPills,
   ModuleDashboardHero,
@@ -148,11 +147,13 @@ function pctTone(pct: number | null, invert = false): string {
 interface FinanceOverviewProps {
   data: FinanceDashboardData;
   businessName: string;
+  expensesAllowed?: boolean;
 }
 
 export function FinanceOverview({
   data,
   businessName,
+  expensesAllowed = true,
 }: FinanceOverviewProps) {
   const {
     month,
@@ -232,6 +233,10 @@ export function FinanceOverview({
     href: string;
     tone: "danger" | "warning" | "neutral";
   }>;
+
+  const quickActions = expensesAllowed
+    ? QUICK_ACTIONS
+    : QUICK_ACTIONS.filter((a) => a.href !== "/finance/expenses");
 
   return (
     <ModuleDashboardShell className="pb-20 lg:pb-8">
@@ -445,12 +450,21 @@ export function FinanceOverview({
             title="Expense breakdown"
             subtitle={`Top categories · ${monthLabel}`}
             action={
-              <Link
-                href="/finance/expenses"
-                className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-              >
-                Log expense
-              </Link>
+              expensesAllowed ? (
+                <Link
+                  href="/finance/expenses"
+                  className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+                >
+                  Log expense
+                </Link>
+              ) : (
+                <Link
+                  href="/settings/subscription"
+                  className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+                >
+                  Upgrade for expenses
+                </Link>
+              )
             }
           >
             <div className="space-y-3 px-4 py-3 sm:px-5">
@@ -496,16 +510,29 @@ export function FinanceOverview({
                 <AdminCatalogEmpty
                   icon={Receipt}
                   title="No entries yet"
-                  hint="Log expenses and income to build your cash-flow picture."
+                  hint={
+                    expensesAllowed
+                      ? "Log expenses and income to build your cash-flow picture."
+                      : "Upgrade to Basic (RM39) to track expenses."
+                  }
                   className="border-none bg-transparent py-8 dark:bg-transparent"
                   action={
-                    <Link
-                      href="/finance/expenses"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Log expense
-                    </Link>
+                    expensesAllowed ? (
+                      <Link
+                        href="/finance/expenses"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Log expense
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/settings/subscription"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+                      >
+                        Upgrade plan
+                      </Link>
+                    )
                   }
                 />
               </div>
@@ -656,19 +683,8 @@ export function FinanceOverview({
       <ModuleQuickActions
         module="Finance"
         pillar="finance"
-        actions={QUICK_ACTIONS}
+        actions={quickActions}
         footer={<AccountantExportButton defaultMonth={month} compact />}
-      />
-
-      <AiBanner
-        label="Finance AI · Fayza"
-        message={
-          counts.overdueInvoices > 0
-            ? `You have ${counts.overdueInvoices} overdue invoice${counts.overdueInvoices === 1 ? "" : "s"}. Ask Fayza for a chase plan or month-end checklist.`
-            : "Ask Fayza to check cash flow, create invoices, log expenses, or chase unpaid bills."
-        }
-        cta="Chat with Fayza"
-        href="/finance?fayza=open"
       />
     </ModuleDashboardShell>
   );

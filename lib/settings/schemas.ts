@@ -75,7 +75,7 @@ export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 // Subscription — POST /api/settings/subscription/change
 // ─────────────────────────────────────────────────────────────────────────
 
-export const TIERS = ["starter", "micro", "sme", "enterprise"] as const;
+export const TIERS = ["starter", "basic", "micro", "sme", "enterprise"] as const;
 
 export const tierChangeSchema = z
   .object({
@@ -113,6 +113,11 @@ export const paymentMethodUpdateSchema = z
 // Billing — top-up Fast Credits
 // ─────────────────────────────────────────────────────────────────────────
 
+import {
+  CREDIT_TOPUP_BY_SLUG,
+  CREDIT_TOPUP_ADDON_SLUGS,
+} from "@/lib/marketplace/credit-topup-purchase";
+
 /**
  * Demo bundles. RM 10 / 100 credits, RM 20 / 220, RM 50 / 600.
  * The /topup route picks credits from the bundle keyed by `bundle`.
@@ -123,12 +128,20 @@ export const TOPUP_BUNDLES = {
   large: { amount_myr: 50, credits: 600 },
 } as const;
 
-export const topupSchema = z
-  .object({
-    bundle: z.enum(["small", "medium", "large"]),
-    payment_method_id: z.string().uuid().optional(),
-  })
-  .strict();
+export const topupSchema = z.union([
+  z
+    .object({
+      bundle: z.enum(["small", "medium", "large"]),
+      payment_method_id: z.string().uuid().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      addon_slug: z.enum(CREDIT_TOPUP_ADDON_SLUGS),
+      payment_method_id: z.string().uuid().optional(),
+    })
+    .strict(),
+]);
 
 // ─────────────────────────────────────────────────────────────────────────
 // Security — password change

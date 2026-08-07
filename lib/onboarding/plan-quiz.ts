@@ -68,7 +68,7 @@ export function recommendPlanFromQuiz(answers: PlanQuizAnswers): PlanQuizResult 
       summary:
         "CRM, content, and multi-channel growth tools live in Pro. Try Starter or Growth first if budget is tight.",
       canStayFree: false,
-      bundleHint: "Pakej Online — Shopee sync + Marketing AI (coming soon)",
+      bundleHint: "Pakej Penjual Online — stor + automasi (modul Shopee belum live)",
     };
   }
 
@@ -82,9 +82,9 @@ export function recommendPlanFromQuiz(answers: PlanQuizAnswers): PlanQuizResult 
       canStayFree: false,
       bundleHint:
         businessType === "fnb"
-          ? "Pakej Kafe — Azam HR + daily close-out"
+          ? "Pakej Restoran & Kafe — portal staf + tempahan"
           : businessType === "retail"
-            ? "Pakej Kedai — Azam HR + Dynamic QR"
+            ? "Pakej Kedai Runcit — stor + portal staf"
             : undefined,
     };
   }
@@ -97,7 +97,7 @@ export function recommendPlanFromQuiz(answers: PlanQuizAnswers): PlanQuizResult 
         "Finance, admin, and operations modules unlock on Starter. Good for kedai and small teams.",
       canStayFree: false,
       bundleHint:
-        businessType === "fnb" ? "Pakej Kafe available on Growth" : undefined,
+        businessType === "fnb" ? "Pakej Restoran & Kafe on Solo" : undefined,
     };
   }
 

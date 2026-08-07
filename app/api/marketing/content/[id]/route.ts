@@ -16,8 +16,8 @@ import {
 /**
  * /api/marketing/content/[id] — single-entry CRUD for Marketing M5.
  *
- *   GET    → full entry + attached media (file_id rows only, no
- *            thumbnails — those come from Admin Storage once D6 lands).
+ *   GET    → full entry + attached media (file_id rows; thumbnails via
+ *            GET /api/marketing/media/[id]/download).
  *   PATCH  → partial update, validates the idea→drafted→scheduled→posted
  *            lifecycle (backward transitions allowed; `posted` terminal).
  *   DELETE → hard delete (plan §4.1 says no soft-delete for content_plan;

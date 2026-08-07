@@ -4,9 +4,7 @@ import { AdminSubpageShell } from "@/components/admin/AdminSubpageShell";
 import {
   AdminStoragePanel,
   type AdminStorageFileRow,
-  type AdminStorageStats,
 } from "@/components/admin/AdminStoragePanel";
-import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
 import {
   getCurrentUser,
@@ -28,8 +26,6 @@ import {
 } from "@/lib/admin/storage-server";
 import { loadStorageQuota } from "@/lib/admin/storage-quota";
 import { loadFileUsageLinks } from "@/lib/admin/storage-usage";
-import { formatStorageBytes } from "@/lib/admin/storage-shared";
-import { tierBy } from "@/lib/settings/plans";
 
 export const metadata = { title: "Storage" };
 export const dynamic = "force-dynamic";
@@ -109,14 +105,37 @@ export default async function StoragePage({ searchParams }: PageProps) {
     .maybeSingle();
 
   const tierKey = (business as { tier?: string } | null)?.tier ?? "starter";
-  const tier = tierBy(tierKey);
 
-  const [statsRes, listResult, quota] = await Promise.all([
-    supabase
-      .from("admin_files")
-      .select("file_size_bytes, category, created_at")
-      .eq("business_id", user.businessId)
-      .is("deleted_at", null),
+  const statsRes = await supabase
+    .from("admin_files")
+    .select("file_size_bytes, category, created_at")
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null);
+
+  const allFiles = statsRes.data ?? [];
+  const categoryCounts: Record<string, number> = { "": allFiles.length };
+  for (const f of allFiles) {
+    const key =
+      f.category && isAdminFileCategory(String(f.category))
+        ? String(f.category)
+        : "uncategorized";
+    categoryCounts[key] = (categoryCounts[key] ?? 0) + 1;
+  }
+
+  if (statsRes.error) {
+    return (
+      <div className="space-y-4">
+        <AdminBackLink />
+        <Card>
+          <CardBody className="text-sm text-status-danger">
+            Failed to load storage: {statsRes.error.message}
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
+
+  const [listResult, quota] = await Promise.all([
     listAdminFiles(supabase, {
       businessId: user.businessId,
       category: effectiveCategory,
@@ -126,24 +145,6 @@ export default async function StoragePage({ searchParams }: PageProps) {
     }),
     loadStorageQuota(supabase, user.businessId, tierKey),
   ]);
-
-  const allFiles = statsRes.data ?? [];
-  const weekAgo = Date.now() - 7 * 86_400_000;
-  const categories = new Set(
-    allFiles.map((f) => f.category).filter(Boolean),
-  );
-
-  const stats: AdminStorageStats = {
-    totalFiles: allFiles.length,
-    totalBytes: allFiles.reduce(
-      (sum, f) => sum + Number(f.file_size_bytes ?? 0),
-      0,
-    ),
-    categoryCount: categories.size,
-    uploadedThisWeek: allFiles.filter(
-      (f) => new Date(String(f.created_at)).getTime() >= weekAgo,
-    ).length,
-  };
 
   const nameLookup = await hydrateUploaderNames(supabase, listResult.rows);
   const fileIds = listResult.rows.map((r) => r.id);
@@ -196,73 +197,31 @@ export default async function StoragePage({ searchParams }: PageProps) {
     quota.usagePct !== null &&
     quota.usagePct >= 75;
 
-  const heroHeadline =
-    stats.totalFiles === 0
-      ? "Upload your first document"
-      : `${stats.totalFiles} file${stats.totalFiles === 1 ? "" : "s"} in your vault`;
-
-  const heroSub =
-    stats.totalFiles === 0
-      ? "Receipts, contracts, licence PDFs — private to your team, up to 25 MB each."
-      : hrDocsOnly
-        ? "HR documents only — attach scans to employee profiles from here."
-        : "Filter by category, search by name, and link files to compliance or tasks.";
-
-  if (statsRes.error) {
-    return (
-      <div className="space-y-4">
-        <AdminBackLink />
-        <Card>
-          <CardBody className="text-sm text-status-danger">
-            Failed to load storage: {statsRes.error.message}
-          </CardBody>
-        </Card>
-      </div>
-    );
-  }
+  const heroHeadline = "Document vault";
+  const heroSub = hrDocsOnly
+    ? "HR documents — browse folders, upload scans, and link to employee profiles."
+    : "Browse by folder, search by name, upload files, and link to compliance or tasks.";
 
   return (
     <AdminSubpageShell
       headline={heroHeadline}
       subcopy={heroSub}
       variant={quotaNearFull ? "attention" : "calm"}
-      stats={
-        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <ModuleHeroStat
-            label="Files"
-            value={stats.totalFiles}
-            iconClassName="text-violet-700 dark:text-violet-300"
-          />
-          <ModuleHeroStat
-            label="Space used"
-            value={formatStorageBytes(stats.totalBytes)}
-            iconClassName="text-sky-700 dark:text-sky-300"
-          />
-          <ModuleHeroStat
-            label="Categories"
-            value={stats.categoryCount}
-            iconClassName="text-emerald-700 dark:text-emerald-300"
-          />
-          <ModuleHeroStat
-            label="This week"
-            value={stats.uploadedThisWeek}
-            iconClassName="text-amber-700 dark:text-amber-300"
-          />
-        </div>
-      }
     >
       <AdminStoragePanel
         rows={rows}
         nextCursor={listResult.nextCursor}
         quota={{
           usedBytes: quota.usedBytes,
-          quotaGb: quota.quotaGb,
+          quotaGb:
+            quota.quotaMb != null
+              ? Math.round((quota.quotaMb / 1024) * 100) / 100
+              : quota.quotaMb,
           usagePct: quota.usagePct,
-          isUnlimited:
-            quota.isUnlimited ||
-            tier?.quotas.storageGb === Number.POSITIVE_INFINITY,
+          isUnlimited: quota.isUnlimited,
         }}
         usageByFileId={usageByFileId}
+        categoryCounts={categoryCounts}
         hrDocsOnly={hrDocsOnly}
         query={q}
         activeCategory={effectiveCategory}

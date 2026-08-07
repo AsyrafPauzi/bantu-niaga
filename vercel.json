@@ -18,6 +18,10 @@
       "schedule": "15 0 * * *"
     },
     {
+      "path": "/api/cron/subscription-promo-expiry",
+      "schedule": "20 0 * * *"
+    },
+    {
       "path": "/api/cron/tenant-health",
       "schedule": "30 1 * * *"
     },

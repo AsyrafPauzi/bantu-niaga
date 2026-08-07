@@ -1,11 +1,14 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { loadActiveAiAgentSlugs } from "@/lib/ai/boardroom";
 import {
-  MONTHLY_CREDITS_PER_AGENT,
+  LEGACY_MONTHLY_CREDITS_PER_AGENT,
   monthlyBundledCredits,
+  monthlyBundledCreditsForTier,
 } from "@/lib/settings/credit-pricing";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface CreditRolloverPolicy {
@@ -31,11 +34,11 @@ export function computeBundleBalance(
   return Math.max(0, totalBalance - Math.max(0, topupBalance));
 }
 
-/** Preview balance after one agent monthly renewal (expire up to grant, then re-grant). */
+/** Preview balance after monthly bundle grant (expire up to grant, then re-grant). */
 export function previewMonthlyRenewalBalance(
   totalBalance: number,
   topupBalance: number,
-  grantCredits: number = MONTHLY_CREDITS_PER_AGENT,
+  grantCredits: number = LEGACY_MONTHLY_CREDITS_PER_AGENT,
 ): number {
   const bundle = computeBundleBalance(totalBalance, topupBalance);
   const newBundle = Math.max(0, bundle - grantCredits) + grantCredits;
@@ -48,12 +51,10 @@ export async function loadCreditRolloverPolicy(
 ): Promise<CreditRolloverPolicy> {
   const supabase = client ?? (await createSupabaseServerClient());
 
-  const [businessRes, activeSlugs, addonsRes] = await Promise.all([
+  const [businessRes, activeSlugs, addonsRes, tier] = await Promise.all([
     supabase
       .from("businesses")
-      .select(
-        "credit_balance, credit_topup_balance, subscription_renewal_at",
-      )
+      .select("credit_balance, credit_topup_balance, subscription_renewal_at")
       .eq("id", businessId)
       .maybeSingle(),
     loadActiveAiAgentSlugs(businessId, supabase),
@@ -62,6 +63,7 @@ export async function loadCreditRolloverPolicy(
       .select("next_charge_at, marketplace_addons!inner(slug)")
       .eq("business_id", businessId)
       .eq("status", "active"),
+    loadBusinessTier(businessId, supabase),
   ]);
 
   if (businessRes.error) throw new Error(businessRes.error.message);
@@ -79,6 +81,10 @@ export async function loadCreditRolloverPolicy(
   const topup = Math.max(0, business?.credit_topup_balance ?? 0);
   const topupCapped = Math.min(topup, total);
 
+  const tierBundle = monthlyBundledCreditsForTier(tier);
+  const legacyBundle = monthlyBundledCredits(activeSlugs.size);
+  const maxMonthlyBundle = Math.max(tierBundle, legacyBundle);
+
   const renewalDates = (addonsRes.data ?? [])
     .filter((row) => {
       const addon = row.marketplace_addons as unknown as { slug: string };
@@ -92,9 +98,9 @@ export async function loadCreditRolloverPolicy(
     total_balance: total,
     topup_balance: topupCapped,
     bundle_balance: computeBundleBalance(total, topupCapped),
-    monthly_credits_per_agent: MONTHLY_CREDITS_PER_AGENT,
+    monthly_credits_per_agent: LEGACY_MONTHLY_CREDITS_PER_AGENT,
     active_ai_agents: activeSlugs.size,
-    max_monthly_bundle: monthlyBundledCredits(activeSlugs.size),
+    max_monthly_bundle: maxMonthlyBundle,
     subscription_renewal_at: business?.subscription_renewal_at ?? null,
     next_ai_addon_renewal_at: renewalDates[0] ?? null,
     policy: {

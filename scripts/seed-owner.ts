@@ -154,6 +154,25 @@ async function main(): Promise<void> {
     throw new Error(`public.users upsert failed: ${profileError.message}`);
   }
 
+  const { error: membershipError } = await supabase
+    .from("user_business_memberships")
+    .upsert(
+      {
+        user_id: userId,
+        business_id: businessId,
+        role: "owner",
+        email,
+        display_name: "Demo Owner",
+      },
+      { onConflict: "user_id,business_id" },
+    );
+  if (membershipError) {
+    throw new Error(
+      `user_business_memberships upsert failed: ${membershipError.message}`,
+    );
+  }
+  console.log("[seed] owner membership ensured");
+
   console.log("[seed] done.");
   console.log("");
   console.log("Sign in at http://localhost:3000/sign-in");

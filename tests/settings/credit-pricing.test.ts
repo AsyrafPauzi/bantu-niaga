@@ -1,29 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  creditsToMyr,
-  DAILY_BUDGET_DEFAULT_CREDITS,
-  monthlyBundledCredits,
-  MONTHLY_CREDITS_PER_AGENT,
-  myrToCredits,
+  LEGACY_MONTHLY_CREDITS_PER_AGENT,
+  monthlyBundledCreditsForTier,
 } from "@/lib/settings/credit-pricing";
 
-describe("credit pricing (200 credits = RM 20)", () => {
-  it("converts 200 credits to RM 20", () => {
-    expect(creditsToMyr(200)).toBe(20);
+describe("credit pricing", () => {
+  it("legacy per-agent grant for marketplace addons", () => {
+    expect(LEGACY_MONTHLY_CREDITS_PER_AGENT).toBe(100);
   });
 
-  it("converts RM 5 to 50 credits", () => {
-    expect(myrToCredits(5)).toBe(50);
-  });
-
-  it("default daily budget is 50 credits (RM 5)", () => {
-    expect(DAILY_BUDGET_DEFAULT_CREDITS).toBe(50);
-    expect(creditsToMyr(DAILY_BUDGET_DEFAULT_CREDITS)).toBe(5);
-  });
-
-  it("bundles 100 credits per subscribed agent into the shared monthly pool", () => {
-    expect(MONTHLY_CREDITS_PER_AGENT).toBe(100);
-    expect(monthlyBundledCredits(6)).toBe(600);
-    expect(monthlyBundledCredits(0)).toBe(0);
+  it("tier bundled credits", () => {
+    expect(monthlyBundledCreditsForTier("basic")).toBe(60);
+    expect(monthlyBundledCreditsForTier("micro")).toBe(120);
   });
 });

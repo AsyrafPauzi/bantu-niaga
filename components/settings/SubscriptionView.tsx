@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { TIERS, tierBy, type TierKey } from "@/lib/settings/plans";
 
 interface SubscriptionViewProps {
-  tier: "starter" | "micro" | "sme" | "enterprise";
+  tier: "starter" | "basic" | "micro" | "sme" | "enterprise";
   subscriptionStatus: "active" | "past_due" | "cancelled" | "trial";
   subscriptionRenewalAt: string | null;
   usage: {
@@ -40,11 +40,11 @@ const PILLAR_LABELS: Record<string, string> = {
 
 const PILLAR_MIN_TIER: Record<string, TierKey> = {
   finance: "starter",
-  admin: "micro",
+  admin: "basic",
+  sales: "basic",
   operations: "micro",
-  sales: "sme",
-  hr: "sme",
-  marketing: "enterprise",
+  hr: "micro",
+  marketing: "micro",
 };
 
 export function SubscriptionView({

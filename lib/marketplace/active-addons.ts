@@ -14,7 +14,13 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import {
+  isAddonFeatureAccessible,
+  isAddonFeatureDisabled,
+} from "@/lib/marketplace/addon-meta";
 import type { CatalogEntry } from "./types";
+import { isCreditTopupAddon } from "@/lib/marketplace/credit-topup-purchase";
+import { planIncludesAgentSlug } from "@/lib/settings/tier-agents";
 
 export const ADDON_ICON_MAP: Record<string, LucideIcon> = {
   calendar: Calendar,
@@ -37,10 +43,25 @@ export function addonIcon(iconKey: string): LucideIcon {
 
 export function isAddonActive(entry: CatalogEntry, tier: string): boolean {
   const { addon, activation } = entry;
+  if (isCreditTopupAddon(addon)) {
+    return false;
+  }
+  if (isTierBundledAddon(entry, tier)) {
+    return true;
+  }
   if (
     activation &&
     (activation.status === "active" || activation.status === "pending_cancel")
   ) {
+    return true;
+  }
+  return false;
+}
+
+/** Plan-included add-ons (AI agents + cadence `included`) cannot be deactivated. */
+export function isTierBundledAddon(entry: CatalogEntry, tier: string): boolean {
+  const { addon } = entry;
+  if (planIncludesAgentSlug(tier, addon.slug)) {
     return true;
   }
   if (
@@ -52,13 +73,32 @@ export function isAddonActive(entry: CatalogEntry, tier: string): boolean {
   return false;
 }
 
+/** Core plan features are not listed in Marketplace — only purchasable add-ons. */
+export function filterMarketplaceCatalog(
+  entries: CatalogEntry[],
+  tier: string,
+): CatalogEntry[] {
+  return entries.filter((e) => !isTierBundledAddon(e, tier));
+}
+
 export function isPurchasedActivation(entry: CatalogEntry): boolean {
-  const { activation } = entry;
+  const { addon, activation } = entry;
+  if (isCreditTopupAddon(addon) || addon.cadence === "one_time") {
+    return false;
+  }
   return Boolean(
     activation &&
       (activation.status === "active" ||
         activation.status === "pending_cancel"),
   );
+}
+
+/** Recurring add-ons the owner subscribed to — excludes plan-included core. */
+export function isSubscribedMarketplaceAddon(
+  entry: CatalogEntry,
+  tier: string,
+): boolean {
+  return isPurchasedActivation(entry) && !isTierBundledAddon(entry, tier);
 }
 
 export function formatAddonDate(iso: string): string {
@@ -81,7 +121,15 @@ export function addonStatusLine(
   const { addon, activation } = entry;
 
   if (activation?.cancel_at) {
-    return `Cancels on ${formatAddonDate(activation.cancel_at)}`;
+    return `Cancels on ${formatAddonDate(activation.cancel_at)} · billing until then`;
+  }
+
+  if (isAddonFeatureDisabled(activation)) {
+    const renews =
+      activation?.next_charge_at
+        ? ` · still billed · renews ${formatAddonDate(activation.next_charge_at)}`
+        : " · still billed";
+    return `Disabled in app${renews}`;
   }
 
   if (activation?.next_charge_at && activation.activated_at) {
@@ -104,6 +152,10 @@ export function addonStatusLine(
   }
 
   return "Active";
+}
+
+export function isAddonFeatureEnabled(entry: CatalogEntry): boolean {
+  return isAddonFeatureAccessible(entry.activation);
 }
 
 export function resolveNextChargeDate(

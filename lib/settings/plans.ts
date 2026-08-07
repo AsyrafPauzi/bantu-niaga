@@ -1,27 +1,23 @@
 /**
- * Bantu Niaga — plan catalog.
+ * Bantu Niaga — plan catalog (pricing-plan v2026-08).
  *
- * Single source of truth for tier metadata. Mirrored in the marketing
- * site, the subscription settings page, and upsell logic.
- *
- * Each tier unlocks a strictly larger bundle of pillar modules — see
- * `lib/auth/entitlements.ts` for the canonical module mapping that the
- * sidebar, page guards, and home tiles all read from.
+ * Single source of truth for tier metadata. Mirrored in subscription UI
+ * and upsell logic. Pillar gates: `lib/auth/entitlements.ts`.
  */
-export type TierKey = "starter" | "micro" | "sme" | "enterprise";
+export type TierKey = "starter" | "basic" | "micro" | "sme" | "enterprise";
 
 export interface Tier {
   key: TierKey;
   label: string;
-  priceMyr: number | null; // null = custom
+  priceMyr: number | null;
   cadence: string;
   blurb: string;
   features: string[];
-  /** Quotas enforced by the app. */
   quotas: {
     seats: number;
     customers: number;
-    storageGb: number;
+    /** Storage quota in megabytes. */
+    storageMb: number;
     fastCreditsMonthly: number;
   };
   highlighted?: boolean;
@@ -33,79 +29,122 @@ export const TIERS: readonly Tier[] = [
     label: "Free",
     priceMyr: 0,
     cadence: "/month",
-    blurb: "Solo founders who need invoice and payment tracking.",
+    blurb: "Try invoicing — Finance lite only.",
     features: [
-      "Finance Lite (income, invoices, payment tracking)",
-      "1 owner seat",
-      "No saved customer database",
-      "5 GB storage",
-      "Upgrade required for add-ons and AI agents",
+      "Finance lite (income, invoices, payment tracking)",
+      "25 invoices / month · 50 saved customers",
+      "200 MB storage · no AI agents",
+      "Upgrade for expenses, DuitNow, and full modules",
     ],
-    quotas: { seats: 1, customers: 0, storageGb: 5, fastCreditsMonthly: 0 },
+    quotas: {
+      seats: 1,
+      customers: 50,
+      storageMb: 200,
+      fastCreditsMonthly: 0,
+    },
+  },
+  {
+    key: "basic",
+    label: "Basic",
+    priceMyr: 39,
+    cadence: "/month",
+    blurb: "Freelancers — Admin, Sales, and Finance desk.",
+    features: [
+      "Admin + Sales + Finance modules",
+      "3 AI agents (Amir, Sufi, Fayza) · ILMU Mini 3.3",
+      "60 AI credits / month",
+      "1 GB storage · 1 seat · 200 customers",
+    ],
+    quotas: {
+      seats: 1,
+      customers: 200,
+      storageMb: 1024,
+      fastCreditsMonthly: 60,
+    },
   },
   {
     key: "micro",
-    label: "Starter",
-    priceMyr: 69,
+    label: "Solo",
+    priceMyr: 79,
     cadence: "/month",
-    blurb: "Small teams running shop + admin + ops.",
+    blurb: "Full six-module stack for solo owners.",
     features: [
-      "Finance + Admin + Operations modules",
-      "3 staff seats",
-      "Up to 2,000 customers",
-      "20 GB storage",
-      "AI agents available as add-ons",
+      "All six core modules + Boardroom",
+      "All 6 AI agents included · 120 credits / month",
+      "5 GB storage · 1 seat · 500 customers",
+      "Unlimited email (COGS-guarded)",
     ],
-    quotas: { seats: 3, customers: 2_000, storageGb: 20, fastCreditsMonthly: 0 },
+    quotas: {
+      seats: 1,
+      customers: 500,
+      storageMb: 5120,
+      fastCreditsMonthly: 120,
+    },
   },
   {
     key: "sme",
-    label: "Growth",
-    priceMyr: 139,
+    label: "Micro",
+    priceMyr: 169,
     cadence: "/month",
-    blurb: "Multi-channel SMEs with a sales floor + team.",
+    blurb: "Primary tier for micro teams.",
     features: [
-      "Finance + Admin + Ops + Sales + HR modules",
-      "5 staff seats",
-      "Up to 10,000 customers",
-      "50 GB storage",
-      "AI agents available as add-ons",
+      "All six modules + 6 AI agents",
+      "180 AI credits / month",
+      "15 GB storage · 5 seats · 2,000 customers",
+      "Unlimited email (COGS-guarded)",
     ],
-    quotas: { seats: 5, customers: 10_000, storageGb: 50, fastCreditsMonthly: 0 },
+    quotas: {
+      seats: 5,
+      customers: 2_000,
+      storageMb: 15_360,
+      fastCreditsMonthly: 180,
+    },
     highlighted: true,
   },
   {
     key: "enterprise",
-    label: "Pro",
-    priceMyr: 249,
+    label: "Small",
+    priceMyr: 299,
     cadence: "/month",
-    blurb: "Established SMEs that also run brand + content.",
+    blurb: "Growing SMEs with larger teams.",
     features: [
-      "All 6 modules including Marketing (CRM + content)",
-      "Unlimited seats",
-      "Unlimited customers",
-      "Custom storage",
-      "AI agents available as add-ons",
+      "All six modules + 6 AI agents",
+      "360 AI credits / month",
+      "40 GB storage · 12 seats · 10,000 customers",
+      "Unlimited email (COGS-guarded)",
     ],
     quotas: {
-      seats: Number.POSITIVE_INFINITY,
-      customers: Number.POSITIVE_INFINITY,
-      storageGb: Number.POSITIVE_INFINITY,
-      fastCreditsMonthly: 0,
+      seats: 12,
+      customers: 10_000,
+      storageMb: 40_960,
+      fastCreditsMonthly: 360,
     },
   },
 ];
 
 export const ADDONS = [
-  { label: "Extra staff seat", priceMyr: 15, cadence: "/seat / month" },
-  { label: "Extra 10 GB storage", priceMyr: 8, cadence: "/month" },
-  { label: "Fast Credits top-up", priceMyr: 10, cadence: "/ 100 credits" },
-  { label: "Per-module AI Agent", priceMyr: 20, cadence: "/agent / month" },
-  { label: "Dynamic DuitNow QR", priceMyr: 20, cadence: "/month" },
-  { label: "Customer Booking Page", priceMyr: 25, cadence: "/month" },
-  { label: "WhatsApp Business API", priceMyr: 35, cadence: "/month" },
+  { label: "Extra staff seat", priceMyr: 9, cadence: "/seat / month" },
+  { label: "Extra 10 GB storage", priceMyr: 5, cadence: "/month" },
+  { label: "100 AI credits top-up", priceMyr: 10, cadence: "one-time" },
+  { label: "300 AI credits top-up", priceMyr: 28, cadence: "one-time" },
+  { label: "Recurring invoices", priceMyr: 9, cadence: "/month" },
+  { label: "Customer booking page", priceMyr: 9, cadence: "/month" },
+  { label: "Bank reconciliation", priceMyr: 14, cadence: "/month" },
+  { label: "WhatsApp Business API", priceMyr: 16, cadence: "/month + Meta" },
 ];
 
 export function tierBy(key: TierKey | string): Tier | undefined {
   return TIERS.find((t) => t.key === key);
+}
+
+export function tierStorageQuotaBytes(tier: TierKey | string): number | null {
+  const tierDef = tierBy(tier);
+  if (!tierDef) return null;
+  const mb = tierDef.quotas.storageMb;
+  if (!Number.isFinite(mb)) return null;
+  return mb * 1024 * 1024;
+}
+
+export function tierLabel(key: TierKey | string): string {
+  return tierBy(key)?.label ?? String(key);
 }

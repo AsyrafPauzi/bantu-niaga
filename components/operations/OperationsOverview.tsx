@@ -87,7 +87,9 @@ const QUICK_ACTION_DEFS: Record<
 };
 
 function buildQuickActions(profile: OperationsVerticalProfile) {
-  return profile.primarySurfaces.map((surface) => QUICK_ACTION_DEFS[surface]);
+  return profile.primarySurfaces
+    .filter((surface) => surface !== "assistant")
+    .map((surface) => QUICK_ACTION_DEFS[surface]);
 }
 
 const ORDER_STATUS_CLASS: Record<OperationsOrderStatus, string> = {

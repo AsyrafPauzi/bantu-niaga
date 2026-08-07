@@ -13,7 +13,6 @@ import {
   Plus,
   Send,
   Share2,
-  Sparkles,
   Star,
   Tag,
   TrendingUp,
@@ -77,12 +76,6 @@ const QUICK_ACTIONS = [
     icon: Calendar,
     title: "Plan content",
     subtitle: "Calendar drafts",
-  },
-  {
-    href: "/marketing?maya=open",
-    icon: Sparkles,
-    title: "Ask Maya",
-    subtitle: "Campaign ideas",
   },
 ] as const;
 

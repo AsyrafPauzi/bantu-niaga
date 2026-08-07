@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { hasPillar, type Pillar } from "@/lib/auth/entitlements";
+import { planIncludesAgent } from "@/lib/marketplace/plan-agent-entitlements";
 import type { TierKey } from "@/lib/settings/plans";
+import {
+  ALL_AGENT_ADDON_SLUGS,
+  maxAddonPriceMyrForTier,
+} from "@/lib/settings/tier-agents";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isCreditTopupSlug } from "@/lib/marketplace/credit-topup-purchase";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,6 +33,7 @@ const MODULE_ADDON_PILLARS = [
 function isTierKey(value: unknown): value is TierKey {
   return (
     value === "starter" ||
+    value === "basic" ||
     value === "micro" ||
     value === "sme" ||
     value === "enterprise"
@@ -87,7 +94,7 @@ export async function POST(request: Request) {
         .maybeSingle(),
       supabase
         .from("marketplace_addons")
-        .select("slug, name, pillar, is_coming_soon")
+        .select("slug, name, pillar, is_coming_soon, price_cents, cadence")
         .eq("slug", parsed.slug)
         .maybeSingle(),
     ]);
@@ -106,6 +113,17 @@ export async function POST(request: Request) {
     );
   }
 
+  if (isCreditTopupSlug(parsed.slug)) {
+    return NextResponse.json(
+      {
+        error: "use_topup",
+        message:
+          "Credit top-ups are one-time purchases. Use Buy in Marketplace or Settings → Billing.",
+      },
+      { status: 400 },
+    );
+  }
+
   if ((addon as { is_coming_soon?: boolean }).is_coming_soon) {
     return NextResponse.json(
       {
@@ -120,7 +138,36 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "plan_not_eligible",
-        message: "Free plan cannot activate add-ons. Upgrade to Starter or higher first.",
+        message: "Free plan cannot activate add-ons. Upgrade to Basic or higher first.",
+      },
+      { status: 403 },
+    );
+  }
+
+  if (
+    (ALL_AGENT_ADDON_SLUGS as readonly string[]).includes(parsed.slug) &&
+    planIncludesAgent(business.tier, parsed.slug)
+  ) {
+    return NextResponse.json(
+      {
+        error: "plan_included",
+        message: `${addon.name} is already included in your ${business.tier} plan.`,
+      },
+      { status: 403 },
+    );
+  }
+
+  const addonPriceMyr =
+    Number((addon as { price_cents?: number }).price_cents ?? 0) / 100;
+  const maxAddon = maxAddonPriceMyrForTier(business.tier);
+  if (
+    (addon as { cadence?: string }).cadence === "monthly" &&
+    addonPriceMyr > maxAddon
+  ) {
+    return NextResponse.json(
+      {
+        error: "addon_price_ceiling",
+        message: `This add-on exceeds the maximum price for your plan (RM${maxAddon}).`,
       },
       { status: 403 },
     );

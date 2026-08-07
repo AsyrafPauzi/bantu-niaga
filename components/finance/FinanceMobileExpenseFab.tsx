@@ -4,7 +4,13 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 /** Sticky quick-add on mobile Finance home — sits above bottom tab bar. */
-export function FinanceMobileExpenseFab() {
+export function FinanceMobileExpenseFab({
+  expensesAllowed = true,
+}: {
+  expensesAllowed?: boolean;
+}) {
+  if (!expensesAllowed) return null;
+
   return (
     <Link
       href="/finance/expenses?create=1"

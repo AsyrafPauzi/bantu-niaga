@@ -716,7 +716,7 @@ function PreviewStep({
           <button
             type="button"
             disabled
-            title="Bulk action ships in M7"
+            title="Coming later"
             className="inline-flex items-center gap-1.5 rounded-md border border-cream-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-ink-muted opacity-50 dark:border-hairline-dark dark:bg-panel-dark"
           >
             <Download className="h-3 w-3" strokeWidth={2} />

@@ -1,14 +1,15 @@
 import { redirect } from "next/navigation";
 import { Card, CardBody } from "@/components/ui/card";
 import { HrStaffPortalGate } from "@/components/hr/HrStaffPortalGate";
+import { HrStaffPortalPanel } from "@/components/hr/HrStaffPortalPanel";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrPageBody } from "@/components/hr/layout/hr-page-body";
 import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
 import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
-import { HR_STAFF_PORTAL_ADDON_SLUG } from "@/lib/marketplace/agent-types";
-import { loadAddonFeatureState } from "@/lib/marketplace/addon-availability";
+import { hasStaffPortalAddon } from "@/lib/marketplace/entitlements";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Staff portal" };
 export const dynamic = "force-dynamic";
@@ -32,27 +33,52 @@ export default async function HrStaffPortalPage() {
     );
   }
 
-  const portalState = await loadAddonFeatureState(
-    user.businessId,
-    HR_STAFF_PORTAL_ADDON_SLUG,
-  );
-  if (portalState.navDisabled) {
-    redirect("/hr/leave");
+  const addonActive = await hasStaffPortalAddon(user.businessId);
+
+  if (!addonActive) {
+    return (
+      <HrPageShell
+        header={
+          <HrPageHeader
+            title="Staff portal"
+            subtitle="Staff login for leave balance and self-service requests"
+            helpHref="/more"
+          />
+        }
+      >
+        <HrPageBody>
+          <HrMobileSubnav />
+          <HrStaffPortalGate />
+        </HrPageBody>
+      </HrPageShell>
+    );
   }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: employeeRows } = await supabase
+    .from("hr_employees")
+    .select("user_id")
+    .eq("business_id", user.businessId)
+    .eq("status", "active")
+    .is("deleted_at", null);
+
+  const rows = employeeRows ?? [];
+  const totalCount = rows.length;
+  const linkedCount = rows.filter((r) => r.user_id).length;
 
   return (
     <HrPageShell
       header={
         <HrPageHeader
           title="Staff portal"
-          subtitle="Staff login for leave balance and self-service requests"
+          subtitle="Link team logins so staff can use /hr/me"
           helpHref="/more"
         />
       }
     >
       <HrPageBody>
         <HrMobileSubnav />
-        <HrStaffPortalGate />
+        <HrStaffPortalPanel linkedCount={linkedCount} totalCount={totalCount} />
       </HrPageBody>
     </HrPageShell>
   );

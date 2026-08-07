@@ -105,6 +105,8 @@ interface ContentMediaUploaderProps {
     uploadedCount: number;
     firstImagePreviewUrl: string | null;
   }) => void;
+  /** Fired after a file is confirmed in marketing_files (edit flows attach to content). */
+  onFileUploaded?: (fileId: string) => void;
 }
 
 const PICKER_BUTTONS: Array<{
@@ -141,7 +143,7 @@ function generateTempId(): string {
 }
 
 export const ContentMediaUploader = forwardRef(function ContentMediaUploader(
-  { onChange }: ContentMediaUploaderProps,
+  { onChange, onFileUploaded }: ContentMediaUploaderProps,
   ref: ForwardedRef<ContentMediaUploaderHandle>,
 ) {
   const inputRefs = useRef<Record<MediaPickerKind, HTMLInputElement | null>>({
@@ -324,6 +326,7 @@ export const ContentMediaUploader = forwardRef(function ContentMediaUploader(
           file_id: confirmed.id,
           progress: 100,
         });
+        onFileUploaded?.(confirmed.id);
       } catch (e) {
         xhrPool.current.delete(tempId);
         patchRow(tempId, {
@@ -332,7 +335,7 @@ export const ContentMediaUploader = forwardRef(function ContentMediaUploader(
         });
       }
     },
-    [patchRow],
+    [patchRow, onFileUploaded],
   );
 
   const handleFiles = useCallback(

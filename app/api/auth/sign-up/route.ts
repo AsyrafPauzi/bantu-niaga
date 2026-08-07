@@ -21,6 +21,7 @@ import {
 } from "@/lib/settings/subscription-billing";
 import { isStandaloneDeployment } from "@/lib/platform/deployment";
 import { canAcceptPublicSignup } from "@/lib/platform/standalone-bootstrap";
+import { grantTierBundledCredits } from "@/lib/settings/subscription-credits";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -150,7 +151,7 @@ export async function POST(request: Request) {
       subscription_renewal_at: isFreePath ? freePlanRenewalAt() : trialRenewalAt(),
       brand_primary_hex: "#5B8C5A",
       brand_accent_hex: "#F4A340",
-      credit_balance: isFreePath ? 0 : 50,
+      credit_balance: 0,
       business_type: quizDb.business_type,
       team_size_band: quizDb.team_size_band,
       onboarding_priorities: quizDb.priorities,
@@ -225,7 +226,7 @@ export async function POST(request: Request) {
       userId: authUser.id,
       periodLabel: isFreePath
         ? `${subscriptionPeriodLabel()} — Free plan`
-        : "14-day Starter trial",
+        : "14-day Solo trial",
       amountMyr: 0,
     });
   } catch (invoiceError) {
@@ -244,6 +245,31 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!isFreePath) {
+    try {
+      await grantTierBundledCredits(
+        businessRow.id,
+        "micro",
+        authUser.id,
+        admin,
+      );
+    } catch (creditError) {
+      await admin.from("users").delete().eq("id", authUser.id);
+      await admin.from("businesses").delete().eq("id", businessRow.id);
+      await rollback();
+      return NextResponse.json(
+        {
+          error: "credit_grant_failed",
+          message:
+            creditError instanceof Error
+              ? creditError.message
+              : "Could not grant trial credits",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
   await Promise.all([
     admin.from("audit_log").insert({
       business_id: businessRow.id,
@@ -258,16 +284,6 @@ export async function POST(request: Request) {
         policy_version: policyVersion,
       },
     }),
-    ...(isFreePath
-      ? []
-      : [
-          admin.from("credit_ledger").insert({
-            business_id: businessRow.id,
-            delta: 50,
-            reason: "welcome_bonus",
-            actor_user_id: authUser.id,
-          }),
-        ]),
     admin.from("user_consents").insert([
       {
         business_id: businessRow.id,

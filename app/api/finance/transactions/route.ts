@@ -17,6 +17,11 @@ import {
 } from "@/lib/finance/schemas";
 import { resolveAdminFileIdPatch } from "@/lib/admin/validate-admin-file";
 import { notifyFinanceTransactionCreated } from "@/lib/finance/notify";
+import {
+  assertFreeTierExpensesAllowed,
+  isFreeTierLimitError,
+} from "@/lib/settings/free-tier-limits";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +120,21 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const tier = await loadBusinessTier(user.businessId, supabase);
+
+  if (parsed.kind === "expense") {
+    try {
+      assertFreeTierExpensesAllowed(tier);
+    } catch (e) {
+      if (isFreeTierLimitError(e)) {
+        return NextResponse.json(
+          { ok: false, error: e.payload },
+          { status: 403 },
+        );
+      }
+      throw e;
+    }
+  }
 
   let adminFileId: string | null = null;
   if (parsed.admin_file_id) {

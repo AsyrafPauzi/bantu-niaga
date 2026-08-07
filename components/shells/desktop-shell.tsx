@@ -38,7 +38,6 @@ import {
 } from "@/lib/auth/entitlements";
 import { tierBy } from "@/lib/settings/plans";
 import { isAssistantChatRoute } from "@/lib/navigation/assistant-routes";
-import type { SidebarAssistantsByModule } from "@/lib/navigation/sidebar-assistants";
 
 interface SidebarSubItem {
   href: string;
@@ -165,14 +164,12 @@ export function DesktopShell({
   tier,
   memberships,
   canCreateCompany,
-  sidebarAssistants = {},
   businessType = "other",
   children,
 }: {
   tier: TierKey;
   memberships: BusinessMembership[];
   canCreateCompany: boolean;
-  sidebarAssistants?: SidebarAssistantsByModule;
   businessType?: BusinessType;
   children: ReactNode;
 }) {
@@ -286,16 +283,14 @@ export function DesktopShell({
                       const lockedHref = locked
                         ? `/settings/subscription?locked=${pillar}`
                         : href;
-                      const visibleSubItems = [
-                        ...(subItems?.filter(
+                      const visibleSubItems =
+                        subItems?.filter(
                           (sub) =>
                             !(
                               tier === "starter" &&
                               sub.href === "/finance/expenses"
                             ),
-                        ) ?? []),
-                        ...(sidebarAssistants[href] ?? []),
-                      ];
+                        ) ?? [];
                       const hasSubItems =
                         !locked && visibleSubItems.length > 0;
                       const isExpanded =

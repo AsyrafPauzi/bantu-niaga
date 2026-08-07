@@ -5,7 +5,7 @@ import type { TierKey } from "@/lib/settings/plans";
 /** Free (starter) and paid plans bill on a 30-day cycle. */
 export const MONTHLY_RENEWAL_DAYS = 30;
 
-/** Starter trial length in days. */
+/** Paid trial length in days. */
 export const TRIAL_RENEWAL_DAYS = 14;
 
 export function addDaysFromNow(days: number): string {
@@ -19,16 +19,19 @@ export function subscriptionPeriodLabel(date = new Date()): string {
   }).format(date);
 }
 
+/** Monthly list price in MYR (pricing-plan v2026-08). */
 export function tierAmountMyr(tier: TierKey): number {
   switch (tier) {
     case "starter":
       return 0;
+    case "basic":
+      return 39;
     case "micro":
-      return 69;
+      return 79;
     case "sme":
-      return 139;
+      return 169;
     case "enterprise":
-      return 249;
+      return 299;
     default:
       return 0;
   }

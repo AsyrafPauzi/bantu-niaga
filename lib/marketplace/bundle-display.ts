@@ -6,6 +6,7 @@ import {
 } from "@/lib/onboarding/business-bundles";
 import type { CatalogEntry } from "@/lib/marketplace/types";
 import { tierBy, type TierKey } from "@/lib/settings/plans";
+import { TIER_ORDER } from "@/lib/settings/tier-agents";
 
 export interface MarketplaceBundleCard {
   bundle: BusinessBundle;
@@ -31,8 +32,7 @@ function catalogMap(entries: CatalogEntry[]) {
 }
 
 function tierRank(tier: TierKey): number {
-  const order: TierKey[] = ["starter", "micro", "sme", "enterprise"];
-  return order.indexOf(tier);
+  return TIER_ORDER.indexOf(tier);
 }
 
 export function buildMarketplaceBundles(opts: {

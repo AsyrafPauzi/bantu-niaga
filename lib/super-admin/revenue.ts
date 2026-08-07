@@ -57,7 +57,7 @@ const KIND_LABELS: Record<string, string> = {
   manual: "Manual / other",
 };
 
-const TIER_ORDER: TierKey[] = ["starter", "micro", "sme", "enterprise"];
+const TIER_ORDER: TierKey[] = ["starter", "basic", "micro", "sme", "enterprise"];
 
 function monthKey(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -159,6 +159,7 @@ export async function loadRevenueDashboard(): Promise<RevenueDashboard> {
 
   const tierCount: Record<TierKey, number> = {
     starter: 0,
+    basic: 0,
     micro: 0,
     sme: 0,
     enterprise: 0,

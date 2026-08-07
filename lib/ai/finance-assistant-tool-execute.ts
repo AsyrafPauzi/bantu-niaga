@@ -36,6 +36,15 @@ import {
 import { sendEmail } from "@/lib/marketing/email-resend";
 import { normalizeMyPhone } from "@/lib/marketing/phone";
 import { loadBusiness } from "@/lib/settings/business";
+import {
+  assertFreeTierCustomerQuota,
+  assertFreeTierExpensesAllowed,
+  assertFreeTierInvoiceQuota,
+  assertFreeTierQuotesAllowed,
+  incrementFreeTierEmailUsage,
+  isFreeTierLimitError,
+} from "@/lib/settings/free-tier-limits";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -154,6 +163,12 @@ export async function executeFinanceAssistantTool(
   const supabase = await createSupabaseServerClient();
   const admin = createServiceRoleClient();
   const today = malaysiaTodayIso();
+  const tier = await loadBusinessTier(ctx.businessId, supabase);
+
+  function mapFreeTierError(error: unknown): Record<string, unknown> | null {
+    if (isFreeTierLimitError(error)) return { ok: false, error: error.payload };
+    return null;
+  }
 
   try {
     if (name === "get_finance_overview") {
@@ -480,6 +495,15 @@ export async function executeFinanceAssistantTool(
 
     if (name === "log_income" || name === "log_expense") {
       const raw = z.record(z.unknown()).parse(args ?? {});
+      if (name === "log_expense") {
+        try {
+          assertFreeTierExpensesAllowed(tier);
+        } catch (e) {
+          const mapped = mapFreeTierError(e);
+          if (mapped) return mapped;
+          throw e;
+        }
+      }
       const parsed = logTxnSchema.parse({
         ...raw,
         kind: name === "log_income" ? "income" : "expense",
@@ -510,6 +534,13 @@ export async function executeFinanceAssistantTool(
 
     if (name === "create_customer") {
       const parsed = createCustomerSchema.parse(args);
+      try {
+        await assertFreeTierCustomerQuota(supabase, ctx.businessId, tier);
+      } catch (e) {
+        const mapped = mapFreeTierError(e);
+        if (mapped) return mapped;
+        throw e;
+      }
       let phoneE164: string | null = null;
       if (parsed.phone?.trim()) {
         phoneE164 = normalizeMyPhone(parsed.phone.trim());
@@ -571,6 +602,17 @@ export async function executeFinanceAssistantTool(
 
     if (name === "create_invoice") {
       const parsed = createInvoiceToolSchema.parse(args);
+      try {
+        if (parsed.document_kind === "quote") {
+          assertFreeTierQuotesAllowed(tier);
+        } else {
+          await assertFreeTierInvoiceQuota(supabase, ctx.businessId, tier);
+        }
+      } catch (e) {
+        const mapped = mapFreeTierError(e);
+        if (mapped) return mapped;
+        throw e;
+      }
       if (!parsed.customer_id && !parsed.customer_name?.trim()) {
         return { ok: false, error: "customer_required" };
       }
@@ -719,6 +761,14 @@ export async function executeFinanceAssistantTool(
         return { ok: false, error: "not_a_quote" };
       }
 
+      try {
+        await assertFreeTierInvoiceQuota(supabase, ctx.businessId, tier);
+      } catch (e) {
+        const mapped = mapFreeTierError(e);
+        if (mapped) return mapped;
+        throw e;
+      }
+
       const number = await nextFinanceInvoiceNumber(admin, ctx.businessId, "INV");
       const defaultDue = new Date();
       defaultDue.setDate(defaultDue.getDate() + 30);
@@ -806,6 +856,14 @@ export async function executeFinanceAssistantTool(
       }
       if (invoice.status === "void") {
         return { ok: false, error: "invoice_void" };
+      }
+
+      try {
+        await incrementFreeTierEmailUsage(supabase, ctx.businessId, tier);
+      } catch (e) {
+        const mapped = mapFreeTierError(e);
+        if (mapped) return mapped;
+        throw e;
       }
 
       const apiKey = process.env.RESEND_API_KEY?.trim() ?? "";

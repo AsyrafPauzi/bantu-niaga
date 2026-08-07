@@ -32,6 +32,7 @@ export const ADMIN_FILE_CATEGORIES = [
   "compliance",
   "finance",
   "operations",
+  "marketing",
   "other",
 ] as const;
 export type AdminFileCategory = (typeof ADMIN_FILE_CATEGORIES)[number];

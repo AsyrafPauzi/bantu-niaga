@@ -59,6 +59,6 @@ describe("default onboarding quiz", () => {
     expect(result.recommendedTier).toBe("starter");
 
     const bundle = bundleForQuizAnswers(DEFAULT_GENERIC_QUIZ_ANSWERS);
-    expect(bundle?.id).toBe("pakej-team");
+    expect(bundle?.id).toBe("pakej-team-hr");
   });
 });

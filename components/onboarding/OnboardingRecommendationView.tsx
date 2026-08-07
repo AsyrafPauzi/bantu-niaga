@@ -25,6 +25,7 @@ import {
 } from "@/lib/onboarding/session-quiz";
 import { formatMyr } from "@/lib/marketplace/types";
 import { tierBy, type TierKey } from "@/lib/settings/plans";
+import { TIER_ORDER } from "@/lib/settings/tier-agents";
 import { cn } from "@/lib/utils/cn";
 
 export interface CatalogAddonSnapshot {
@@ -44,8 +45,6 @@ export interface OnboardingRecommendationProps {
   catalog: CatalogAddonSnapshot[];
   activeAddonSlugs: string[];
 }
-
-const TIER_ORDER: TierKey[] = ["starter", "micro", "sme", "enterprise"];
 
 function tierRank(tier: TierKey): number {
   return TIER_ORDER.indexOf(tier);
@@ -241,10 +240,12 @@ export function OnboardingRecommendationView({
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-ink-subtle">
-                  Bundle total (estimate)
+                  {pricing.allStackComingSoon
+                    ? "Add-ons coming soon"
+                    : "Add-ons (estimate)"}
                 </p>
                 <p className="text-2xl font-bold text-ink dark:text-cream-100">
-                  {formatMyr(pricing.totalBundleCents)}
+                  {formatMyr(pricing.bundleAddonSubtotalCents)}
                   <span className="text-sm font-normal text-ink-muted">/month</span>
                 </p>
                 {pricing.savingsCents > 0 ? (
@@ -254,15 +255,16 @@ export function OnboardingRecommendationView({
                   </p>
                 ) : null}
               </div>
-              {pricing.totalAlaCarteCents > pricing.totalBundleCents ? (
+              {pricing.addonSubtotalCents > pricing.bundleAddonSubtotalCents ? (
                 <p className="text-sm text-ink-muted line-through dark:text-cream-500">
-                  {formatMyr(pricing.totalAlaCarteCents)}/mo separate
+                  {formatMyr(pricing.addonSubtotalCents)}/mo separate
                 </p>
               ) : null}
             </div>
             <p className="mt-2 text-[11px] text-ink-subtle dark:text-cream-500">
-              Phase 1: activate plan and add-ons below one by one. One-click &quot;Activate
-              pack&quot; with billing discount ships in Phase 2.
+              Plan price is in Step 1. Add-on prices above exclude your subscription.
+              Phase 1: activate add-ons one by one. One-click pack activation ships in
+              Phase 2.
             </p>
           </div>
         </section>
@@ -399,15 +401,17 @@ export function OnboardingRecommendationView({
                     ) : null}
                   </p>
                   <p className="text-xs text-ink-muted dark:text-cream-400">
-                    {line.comingSoon
-                      ? "Coming soon in Marketplace"
-                      : line.includedInTier
-                        ? "Included in your plan"
-                        : line.active
-                          ? "Already active"
-                          : line.priceCents === 0
-                            ? "Free add-on"
-                            : formatMyr(line.priceCents) + "/month"}
+                    {line.includedInTier
+                      ? "Included in your plan"
+                      : line.active
+                        ? "Already active"
+                        : line.priceCents > 0
+                          ? `${formatMyr(line.priceCents)}/month${
+                              line.comingSoon ? " · coming soon" : ""
+                            }`
+                          : line.comingSoon
+                            ? "Coming soon"
+                            : "Free add-on"}
                   </p>
                 </div>
                 <div className="shrink-0">

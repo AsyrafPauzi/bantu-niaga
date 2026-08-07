@@ -3,24 +3,22 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Copy, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 
-/**
- * Two header-row actions for the Content Detail page:
- *   - Duplicate  → POST /api/marketing/content/[id]/duplicate, redirects
- *                  to the new entry's edit page.
- *   - Mark as Posted → PATCH /api/marketing/content/[id] with
- *                      status='posted'. Hidden when already posted.
- */
 export function ContentActions({
   contentId,
   isPosted,
+  variant = "default",
 }: {
   contentId: string;
   isPosted: boolean;
+  variant?: "default" | "hero";
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"duplicate" | "post" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const isHero = variant === "hero";
 
   async function handleDuplicate() {
     if (busy) return;
@@ -32,7 +30,6 @@ export function ContentActions({
         { method: "POST" },
       );
       const body = (await res.json().catch(() => null)) as {
-        action?: string;
         entry_id?: string;
         error?: string;
         message?: string;
@@ -61,7 +58,6 @@ export function ContentActions({
         body: JSON.stringify({ status: "posted" }),
       });
       const body = (await res.json().catch(() => null)) as {
-        action?: string;
         error?: string;
         message?: string;
       } | null;
@@ -77,37 +73,59 @@ export function ContentActions({
     }
   }
 
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        onClick={handleDuplicate}
-        disabled={busy !== null}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-      >
-        <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-        {busy === "duplicate" ? "Duplicating…" : "Duplicate"}
-      </button>
+  const btnBase = cn(
+    "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition disabled:opacity-50",
+    isHero
+      ? "shadow-sm"
+      : "shadow-card",
+  );
 
-      {!isPosted ? (
+  return (
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={handleMarkPosted}
+          onClick={handleDuplicate}
           disabled={busy !== null}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-status-success px-3 py-1.5 text-xs font-semibold text-white shadow-card hover:bg-status-success/90 disabled:opacity-50"
+          className={cn(
+            btnBase,
+            isHero
+              ? "bg-white/15 text-white hover:bg-white/25"
+              : "border border-cream-300 bg-white text-ink hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100",
+          )}
         >
-          <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
-          {busy === "post" ? "Marking…" : "Mark as Posted"}
+          <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+          {busy === "duplicate" ? "Duplicating…" : "Duplicate"}
         </button>
-      ) : null}
+
+        {!isPosted ? (
+          <button
+            type="button"
+            onClick={handleMarkPosted}
+            disabled={busy !== null}
+            className={cn(
+              btnBase,
+              isHero
+                ? "bg-white text-violet-800 hover:bg-violet-50"
+                : "bg-emerald-600 text-white hover:bg-emerald-700",
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
+            {busy === "post" ? "Marking…" : "Mark posted"}
+          </button>
+        ) : null}
+      </div>
 
       {error ? (
-        <span
+        <p
           role="alert"
-          className="text-[11px] font-medium text-status-danger"
+          className={cn(
+            "text-[11px] font-medium",
+            isHero ? "text-rose-200" : "text-status-danger",
+          )}
         >
           {error}
-        </span>
+        </p>
       ) : null}
     </div>
   );

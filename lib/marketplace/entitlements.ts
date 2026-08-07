@@ -2,6 +2,11 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isAddonFeatureAccessible } from "@/lib/marketplace/addon-meta";
+import {
+  hasAgentEntitlement,
+  hasAgentEntitlementWithClient,
+} from "@/lib/marketplace/plan-agent-entitlements";
 import {
   defaultAgentSettingsForSlug,
   HR_AGENT_SLUG,
@@ -17,6 +22,8 @@ import {
   SALES_ASSISTANT_ADDON_SLUG,
   type BusinessAgentSettings,
 } from "@/lib/marketplace/agent-types";
+import { hasPillar } from "@/lib/auth/entitlements";
+import type { TierKey } from "@/lib/settings/plans";
 import { normalizeReasoningMode } from "@/lib/settings/ai-agents-catalog";
 import {
   clampDailyBudgetCredits,
@@ -26,6 +33,19 @@ import {
 } from "@/lib/settings/credit-pricing";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+async function loadBusinessTier(
+  supabase: SupabaseClient,
+  businessId: string,
+): Promise<TierKey> {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("tier")
+    .eq("id", businessId)
+    .single();
+  if (error) throw new Error(error.message);
+  return (data?.tier as TierKey) ?? "starter";
+}
+
 export async function hasActiveAddonWithClient(
   supabase: SupabaseClient,
   businessId: string,
@@ -33,16 +53,27 @@ export async function hasActiveAddonWithClient(
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from("business_addons")
-    .select("id, status, marketplace_addons!inner(slug)")
+    .select("id, status, meta, marketplace_addons!inner(slug)")
     .eq("business_id", businessId)
-    .eq("status", "active")
+    .in("status", ["active", "pending_cancel"])
     .eq("marketplace_addons.slug", addonSlug)
     .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
   }
-  return !!data;
+  if (!data) return false;
+  return isAddonFeatureAccessible({
+    id: data.id,
+    business_id: businessId,
+    addon_id: "",
+    status: data.status as "active" | "pending_cancel" | "cancelled",
+    activated_at: "",
+    next_charge_at: null,
+    cancel_at: null,
+    qty: 1,
+    meta: (data.meta as Record<string, unknown>) ?? {},
+  });
 }
 
 export async function hasActiveAddon(
@@ -53,41 +84,60 @@ export async function hasActiveAddon(
   return hasActiveAddonWithClient(supabase, businessId, addonSlug);
 }
 
+async function hasAssistantEntitlement(
+  businessId: string,
+  addonSlug: string,
+): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+  const tier = await loadBusinessTier(supabase, businessId);
+  return hasAgentEntitlementWithClient(
+    supabase,
+    businessId,
+    tier,
+    addonSlug,
+  );
+}
+
 export async function hasHrAssistantAddon(businessId: string): Promise<boolean> {
-  return hasActiveAddon(businessId, HR_ASSISTANT_ADDON_SLUG);
+  return hasAssistantEntitlement(businessId, HR_ASSISTANT_ADDON_SLUG);
 }
 
 export async function hasMarketingAssistantAddon(
   businessId: string,
 ): Promise<boolean> {
-  return hasActiveAddon(businessId, MARKETING_ASSISTANT_ADDON_SLUG);
+  return hasAssistantEntitlement(businessId, MARKETING_ASSISTANT_ADDON_SLUG);
 }
 
 export async function hasSalesAssistantAddon(
   businessId: string,
 ): Promise<boolean> {
-  return hasActiveAddon(businessId, SALES_ASSISTANT_ADDON_SLUG);
+  return hasAssistantEntitlement(businessId, SALES_ASSISTANT_ADDON_SLUG);
 }
 
 export async function hasFinanceAssistantAddon(
   businessId: string,
 ): Promise<boolean> {
-  return hasActiveAddon(businessId, FINANCE_ASSISTANT_ADDON_SLUG);
+  return hasAssistantEntitlement(businessId, FINANCE_ASSISTANT_ADDON_SLUG);
 }
 
 export async function hasOperationsAssistantAddon(
   businessId: string,
 ): Promise<boolean> {
-  return hasActiveAddon(businessId, OPERATIONS_ASSISTANT_ADDON_SLUG);
+  return hasAssistantEntitlement(businessId, OPERATIONS_ASSISTANT_ADDON_SLUG);
 }
 
 export async function hasAdminAssistantAddon(
   businessId: string,
 ): Promise<boolean> {
-  return hasActiveAddon(businessId, ADMIN_ASSISTANT_ADDON_SLUG);
+  return hasAssistantEntitlement(businessId, ADMIN_ASSISTANT_ADDON_SLUG);
 }
 
 export async function hasPublicHolidaysAddon(businessId: string): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+  const tier = await loadBusinessTier(supabase, businessId);
+  if (hasPillar(tier, "hr")) {
+    return true;
+  }
   return hasActiveAddon(businessId, HR_PUBLIC_HOLIDAYS_ADDON_SLUG);
 }
 
@@ -161,3 +211,6 @@ export async function getCreditBalance(businessId: string): Promise<number> {
   }
   return data.credit_balance ?? 0;
 }
+
+// Re-export for assistant routes that need tier-aware checks
+export { hasAgentEntitlement, loadEntitledAgentSlugs } from "@/lib/marketplace/plan-agent-entitlements";

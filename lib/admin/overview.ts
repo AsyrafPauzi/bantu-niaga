@@ -84,6 +84,7 @@ export function fileCategoryLabel(category: string | null): string {
     compliance: "Licences",
     finance: "Finance",
     operations: "Operations",
+    marketing: "Marketing (back-office)",
     other: "Other",
   };
   if ((ADMIN_FILE_CATEGORIES as readonly string[]).includes(category)) {
@@ -429,18 +430,15 @@ export async function loadAdminOverview(
   );
 
   const tier = tierBy(options.tier);
-  const baseQuotaGb = tier?.quotas.storageGb ?? 5;
+  const baseQuotaMb = tier?.quotas.storageMb ?? 5120;
   const storageAddonCount = storageAddonRes.data?.length ?? 0;
   const hasStorageAddon = storageAddonCount > 0;
-  let storageQuotaGb: number | null = null;
+  let storageQuotaMb: number | null = null;
   let storageUsagePct: number | null = null;
 
-  if (
-    Number.isFinite(baseQuotaGb) &&
-    baseQuotaGb !== Number.POSITIVE_INFINITY
-  ) {
-    storageQuotaGb = baseQuotaGb + storageAddonCount * STORAGE_ADDON_GB;
-    const quotaBytes = storageQuotaGb * 1024 * 1024 * 1024;
+  if (Number.isFinite(baseQuotaMb)) {
+    storageQuotaMb = baseQuotaMb + storageAddonCount * STORAGE_ADDON_GB * 1024;
+    const quotaBytes = storageQuotaMb * 1024 * 1024;
     storageUsagePct =
       quotaBytes > 0
         ? Math.min(100, Math.round((totalStorageBytes / quotaBytes) * 100))
@@ -491,7 +489,8 @@ export async function loadAdminOverview(
     totalStorageBytes,
     recentFiles: (recentFilesRes.data ?? []) as AdminRecentFile[],
     categoryBreakdown: computeCategoryBreakdown(fileMeta),
-    storageQuotaGb,
+    storageQuotaGb:
+      storageQuotaMb != null ? Math.round((storageQuotaMb / 1024) * 100) / 100 : null,
     storageUsagePct,
     hasStorageAddon,
     openTaskCount: pendingTasksRes.count ?? 0,

@@ -26,25 +26,52 @@ npm install
 
 # 2. Configure env
 cp .env.example .env.local
-# fill in NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY
+# fill in NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY + SUPABASE_SERVICE_ROLE_KEY
 
-# 3. (Optional) Local Supabase via Docker
-npx supabase start
-npx supabase migration up
+# 3. Link CLI to your hosted Supabase project (no Docker required)
+npx supabase login
+npm run supabase:link
+# apply pending migrations to the linked remote database
+npm run supabase:migrate
 
 # 4. Run dev server
 npm run dev
 
-# 5. (Optional) Seed 5 demo tenants with customers + social-media posts
+# 5. (Optional) Seed demo owner on the remote project
+npm run seed
+
+# 6. (Optional) Seed 5 demo tenants with customers + social-media posts
 npm run seed:demo
 # Logs sign-in emails + the shared demo password at the end.
 
-# 6. (Optional) Seed AI demo data for one owner (leads, POS sales, products)
+# 7. (Optional) Seed AI demo data for one owner (leads, POS sales, products)
 npm run seed:ai
 # Targets owner@demo.bantuniaga.local — run after npm run seed.
 ```
 
 Open http://localhost:3000 — the app auto-renders the **mobile** shell on phones / narrow viewports and the **desktop ERP** shell on wide viewports.
+
+### Database (hosted Supabase — no Docker)
+
+This repo targets a **linked remote Supabase project**. `.env.local` points the app at that project; the CLI applies migrations with `db push`.
+
+```bash
+# First time only
+npx supabase login
+npm run supabase:link          # pick project or paste project ref
+
+# After pulling new migrations
+npm run supabase:migrate       # supabase db push --linked --yes
+
+# Preview without applying
+npm run supabase:migrate:dry
+
+# Smoke / seed scripts use .env.local (same remote DB)
+npm run smoke:pricing
+npm run seed
+```
+
+Docker is **optional** for local Postgres only: `npm run supabase:docker:start` then `npm run supabase:docker:reset`.
 
 ### Deployment mode (Phase 2)
 

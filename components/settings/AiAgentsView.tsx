@@ -170,6 +170,7 @@ export function AiAgentsView({ initial, canEdit }: AiAgentsViewProps) {
                   agent={agent}
                   canEdit={canEdit}
                   pending={pending}
+                  deepReasoningAllowed={overview.deep_reasoning_allowed}
                   onToggle={handleToggle}
                   onSave={handleSaveAgent}
                   onPatchLocal={updateLocal}
@@ -259,6 +260,7 @@ function AgentRow({
   agent,
   canEdit,
   pending,
+  deepReasoningAllowed,
   onToggle,
   onSave,
   onPatchLocal,
@@ -267,6 +269,7 @@ function AgentRow({
   agent: AgentListItem;
   canEdit: boolean;
   pending: boolean;
+  deepReasoningAllowed: boolean;
   onToggle: (slug: string, enabled: boolean) => void;
   onSave: (slug: string, fields: Record<string, unknown>) => void;
   onPatchLocal: (slug: string, patch: Partial<AgentListItem>) => void;
@@ -347,7 +350,16 @@ function AgentRow({
               <button
                 key={mode}
                 type="button"
-                disabled={!canEdit || pending}
+                disabled={
+                  !canEdit ||
+                  pending ||
+                  (mode === "deep" && !deepReasoningAllowed)
+                }
+                title={
+                  mode === "deep" && !deepReasoningAllowed
+                    ? "Deep reasoning requires Solo or higher"
+                    : undefined
+                }
                 onClick={() => {
                   if (agent.reasoning_mode === mode) return;
                   onPatchLocal(def.slug, { reasoning_mode: mode });

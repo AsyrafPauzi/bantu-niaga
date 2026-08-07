@@ -6,6 +6,7 @@ import {
   computeBundlePricing,
   type BusinessBundle,
 } from "@/lib/onboarding/business-bundles";
+import { planIncludesAgent } from "@/lib/marketplace/plan-agent-entitlements";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -122,7 +123,11 @@ export async function POST(request: Request) {
       skipped.push({ slug: line.slug, reason: "coming_soon" });
       continue;
     }
-    if (line.active || line.includedInTier) {
+    if (
+      line.active ||
+      line.includedInTier ||
+      planIncludesAgent(currentTier, line.slug)
+    ) {
       skipped.push({ slug: line.slug, reason: "already_active" });
       continue;
     }

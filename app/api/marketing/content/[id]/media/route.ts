@@ -1,23 +1,14 @@
 import { requireMarketingSurface } from "@/lib/marketing/require-user";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import {
-  getCurrentUser,
-  UnauthorizedError,
-} from "@/lib/auth/current-user";
-import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { contentMediaAttachSchema } from "@/lib/marketing/schemas";
 
 /**
- * POST /api/marketing/content/[id]/media — attach a media file_id to a
- * content_plan entry. v1 just records the uuid without an FK to a
- * canonical `files` table (the Admin Storage `files` table arrives via
- * D6 — see plan §3.3 / §2.5). The UI renders a placeholder thumbnail
- * labelled with the file_id until Admin publishes a signed-URL endpoint.
+ * POST /api/marketing/content/[id]/media — attach a marketing_files row
+ * to a content_plan entry via content_plan_media.
  *
- * Idempotency: re-posting the same `(content_plan_id, file_id)` pair
- * updates the `position` instead of throwing a duplicate-key error.
+ * DELETE — detach by ?file_id=…
  */
 
 export const dynamic = "force-dynamic";
@@ -53,9 +44,6 @@ export async function POST(
 
   const supabase = await createSupabaseServerClient();
 
-  // Confirm the parent entry exists in this tenant before we record the
-  // attachment. RLS would block the insert anyway, but a pre-check
-  // means a clean 404 instead of a postgres FK violation.
   const { data: entry, error: lookupErr } = await supabase
     .from("content_plan")
     .select("id")
@@ -71,6 +59,30 @@ export async function POST(
   }
   if (!entry) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const { data: fileRow, error: fileErr } = await supabase
+    .from("marketing_files")
+    .select("id")
+    .eq("business_id", user.businessId)
+    .eq("id", parsed.file_id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (fileErr) {
+    return NextResponse.json(
+      { error: "file_lookup_failed", message: fileErr.message },
+      { status: 500 },
+    );
+  }
+  if (!fileRow) {
+    return NextResponse.json(
+      {
+        error: "invalid_file_id",
+        message: "file_id must be an uploaded marketing media file in this business.",
+      },
+      { status: 422 },
+    );
   }
 
   const { data, error } = await supabase

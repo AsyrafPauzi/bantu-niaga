@@ -5,6 +5,7 @@ import {
   FileSpreadsheet,
   FileText,
   Image,
+  Megaphone,
   Receipt,
   ShieldCheck,
   Users,
@@ -19,6 +20,7 @@ export const STORAGE_CATEGORY_LABELS: Record<AdminFileCategory, string> = {
   compliance: "Compliance",
   finance: "Finance",
   operations: "Operations",
+  marketing: "Marketing (back-office)",
   other: "Other",
 };
 
@@ -61,6 +63,12 @@ export const CATEGORY_STYLE: Record<
     chip: "border-orange-300/70 bg-orange-50 text-orange-900 hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100",
     accent: "border-l-orange-500",
     card: "from-orange-50/80 to-white dark:from-orange-950/30 dark:to-panel-dark",
+  },
+  marketing: {
+    icon: Megaphone,
+    chip: "border-rose-300/70 bg-rose-50 text-rose-900 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100",
+    accent: "border-l-rose-500",
+    card: "from-rose-50/80 to-white dark:from-rose-950/30 dark:to-panel-dark",
   },
   other: {
     icon: File,

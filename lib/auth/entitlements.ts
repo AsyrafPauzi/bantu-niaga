@@ -1,24 +1,16 @@
 /**
- * Bantu Niaga — module entitlements.
+ * Bantu Niaga — module entitlements (pricing-plan v2026-08).
  *
- * One place that answers: "Which pillar modules does this tier unlock?"
- *
- *   - Free (starter):     Finance only.
- *   - Starter (micro):    Finance + Admin + Operations.
- *   - Growth (sme):       Finance + Admin + Operations + Sales + HR.
- *   - Pro (enterprise):   Finance + Admin + Operations + Sales + HR + Marketing.
- *
- * Cross-cutting surfaces (Home, AI Boardroom, Marketplace, Settings, the
- * mobile "More" page) are always available regardless of tier.
- *
- * This module is the single source of truth for:
- *   - sidebar visibility (desktop + mobile),
- *   - server-side route guards (`requirePillar`),
- *   - the Home pillar tiles' locked state,
- *   - the Subscription "compare plans" feature list.
+ *   - Free (starter):     Finance lite only.
+ *   - Basic:              Admin + Sales + Finance.
+ *   - Solo+ (micro/sme/enterprise): All six pillars.
  */
 
 import type { TierKey } from "@/lib/settings/plans";
+import {
+  TIER_ORDER,
+  TIER_PILLARS_MAP,
+} from "@/lib/settings/tier-agents";
 
 export type Pillar =
   | "admin"
@@ -46,26 +38,16 @@ export const PILLAR_LABEL: Record<Pillar, string> = {
   marketing: "Marketing",
 };
 
-/**
- * The cumulative pillar bundle for each tier. Subsequent tiers strictly
- * include the previous tier's pillars (an upgrade never removes a module).
- */
-export const TIER_PILLARS: Record<TierKey, readonly Pillar[]> = {
-  starter: ["finance"],
-  micro: ["finance", "admin", "operations"],
-  sme: ["finance", "admin", "operations", "sales", "hr"],
-  enterprise: ["finance", "admin", "operations", "sales", "hr", "marketing"],
-};
+export const TIER_PILLARS: Record<TierKey, readonly Pillar[]> = TIER_PILLARS_MAP;
 
 /** True when the given tier unlocks the given pillar. */
 export function hasPillar(tier: TierKey, pillar: Pillar): boolean {
-  return TIER_PILLARS[tier].includes(pillar);
+  return TIER_PILLARS[tier]?.includes(pillar) ?? false;
 }
 
 /**
  * Map a request pathname (e.g. `/admin/storage`) to the pillar it lives in.
- * Returns `null` for cross-cutting paths (Home / Boardroom / Marketplace /
- * Settings / More) that are always allowed.
+ * Returns `null` for cross-cutting paths that are always allowed.
  */
 export function pillarFromPath(pathname: string): Pillar | null {
   const segment = pathname.split("/")[1] ?? "";
@@ -74,13 +56,9 @@ export function pillarFromPath(pathname: string): Pillar | null {
     : null;
 }
 
-/**
- * Return the lowest tier that unlocks `pillar`. Used by the upgrade banner
- * and locked tiles ("Upgrade to Starter to unlock Admin").
- */
+/** Lowest tier that unlocks `pillar` — used for upgrade banners. */
 export function minimumTierFor(pillar: Pillar): TierKey {
-  const order: TierKey[] = ["starter", "micro", "sme", "enterprise"];
-  for (const t of order) {
+  for (const t of TIER_ORDER) {
     if (hasPillar(t, pillar)) return t;
   }
   return "enterprise";

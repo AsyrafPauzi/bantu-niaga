@@ -2,11 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { tierBy, type TierKey } from "@/lib/settings/plans";
 
 const STORAGE_ADDON_SLUG = "storage-10gb";
-const STORAGE_ADDON_GB = 10;
+const STORAGE_ADDON_MB = 10 * 1024;
 
 export interface StorageQuotaInfo {
   usedBytes: number;
-  quotaGb: number | null;
+  quotaMb: number | null;
   usagePct: number | null;
   isUnlimited: boolean;
 }
@@ -36,19 +36,30 @@ export async function loadStorageQuota(
   );
 
   const tier = tierBy(tierKey);
-  const baseQuotaGb = tier?.quotas.storageGb ?? 5;
+  const baseQuotaMb = tier?.quotas.storageMb;
 
-  if (!Number.isFinite(baseQuotaGb) || baseQuotaGb === Number.POSITIVE_INFINITY) {
-    return { usedBytes, quotaGb: null, usagePct: null, isUnlimited: true };
+  if (baseQuotaMb == null || !Number.isFinite(baseQuotaMb)) {
+    return { usedBytes, quotaMb: null, usagePct: null, isUnlimited: true };
   }
 
   const storageAddonCount = addonRes.data?.length ?? 0;
-  const quotaGb = baseQuotaGb + storageAddonCount * STORAGE_ADDON_GB;
-  const quotaBytes = quotaGb * 1024 * 1024 * 1024;
+  const quotaMb = baseQuotaMb + storageAddonCount * STORAGE_ADDON_MB;
+  const quotaBytes = quotaMb * 1024 * 1024;
   const usagePct =
     quotaBytes > 0
       ? Math.min(100, Math.round((usedBytes / quotaBytes) * 100))
       : 0;
 
-  return { usedBytes, quotaGb, usagePct, isUnlimited: false };
+  return { usedBytes, quotaMb, usagePct, isUnlimited: false };
+}
+
+export function assertWithinStorageQuota(
+  quota: StorageQuotaInfo,
+  additionalBytes: number,
+): void {
+  if (quota.isUnlimited || quota.quotaMb == null) return;
+  const quotaBytes = quota.quotaMb * 1024 * 1024;
+  if (quota.usedBytes + additionalBytes > quotaBytes) {
+    throw new Error("storage_quota_exceeded");
+  }
 }

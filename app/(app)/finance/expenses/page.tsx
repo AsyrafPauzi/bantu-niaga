@@ -16,6 +16,7 @@ import {
 import { expensesSubpageHero } from "@/lib/finance/subpage-hero";
 import { formatMyr } from "@/lib/finance/schemas";
 import { loadAdminFileNames } from "@/lib/admin/validate-admin-file";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
 import type { FinanceTransactionRow } from "@/lib/finance/schemas";
 
 export const metadata = { title: "Expenses" };
@@ -54,6 +55,8 @@ export default async function ExpensesPage({
     typeof params.txn === "string" ? params.txn : null;
   const pagination = parsePagination(params, { defaultPageSize: 15 });
   const supabase = await createSupabaseServerClient();
+  const tier = await loadBusinessTier(user.businessId, supabase);
+  const expensesBlocked = tier === "starter";
 
   const [summary, insights] = await Promise.all([
     computeFinanceMonthSummary(supabase, user.businessId),
@@ -148,6 +151,7 @@ export default async function ExpensesPage({
         categories={insights.categories}
         shellMode
         highlightTxnId={highlightTxnId}
+        expensesBlocked={expensesBlocked}
       />
       {total > pagination.pageSize ? (
         <ListPagination

@@ -7,7 +7,13 @@ import {
   loadEmployeeLeaveBalance,
 } from "@/lib/hr/leave-balance";
 import { analyzeLeaveDateRange } from "@/lib/hr/leave-date-check";
-import { leaveCreateSchema, leaveStatusUpdateSchema } from "@/lib/hr/schemas";
+import {
+  appraisalCreateSchema,
+  appraisalUpdateSchema,
+  leaveCreateSchema,
+  leaveStatusUpdateSchema,
+} from "@/lib/hr/schemas";
+import { hasStaffAppraisalAddon } from "@/lib/marketplace/entitlements";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const HR_ASSISTANT_TOOLS = [
@@ -99,6 +105,59 @@ export const HR_ASSISTANT_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_staff_appraisal",
+      description:
+        "Schedule a staff performance appraisal when the user asks to set up, schedule, or create a review. Requires Staff Appraisal Checker add-on.",
+      parameters: {
+        type: "object",
+        properties: {
+          employee_name: { type: "string" },
+          period_label: {
+            type: "string",
+            description: "e.g. 2026 Annual, Q1 2026",
+          },
+          due_date: { type: "string", description: "YYYY-MM-DD" },
+          notes: { type: "string" },
+        },
+        required: ["employee_name", "period_label", "due_date"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "complete_staff_appraisal",
+      description:
+        "Mark a pending staff appraisal as completed when the user confirms the review is done. Optional rating 1–5. Requires Staff Appraisal Checker add-on.",
+      parameters: {
+        type: "object",
+        properties: {
+          employee_name: { type: "string" },
+          period_label: {
+            type: "string",
+            description: "Match scheduled period when multiple exist.",
+          },
+          appraisal_id: {
+            type: "string",
+            description: "Optional UUID from the data packet.",
+          },
+          rating: {
+            type: "integer",
+            description: "Optional score 1–5.",
+            minimum: 1,
+            maximum: 5,
+          },
+          notes: { type: "string" },
+        },
+        required: ["employee_name"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 const getBalanceArgsSchema = z.object({
@@ -126,6 +185,21 @@ const completeOnboardingArgsSchema = z.object({
   item_label: z.string().trim().min(1).max(200),
 });
 
+const createAppraisalArgsSchema = z.object({
+  employee_name: z.string().trim().min(1).max(160),
+  period_label: z.string().trim().min(1).max(80),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z.string().trim().max(1000).optional(),
+});
+
+const completeAppraisalArgsSchema = z.object({
+  employee_name: z.string().trim().min(1).max(160),
+  period_label: z.string().trim().min(1).max(80).optional(),
+  appraisal_id: z.string().uuid().optional(),
+  rating: z.coerce.number().int().min(1).max(5).optional(),
+  notes: z.string().trim().max(1000).optional(),
+});
+
 type HrToolSuccess = {
   ok: true;
   action: string;
@@ -136,7 +210,7 @@ type HrToolSuccess = {
 
 export type HrToolResult =
   | HrToolSuccess
-  | { ok: false; action: string; message: string };
+  | { ok: false; action: string; message: string; href?: string };
 
 function normalizeName(value: string): string {
   return value.trim().toLowerCase();
@@ -562,11 +636,262 @@ export async function executeCompleteOnboardingItem(
   };
 }
 
+async function requireAppraisalAddon(
+  businessId: string,
+  action: string,
+): Promise<HrToolResult | null> {
+  const active = await hasStaffAppraisalAddon(businessId);
+  if (!active) {
+    return {
+      ok: false,
+      action,
+      message:
+        "Staff Appraisal Checker is not active. Activate it in Marketplace first.",
+      href: "/marketplace",
+    };
+  }
+  return null;
+}
+
+export async function executeCreateStaffAppraisal(
+  ctx: AgentContext,
+  rawArgs: unknown,
+): Promise<HrToolResult> {
+  let args: z.infer<typeof createAppraisalArgsSchema>;
+  try {
+    args = createAppraisalArgsSchema.parse(rawArgs);
+  } catch {
+    return {
+      ok: false,
+      action: "create_staff_appraisal",
+      message: "Invalid appraisal details. Use YYYY-MM-DD for due_date.",
+    };
+  }
+
+  const blocked = await requireAppraisalAddon(ctx.businessId, "create_staff_appraisal");
+  if (blocked) return blocked;
+
+  const employee = await resolveEmployeeByName(ctx.businessId, args.employee_name);
+  if (employee.kind === "none") {
+    return {
+      ok: false,
+      action: "create_staff_appraisal",
+      message: `No active employee matching "${args.employee_name}".`,
+    };
+  }
+  if (employee.kind === "many") {
+    return {
+      ok: false,
+      action: "create_staff_appraisal",
+      message: `Several employees match: ${employee.names.join(", ")}.`,
+    };
+  }
+
+  let payload: z.infer<typeof appraisalCreateSchema>;
+  try {
+    payload = appraisalCreateSchema.parse({
+      employee_id: employee.id,
+      period_label: args.period_label,
+      due_date: args.due_date,
+      notes: args.notes ?? null,
+    });
+  } catch {
+    return {
+      ok: false,
+      action: "create_staff_appraisal",
+      message: "Could not validate appraisal fields.",
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("hr_staff_appraisals")
+    .insert({
+      business_id: ctx.businessId,
+      employee_id: payload.employee_id,
+      period_label: payload.period_label,
+      due_date: payload.due_date,
+      notes: payload.notes ?? null,
+    })
+    .select(
+      "id, employee_id, period_label, due_date, status, rating, notes, completed_at",
+    )
+    .single();
+
+  if (error) {
+    const duplicate = error.message.includes("unique");
+    return {
+      ok: false,
+      action: "create_staff_appraisal",
+      message: duplicate
+        ? `${employee.full_name} already has an appraisal for "${payload.period_label}".`
+        : "Could not schedule appraisal.",
+    };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      action: "create_staff_appraisal",
+      message: "Could not schedule appraisal.",
+    };
+  }
+
+  return {
+    ok: true,
+    action: "create_staff_appraisal",
+    employee_name: employee.full_name,
+    period_label: data.period_label,
+    due_date: data.due_date,
+    status: data.status,
+    appraisal_id: data.id,
+    href: "/hr/appraisals",
+  };
+}
+
+export async function executeCompleteStaffAppraisal(
+  ctx: AgentContext,
+  rawArgs: unknown,
+): Promise<HrToolResult> {
+  let args: z.infer<typeof completeAppraisalArgsSchema>;
+  try {
+    args = completeAppraisalArgsSchema.parse(rawArgs);
+  } catch {
+    return {
+      ok: false,
+      action: "complete_staff_appraisal",
+      message: "Invalid completion details. Rating must be 1–5 if provided.",
+    };
+  }
+
+  const blocked = await requireAppraisalAddon(ctx.businessId, "complete_staff_appraisal");
+  if (blocked) return blocked;
+
+  const employee = await resolveEmployeeByName(ctx.businessId, args.employee_name);
+  if (employee.kind === "none") {
+    return {
+      ok: false,
+      action: "complete_staff_appraisal",
+      message: `No active employee matching "${args.employee_name}".`,
+    };
+  }
+  if (employee.kind === "many") {
+    return {
+      ok: false,
+      action: "complete_staff_appraisal",
+      message: `Several employees match: ${employee.names.join(", ")}.`,
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: allPending, error: listError } = await supabase
+    .from("hr_staff_appraisals")
+    .select("id, period_label, due_date, status")
+    .eq("business_id", ctx.businessId)
+    .eq("employee_id", employee.id)
+    .eq("status", "pending")
+    .order("due_date", { ascending: true });
+
+  if (listError) {
+    return {
+      ok: false,
+      action: "complete_staff_appraisal",
+      message: "Could not look up pending appraisals.",
+    };
+  }
+
+  let candidates = allPending ?? [];
+  if (args.appraisal_id) {
+    candidates = candidates.filter((row) => row.id === args.appraisal_id);
+  } else if (args.period_label) {
+    const periodQuery = normalizeName(args.period_label);
+    candidates = candidates.filter((row) =>
+      normalizeName(String(row.period_label)).includes(periodQuery),
+    );
+  }
+
+  if (candidates.length === 0) {
+    return {
+      ok: false,
+      action: "complete_staff_appraisal",
+      message: args.period_label
+        ? `No pending appraisal matching "${args.period_label}" for ${employee.full_name}.`
+        : `No pending appraisal for ${employee.full_name}.`,
+    };
+  }
+  if (candidates.length > 1 && !args.appraisal_id) {
+    const options = candidates
+      .map((r) => `${r.period_label} (due ${r.due_date}, id ${r.id})`)
+      .join("; ");
+    return {
+      ok: false,
+      action: "complete_staff_appraisal",
+      message: `Multiple pending appraisals — specify period_label or appraisal_id: ${options}`,
+    };
+  }
+
+  const pending = candidates[0];
+
+  let updatePayload: z.infer<typeof appraisalUpdateSchema>;
+  try {
+    updatePayload = appraisalUpdateSchema.parse({
+      status: "completed",
+      rating: args.rating ?? null,
+      notes: args.notes ?? undefined,
+    });
+  } catch {
+    return {
+      ok: false,
+      action: "complete_staff_appraisal",
+      message: "Could not validate rating or notes.",
+    };
+  }
+
+  const patch: Record<string, unknown> = {
+    status: "completed",
+    completed_by: ctx.userId,
+    completed_at: new Date().toISOString(),
+  };
+  if (updatePayload.rating !== undefined) patch.rating = updatePayload.rating;
+  if (updatePayload.notes !== undefined) patch.notes = updatePayload.notes;
+
+  const { data, error } = await supabase
+    .from("hr_staff_appraisals")
+    .update(patch)
+    .eq("business_id", ctx.businessId)
+    .eq("id", pending.id)
+    .select(
+      "id, employee_id, period_label, due_date, status, rating, notes, completed_at",
+    )
+    .single();
+
+  if (error || !data) {
+    return {
+      ok: false,
+      action: "complete_staff_appraisal",
+      message: "Could not mark appraisal complete.",
+    };
+  }
+
+  return {
+    ok: true,
+    action: "complete_staff_appraisal",
+    employee_name: employee.full_name,
+    period_label: data.period_label,
+    due_date: data.due_date,
+    status: data.status,
+    rating: data.rating,
+    appraisal_id: data.id,
+    href: "/hr/appraisals",
+  };
+}
+
 const ALLOWED_TOOLS = new Set([
   "get_leave_balance",
   "create_leave_record",
   "update_leave_status",
   "complete_onboarding_item",
+  "create_staff_appraisal",
+  "complete_staff_appraisal",
 ]);
 
 export async function executeHrAssistantTool(
@@ -589,6 +914,12 @@ export async function executeHrAssistantTool(
   if (name === "complete_onboarding_item") {
     return executeCompleteOnboardingItem(ctx, rawArgs);
   }
+  if (name === "create_staff_appraisal") {
+    return executeCreateStaffAppraisal(ctx, rawArgs);
+  }
+  if (name === "complete_staff_appraisal") {
+    return executeCompleteStaffAppraisal(ctx, rawArgs);
+  }
   return { ok: false, action: name, message: "Unknown action." };
 }
 
@@ -598,6 +929,8 @@ export function isHrActionTool(name: string): boolean {
   return (
     name === "create_leave_record" ||
     name === "update_leave_status" ||
-    name === "complete_onboarding_item"
+    name === "complete_onboarding_item" ||
+    name === "create_staff_appraisal" ||
+    name === "complete_staff_appraisal"
   );
 }

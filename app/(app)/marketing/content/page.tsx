@@ -1,19 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { MarketingBackLink } from "@/components/marketing/MarketingBackLink";
 import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-} from "lucide-react";
-import { MarketingSubpageShell } from "@/components/marketing/MarketingSubpageShell";
-import { ModuleHeroStat } from "@/components/dashboard/module-layout";
-import {
-  ModuleListPanel,
-  ModuleListPanelFilters,
-  ModuleListPanelHeader,
-} from "@/components/dashboard/module-list-panel";
-import { ModuleListFilterChipLink } from "@/components/dashboard/module-list-search";
+  ContentCalendarDesktop,
+  ContentCalendarMobileList,
+  ContentCalendarShell,
+} from "@/components/marketing/ContentCalendarView";
+import { ContentCalendarAdaptive } from "@/app/(app)/marketing/content/ContentCalendarAdaptive";
 import { Card, CardBody } from "@/components/ui/card";
 import {
   getCurrentUser,
@@ -21,7 +13,15 @@ import {
 } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { contentSubpageHero } from "@/lib/marketing/subpage-hero";
+import {
+  buildCalendarCells,
+  computeMonthStats,
+  groupByDate,
+  isoDayMyt,
+  type ContentCalendarRow,
+  type ContentChannel,
+  type ContentStatus,
+} from "@/lib/marketing/content-calendar-shared";
 
 export const metadata = { title: "Content calendar" };
 export const dynamic = "force-dynamic";
@@ -29,50 +29,6 @@ export const dynamic = "force-dynamic";
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
-
-interface ContentRow {
-  id: string;
-  channel: "tiktok" | "instagram" | "facebook";
-  status: "idea" | "drafted" | "scheduled" | "posted";
-  scheduled_at: string | null;
-  hook: string | null;
-}
-
-const MONTH_LABELS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-const CHANNEL_STYLE: Record<
-  ContentRow["channel"],
-  { label: string; chip: string; dot: string }
-> = {
-  tiktok: {
-    label: "TikTok",
-    chip: "bg-[#FFE5DF] text-[#8B2418] dark:bg-[#3A1714] dark:text-[#F0B0A6]",
-    dot: "bg-[#8B2418] dark:bg-[#F0B0A6]",
-  },
-  instagram: {
-    label: "Instagram",
-    chip: "bg-[#FCE4D7] text-[#B35628] dark:bg-[#3A1F12] dark:text-[#F2B591]",
-    dot: "bg-[#B35628] dark:bg-[#F2B591]",
-  },
-  facebook: {
-    label: "Facebook",
-    chip: "bg-[#FFE3B8] text-[#8C5C0A] dark:bg-[#3A2C12] dark:text-[#F5C97A]",
-    dot: "bg-[#8C5C0A] dark:bg-[#F5C97A]",
-  },
-};
 
 function flattenParams(
   raw: Record<string, string | string[] | undefined>,
@@ -88,17 +44,6 @@ function flattenParams(
 function clampInt(n: number, min: number, max: number): number {
   if (!Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, Math.trunc(n)));
-}
-
-function isoDayMyt(d: Date): string {
-  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" });
-}
-
-function dayOfMonth(iso: string): number {
-  const d = new Date(iso);
-  if (Number.isNaN(d.valueOf())) return 0;
-  const myt = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur" }));
-  return myt.getDate();
 }
 
 export default async function ContentCalendarPage({ searchParams }: PageProps) {
@@ -139,65 +84,41 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
     ["idea", "drafted", "scheduled", "posted"] as const
   ).find((s) => s === raw.status);
 
-  // Build UTC bounds for the calendar month. We over-fetch a 7-day pad on
-  // each side so the grid (which renders the surrounding-month cells)
-  // can include posts that fall there too.
   const startOfMonthUtc = new Date(Date.UTC(year, month - 1, 1));
   const endOfMonthUtc = new Date(Date.UTC(year, month, 1));
   const padStart = new Date(startOfMonthUtc.getTime() - 7 * 86_400_000);
   const padEnd = new Date(endOfMonthUtc.getTime() + 7 * 86_400_000);
 
   const supabase = await createSupabaseServerClient();
-  let q = supabase
+
+  let calendarQuery = supabase
     .from("content_plan")
     .select("id, channel, status, scheduled_at, hook")
     .eq("business_id", user.businessId)
     .gte("scheduled_at", padStart.toISOString())
     .lt("scheduled_at", padEnd.toISOString())
     .order("scheduled_at", { ascending: true });
-  if (channelFilter) q = q.eq("channel", channelFilter);
-  if (statusFilter) q = q.eq("status", statusFilter);
+  if (channelFilter) calendarQuery = calendarQuery.eq("channel", channelFilter);
+  if (statusFilter) calendarQuery = calendarQuery.eq("status", statusFilter);
 
-  const { data, error } = await q;
-  const rows = (data ?? []) as unknown as ContentRow[];
+  const [{ data, error }, backlogResult] = await Promise.all([
+    calendarQuery,
+    supabase
+      .from("content_plan")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", user.businessId)
+      .is("scheduled_at", null)
+      .in("status", ["idea", "drafted", "scheduled"]),
+  ]);
 
-  // Build the calendar grid: 6 weeks of 7 days.
-  const firstDay = new Date(year, month - 1, 1);
-  const firstWeekday = firstDay.getDay(); // 0 = Sun
-  const daysInMonth = new Date(year, month, 0).getDate();
-
-  type Cell = {
-    dateKey: string;
-    day: number;
-    inMonth: boolean;
-    isToday: boolean;
-  };
-
+  const rows = (data ?? []) as unknown as ContentCalendarRow[];
+  const backlogCount = backlogResult.count ?? 0;
   const todayKey = isoDayMyt(new Date());
-  const cells: Cell[] = [];
-  for (let i = 0; i < 42; i++) {
-    const dayOffset = i - firstWeekday;
-    const date = new Date(year, month - 1, 1 + dayOffset);
-    const day = date.getDate();
-    const inMonth = date.getMonth() === month - 1;
-    const dateKey = isoDayMyt(date);
-    cells.push({ dateKey, day, inMonth, isToday: dateKey === todayKey });
-  }
+  const cells = buildCalendarCells(year, month);
+  const entriesByDate = groupByDate(rows);
+  const monthStats = computeMonthStats(rows, year, month);
 
-  // Group entries by yyyy-mm-dd in MYT
-  const entriesByDate = new Map<string, ContentRow[]>();
-  for (const row of rows) {
-    if (!row.scheduled_at) continue;
-    const key = isoDayMyt(new Date(row.scheduled_at));
-    if (!entriesByDate.has(key)) entriesByDate.set(key, []);
-    entriesByDate.get(key)!.push(row);
-  }
-  void dayOfMonth; // reserved for tooltip usage
-
-  // Month navigation
-  const prevMonth = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
-  const nextMonth = month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
-  const buildHref = (y: number, m: number) => {
+  const buildMonthHref = (y: number, m: number) => {
     const u = new URLSearchParams();
     u.set("year", String(y));
     u.set("month", String(m));
@@ -205,9 +126,11 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
     if (statusFilter) u.set("status", statusFilter);
     return `/marketing/content?${u.toString()}`;
   };
-  const filterHref = (
-    next: { channel?: ContentRow["channel"]; status?: ContentRow["status"] },
-  ) => {
+
+  const filterHref = (next: {
+    channel?: ContentChannel;
+    status?: ContentStatus;
+  }) => {
     const u = new URLSearchParams();
     u.set("year", String(year));
     u.set("month", String(month));
@@ -217,56 +140,13 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
     else if (statusFilter) u.set("status", statusFilter);
     return `/marketing/content?${u.toString()}`;
   };
+
   const resetHref = `/marketing/content?year=${year}&month=${month}`;
 
-  const totalThisMonth = rows.filter((r) => {
-    if (!r.scheduled_at) return false;
-    const key = isoDayMyt(new Date(r.scheduled_at));
-    return key.startsWith(
-      `${year}-${String(month).padStart(2, "0")}`,
-    );
-  }).length;
-
-  const scheduledCount = rows.filter((r) => r.status === "scheduled").length;
-  const draftCount = rows.filter((r) => r.status === "drafted").length;
-  const postedCount = rows.filter((r) => r.status === "posted").length;
-  const hero = contentSubpageHero({
-    monthLabel: `${MONTH_LABELS[month - 1]} ${year}`,
-    scheduledCount,
-    draftCount,
-    postedCount,
-  });
-
   return (
-    <MarketingSubpageShell
-      headline={hero.headline}
-      subcopy={hero.subcopy}
-      variant={hero.variant}
-      stats={
-        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <ModuleHeroStat
-            label="This month"
-            value={totalThisMonth}
-            iconClassName="text-violet-700 dark:text-violet-300"
-          />
-          <ModuleHeroStat
-            label="Scheduled"
-            value={scheduledCount}
-            iconClassName="text-emerald-700 dark:text-emerald-300"
-          />
-          <ModuleHeroStat
-            label="Drafts"
-            value={draftCount}
-            iconClassName="text-sky-700 dark:text-sky-300"
-          />
-          <ModuleHeroStat
-            label="Posted"
-            value={postedCount}
-            iconClassName="text-amber-700 dark:text-amber-300"
-          />
-        </div>
-      }
-    >
+    <div className="space-y-4 pb-20 lg:pb-8">
+      <MarketingBackLink />
+
       {error ? (
         <Card>
           <CardBody className="text-sm text-status-danger">
@@ -275,179 +155,38 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
         </Card>
       ) : null}
 
-      <ModuleListPanel>
-        <ModuleListPanelHeader
-          title="Content calendar"
-          subtitle={`${MONTH_LABELS[month - 1]} ${year}`}
-          action={
-            <Link
-              href={`/marketing/content/new?date=${todayKey}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
-            >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-              New post
-            </Link>
+      <ContentCalendarShell
+        year={year}
+        month={month}
+        todayKey={todayKey}
+        monthStats={monthStats}
+        backlogCount={backlogCount}
+        channelFilter={channelFilter}
+        statusFilter={statusFilter}
+        buildMonthHref={buildMonthHref}
+        filterHref={filterHref}
+        resetHref={resetHref}
+      >
+        <ContentCalendarAdaptive
+          desktop={
+            <ContentCalendarDesktop
+              year={year}
+              month={month}
+              todayKey={todayKey}
+              cells={cells}
+              entriesByDate={entriesByDate}
+            />
+          }
+          mobile={
+            <ContentCalendarMobileList
+              year={year}
+              month={month}
+              todayKey={todayKey}
+              entriesByDate={entriesByDate}
+            />
           }
         />
-        <ModuleListPanelFilters>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={buildHref(prevMonth.year, prevMonth.month)}
-              aria-label="Previous month"
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-cream-300 bg-white text-ink-muted hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark"
-            >
-              <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-            </Link>
-            <h2 className="text-base font-semibold text-ink dark:text-cream-100">
-              {MONTH_LABELS[month - 1]} {year}
-            </h2>
-            <Link
-              href={buildHref(nextMonth.year, nextMonth.month)}
-              aria-label="Next month"
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-cream-300 bg-white text-ink-muted hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark"
-            >
-              <ChevronRight className="h-4 w-4" strokeWidth={2} />
-            </Link>
-            <Link
-              href={`/marketing/content?year=${now.getFullYear()}&month=${now.getMonth() + 1}`}
-              className="inline-flex items-center gap-1.5 rounded-md bg-cream-200 px-2.5 py-1 text-xs font-semibold text-ink-muted hover:text-ink dark:bg-hairline-dark dark:text-cream-400"
-            >
-              <Calendar className="h-3 w-3" strokeWidth={2} />
-              Today
-            </Link>
-          </div>
-          <nav
-            aria-label="Filter content"
-            className="mt-3 flex flex-wrap items-center gap-1.5 text-xs"
-          >
-            <ModuleListFilterChipLink
-              href={resetHref}
-              active={!channelFilter && !statusFilter}
-              accent="violet"
-              label="All"
-            />
-            {(["tiktok", "instagram", "facebook"] as const).map((c) => (
-              <ModuleListFilterChipLink
-                key={c}
-                href={filterHref({ channel: c })}
-                active={channelFilter === c}
-                accent="violet"
-                label={CHANNEL_STYLE[c].label}
-              />
-            ))}
-            {(["scheduled", "drafted", "idea", "posted"] as const).map((s) => (
-              <ModuleListFilterChipLink
-                key={s}
-                href={filterHref({ status: s })}
-                active={statusFilter === s}
-                accent="violet"
-                label={s[0].toUpperCase() + s.slice(1)}
-              />
-            ))}
-          </nav>
-        </ModuleListPanelFilters>
-
-        <div className="overflow-x-auto p-2 sm:p-4">
-          <div className="min-w-[700px]">
-            <div className="grid grid-cols-7 gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                <p key={d} className="px-2 py-1 text-center">
-                  {d}
-                </p>
-              ))}
-            </div>
-            <div className="mt-1.5 grid grid-cols-7 gap-1.5">
-              {cells.map((cell, idx) => {
-                const dayPosts = entriesByDate.get(cell.dateKey) ?? [];
-                const newPostHref = `/marketing/content/new?date=${cell.dateKey}`;
-                return (
-                  <div
-                    key={`${cell.dateKey}-${idx}`}
-                    className={`group relative min-h-24 rounded-lg border p-1.5 transition-colors ${
-                      cell.inMonth
-                        ? "border-cream-200 bg-panel-light hover:border-brand-300 dark:border-hairline-dark dark:bg-panel-dark dark:hover:border-brand-700"
-                        : "border-cream-200/60 bg-cream-50/40 dark:border-hairline-dark/60 dark:bg-panel-dark/40"
-                    } ${cell.isToday ? "ring-2 ring-accent-400 ring-offset-1" : ""}`}
-                  >
-                    <div className="mb-1 flex items-start justify-between gap-1">
-                      <p
-                        className={`text-xs font-semibold ${
-                          cell.inMonth
-                            ? cell.isToday
-                              ? "text-accent-700 dark:text-accent-200"
-                              : "text-ink dark:text-cream-100"
-                            : "text-ink-subtle"
-                        }`}
-                      >
-                        {cell.day}
-                      </p>
-                      {cell.inMonth ? (
-                        <Link
-                          href={newPostHref}
-                          aria-label={`New post on ${cell.dateKey}`}
-                          title="New post for this day"
-                          className="opacity-0 transition-opacity group-hover:opacity-100 rounded text-[10px] font-bold leading-none text-brand-700 hover:underline dark:text-brand-300"
-                        >
-                          + Add
-                        </Link>
-                      ) : null}
-                    </div>
-                    <div className="space-y-1">
-                      {dayPosts.slice(0, 3).map((p) => {
-                        const style = CHANNEL_STYLE[p.channel];
-                        return (
-                          <Link
-                            key={p.id}
-                            href={`/marketing/content/${p.id}`}
-                            title={p.hook ?? "Untitled post"}
-                            className={`flex items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold transition-shadow hover:shadow-sm hover:ring-1 hover:ring-brand-300 ${style.chip}`}
-                          >
-                            <span
-                              className={`h-1 w-1 shrink-0 rounded-full ${style.dot}`}
-                            />
-                            <span className="truncate">
-                              {p.hook ?? "Untitled"}
-                            </span>
-                          </Link>
-                        );
-                      })}
-                      {dayPosts.length > 3 ? (
-                        <Link
-                          href={`/marketing/content?year=${year}&month=${month}&date=${cell.dateKey}`}
-                          className="block text-[10px] font-semibold text-ink-muted hover:text-brand-700 dark:text-cream-400 dark:hover:text-brand-300"
-                        >
-                          +{dayPosts.length - 3} more
-                        </Link>
-                      ) : null}
-                      {dayPosts.length === 0 && cell.inMonth ? (
-                        <Link
-                          href={newPostHref}
-                          aria-label={`New post on ${cell.dateKey}`}
-                          className="block h-12 w-full rounded opacity-0 transition-opacity group-hover:opacity-100"
-                        >
-                          <span className="sr-only">Add post</span>
-                        </Link>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 border-t border-cream-200 px-5 py-3 text-xs dark:border-hairline-dark">
-          {(["tiktok", "instagram", "facebook"] as const).map((c) => (
-            <span
-              key={c}
-              className="inline-flex items-center gap-1.5 text-ink-muted dark:text-cream-400"
-            >
-              <span className={`h-2 w-2 rounded-full ${CHANNEL_STYLE[c].dot}`} />
-              {CHANNEL_STYLE[c].label}
-            </span>
-          ))}
-        </div>
-      </ModuleListPanel>
-    </MarketingSubpageShell>
+      </ContentCalendarShell>
+    </div>
   );
 }

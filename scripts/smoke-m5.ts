@@ -13,7 +13,7 @@
  *      entry appears in the calendar's month window.
  *   4. PATCH /api/marketing/content/[id] — idea → drafted.
  *   5. PATCH /api/marketing/content/[id] — drafted → scheduled.
- *   6. POST /api/marketing/content/[id]/media — attaches a stub uuid.
+ *   6. POST /api/marketing/content/[id]/media — attaches a marketing_files row.
  *   7. DELETE /api/marketing/content/[id] — assert 200.
  *   8. GET /api/marketing/content/[id] — assert 404.
  *   9. RBAC negative: cashier POST → 403.
@@ -438,26 +438,69 @@ async function main() {
       );
     }
 
-    // ── 5. Attach a media file_id stub. ──────────────────────────────
-    const fileId = randomUUID();
+    // ── 5. Attach marketing media (seed marketing_files, then link). ───
+    let mediaFileId: string | null = null;
     {
+      const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      });
+      const { data: ownerRow, error: ownerErr } = await admin
+        .from("users")
+        .select("id")
+        .eq("email", SEED_EMAIL)
+        .maybeSingle();
+      if (ownerErr || !ownerRow?.id) {
+        record(
+          "media",
+          0,
+          "seed marketing_files row",
+          false,
+          ownerErr?.message ?? "owner user not found",
+        );
+      } else {
+        mediaFileId = randomUUID();
+        const storagePath = `${BUSINESS_ID}/${randomUUID()}/smoke-m5.jpg`;
+        const { error: insErr } = await admin.from("marketing_files").insert({
+          id: mediaFileId,
+          business_id: BUSINESS_ID,
+          uploaded_by: ownerRow.id,
+          storage_path: storagePath,
+          file_name: "smoke-m5.jpg",
+          mime_type: "image/jpeg",
+          file_size_bytes: 1024,
+        });
+        record(
+          "media",
+          0,
+          "seed marketing_files row",
+          !insErr,
+          insErr ? insErr.message : `file_id=${mediaFileId}`,
+        );
+      }
+    }
+
+    if (mediaFileId) {
       const r = await call(
         owner,
         "POST",
         `/api/marketing/content/${entryId}/media`,
         {
-          body: JSON.stringify({ file_id: fileId, position: 0 }),
+          body: JSON.stringify({ file_id: mediaFileId, position: 0 }),
         },
       );
       const body = r.body as { media?: { file_id?: string } };
       const ok =
-        r.status === 201 && body?.media?.file_id === fileId;
+        r.status === 201 && body?.media?.file_id === mediaFileId;
       record(
         "media",
         1,
         "POST /api/marketing/content/[id]/media",
         ok,
-        ok ? `file_id=${fileId}` : `status=${r.status} body=${pickPreview(r.body)}`,
+        ok ? `file_id=${mediaFileId}` : `status=${r.status} body=${pickPreview(r.body)}`,
       );
     }
 

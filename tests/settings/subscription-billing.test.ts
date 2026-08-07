@@ -8,9 +8,10 @@ import {
 describe("subscription billing", () => {
   it("prices tiers in MYR", () => {
     expect(tierAmountMyr("starter")).toBe(0);
-    expect(tierAmountMyr("micro")).toBe(69);
-    expect(tierAmountMyr("sme")).toBe(139);
-    expect(tierAmountMyr("enterprise")).toBe(249);
+    expect(tierAmountMyr("basic")).toBe(39);
+    expect(tierAmountMyr("micro")).toBe(79);
+    expect(tierAmountMyr("sme")).toBe(169);
+    expect(tierAmountMyr("enterprise")).toBe(299);
   });
 
   it("uses 30-day free cycle and 14-day trial", () => {

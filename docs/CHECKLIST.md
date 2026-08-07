@@ -42,7 +42,7 @@
 | Stock via event bus | ✅ | POS + invoice paid (`product_id` on line items) |
 | Marketing `customer.*` / metric events | ✅ | Sync dispatcher (Edge listener optional fallback) |
 | Per-business holiday overrides → Ops bookings | ✅ | `business_holiday_overrides` + effective calendar |
-| Marketing assets in Admin Storage | ✅ | Bridge link in Storage panel → `/marketing/content` (separate bucket) |
+| Marketing assets in Admin Storage | ✅ | Social creatives in Marketing Content; signed ads & agreements in vault (`marketing` category) |
 
 **Deploy:** `npx supabase db push` ✅ (2026-08-06).
 
@@ -241,7 +241,8 @@
 | **HR** | MC documents (vault) | `hr_leave_records.admin_file_id` (new uploads + backfill script) | ✅ |
 | **Finance** | Expense deep link | Storage “Used by” → `/finance/expenses?txn={id}` | ✅ |
 | **Operations** | Supplier / order / product deep links | Storage “Used by” → `?supplier=` `?order=` `?product=` | ✅ |
-| **Marketing** | Content assets | Separate `marketing-media` bucket — bridge link from Storage UI | ✅ |
+| **Marketing** | Content assets | `marketing-media` bucket — photos, reels, carousels on content calendar | ✅ |
+| **Marketing** | Back-office marketing docs | Admin Storage vault — category `marketing` (contracts, signed ads, MOUs) | ✅ |
 | **Settings** | Plan tier | Storage quota from `businesses.tier` + active `storage-10gb` add-ons | ✅ |
 | **Settings** | Team / RBAC | `hr_officer` → Storage HR-docs only; task assignees from `users` | ✅ |
 | **Marketplace** | Amir add-on | `admin-assistant` unlocks `/admin/assistant` | ✅ |
@@ -568,7 +569,7 @@
 
 | Module | Connection | How | Status |
 |--------|------------|-----|--------|
-| **Admin** | Storage bridge | Separate `marketing-media` bucket; link from Admin Storage UI | ✅ |
+| **Admin** | Storage bridge | Social assets in Marketing Content; back-office marketing docs in vault | ✅ |
 | **Sales** | Lead convert → customer | Sales convert flow creates / updates CRM record | ✅ |
 | **Sales** | Coupon redeem at POS | Coupon code validated at checkout | ✅ |
 | **Sales** | Customer → POS deep link | Marketing customer detail → `/sales/pos` | ✅ |
@@ -610,7 +611,7 @@
 | ✅ | Audit log on HR mutations |
 | ✅ | First-visit HR guide |
 | ✅ | Notification feed — HR events → `business_notifications` + overview activity panel |
-| ✅ | MC document → Admin Storage vault | `hr_leave_records.admin_file_id`; `npm run backfill:mc-admin-files` for legacy rows |
+| ✅ | MC document → Admin Storage vault | `hr_leave_records.admin_file_id` |
 | ✅ | Leave → Operations booking blocks | Sync on approve; API rejects staff on leave when resource has `employee_id` |
 
 **Core verify:** `npm run smoke:hr` (employee → leave → approve → notifications).
@@ -680,7 +681,7 @@
 | ✅ | Suggested prompt pills |
 | ✅ | BM / English |
 | ✅ | Shared credit pool + pause at 0 credits |
-| ⬜ | Dedicated appraisal tools in chat (create/complete via Hana) |
+| ✅ | Dedicated appraisal tools in chat (create/complete via Hana) |
 
 ### 9.5 Holiday overrides ↔ Operations (related, not the same)
 

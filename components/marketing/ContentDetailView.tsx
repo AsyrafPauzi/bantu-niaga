@@ -9,12 +9,6 @@ import {
   Video,
   type LucideIcon,
 } from "lucide-react";
-import { StatusPill } from "@/components/dashboard/status-pill";
-import { SectionCard } from "@/components/dashboard/section-card";
-import {
-  ModuleDashboardHero,
-  ModuleHeroStat,
-} from "@/components/dashboard/module-layout";
 import { ContentEntryForm } from "@/components/marketing/ContentEntryForm";
 import { ContentActions } from "@/components/marketing/ContentActions";
 import { ContentSharePanel } from "@/components/marketing/ContentSharePanel";
@@ -22,12 +16,18 @@ import { MarketingAddonTeaser } from "@/components/marketing/MarketingAddonTease
 import { PublishPanel } from "@/components/marketing/social/PublishPanel";
 import { InsightsPanel } from "@/components/marketing/social/InsightsPanel";
 import { META_SOCIAL_ADDON_SLUG } from "@/lib/marketing/addon-slugs";
-import { contentDetailSubpageHero } from "@/lib/marketing/subpage-hero";
+import {
+  CHANNEL_META,
+  formatDayHeading,
+  formatPostTime,
+  isoDayMyt,
+  STATUS_META,
+} from "@/lib/marketing/content-calendar-shared";
+import { cn } from "@/lib/utils/cn";
 import type {
   ContentChannel,
   ContentEntryRow,
   ContentMediaRow,
-  ContentStatus,
 } from "@/components/marketing/types";
 import type { PublishWithMetrics, SocialAccount } from "@/lib/social/types";
 
@@ -42,56 +42,24 @@ interface ContentEntryRowWithMetrics extends ContentEntryRow {
   forecast_reach_max: number | null;
 }
 
-const CHANNEL_META: Record<
-  ContentChannel,
-  { label: string; icon: LucideIcon; tone: "brand" | "accent" | "warning"; color: string }
-> = {
-  tiktok: {
-    label: "TikTok",
-    icon: Video,
-    tone: "accent",
-    color: "text-accent-700 dark:text-accent-200",
-  },
-  instagram: {
-    label: "Instagram",
-    icon: Camera,
-    tone: "brand",
-    color: "text-brand-700 dark:text-brand-200",
-  },
-  facebook: {
-    label: "Facebook",
-    icon: Facebook,
-    tone: "brand",
-    color: "text-brand-700 dark:text-brand-200",
-  },
+const CHANNEL_ICON: Record<ContentChannel, LucideIcon> = {
+  tiktok: Video,
+  instagram: Camera,
+  facebook: Facebook,
 };
-
-const STATUS_TONE: Record<ContentStatus, "neutral" | "warning" | "success" | "brand"> = {
-  idea: "neutral",
-  drafted: "warning",
-  scheduled: "success",
-  posted: "brand",
-};
-
-function fmtFullDate(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.valueOf())) return iso;
-  return d.toLocaleString("en-MY", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Asia/Kuala_Lumpur",
-  });
-}
 
 function fmtNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toLocaleString("en-MY");
+}
+
+function formatWhen(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.valueOf())) return null;
+  const dateKey = isoDayMyt(d);
+  return `${formatDayHeading(dateKey)} · ${formatPostTime(iso)} MYT`;
 }
 
 interface ContentDetailViewProps {
@@ -104,6 +72,54 @@ interface ContentDetailViewProps {
   metaPublishEnabled: boolean;
 }
 
+function EngagementStrip({
+  views,
+  likes,
+  comments,
+  shares,
+  saves,
+}: {
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+}) {
+  const items = [
+    { icon: Eye, label: "Views", value: views },
+    { icon: Heart, label: "Likes", value: likes },
+    { icon: MessageSquare, label: "Comments", value: comments },
+    { icon: Share2, label: "Shares", value: shares },
+    { icon: Bookmark, label: "Saves", value: saves },
+  ];
+  const hasAny = items.some((i) => i.value > 0);
+
+  if (!hasAny) {
+    return (
+      <p className="text-xs text-white/75">
+        No engagement numbers recorded yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items
+        .filter((i) => i.value > 0)
+        .map((i) => (
+          <span
+            key={i.label}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white"
+          >
+            <i.icon className="h-3.5 w-3.5 opacity-80" strokeWidth={2} />
+            <span className="tabular-nums">{fmtNumber(i.value)}</span>
+            <span className="text-white/80">{i.label}</span>
+          </span>
+        ))}
+    </div>
+  );
+}
+
 export function ContentDetailView({
   entry,
   media,
@@ -114,202 +130,124 @@ export function ContentDetailView({
   metaPublishEnabled,
 }: ContentDetailViewProps) {
   const channel = CHANNEL_META[entry.channel];
-  const ChannelIcon = channel.icon;
+  const status = STATUS_META[entry.status];
+  const ChannelIcon = CHANNEL_ICON[entry.channel];
   const isPosted = entry.status === "posted";
-  const forecastMin = entry.forecast_reach_min ?? null;
-  const forecastMax = entry.forecast_reach_max ?? null;
-  const forecastLabel =
-    forecastMin !== null && forecastMax !== null
-      ? `${fmtNumber(forecastMin)}–${fmtNumber(forecastMax)}`
-      : "2.4K–4.8K (estimate)";
-
-  const hero = contentDetailSubpageHero({
-    hook: entry.hook,
-    channel: entry.channel,
-    status: entry.status,
-    scheduledAt: entry.scheduled_at,
-  });
+  const title = entry.hook?.trim() || "Untitled post";
+  const scheduledLine = formatWhen(entry.scheduled_at);
+  const postedLine = formatWhen(entry.posted_at);
 
   return (
-    <div className="space-y-6 pb-8">
-      <ModuleDashboardHero
-        module="Marketing · Content"
-        headline={hero.headline}
-        subcopy={hero.subcopy}
-        variant={hero.variant}
-        headerExtra={
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <StatusPill tone={STATUS_TONE[entry.status]}>
-              {entry.status}
-            </StatusPill>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full bg-cream-200 px-2.5 py-1 text-[11px] font-semibold dark:bg-hairline-dark ${channel.color}`}
-            >
-              <ChannelIcon className="h-3 w-3" strokeWidth={2} />
-              {channel.label}
-            </span>
-          </div>
-        }
-        cta={<ContentActions contentId={entry.id} isPosted={isPosted} />}
+    <div className="space-y-4">
+      <header
+        className="relative overflow-hidden rounded-2xl border border-violet-200/60 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-violet-800 p-5 text-white shadow-lg dark:border-violet-900/50"
       >
-        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <ModuleHeroStat
-            label="Views"
-            value={isPosted ? fmtNumber(entry.views) : "—"}
-            icon={Eye}
-            iconClassName="text-violet-700 dark:text-violet-300"
-          />
-          <ModuleHeroStat
-            label="Likes"
-            value={isPosted ? fmtNumber(entry.likes) : "—"}
-            icon={Heart}
-            iconClassName="text-rose-700 dark:text-rose-300"
-          />
-          <ModuleHeroStat
-            label="Comments"
-            value={isPosted ? fmtNumber(entry.comments_count) : "—"}
-            icon={MessageSquare}
-            iconClassName="text-sky-700 dark:text-sky-300"
-          />
-          <ModuleHeroStat
-            label="Shares"
-            value={isPosted ? fmtNumber(entry.shares) : "—"}
-            icon={Share2}
-            iconClassName="text-emerald-700 dark:text-emerald-300"
-          />
-        </div>
-      </ModuleDashboardHero>
-
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-cream-200 bg-panel-light px-5 py-4 text-sm shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-            Scheduled
-          </p>
-          <p className="font-medium text-ink dark:text-cream-100">
-            {fmtFullDate(entry.scheduled_at)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-            Posted
-          </p>
-          <p className="font-medium text-ink dark:text-cream-100">
-            {fmtFullDate(entry.posted_at)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-            Created
-          </p>
-          <p className="font-medium text-ink dark:text-cream-100">
-            {fmtFullDate(entry.created_at)}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
-        <div className="space-y-4 lg:col-span-2 lg:space-y-6">
-          <SectionCard title="Caption" subtitle="Body text + hashtags">
-            <div className="space-y-3">
-              {entry.caption ? (
-                <pre className="whitespace-pre-wrap rounded-lg bg-cream-100/60 p-3.5 font-sans text-sm leading-relaxed text-ink dark:bg-hairline-dark/30 dark:text-cream-100">
-                  {entry.caption}
-                </pre>
-              ) : (
-                <p className="rounded-lg bg-cream-100/60 p-3.5 text-sm italic text-ink-muted dark:bg-hairline-dark/30 dark:text-cream-400">
-                  No caption yet.
-                </p>
-              )}
-              {hashtags.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {hashtags.map((h) => (
-                    <span
-                      key={h}
-                      className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
-                    >
-                      {h}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.18),transparent_45%),radial-gradient(circle_at_80%_100%,rgba(0,0,0,0.15),transparent_50%)]"
+          aria-hidden
+        />
+        <div className="relative space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-white/70">
+                Marketing · Content
+              </p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight">
+                {title}
+              </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide",
+                    status.pill,
+                  )}
+                >
+                  {status.label}
+                </span>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold",
+                    channel.chip,
+                  )}
+                >
+                  <ChannelIcon className="h-3 w-3" strokeWidth={2.25} />
+                  {channel.label}
+                </span>
+              </div>
             </div>
-          </SectionCard>
+            <ContentActions contentId={entry.id} isPosted={isPosted} variant="hero" />
+          </div>
 
-          <SectionCard
-            title="Media"
-            subtitle={`${media.length} attachment${media.length === 1 ? "" : "s"}`}
-          >
-            {media.length === 0 ? (
-              <p className="rounded-lg bg-cream-100/60 p-4 text-sm italic text-ink-muted dark:bg-hairline-dark/30 dark:text-cream-400">
-                No media attached. Media uploads activate when Admin Storage
-                ships (D6).
+          <div className="space-y-1 text-sm text-white/90">
+            {scheduledLine ? (
+              <p>
+                <span className="font-semibold text-white">Scheduled</span>
+                {" · "}
+                {scheduledLine}
               </p>
             ) : (
-              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {media.map((m) => (
-                  <li
-                    key={m.file_id}
-                    className="flex h-28 items-center justify-center rounded-lg border border-dashed border-cream-300 bg-cream-100/60 p-3 text-center font-mono text-[10px] text-ink-muted dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-400"
-                  >
-                    {m.file_id.slice(0, 8)}…
-                  </li>
-                ))}
-              </ul>
+              <p className="text-white/75">No scheduled date — set one below.</p>
             )}
-          </SectionCard>
-
-          <SectionCard
-            title="Performance"
-            subtitle={
-              isPosted
-                ? "Engagement metrics"
-                : "Available once the post is live"
-            }
-          >
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              {[
-                { icon: Eye, label: "Views", value: entry.views },
-                { icon: Heart, label: "Likes", value: entry.likes },
-                {
-                  icon: MessageSquare,
-                  label: "Comments",
-                  value: entry.comments_count,
-                },
-                { icon: Share2, label: "Shares", value: entry.shares },
-                { icon: Bookmark, label: "Saves", value: entry.saves },
-              ].map((m) => (
-                <div
-                  key={m.label}
-                  className="rounded-lg border border-cream-200 bg-panel-light p-3 dark:border-hairline-dark dark:bg-panel-dark"
-                >
-                  <m.icon
-                    className="mb-1 h-4 w-4 text-ink-muted"
-                    strokeWidth={2}
-                  />
-                  <p className="text-xs text-ink-muted dark:text-cream-400">
-                    {m.label}
-                  </p>
-                  <p className="text-lg font-bold text-ink dark:text-cream-100">
-                    {isPosted
-                      ? fmtNumber(m.value)
-                      : m.value > 0
-                        ? fmtNumber(m.value)
-                        : "—"}
-                  </p>
-                </div>
-              ))}
-            </div>
-            {!isPosted ? (
-              <p className="mt-3 text-xs italic text-ink-muted dark:text-cream-400">
-                Views, likes, comments, shares and saves sync from{" "}
-                {channel.label} once the post is live and the platform webhook
-                is connected.
+            {postedLine ? (
+              <p>
+                <span className="font-semibold text-white">Posted</span>
+                {" · "}
+                {postedLine}
               </p>
             ) : null}
-          </SectionCard>
+          </div>
+
+          {isPosted ? (
+            <EngagementStrip
+              views={entry.views}
+              likes={entry.likes}
+              comments={entry.comments_count}
+              shares={entry.shares}
+              saves={entry.saves}
+            />
+          ) : null}
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+        <div className="space-y-4 lg:col-span-2">
+          <section className="rounded-2xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+            <h2 className="text-sm font-bold text-ink dark:text-cream-100">
+              Caption
+            </h2>
+            {entry.caption ? (
+              <pre
+                className="mt-3 whitespace-pre-wrap rounded-xl bg-violet-50/60 p-4 font-sans text-sm leading-relaxed text-ink dark:bg-violet-950/20 dark:text-cream-100"
+              >
+                {entry.caption}
+              </pre>
+            ) : (
+              <p className="mt-3 text-sm text-ink-muted dark:text-cream-400">
+                No caption yet — add one in Edit below.
+              </p>
+            )}
+            {hashtags.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {hashtags.map((h) => (
+                  <span
+                    key={h}
+                    className="rounded-full bg-violet-100 px-2.5 py-0.5 text-[11px] font-semibold text-violet-800 dark:bg-violet-950/50 dark:text-violet-200"
+                  >
+                    {h}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          <ContentEntryForm
+            mode="edit"
+            initial={entry}
+            initialMedia={media}
+          />
         </div>
 
-        <div className="space-y-4 lg:space-y-6">
+        <aside className="space-y-4">
           <ContentSharePanel
             caption={defaultCaption}
             channelLabel={channel.label}
@@ -322,32 +260,21 @@ export function ContentDetailView({
               defaultCaption={defaultCaption}
               accounts={socialAccounts}
               alreadyPosted={isPosted}
+              attachedMediaIds={media.map((m) => m.file_id)}
             />
           ) : (
             <MarketingAddonTeaser
               title="Auto-publish to Facebook & Instagram"
-              description="Connect Meta pages and publish from this calendar in one click. Core Marketing lets you plan and share drafts manually."
+              description="Connect Meta pages and publish from this calendar in one click."
               slug={META_SOCIAL_ADDON_SLUG}
             />
           )}
-
-          <MarketingAddonTeaser
-            title="Maya · Marketing AI"
-            description={`Ask Maya to rewrite captions, draft broadcasts, or estimate reach (e.g. ${forecastLabel}). Use the Ask Maya button on any Marketing page after activating.`}
-            slug="marketing-assistant"
-            comingSoon={false}
-            ctaLabel="Open Maya / Marketplace →"
-          />
-
-          <ContentEntryForm
-            mode="edit"
-            initial={entry}
-            initialMedia={media}
-          />
-        </div>
+        </aside>
       </div>
 
-      {metaPublishEnabled ? <InsightsPanel publishes={publishes} /> : null}
+      {metaPublishEnabled && publishes.length > 0 ? (
+        <InsightsPanel publishes={publishes} />
+      ) : null}
     </div>
   );
 }

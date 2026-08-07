@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Car,
   ChevronDown,
@@ -114,6 +115,7 @@ interface FinanceExpensesPanelProps {
   categories: ExpenseCategoryInsight[];
   shellMode?: boolean;
   highlightTxnId?: string | null;
+  expensesBlocked?: boolean;
 }
 
 export function FinanceExpensesPanel({
@@ -124,6 +126,7 @@ export function FinanceExpensesPanel({
   categories,
   shellMode = false,
   highlightTxnId = null,
+  expensesBlocked = false,
 }: FinanceExpensesPanelProps) {
   const router = useRouter();
   const [transactions, setTransactions] = useState(initialTransactions);
@@ -424,6 +427,22 @@ export function FinanceExpensesPanel({
         </div>
       ) : null}
 
+      {expensesBlocked ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm dark:border-amber-900/40 dark:bg-amber-950/30">
+          <p className="font-semibold text-ink dark:text-cream-100">
+            Expense tracking is on paid plans
+          </p>
+          <p className="mt-1 text-ink-muted dark:text-cream-400">
+            Free includes invoicing only. Upgrade to Basic (RM39) or Solo (RM79) to log expenses.
+          </p>
+          <Link
+            href="/settings/subscription"
+            className="mt-3 inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600"
+          >
+            View plans
+          </Link>
+        </div>
+      ) : (
       <QuickCreatePanel
         open
         onSubmit={onSave}
@@ -579,6 +598,7 @@ export function FinanceExpensesPanel({
             onCancel={resetForm}
           />
       </QuickCreatePanel>
+      )}
 
       <FinanceTxnCompactList
         title="Recent expenses"

@@ -171,7 +171,7 @@ export default async function SuperAdminPlans() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cream-200">
-                {(["starter", "micro", "sme", "enterprise"] as TierKey[]).map(
+                {(["starter", "basic", "micro", "sme", "enterprise"] as TierKey[]).map(
                   (tierKey) => {
                     const unlocked = TIER_PILLARS[tierKey];
                     return (

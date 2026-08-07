@@ -1,8 +1,9 @@
 import type { TierKey } from "@/lib/settings/plans";
 import type { BusinessType, PlanQuizAnswers } from "@/lib/onboarding/plan-quiz";
+import { isShippedMarketplaceAddon } from "@/lib/marketplace/shipped-addons";
 
-/** 10% off add-on portion when buying as a business bundle (Phase 1: display only). */
-export const BUNDLE_ADDON_DISCOUNT_RATE = 0.1;
+/** 15% off add-on portion when stacking modules from a business bundle. */
+export const BUNDLE_ADDON_DISCOUNT_RATE = 0.15;
 
 export interface BundleAddonRef {
   slug: string;
@@ -22,67 +23,115 @@ export interface BusinessBundle {
   addons: readonly BundleAddonRef[];
 }
 
+/**
+ * Curated packs for common Malaysian micro-SME profiles.
+ * Lists purchasable add-ons only — plan-included agents/modules are omitted.
+ */
 export const BUSINESS_BUNDLES: readonly BusinessBundle[] = [
   {
-    id: "pakej-kedai",
-    name: "Pakej Kedai",
-    tagline: "Kedai runcit with staff and DuitNow at the counter",
+    id: "pakej-kedai-runcit",
+    name: "Pakej Kedai Runcit",
+    tagline: "Mini mart & kedai runcit — resit, stok, portal staf",
     forBusinessTypes: ["retail"],
-    recommendedTier: "sme",
+    recommendedTier: "micro",
     addons: [
-      { slug: "hr-assistant" },
-      { slug: "dynamic-duitnow-qr", plannedLabel: "Dynamic DuitNow QR" },
+      { slug: "storage-10gb" },
+      {
+        slug: "finance-recurring-invoices",
+        plannedLabel: "Invois berulang",
+      },
+      { slug: "hr-staff-portal" },
     ],
   },
   {
-    id: "pakej-kafe",
-    name: "Pakej Kafe",
-    tagline: "F&B counter staff, HR, and daily close-out",
+    id: "pakej-kedai-makan",
+    name: "Pakej Restoran & Kafe",
+    tagline: "Kafe, restoran, warung — portal staf & tempahan pelanggan",
     forBusinessTypes: ["fnb"],
-    recommendedTier: "sme",
+    recommendedTier: "micro",
     addons: [
-      { slug: "hr-assistant" },
-      { slug: "daily-close-out", plannedLabel: "Daily close-out reconciliation" },
+      { slug: "hr-staff-portal" },
       {
-        slug: "hr-payroll-pack",
+        slug: "customer-booking-page",
+        plannedLabel: "Halaman tempahan pelanggan",
+      },
+      {
+        slug: "sales-daily-closeout",
+        plannedLabel: "Tutup kas harian",
+      },
+      {
+        slug: "hr-payroll-statutory",
         optional: true,
-        optionalHint: "Only when you have salaried staff",
-        plannedLabel: "Payroll & statutory pack",
+        optionalHint: "Bila ada staf bergaji & KWSP/SOCSO",
+        plannedLabel: "Payroll & statutory",
       },
     ],
   },
   {
-    id: "pakej-online",
-    name: "Pakej Online",
-    tagline: "Shopee seller + marketing AI",
+    id: "pakej-penjual-online",
+    name: "Pakej Penjual Online",
+    tagline: "Shopee, TikTok Shop & penjual media sosial",
     forBusinessTypes: ["online"],
-    recommendedTier: "enterprise",
+    recommendedTier: "micro",
     addons: [
-      { slug: "shopee-sync" },
-      { slug: "marketing-assistant" },
+      { slug: "storage-10gb" },
+      {
+        slug: "marketing-automation",
+        plannedLabel: "Automasi marketing",
+      },
+      {
+        slug: "shopee-sync",
+        plannedLabel: "Shopee Mall sync",
+      },
     ],
   },
   {
     id: "pakej-servis",
-    name: "Pakej Servis",
-    tagline: "Salon, homestay, and appointment businesses",
+    name: "Pakej Servis & Salon",
+    tagline: "Salon, klinik, homestay — tempahan & invois",
     forBusinessTypes: ["services"],
     recommendedTier: "micro",
     addons: [
-      { slug: "hr-assistant" },
       {
         slug: "customer-booking-page",
-        plannedLabel: "Customer booking page",
+        plannedLabel: "Halaman tempahan pelanggan",
+      },
+      { slug: "hr-staff-portal" },
+      {
+        slug: "finance-recurring-invoices",
+        plannedLabel: "Invois berulang",
       },
     ],
   },
   {
-    id: "pakej-team",
-    name: "Pakej Team Kecil",
-    tagline: "Small team needing leave and HR help",
-    forBusinessTypes: ["other", "freelancer"],
+    id: "pakej-usahawan",
+    name: "Pakej Usahawan",
+    tagline: "Freelancer & perniagaan sendiri — invois & dokumen",
+    forBusinessTypes: ["freelancer"],
+    recommendedTier: "basic",
+    addons: [
+      {
+        slug: "finance-recurring-invoices",
+        plannedLabel: "Invois berulang",
+      },
+      { slug: "storage-10gb" },
+      {
+        slug: "admin-digital-signature",
+        plannedLabel: "Tandatangan digital",
+      },
+    ],
+  },
+  {
+    id: "pakej-team-hr",
+    name: "Pakej Team & HR",
+    tagline: "Kedai dengan staf — cuti, portal, appraisal, laporan",
+    forBusinessTypes: ["other"],
     recommendedTier: "sme",
-    addons: [{ slug: "hr-assistant" }, { slug: "hr-public-holidays" }],
+    addons: [
+      { slug: "hr-staff-appraisal" },
+      { slug: "hr-staff-portal" },
+      { slug: "boardroom-weekly" },
+    ],
   },
 ] as const;
 
@@ -91,7 +140,7 @@ export function bundleForBusinessType(
 ): BusinessBundle | null {
   return (
     BUSINESS_BUNDLES.find((b) => b.forBusinessTypes.includes(businessType)) ??
-    BUSINESS_BUNDLES.find((b) => b.id === "pakej-team") ??
+    BUSINESS_BUNDLES.find((b) => b.id === "pakej-team-hr") ??
     null
   );
 }
@@ -104,12 +153,12 @@ export function bundleForQuizAnswers(
   if (byType) return byType;
 
   if (answers.priorities.includes("marketing") || answers.businessType === "online") {
-    return BUSINESS_BUNDLES.find((b) => b.id === "pakej-online") ?? null;
+    return BUSINESS_BUNDLES.find((b) => b.id === "pakej-penjual-online") ?? null;
   }
   if (answers.priorities.includes("leave") || answers.teamSize !== "solo") {
-    return BUSINESS_BUNDLES.find((b) => b.id === "pakej-kafe") ?? byType;
+    return BUSINESS_BUNDLES.find((b) => b.id === "pakej-team-hr") ?? byType;
   }
-  return BUSINESS_BUNDLES.find((b) => b.id === "pakej-team") ?? null;
+  return BUSINESS_BUNDLES.find((b) => b.id === "pakej-usahawan") ?? null;
 }
 
 export interface BundlePricingLine {
@@ -134,6 +183,10 @@ export interface BundlePricingSummary {
   savingsCents: number;
   totalAlaCarteCents: number;
   totalBundleCents: number;
+  /** Every stack line not active/included is still catalog-only. */
+  allStackComingSoon: boolean;
+  /** Lines you can activate today. */
+  purchasableLineCount: number;
 }
 
 export function computeBundlePricing(opts: {
@@ -157,7 +210,9 @@ export function computeBundlePricing(opts: {
 
   for (const ref of opts.bundle.addons) {
     const cat = opts.catalogBySlug.get(ref.slug);
-    const comingSoon = !cat || cat.is_coming_soon;
+    const catalogComingSoon = !cat || cat.is_coming_soon;
+    const comingSoon =
+      catalogComingSoon && !isShippedMarketplaceAddon(ref.slug);
     const optional = ref.optional === true;
     if (optional && !opts.selectedOptionalSlugs.has(ref.slug)) {
       continue;
@@ -180,7 +235,7 @@ export function computeBundlePricing(opts: {
   }
 
   const addonSubtotalCents = lines.reduce((sum, line) => {
-    if (line.comingSoon || line.active || line.includedInTier) return sum;
+    if (line.active || line.includedInTier) return sum;
     return sum + line.priceCents;
   }, 0);
 
@@ -190,6 +245,11 @@ export function computeBundlePricing(opts: {
   const savingsCents = addonSubtotalCents - bundleAddonSubtotalCents;
   const totalAlaCarteCents = opts.planPriceCents + addonSubtotalCents;
   const totalBundleCents = opts.planPriceCents + bundleAddonSubtotalCents;
+
+  const stackLines = lines.filter((line) => !line.active && !line.includedInTier);
+  const purchasableLineCount = stackLines.filter((line) => !line.comingSoon).length;
+  const allStackComingSoon =
+    stackLines.length > 0 && stackLines.every((line) => line.comingSoon);
 
   return {
     bundleId: opts.bundle.id,
@@ -202,5 +262,7 @@ export function computeBundlePricing(opts: {
     savingsCents,
     totalAlaCarteCents,
     totalBundleCents,
+    allStackComingSoon,
+    purchasableLineCount,
   };
 }

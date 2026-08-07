@@ -13,8 +13,6 @@ import { getConsentFlags } from "@/lib/privacy/consent";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TierKey } from "@/lib/settings/plans";
 import { ImpersonationBanner } from "@/components/super-admin/ImpersonationBanner";
-import { loadSidebarAssistantsByModule } from "@/lib/navigation/sidebar-assistants";
-import type { SidebarAssistantsByModule } from "@/lib/navigation/sidebar-assistants";
 import { normalizeBusinessType } from "@/lib/operations/vertical";
 import type { BusinessType } from "@/lib/onboarding/plan-quiz";
 
@@ -42,12 +40,11 @@ export default async function AppLayout({
   let memberships: Awaited<ReturnType<typeof loadUserMemberships>> = [];
   let canCreateCompany = true;
   let analyticsConsent = false;
-  let sidebarAssistants: SidebarAssistantsByModule = {};
   let businessType: BusinessType = "other";
   try {
     const user = await getCurrentUser();
     const supabase = await createSupabaseServerClient();
-    const [{ data }, loadedMemberships, ownedCount, consentFlags, assistants] =
+    const [{ data }, loadedMemberships, ownedCount, consentFlags] =
       await Promise.all([
       supabase
         .from("businesses")
@@ -57,7 +54,6 @@ export default async function AppLayout({
       loadUserMemberships(user.id, user.businessId),
       countOwnedBusinesses(user.id),
       getConsentFlags(user.id),
-      loadSidebarAssistantsByModule(user.businessId),
     ]);
     if (data?.tier) tier = data.tier as TierKey;
     businessType = normalizeBusinessType(data?.business_type);
@@ -65,7 +61,6 @@ export default async function AppLayout({
     canCreateCompany =
       !isStandaloneDeployment() && canCreateOwnedBusiness(ownedCount);
     analyticsConsent = consentFlags.analytics;
-    sidebarAssistants = assistants;
   } catch (e) {
     if (!(e instanceof UnauthorizedError)) throw e;
   }
@@ -75,7 +70,6 @@ export default async function AppLayout({
       tier={tier}
       memberships={memberships}
       canCreateCompany={canCreateCompany}
-      sidebarAssistants={sidebarAssistants}
       businessType={businessType}
     >
       <SessionRegistrar />

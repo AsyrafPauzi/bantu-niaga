@@ -19,6 +19,8 @@ interface PublishPanelProps {
   accounts: SocialAccount[];
   /** True when the entry has already been posted (we then disable publish). */
   alreadyPosted: boolean;
+  /** marketing_files ids attached to this content entry. */
+  attachedMediaIds?: string[];
 }
 
 interface PublishResult {
@@ -48,6 +50,7 @@ export function PublishPanel({
   defaultCaption,
   accounts,
   alreadyPosted,
+  attachedMediaIds = [],
 }: PublishPanelProps) {
   const router = useRouter();
 
@@ -68,6 +71,7 @@ export function PublishPanel({
   });
   const [caption, setCaption] = useState(defaultCaption);
   const [imageUrl, setImageUrl] = useState("");
+  const [imageUrlBusy, setImageUrlBusy] = useState(false);
   const [results, setResults] = useState<PublishResult[] | null>(null);
   const [topError, setTopError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -83,6 +87,36 @@ export function PublishPanel({
       else next.add(id);
       return next;
     });
+  }
+
+  async function fillImageFromAttached() {
+    const fileId = attachedMediaIds[0];
+    if (!fileId || imageUrlBusy) return;
+    setImageUrlBusy(true);
+    setTopError(null);
+    try {
+      const res = await fetch(`/api/marketing/media/${fileId}/download`);
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        data?: { download_url?: string; mime_type?: string };
+        error?: { message?: string };
+      } | null;
+      if (!res.ok || !body?.ok || !body.data?.download_url) {
+        setTopError(
+          body?.error?.message ?? "Could not load the attached image URL.",
+        );
+        return;
+      }
+      if (!(body.data.mime_type ?? "").toLowerCase().startsWith("image/")) {
+        setTopError("First attachment is not an image — paste a public image URL instead.");
+        return;
+      }
+      setImageUrl(body.data.download_url);
+    } catch (e) {
+      setTopError((e as Error).message ?? "Network error");
+    } finally {
+      setImageUrlBusy(false);
+    }
   }
 
   function handlePublish() {
@@ -268,9 +302,19 @@ export function PublishPanel({
             type="url"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://your-storage.example/image.jpg"
+            placeholder="Public https://… image URL"
             className="mt-1 w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink shadow-inner placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
+          {attachedMediaIds.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => void fillImageFromAttached()}
+              disabled={imageUrlBusy}
+              className="mt-2 text-xs font-semibold text-brand-700 hover:underline disabled:opacity-50 dark:text-brand-200"
+            >
+              {imageUrlBusy ? "Loading attached image…" : "Use first attached image"}
+            </button>
+          ) : null}
         </div>
       </div>
 

@@ -229,11 +229,8 @@ export type CsvExportQuery = z.infer<typeof csvExportQuerySchema>;
 // / hook / caption). The DB column is `channel`, not `platform` — we
 // keep the API/UI vocabulary aligned with the schema.
 //
-// v1 is plan-only. Media attachments store the `file_id` (a uuid) into
-// `content_plan_media` without an FK constraint; the FK lands once
-// Admin Storage publishes its canonical `files` table (D6 contract).
-// The placeholder thumbnails on the UI side render the uuid as a label
-// so operators can audit the link manually until D6 is wired.
+// Media attachments store marketing_files ids in content_plan_media.
+// Upload flow: prepare-upload → confirm → attach (see ContentMediaUploader).
 // ─────────────────────────────────────────────────────────────────────────
 
 export const CONTENT_CHANNELS = ["tiktok", "instagram", "facebook"] as const;
@@ -366,9 +363,8 @@ export const contentListQuerySchema = z
 export type ContentListQuery = z.infer<typeof contentListQuerySchema>;
 
 /**
- * Body for `POST /api/marketing/content/[id]/media`. v1 just records the
- * uuid; Admin Storage's `files` table FK lands in a follow-up migration
- * once D6 ships.
+ * Body for POST /api/marketing/content/[id]/media — links an existing
+ * marketing_files row to a content_plan entry.
  */
 export const contentMediaAttachSchema = z
   .object({

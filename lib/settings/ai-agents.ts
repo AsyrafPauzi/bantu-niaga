@@ -17,9 +17,14 @@ import {
   clampDailyBudgetCredits,
   creditsToMyr,
   DAILY_BUDGET_DEFAULT_CREDITS,
-  monthlyBundledCredits,
+  monthlyBundledCreditsForTier,
   myrToCredits,
 } from "@/lib/settings/credit-pricing";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
+import {
+  tierAllowsBoardroom,
+  tierAllowsDeepReasoning,
+} from "@/lib/settings/tier-agents";
 
 export type { AgentListItem, AgentsOverview };
 
@@ -62,7 +67,7 @@ export const loadAgentsOverview = cache(
     const monthStart = startOfMonthIso();
     const todayStart = startOfTodayIso();
 
-    const [settingsRes, usageMonthRes, usageTodayRes, balance, activeAddonSlugs] =
+    const [settingsRes, usageMonthRes, usageTodayRes, balance, activeAddonSlugs, tier] =
       await Promise.all([
         supabase
           .from("business_agent_settings")
@@ -82,6 +87,7 @@ export const loadAgentsOverview = cache(
           .gte("created_at", todayStart),
         getCreditBalance(businessId),
         loadActiveAiAgentSlugs(businessId, supabase),
+        loadBusinessTier(businessId, supabase),
       ]);
 
     if (settingsRes.error) throw new Error(settingsRes.error.message);
@@ -112,7 +118,9 @@ export const loadAgentsOverview = cache(
 
     const boardroomAddon = await hasActiveAddon(businessId, "boardroom-weekly");
     const boardroomUnlockedGlobal =
-      boardroomAddon || moduleAgentsActive >= BOARDROOM_MIN_AGENTS;
+      tierAllowsBoardroom(tier) ||
+      boardroomAddon ||
+      moduleAgentsActive >= BOARDROOM_MIN_AGENTS;
 
     const agents: AgentListItem[] = await Promise.all(
       TENANT_AI_AGENTS.map(async (def) => {
@@ -163,7 +171,8 @@ export const loadAgentsOverview = cache(
       credit_balance: balance,
       active_count: activeCount,
       subscribed_agent_count: moduleAgentsActive,
-      monthly_bundled_credits: monthlyBundledCredits(moduleAgentsActive),
+      monthly_bundled_credits: monthlyBundledCreditsForTier(tier),
+      deep_reasoning_allowed: tierAllowsDeepReasoning(tier),
       credits_used_month: creditsUsedMonth,
       total_spent_today_credits: agents.reduce(
         (n, a) => n + a.spent_today_credits,

@@ -34,13 +34,12 @@ export function ContentSharePanel({
   }
 
   return (
-    <section className="rounded-xl border border-cream-300 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-      <h3 className="text-sm font-semibold text-ink dark:text-cream-100">
-        Share this draft
+    <section className="rounded-2xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+      <h3 className="text-sm font-bold text-ink dark:text-cream-100">
+        Copy & share
       </h3>
       <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-        Copy the caption or send it to yourself / your team. Auto-publish to{" "}
-        {channelLabel} is a Marketplace add-on.
+        Paste the caption when you post on {channelLabel}.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button

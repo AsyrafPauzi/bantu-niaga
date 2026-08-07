@@ -14,6 +14,11 @@ import {
   notifyFinanceInvoiceEmailed,
   notifyFinanceInvoiceSent,
 } from "@/lib/finance/notify";
+import {
+  incrementFreeTierEmailUsage,
+  isFreeTierLimitError,
+} from "@/lib/settings/free-tier-limits";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +102,19 @@ export async function POST(
       { ok: false, error: { code: "business_not_found", message: "Business not found." } },
       { status: 500 },
     );
+  }
+
+  const tier = await loadBusinessTier(user.businessId, supabase);
+  try {
+    await incrementFreeTierEmailUsage(supabase, user.businessId, tier);
+  } catch (e) {
+    if (isFreeTierLimitError(e)) {
+      return NextResponse.json(
+        { ok: false, error: e.payload },
+        { status: 403 },
+      );
+    }
+    throw e;
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";

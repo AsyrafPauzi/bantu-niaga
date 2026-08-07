@@ -4,6 +4,7 @@ import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createBillplzBill, billplzCallbackUrl } from "@/lib/integrations/billplz";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TOPUP_BUNDLES, topupSchema } from "@/lib/settings/schemas";
+import { CREDIT_TOPUP_BY_SLUG } from "@/lib/marketplace/credit-topup-purchase";
 import {
   ensureBillplzPaymentMethod,
   isBillplzConfigured,
@@ -58,7 +59,15 @@ export async function POST(request: Request) {
     throw e;
   }
 
-  const bundle = TOPUP_BUNDLES[parsed.bundle];
+  const credits =
+    "addon_slug" in parsed
+      ? CREDIT_TOPUP_BY_SLUG[parsed.addon_slug].credits
+      : TOPUP_BUNDLES[parsed.bundle].credits;
+  const amountMyr =
+    "addon_slug" in parsed
+      ? CREDIT_TOPUP_BY_SLUG[parsed.addon_slug].amount_myr
+      : TOPUP_BUNDLES[parsed.bundle].amount_myr;
+
   const supabase = await createSupabaseServerClient();
   const billplzLive = isBillplzConfigured();
 
@@ -85,7 +94,7 @@ export async function POST(request: Request) {
 
   if (billplzLive) {
     const collectionId = process.env.BILLPLZ_COLLECTION_ID!.trim();
-    const amountCents = Math.round(bundle.amount_myr * 100);
+    const amountCents = Math.round(amountMyr * 100);
 
     const { data: profile } = await supabase
       .from("users")
@@ -102,19 +111,19 @@ export async function POST(request: Request) {
         email: payerEmail,
         name: payerName,
         amountCents,
-        description: `Bantu Niaga Fast Credits — ${bundle.credits} credits`,
+        description: `Bantu Niaga Fast Credits — ${credits} credits`,
         callbackUrl: billplzCallbackUrl(),
         redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")}/settings/billing?topup=success`,
         reference1: user.businessId,
-        reference2: String(bundle.credits),
+        reference2: String(credits),
       });
 
       const { data: pending, error: pendingErr } = await supabase.rpc(
         "settings_create_topup_pending",
         {
           p_business_id: user.businessId,
-          p_credits: bundle.credits,
-          p_amount_myr: bundle.amount_myr,
+          p_credits: credits,
+          p_amount_myr: amountMyr,
           p_payment_method_id: paymentMethodId,
           p_user_id: user.id,
           p_billplz_id: bill.id,
@@ -140,8 +149,8 @@ export async function POST(request: Request) {
           billplz_id: bill.id,
           invoice_id: row?.invoice_id ?? null,
           intent_id: row?.intent_id ?? null,
-          credits: bundle.credits,
-          amount_myr: bundle.amount_myr,
+          credits,
+          amount_myr: amountMyr,
           pending: true,
         },
         { status: 201 },
@@ -159,8 +168,8 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase.rpc("settings_topup_credits", {
     p_business_id: user.businessId,
-    p_credits: bundle.credits,
-    p_amount_myr: bundle.amount_myr,
+    p_credits: credits,
+    p_amount_myr: amountMyr,
     p_payment_method_id: paymentMethodId,
     p_user_id: user.id,
   });
@@ -190,8 +199,8 @@ export async function POST(request: Request) {
       invoice_id: invoiceId,
       invoice_number: invoiceNumber,
       new_balance: row?.new_balance ?? null,
-      credits_added: bundle.credits,
-      amount_myr: bundle.amount_myr,
+      credits_added: credits,
+      amount_myr: amountMyr,
       bypass: true,
     },
     { status: 201 },

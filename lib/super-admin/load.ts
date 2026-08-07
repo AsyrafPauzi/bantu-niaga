@@ -82,13 +82,14 @@ export async function loadOverview(): Promise<{
 
   const tierCount: Record<TierKey, number> = {
     starter: 0,
+    basic: 0,
     micro: 0,
     sme: 0,
     enterprise: 0,
   };
   for (const b of businesses) tierCount[b.tier] = (tierCount[b.tier] ?? 0) + 1;
   const planMix: PlanMixEntry[] = (
-    ["starter", "micro", "sme", "enterprise"] as TierKey[]
+    ["starter", "basic", "micro", "sme", "enterprise"] as TierKey[]
   ).map((t) => {
     const tier = tierBy(t)!;
     return {

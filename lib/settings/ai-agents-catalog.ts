@@ -192,6 +192,7 @@ export const TENANT_AI_AGENTS: readonly TenantAgentDefinition[] = [
       "Team headcount and staff list from HR records",
       "Upcoming public holidays (with holiday add-on)",
       "Staff appraisal due dates and overdue checks (with appraisal add-on)",
+      "Schedule and complete staff appraisals in chat (with appraisal add-on)",
       "Open onboarding checklist reminders",
       "Daily HR notice on Home (optional toggle)",
       "Answers in Bahasa Malaysia or English",
@@ -284,4 +285,6 @@ export interface AgentsOverview {
   total_daily_budget_credits: number;
   total_daily_budget_myr: number;
   boardroom_unlocked: boolean;
+  /** Deep reasoning (ilmu-v3.1) — Solo+ only. */
+  deep_reasoning_allowed: boolean;
 }

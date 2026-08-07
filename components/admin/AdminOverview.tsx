@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   AlertTriangle,
-  Bot,
   CalendarPlus,
   Clock,
   FolderOpen,
@@ -15,7 +14,6 @@ import {
   AdminOverviewPanel,
   AdminOverviewRow,
 } from "@/components/admin/AdminOverviewPanel";
-import { AiBanner } from "@/components/dashboard/ai-banner";
 import { BulletRow } from "@/components/dashboard/bullet-row";
 import {
   ModuleAttentionPills,
@@ -32,7 +30,6 @@ import {
   type AdminComplianceCategory,
 } from "@/lib/admin/task-compliance-schemas";
 import {
-  buildAdminAiMessage,
   fmtRelTime,
   fileCategoryLabel,
   type AdminOverviewData,
@@ -169,12 +166,6 @@ export function AdminOverview({
           subtitle: "Document vault",
         }
       : null,
-    {
-      href: data.hasAdminAssistant ? "/admin?amir=open" : "/marketplace",
-      icon: Bot,
-      title: "Amir AI",
-      subtitle: data.hasAdminAssistant ? "Admin copilot" : "View in Marketplace",
-    },
   ].filter(Boolean) as ModuleQuickAction[];
 
   const primaryCta = canStorage ? (
@@ -624,22 +615,6 @@ export function AdminOverview({
       {quickActions.length > 0 ? (
         <ModuleQuickActions module="Admin" pillar="admin" actions={quickActions} />
       ) : null}
-
-      {data.hasAdminAssistant ? (
-        <AiBanner
-          label="Amir · Admin AI"
-          message={buildAdminAiMessage(data)}
-          cta="Chat with Amir"
-          href="/admin?amir=open"
-        />
-      ) : (
-        <AiBanner
-          label="Amir · Admin AI"
-          message="Get weekly admin checklists, renewal reminders, and document organisation tips from your Admin assistant."
-          cta="View in Marketplace"
-          href="/marketplace"
-        />
-      )}
     </ModuleDashboardShell>
   );
 }

@@ -18,6 +18,11 @@ import {
   adminFileConfirmSchema,
   type AdminFileRow,
 } from "@/lib/admin/schemas";
+import {
+  assertWithinStorageQuota,
+  loadStorageQuota,
+} from "@/lib/admin/storage-quota";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
 
 /**
  * POST /api/admin/storage/confirm — finalise an upload.
@@ -170,6 +175,25 @@ export async function POST(request: Request) {
     );
   }
 
+  const supabase = await createSupabaseServerClient();
+  const tier = await loadBusinessTier(user.businessId, supabase);
+  const quota = await loadStorageQuota(supabase, user.businessId, tier);
+  try {
+    assertWithinStorageQuota(quota, parsed.file_size_bytes);
+  } catch {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "storage_quota_exceeded",
+          message:
+            "Storage quota exceeded. Upgrade your plan or remove files to upload more.",
+        },
+      },
+      { status: 403 },
+    );
+  }
+
   // Path must live under this caller's tenant prefix.
   const expectedPrefix = `${user.businessId}/`;
   if (!parsed.storage_path.startsWith(expectedPrefix)) {
@@ -291,7 +315,6 @@ export async function POST(request: Request) {
   const tags = parsed.tags ?? [];
 
   // Insert via the regular RLS-respecting client.
-  const supabase = await createSupabaseServerClient();
   const { data: inserted, error: insertErr } = await supabase
     .from("admin_files")
     .insert({

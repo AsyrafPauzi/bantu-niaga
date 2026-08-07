@@ -1,6 +1,10 @@
 import "server-only";
 
 import { loadCatalog } from "@/lib/marketplace/load";
+import {
+  isAddonFeatureAccessible,
+  isAddonFeatureDisabled,
+} from "@/lib/marketplace/addon-meta";
 import type { CatalogEntry } from "@/lib/marketplace/types";
 
 export interface AddonFeatureState {
@@ -12,6 +16,8 @@ export interface AddonFeatureState {
   accessible: boolean;
   /** UI should block navigation — not active and not yet available to buy. */
   navDisabled: boolean;
+  /** Feature toggled off in-app; subscription may still bill. */
+  featureDisabled: boolean;
 }
 
 function stateFromEntry(slug: string, entry: CatalogEntry | undefined): AddonFeatureState {
@@ -20,14 +26,16 @@ function stateFromEntry(slug: string, entry: CatalogEntry | undefined): AddonFea
     entry?.activation?.status === "pending_cancel";
   const comingSoon = entry?.addon.is_coming_soon ?? true;
   const purchasable = !!entry && !comingSoon;
+  const featureDisabled = isAddonFeatureDisabled(entry?.activation);
 
   return {
     slug,
     active,
     comingSoon,
     purchasable,
-    accessible: active,
+    accessible: isAddonFeatureAccessible(entry?.activation),
     navDisabled: !active && comingSoon,
+    featureDisabled,
   };
 }
 

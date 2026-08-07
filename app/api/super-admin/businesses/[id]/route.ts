@@ -10,7 +10,7 @@ const patchSchema = z
   .object({
     action: z.enum(["set_status", "set_tier"]),
     status: z.enum(["active", "past_due", "cancelled", "trial"]).optional(),
-    tier: z.enum(["starter", "micro", "sme", "enterprise"]).optional(),
+    tier: z.enum(["starter", "basic", "micro", "sme", "enterprise"]).optional(),
     reason: z.string().max(500).optional(),
   })
   .strict();

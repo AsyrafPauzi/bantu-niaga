@@ -20,6 +20,11 @@ import {
 } from "@/lib/finance/invoice-db";
 import type { FinanceInvoiceRow } from "@/lib/finance/schemas";
 import { notifyFinanceQuoteConverted } from "@/lib/finance/notify";
+import {
+  assertFreeTierInvoiceQuota,
+  isFreeTierLimitError,
+} from "@/lib/settings/free-tier-limits";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +73,19 @@ export async function POST(
       },
       { status: 400 },
     );
+  }
+
+  const tier = await loadBusinessTier(user.businessId, supabase);
+  try {
+    await assertFreeTierInvoiceQuota(supabase, user.businessId, tier);
+  } catch (e) {
+    if (isFreeTierLimitError(e)) {
+      return NextResponse.json(
+        { ok: false, error: e.payload },
+        { status: 403 },
+      );
+    }
+    throw e;
   }
 
   const admin = createServiceRoleClient();

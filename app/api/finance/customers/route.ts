@@ -4,6 +4,11 @@ import { requireFinanceUser } from "@/lib/finance/require-user";
 import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { financeCustomerCreateSchema } from "@/lib/finance/schemas";
+import {
+  assertFreeTierCustomerQuota,
+  isFreeTierLimitError,
+} from "@/lib/settings/free-tier-limits";
+import { loadBusinessTier } from "@/lib/settings/load-business-tier";
 import { normalizeMyPhone } from "@/lib/marketing/phone";
 import type { FinanceCustomerRow } from "@/lib/finance/schemas";
 
@@ -86,6 +91,19 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const tier = await loadBusinessTier(user.businessId, supabase);
+  try {
+    await assertFreeTierCustomerQuota(supabase, user.businessId, tier);
+  } catch (e) {
+    if (isFreeTierLimitError(e)) {
+      return NextResponse.json(
+        { ok: false, error: e.payload },
+        { status: 403 },
+      );
+    }
+    throw e;
+  }
+
   const { data, error } = await supabase
     .from("customers")
     .insert({

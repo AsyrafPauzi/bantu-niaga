@@ -1,6 +1,6 @@
 # Cross-Module Integration Map
 
-> **Last updated:** 2026-08-05 (event bus + ops deploy)  
+> **Last updated:** 2026-08-07 (marketing file split)  
 > **Purpose:** Single reference for how Bantu Niaga modules connect to each other — what is **done**, **pending**, or **not planned**.  
 > **Companion:** [`CHECKLIST.md`](./CHECKLIST.md) tracks feature completion per pillar; this doc tracks **edges between pillars**.
 
@@ -12,11 +12,11 @@
 
 | From → To | Admin | Finance | Operations | Sales | Marketing | HR | Settings | Home |
 |-----------|-------|---------|------------|-------|-----------|-----|----------|------|
-| **Admin Storage** | ✅ Tasks, Compliance | ✅ Expense, Invoice attach | ✅ Supplier, Order, Spec | ✅ Leads | — Bridge link | ✅ Docs, MC vault | ✅ Quota tier | ✅ Snapshot |
+| **Admin Storage** | ✅ Tasks, Compliance | ✅ Expense, Invoice attach | ✅ Supplier, Order, Spec | ✅ Leads | ✅ Back-office docs | ✅ Docs, MC vault | ✅ Quota tier | ✅ Snapshot |
 | **Finance** | ✅ Invoice docs | — | ✅ Order → expense | ✅ POS · Quotes on lead | ✅ Customers | — | ✅ Billing | ✅ Snapshot |
 | **Operations** | ✅ File attach | ✅ Auto + manual expense | — | ✅ Auto + manual lead | — | ✅ Leave → bookings | — | ✅ Snapshot |
 | **Sales** | ✅ Lead file | ✅ POS · void · Quote FK | ✅ Catalog · stock | — | ✅ Convert · coupon · POS | — | — | ✅ Snapshot |
-| **Marketing** | — Separate bucket | — | — | ✅ Convert lead | — | — | — | ✅ Snapshot |
+| **Marketing** | ✅ Back-office vault upload | — | — | ✅ Convert · coupon · POS | — | — | — | ✅ Snapshot |
 | **HR** | ✅ Docs · MC vault | — | ✅ Leave blocks calendar | — | — | — | ✅ Team roles | ✅ Snapshot |
 
 ---
@@ -32,7 +32,7 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | Admin · Tasks | `admin_tasks` | `admin_file_id` | Task detail picker | ✅ |
 | Admin · Compliance | `admin_compliance_items` | `admin_file_id` | Compliance upload | ✅ |
 | HR · Documents | `hr_employee_documents` | `admin_file_id` | HR form + Storage | ✅ |
-| HR · MC (new uploads) | `hr_leave_records` | `admin_file_id` | Staff leave MC upload | ✅ |
+| HR · MC | `hr_leave_records` | `admin_file_id` | Staff leave MC upload | ✅ |
 | Finance · Expenses | `finance_transactions` | `admin_file_id` | Expense receipt attach | ✅ |
 | Finance · Invoices | `finance_invoices` | `admin_file_id` | Invoice composer attachment | ✅ |
 | Operations · Suppliers | `operations_suppliers` | `admin_file_id` | Supplier card attach | ✅ |
@@ -63,12 +63,14 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | Cross-pillar download | `GET /api/admin/storage/[id]/download` | ✅ |
 | Marketing bridge (separate bucket) | Admin Storage panel → `/marketing/content` | ✅ |
 
-### 1.4 Not in Admin Storage (by design)
+### 1.4 Marketing files — where they live (Malaysian SME split)
 
-| Module | Where files live | Notes |
-|--------|------------------|-------|
-| Marketing | `marketing-media` / `marketing_files` | Bridge link only — not vault |
-| HR MC (legacy rows) | `mc_document_path` only | New uploads also get `admin_file_id`; run `npm run backfill:mc-admin-files` for old rows |
+| Asset type | Where | Bucket / category | Module link |
+|------------|-------|-------------------|-------------|
+| Back-office marketing docs (signed ad contracts, influencer MOUs, vendor agreements) | Admin Storage vault | `admin-files` · category `marketing` or `contract` | Direct upload — no FK from Marketing pillar |
+| Social & calendar creatives (photos, reels, carousels for posts) | Marketing → Content | `marketing-media` / `marketing_files` | Attached to `content_plan` rows |
+
+Bridge: Admin Storage panel links to Marketing Content; Content page links back to Admin Storage for paperwork.
 
 ---
 
@@ -168,8 +170,7 @@ Admin Storage is the shared back-office file vault. Other modules link via `admi
 | Connection | How | Status |
 |------------|-----|--------|
 | Employee document → Storage | `hr_employee_documents.admin_file_id` | ✅ |
-| MC document → Storage vault | `hr_leave_records.admin_file_id` (new uploads) | ✅ |
-| MC legacy backfill | `npm run backfill:mc-admin-files` | ✅ |
+| MC document → Storage vault | `hr_leave_records.admin_file_id` | ✅ |
 | Leave → Operations bookings | `leave.approved` / `leave.rejected` events | ✅ |
 | Booking API blocks staff on leave | When `operations_booking_resources.employee_id` set | ✅ |
 | Holiday overrides → effective calendar | `business_holiday_overrides` merged with `hr_public_holidays` | ✅ |
@@ -286,16 +287,7 @@ _All core cross-module bridges shipped._ Marketplace add-ons only (see §14).
 | Item | Why |
 |------|-----|
 | Enterprise SSO (SAML / OIDC per tenant) | Out of scope for this system |
-| Marketing campaign bytes in Admin vault | Separate `marketing-media` bucket; bridge link in Storage panel only |
-
----
-
-## 16. Ops scripts
-
-| Command | Purpose |
-|---------|---------|
-| `npm run backfill:mc-admin-files` | Backfill `admin_file_id` for legacy MC rows ✅ (0 rows on prod) |
-| `npm run backfill:mc-admin-files -- --dry-run` | Preview MC backfill without writing |
+| Merging `marketing-media` into Admin vault | Social/calendar bytes stay in Marketing Content by design; only back-office marketing paperwork uses the vault |
 
 ---
 

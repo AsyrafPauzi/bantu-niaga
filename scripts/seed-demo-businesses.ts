@@ -12,8 +12,7 @@
  *   - between 1 and 5 social-media posts (content_plan rows with channel
  *     in {tiktok, instagram, facebook}, status='posted' or 'scheduled', a
  *     hook line, and a caption)
- *   - a welcome audit-log entry + 50 starter credits, mirroring the
- *     real sign-up route so the dashboards have something to render
+   *   - a welcome audit-log entry + tier bundled credits, mirroring sign-up
  *
  * Idempotent: every insert uses a deterministic id + onConflict. Re-running
  * is safe and updates the demo state to whatever this file currently says.
@@ -34,6 +33,7 @@ import { resolve } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { tierBundledCredits } from "../lib/settings/tier-agents";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Configuration: the five demo tenants
@@ -44,7 +44,7 @@ interface DemoBusiness {
   idcompany: string;
   name: string;
   state_code: string;
-  tier: "starter" | "micro" | "sme";
+  tier: "starter" | "basic" | "micro" | "sme" | "enterprise";
   ownerEmail: string;
   ownerName: string;
   industry: string;
@@ -431,7 +431,7 @@ async function seedBusiness(
       subscription_renewal_at: renewalAt,
       brand_primary_hex: "#5B8C5A",
       brand_accent_hex: "#F4A340",
-      credit_balance: 50,
+      credit_balance: tierBundledCredits(biz.tier),
     },
     { onConflict: "id" },
   );

@@ -39,6 +39,7 @@ const GROUPS: readonly NavGroup[] = [
       { href: "/super-admin", label: "Overview", icon: LayoutGrid },
       { href: "/super-admin/users", label: "Users", icon: UsersRound },
       { href: "/super-admin/businesses", label: "Businesses", icon: Building2 },
+      { href: "/super-admin/clients/create", label: "Create client", icon: UsersRound },
       { href: "/super-admin/privacy", label: "Privacy (DSR)", icon: ShieldAlert },
       { href: "/super-admin/audit", label: "Audit log", icon: FileClock },
     ],

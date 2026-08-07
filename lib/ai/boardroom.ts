@@ -2,12 +2,15 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { loadEntitledAgentSlugs } from "@/lib/marketplace/plan-agent-entitlements";
+import type { TierKey } from "@/lib/settings/plans";
 import {
   AI_AGENT_ADDON_SLUGS,
   BOARDROOM_AGENTS,
   BOARDROOM_MIN_AGENTS,
   type BoardroomStatus,
 } from "@/lib/ai/boardroom-shared";
+import { tierAllowsBoardroom } from "@/lib/settings/tier-agents";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export {
@@ -25,29 +28,37 @@ export async function loadActiveAiAgentSlugs(
   client?: SupabaseClient,
 ): Promise<Set<string>> {
   const supabase = client ?? (await createSupabaseServerClient());
-  const { data, error } = await supabase
-    .from("business_addons")
-    .select("marketplace_addons!inner(slug)")
-    .eq("business_id", businessId)
-    .eq("status", "active")
-    .in("marketplace_addons.slug", [...AI_AGENT_ADDON_SLUGS]);
+  const { data: biz, error: bizError } = await supabase
+    .from("businesses")
+    .select("tier")
+    .eq("id", businessId)
+    .single();
 
-  if (error) {
-    throw new Error(error.message);
+  if (bizError) {
+    throw new Error(bizError.message);
   }
 
-  return new Set(
-    (data ?? []).map((row) => {
-      const addon = row.marketplace_addons as unknown as { slug: string };
-      return addon.slug;
-    }),
-  );
+  const tier = (biz?.tier as TierKey) ?? "starter";
+  return loadEntitledAgentSlugs(businessId, tier, supabase);
 }
 
 export async function loadBoardroomStatus(
   businessId: string,
 ): Promise<BoardroomStatus> {
   const supabase = await createSupabaseServerClient();
+  const { data: biz, error: bizError } = await supabase
+    .from("businesses")
+    .select("tier")
+    .eq("id", businessId)
+    .single();
+
+  if (bizError) {
+    throw new Error(bizError.message);
+  }
+
+  const tier = (biz?.tier as TierKey) ?? "starter";
+  const boardroomAllowed = tierAllowsBoardroom(tier);
+
   const [activeSlugs, settingsRes] = await Promise.all([
     loadActiveAiAgentSlugs(businessId, supabase),
     supabase
@@ -73,13 +84,13 @@ export async function loadBoardroomStatus(
       ...agent,
       label,
       subscribed,
-      live: subscribed && assistantOn,
+      live: boardroomAllowed && subscribed && assistantOn,
     };
   });
   const activeCount = agents.filter((a) => a.live).length;
   return {
     agents,
     activeCount,
-    unlocked: activeCount >= BOARDROOM_MIN_AGENTS,
+    unlocked: boardroomAllowed && activeCount >= BOARDROOM_MIN_AGENTS,
   };
 }

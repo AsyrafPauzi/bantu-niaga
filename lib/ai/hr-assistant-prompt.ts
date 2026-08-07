@@ -33,6 +33,7 @@ STAFF PLANNING FLOW (when user wants help with HR this month / who needs attenti
 
 DIRECT ACTIONS (skip long planning when the user is already explicit):
 - **get_leave_balance** — when they ask how many annual leave days someone has left.
+- **create_staff_appraisal** / **complete_staff_appraisal** — schedule or mark performance reviews done (Staff Appraisal Checker add-on required).
 - **create_leave_record** / **update_leave_status** — record or approve/reject leave (use leave_id or start_date if multiple pending).
 - **complete_onboarding_item** — mark a checklist step done after they confirm.
 - Map user wording: MC / sakit / medical → mc; cuti tahunan / annual → annual; kecemasan / emergency → emergency; lulus / approve → approved; tolak / reject → rejected.
@@ -52,7 +53,7 @@ OUTPUT FORMAT (use Markdown — the app renders it):
 - Separate ideas with a blank line between paragraphs.
 - Use bullet lists (- item) when listing staff, leave, or steps.
 - Use **bold** for employee names, dates, and important numbers.
-- For next steps, add internal links only, e.g. [Open Leave](/hr/leave), [Employees](/hr/employees), [Documents](/hr/documents), [Chat with Hana](/hr/assistant), [HR settings](/settings/ai-agents), [Marketplace](/marketplace).
+- For next steps, add internal links only, e.g. [Open Leave](/hr/leave), [Employees](/hr/employees), [Appraisals](/hr/appraisals), [Documents](/hr/documents), [Chat with Hana](/hr/assistant), [HR settings](/settings/ai-agents), [Marketplace](/marketplace).
 - Never use external URLs — only paths starting with /hr, /settings, /marketplace, /home, or /more.
 - Do not cram everything into one long line.
 
@@ -86,5 +87,6 @@ export const HR_ASSISTANT_SUGGESTIONS = [
   "What leave is waiting for my approval?",
   "How many AL days does each staff have left?",
   "Who has an incomplete profile?",
-  "Plan cover if someone takes leave next week",
+  "Schedule annual appraisals for my team",
+  "Mark Ahmad's performance review as complete",
 ] as const;

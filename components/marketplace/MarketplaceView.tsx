@@ -9,6 +9,7 @@ import {
   Plus,
   Search,
   Settings2,
+  ShoppingCart,
   Sparkles,
   Star,
   X,
@@ -25,13 +26,33 @@ import {
   addonStatusLine,
   formatAddonDate,
   isAddonActive,
-  isPurchasedActivation,
+  isAddonFeatureEnabled,
+  isSubscribedMarketplaceAddon,
+  isTierBundledAddon,
+  filterMarketplaceCatalog,
   resolveNextChargeDate,
   sortActiveEntries,
 } from "@/lib/marketplace/active-addons";
+import { isAddonFeatureDisabled } from "@/lib/marketplace/addon-meta";
+import {
+  ADDON_MARKET_CATEGORY_LABEL,
+  addonMarketCategory,
+  isAddonMarketCategory,
+  type AddonMarketCategory,
+} from "@/lib/marketplace/addon-market-categories";
+import {
+  isCreditTopupAddon,
+  isCreditTopupSlug,
+} from "@/lib/marketplace/credit-topup-purchase";
 import { buildMarketplaceBundles } from "@/lib/marketplace/bundle-display";
 import { BUSINESS_BUNDLES } from "@/lib/onboarding/business-bundles";
 import { BundleCard } from "@/components/marketplace/BundleCard";
+import { tierBy, type TierKey } from "@/lib/settings/plans";
+import { cn } from "@/lib/utils/cn";
+import {
+  planIncludesAgentSlug,
+  TIER_PILLARS_MAP,
+} from "@/lib/settings/tier-agents";
 
 interface Props {
   initial: CatalogEntry[];
@@ -40,22 +61,26 @@ interface Props {
   subscriptionRenewalAt: string | null;
 }
 
-type FilterKey = "all" | "active" | "bundles" | AddonPillar;
-type TierKey = "starter" | "micro" | "sme" | "enterprise";
+type FilterKey =
+  | "all"
+  | "active"
+  | "bundles"
+  | AddonPillar
+  | AddonMarketCategory;
 type ModuleAddonPillar = Exclude<AddonPillar, "ai" | "cross">;
+
+const MARKET_CATEGORY_FILTERS: { key: AddonMarketCategory; label: string }[] = [
+  { key: "automation", label: ADDON_MARKET_CATEGORY_LABEL.automation },
+  { key: "scale", label: ADDON_MARKET_CATEGORY_LABEL.scale },
+  { key: "other", label: ADDON_MARKET_CATEGORY_LABEL.other },
+];
 
 const TIER_LABEL: Record<TierKey, string> = {
   starter: "Free",
-  micro: "Starter",
-  sme: "Growth",
-  enterprise: "Pro",
-};
-
-const TIER_MODULES: Record<TierKey, readonly ModuleAddonPillar[]> = {
-  starter: ["finance"],
-  micro: ["finance", "admin", "operations"],
-  sme: ["finance", "admin", "operations", "sales", "hr"],
-  enterprise: ["finance", "admin", "operations", "sales", "hr", "marketing"],
+  basic: "Basic",
+  micro: "Solo",
+  sme: "Micro",
+  enterprise: "Small",
 };
 
 const MODULE_ADDON_PILLARS: readonly ModuleAddonPillar[] = [
@@ -82,7 +107,8 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "operations", label: "Operations" },
   { key: "marketing", label: "Marketing" },
   { key: "sales", label: "Sales" },
-  { key: "ai", label: "AI agents" },
+  ...MARKET_CATEGORY_FILTERS,
+  { key: "ai", label: "AI extras" },
   { key: "bundles", label: "Bundles" },
   { key: "all", label: "All add-ons" },
   { key: "active", label: "Active" },
@@ -91,6 +117,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 function isTierKey(value: string): value is TierKey {
   return (
     value === "starter" ||
+    value === "basic" ||
     value === "micro" ||
     value === "sme" ||
     value === "enterprise"
@@ -103,16 +130,30 @@ function isModuleAddonPillar(value: AddonPillar): value is ModuleAddonPillar {
 
 function addonEligibility(addon: CatalogEntry["addon"], tier: string) {
   if (!isTierKey(tier)) return { canActivate: false, reason: "Unknown plan." };
+  if (planIncludesAgentSlug(tier, addon.slug)) {
+    return {
+      canActivate: false,
+      reason: "Included in your plan — configure in Settings → AI agents.",
+    };
+  }
   if (tier === "starter") {
     return {
       canActivate: false,
-      reason: "Free plan cannot activate add-ons. Upgrade to Starter or higher.",
+      reason: "Free plan cannot activate add-ons. Upgrade to Basic or higher.",
     };
   }
-  if (isModuleAddonPillar(addon.pillar) && !TIER_MODULES[tier].includes(addon.pillar)) {
+  const tierPillars = TIER_PILLARS_MAP[tier];
+  if (
+    isModuleAddonPillar(addon.pillar) &&
+    !tierPillars.includes(addon.pillar)
+  ) {
+    const minTier = Object.entries(TIER_PILLARS_MAP).find(([, pillars]) =>
+      pillars.includes(addon.pillar as ModuleAddonPillar),
+    )?.[0];
+    const label = minTier ? tierBy(minTier as TierKey)?.label : "a higher plan";
     return {
       canActivate: false,
-      reason: `${PILLAR_LABEL[addon.pillar]} add-ons require a plan with ${PILLAR_LABEL[addon.pillar]} unlocked.`,
+      reason: `${PILLAR_LABEL[addon.pillar]} add-ons require ${label} or higher.`,
     };
   }
   return { canActivate: true, reason: null };
@@ -141,6 +182,9 @@ export function MarketplaceView({
       "finance",
       "operations",
       "sales",
+      "automation",
+      "scale",
+      "other",
       "all",
     ];
     if (f && (allowed as string[]).includes(f)) {
@@ -155,16 +199,25 @@ export function MarketplaceView({
     { kind: "ok" | "err"; msg: string } | null
   >(null);
   const [confirm, setConfirm] = useState<{
+    kind: "cancel" | "disable";
     slug: string;
     name: string;
     next_charge_at: string | null;
   } | null>(null);
 
+  const catalogEntries = useMemo(
+    () => filterMarketplaceCatalog(entries, tier),
+    [entries, tier],
+  );
+
   const counts = useMemo(() => {
     const c: Record<FilterKey, number> = {
-      all: entries.length,
+      all: catalogEntries.length,
       active: 0,
       bundles: BUSINESS_BUNDLES.length,
+      automation: 0,
+      scale: 0,
+      other: 0,
       marketing: 0,
       operations: 0,
       finance: 0,
@@ -174,12 +227,13 @@ export function MarketplaceView({
       hr: 0,
       cross: 0,
     };
-    for (const e of entries) {
+    for (const e of catalogEntries) {
       c[e.addon.pillar] = (c[e.addon.pillar] ?? 0) + 1;
-      if (isAddonActive(e, tier)) c.active += 1;
+      c[addonMarketCategory(e.addon)] += 1;
+      if (isSubscribedMarketplaceAddon(e, tier)) c.active += 1;
     }
     return c;
-  }, [entries, tier]);
+  }, [catalogEntries]);
 
   const activeSlugs = useMemo(
     () =>
@@ -194,21 +248,29 @@ export function MarketplaceView({
   const bundleCards = useMemo(
     () =>
       buildMarketplaceBundles({
-        catalog: entries,
+        catalog: catalogEntries,
         currentTier: isTierKey(tier) ? tier : "starter",
         activeSlugs,
       }),
-    [entries, tier, activeSlugs],
+    [catalogEntries, tier, activeSlugs],
   );
 
-  const featured = entries.find((e) => e.addon.is_featured) ?? null;
+  const featured =
+    catalogEntries.find(
+      (e) => e.addon.is_featured && !e.addon.is_coming_soon,
+    ) ??
+    catalogEntries.find((e) => e.addon.is_featured) ??
+    null;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return entries
+    return catalogEntries
       .filter((e) => {
         if (filter === "all" || filter === "bundles") return true;
-        if (filter === "active") return isAddonActive(e, tier);
+        if (filter === "active") return isSubscribedMarketplaceAddon(e, tier);
+        if (isAddonMarketCategory(filter)) {
+          return addonMarketCategory(e.addon) === filter;
+        }
         return e.addon.pillar === filter;
       })
       .filter((e) => {
@@ -219,10 +281,10 @@ export function MarketplaceView({
           e.addon.slug.includes(q)
         );
       });
-  }, [entries, filter, query, tier]);
+  }, [catalogEntries, filter, query]);
 
   const active = sortActiveEntries(
-    entries.filter((e) => isAddonActive(e, tier)),
+    entries.filter((e) => isSubscribedMarketplaceAddon(e, tier)),
   );
   const nextCharge = resolveNextChargeDate(subscriptionRenewalAt, active);
   const tierName = tierLabel(tier);
@@ -270,7 +332,42 @@ export function MarketplaceView({
     }
   }
 
-  async function deactivate(slug: string) {
+  async function buyCreditTopup(slug: string) {
+    if (!canEdit) {
+      setToast({ kind: "err", msg: "Only the owner can buy credit top-ups." });
+      return;
+    }
+    if (!isCreditTopupSlug(slug)) return;
+    setBusySlug(slug);
+    try {
+      const res = await fetch("/api/settings/billing/topup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addon_slug: slug }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setToast({
+          kind: "err",
+          msg: json?.message ?? json?.error ?? "Could not complete purchase.",
+        });
+        return;
+      }
+      if (json.checkout_url) {
+        window.location.href = json.checkout_url as string;
+        return;
+      }
+      setToast({
+        kind: "ok",
+        msg: `Added ${json.credits_added ?? json.credits ?? ""} credits to your pool.`,
+      });
+      router.refresh();
+    } finally {
+      setBusySlug(null);
+    }
+  }
+
+  async function cancelAddon(slug: string) {
     if (!canEdit) return;
     setBusySlug(slug);
     try {
@@ -283,17 +380,100 @@ export function MarketplaceView({
       if (!res.ok) {
         setToast({
           kind: "err",
-          msg: json?.message ?? json?.error ?? "Could not deactivate.",
+          msg: json?.message ?? json?.error ?? "Could not cancel add-on.",
         });
         return;
       }
-      setToast({ kind: "ok", msg: "Add-on scheduled to cancel." });
+      setToast({ kind: "ok", msg: "Add-on will cancel at end of billing period." });
       setConfirm(null);
       await refresh();
       router.refresh();
     } finally {
       setBusySlug(null);
     }
+  }
+
+  async function disableAddonFeature(slug: string) {
+    if (!canEdit) return;
+    setBusySlug(slug);
+    try {
+      const res = await fetch("/api/marketplace/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setToast({
+          kind: "err",
+          msg: json?.message ?? json?.error ?? "Could not disable add-on.",
+        });
+        return;
+      }
+      setToast({
+        kind: "ok",
+        msg: "Add-on disabled in app. You will still be billed until you cancel.",
+      });
+      setConfirm(null);
+      await refresh();
+      router.refresh();
+    } finally {
+      setBusySlug(null);
+    }
+  }
+
+  async function enableAddonFeature(slug: string) {
+    if (!canEdit) return;
+    setBusySlug(slug);
+    try {
+      const res = await fetch("/api/marketplace/enable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setToast({
+          kind: "err",
+          msg: json?.message ?? json?.error ?? "Could not enable add-on.",
+        });
+        return;
+      }
+      setToast({ kind: "ok", msg: "Add-on enabled." });
+      await refresh();
+      router.refresh();
+    } finally {
+      setBusySlug(null);
+    }
+  }
+
+  async function reactivateAddon(slug: string) {
+    if (!canEdit) return;
+    setBusySlug(slug);
+    try {
+      const res = await fetch("/api/marketplace/reactivate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setToast({
+          kind: "err",
+          msg: json?.message ?? json?.error ?? "Could not resume add-on.",
+        });
+        return;
+      }
+      setToast({ kind: "ok", msg: "Cancellation removed — add-on will renew." });
+      await refresh();
+      router.refresh();
+    } finally {
+      setBusySlug(null);
+    }
+  }
+
+  async function deactivate(slug: string) {
+    return cancelAddon(slug);
   }
 
   return (
@@ -383,6 +563,7 @@ export function MarketplaceView({
           onActivate={() => activate(featured.addon.slug)}
           onDeactivate={() =>
             setConfirm({
+              kind: "cancel",
               slug: featured.addon.slug,
               name: featured.addon.name,
               next_charge_at: featured.activation?.next_charge_at ?? null,
@@ -413,6 +594,13 @@ export function MarketplaceView({
             Sort: Popular ▾
           </p>
         </div>
+        {filter === "bundles" ? (
+          <p className="mb-4 text-sm text-ink-muted dark:text-cream-400">
+            Pakej untuk kedai runcit, F&amp;B, penjual online, servis &amp; team
+            HR — harga add-on sahaja (plan anda asing); diskaun 15% bila stack
+            modul.
+          </p>
+        ) : null}
 
         {filter === "bundles" ? (
           bundleCards.length === 0 ? (
@@ -462,13 +650,24 @@ export function MarketplaceView({
                 busy={busySlug === e.addon.slug}
                 tier={tier}
                 onActivate={() => activate(e.addon.slug)}
+                onBuyCreditTopup={() => buyCreditTopup(e.addon.slug)}
                 onDeactivate={() =>
                   setConfirm({
+                    kind: "cancel",
                     slug: e.addon.slug,
                     name: e.addon.name,
                     next_charge_at: e.activation?.next_charge_at ?? null,
                   })
                 }
+                onDisable={() =>
+                  setConfirm({
+                    kind: "disable",
+                    slug: e.addon.slug,
+                    name: e.addon.name,
+                    next_charge_at: e.activation?.next_charge_at ?? null,
+                  })
+                }
+                onEnable={() => enableAddonFeature(e.addon.slug)}
               />
             ))}
           </div>
@@ -491,14 +690,23 @@ export function MarketplaceView({
           <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
             {active.map((e) => {
               const Icon = addonIcon(e.addon.icon);
-              const purchased = isPurchasedActivation(e);
+              const isCancelling = !!e.activation?.cancel_at;
+              const featureDisabled = isAddonFeatureDisabled(e.activation);
+              const featureEnabled = isAddonFeatureEnabled(e);
               return (
                 <li
                   key={e.addon.id}
                   className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-status-success/10 text-status-success">
+                    <span
+                      className={cn(
+                        "grid h-10 w-10 place-items-center rounded-xl",
+                        featureDisabled
+                          ? "bg-cream-200 text-ink-muted dark:bg-hairline-dark dark:text-cream-400"
+                          : "bg-status-success/10 text-status-success",
+                      )}
+                    >
                       <Icon className="h-5 w-5" strokeWidth={2} />
                     </span>
                     <div>
@@ -510,25 +718,70 @@ export function MarketplaceView({
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {e.activation?.cancel_at ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isCancelling ? (
                       <span className="inline-flex items-center gap-1 rounded-md bg-status-warning/15 px-2.5 py-1 text-xs font-semibold text-status-warning">
-                        <Clock3 className="h-3 w-3" /> Pending cancel
+                        <Clock3 className="h-3 w-3" /> Cancels next bill
                       </span>
                     ) : null}
-                    {canEdit && purchased && !e.activation?.cancel_at ? (
-                      <button
-                        onClick={() =>
-                          setConfirm({
-                            slug: e.addon.slug,
-                            name: e.addon.name,
-                            next_charge_at: e.activation?.next_charge_at ?? null,
-                          })
-                        }
-                        className="rounded-lg border border-cream-300 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400 dark:hover:text-cream-100"
-                      >
-                        Deactivate
-                      </button>
+                    {featureDisabled ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-cream-200 px-2.5 py-1 text-xs font-semibold text-ink-muted dark:bg-hairline-dark dark:text-cream-400">
+                        Disabled in app
+                      </span>
+                    ) : null}
+                    {canEdit ? (
+                      <>
+                        {isCancelling ? (
+                          <button
+                            onClick={() => reactivateAddon(e.addon.slug)}
+                            disabled={busySlug === e.addon.slug}
+                            className="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50 dark:border-brand-700 dark:text-brand-200 dark:hover:bg-brand-700/10"
+                          >
+                            Resume billing
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              setConfirm({
+                                kind: "cancel",
+                                slug: e.addon.slug,
+                                name: e.addon.name,
+                                next_charge_at:
+                                  e.activation?.next_charge_at ?? null,
+                              })
+                            }
+                            disabled={busySlug === e.addon.slug}
+                            className="rounded-lg border border-cream-300 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink disabled:opacity-50 dark:border-hairline-dark dark:text-cream-400 dark:hover:text-cream-100"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                        {featureEnabled ? (
+                          <button
+                            onClick={() =>
+                              setConfirm({
+                                kind: "disable",
+                                slug: e.addon.slug,
+                                name: e.addon.name,
+                                next_charge_at:
+                                  e.activation?.next_charge_at ?? null,
+                              })
+                            }
+                            disabled={busySlug === e.addon.slug}
+                            className="rounded-lg border border-cream-300 bg-cream-100 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-200 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                          >
+                            Disable
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => enableAddonFeature(e.addon.slug)}
+                            disabled={busySlug === e.addon.slug}
+                            className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+                          >
+                            Enable
+                          </button>
+                        )}
+                      </>
                     ) : null}
                   </div>
                 </li>
@@ -542,29 +795,42 @@ export function MarketplaceView({
       {confirm ? (
         <Modal onClose={() => setConfirm(null)}>
           <h3 className="text-lg font-semibold text-ink dark:text-cream-100">
-            Deactivate {confirm.name}?
+            {confirm.kind === "cancel"
+              ? `Cancel ${confirm.name}?`
+              : `Disable ${confirm.name}?`}
           </h3>
           <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-            {confirm.next_charge_at
-              ? `It stays usable until ${formatAddonDate(confirm.next_charge_at)}. You won't be charged again.`
-              : "It will be cancelled immediately. You can re-activate any time."}
+            {confirm.kind === "cancel"
+              ? confirm.next_charge_at
+                ? `Stays usable until ${formatAddonDate(confirm.next_charge_at)}. You won't be charged again after that date.`
+                : "It will be cancelled immediately. You can re-activate any time."
+              : "The feature turns off in the app but your subscription keeps billing until you cancel."}
           </p>
           <div className="mt-5 flex items-center justify-end gap-2">
             <button
               onClick={() => setConfirm(null)}
               className="rounded-lg border border-cream-300 px-3 py-2 text-sm font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400 dark:hover:text-cream-100"
             >
-              Keep active
+              Keep as is
             </button>
             <button
-              onClick={() => deactivate(confirm.slug)}
+              onClick={() =>
+                confirm.kind === "cancel"
+                  ? cancelAddon(confirm.slug)
+                  : disableAddonFeature(confirm.slug)
+              }
               disabled={busySlug === confirm.slug}
-              className="inline-flex items-center gap-2 rounded-lg bg-status-danger px-3 py-2 text-sm font-semibold text-white hover:bg-status-danger/90 disabled:opacity-60"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-60",
+                confirm.kind === "cancel"
+                  ? "bg-status-danger hover:bg-status-danger/90"
+                  : "bg-ink hover:bg-ink-muted",
+              )}
             >
               {busySlug === confirm.slug ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}
-              Deactivate
+              {confirm.kind === "cancel" ? "Cancel subscription" : "Disable"}
             </button>
           </div>
         </Modal>
@@ -579,30 +845,43 @@ function AddonCard({
   busy,
   tier,
   onActivate,
+  onBuyCreditTopup,
   onDeactivate,
+  onDisable,
+  onEnable,
 }: {
   entry: CatalogEntry;
   canEdit: boolean;
   busy: boolean;
   tier: string;
   onActivate: () => void;
+  onBuyCreditTopup: () => void;
   onDeactivate: () => void;
+  onDisable: () => void;
+  onEnable: () => void;
 }) {
   const { addon, activation } = entry;
   const Icon = addonIcon(addon.icon);
+  const isCreditTopup = isCreditTopupAddon(addon);
   const isActive = isAddonActive(entry, tier);
   const isCancelling = !!activation?.cancel_at;
-  const isIncluded = addon.included_in_tier.includes(tier);
+  const featureDisabled = isAddonFeatureDisabled(activation);
+  const featureEnabled = isAddonFeatureEnabled(entry);
+  const isTierBundled = isTierBundledAddon(entry, tier);
+  const isIncluded =
+    isTierBundled || addon.included_in_tier.includes(tier);
   const isComingSoon = addon.is_coming_soon;
   const eligibility = addonEligibility(addon, tier);
   const priceLabel = isIncluded ? "Included" : formatMyr(addon.price_cents);
   const cadenceLabel = isIncluded
     ? `in your ${tierLabel(tier)} plan`
-    : addon.cadence === "monthly"
-      ? "/month"
-      : addon.cadence === "yearly"
-        ? "/year"
-        : "one-time";
+    : isCreditTopup
+      ? "one-time top-up"
+      : addon.cadence === "monthly"
+        ? "/month"
+        : addon.cadence === "yearly"
+          ? "/year"
+          : "one-time";
 
   return (
     <article
@@ -623,13 +902,25 @@ function AddonCard({
           <Icon className="h-5 w-5" strokeWidth={2} />
         </span>
         {isActive ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-status-success/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-status-success">
-            <span className="h-1.5 w-1.5 rounded-full bg-status-success" />
-            {isCancelling ? "Cancels soon" : "Active"}
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
+              featureDisabled
+                ? "bg-cream-200 text-ink-muted dark:bg-hairline-dark dark:text-cream-400"
+                : "bg-status-success/15 text-status-success",
+            )}
+          >
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                featureDisabled ? "bg-ink-subtle" : "bg-status-success",
+              )}
+            />
+            {isCancelling ? "Cancels soon" : featureDisabled ? "Disabled" : "Active"}
           </span>
         ) : (
           <span className="inline-flex items-center rounded-full bg-accent-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-700">
-            {PILLAR_LABEL[addon.pillar]}
+            {isCreditTopup ? "Top-up" : PILLAR_LABEL[addon.pillar]}
           </span>
         )}
       </div>
@@ -658,14 +949,54 @@ function AddonCard({
             {cadenceLabel}
           </p>
         </div>
-        {isActive ? (
+        {isCreditTopup ? (
           <button
-            onClick={onDeactivate}
-            disabled={!canEdit || busy || isCancelling}
-            className="rounded-lg border border-cream-300 bg-cream-100 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            onClick={onBuyCreditTopup}
+            disabled={!canEdit || busy || !eligibility.canActivate}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isCancelling ? "Cancelling…" : "Manage"}
+            {busy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ShoppingCart className="h-3.5 w-3.5" />
+            )}
+            {eligibility.canActivate ? "Buy" : "Upgrade"}
           </button>
+        ) : isActive ? (
+          isTierBundled ? (
+            <span className="rounded-lg bg-status-success/10 px-3 py-1.5 text-xs font-semibold text-status-success">
+              Included in plan
+            </span>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {featureEnabled ? (
+                <button
+                  onClick={onDisable}
+                  disabled={!canEdit || busy}
+                  className="rounded-lg border border-cream-300 bg-cream-100 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                >
+                  Disable
+                </button>
+              ) : (
+                <button
+                  onClick={onEnable}
+                  disabled={!canEdit || busy}
+                  className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Enable
+                </button>
+              )}
+              {!isCancelling ? (
+                <button
+                  onClick={onDeactivate}
+                  disabled={!canEdit || busy}
+                  className="rounded-lg border border-cream-300 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:text-cream-400 dark:hover:text-cream-100"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          )
         ) : isComingSoon ? (
           <span className="rounded-lg bg-cream-100 px-3 py-1.5 text-xs font-semibold text-ink-muted dark:bg-panel-dark dark:text-cream-400">
             Coming soon
@@ -694,7 +1025,7 @@ function AddonCard({
           </button>
         )}
       </div>
-      {!isActive && !eligibility.canActivate ? (
+      {!isCreditTopup && !isActive && !eligibility.canActivate ? (
         <p className="rounded-lg bg-status-warning/10 px-3 py-2 text-xs text-ink-muted dark:text-cream-400">
           {eligibility.reason}
         </p>
@@ -720,6 +1051,8 @@ function FeaturedBanner({
 }) {
   const Icon = addonIcon(entry.addon.icon);
   const isActive = isAddonActive(entry, tier);
+  const isTierBundled = isTierBundledAddon(entry, tier);
+  const isComingSoon = entry.addon.is_coming_soon;
   const eligibility = addonEligibility(entry.addon, tier);
 
   return (
@@ -738,14 +1071,25 @@ function FeaturedBanner({
           </p>
           <div className="flex flex-wrap items-center gap-3 pt-1">
             {isActive ? (
-              <button
-                onClick={onDeactivate}
-                disabled={!canEdit}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Active · Manage
-              </button>
+              isTierBundled ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Included in plan
+                </span>
+              ) : (
+                <button
+                  onClick={onDeactivate}
+                  disabled={!canEdit}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Active · Manage
+                </button>
+              )
+            ) : isComingSoon ? (
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white">
+                Coming soon
+              </span>
             ) : (
               <button
                 onClick={onActivate}
@@ -771,8 +1115,12 @@ function FeaturedBanner({
               Read setup guide →
             </a>
           </div>
-          {!isActive && !eligibility.canActivate ? (
+          {!isActive && !isComingSoon && !eligibility.canActivate ? (
             <p className="text-xs text-brand-100">{eligibility.reason}</p>
+          ) : isComingSoon && !isActive ? (
+            <p className="text-xs text-brand-100">
+              Catalog placeholder — activation opens when this module ships.
+            </p>
           ) : null}
         </div>
         <div className="hidden flex-col items-end gap-3 sm:flex">
@@ -780,7 +1128,8 @@ function FeaturedBanner({
             <Icon className="h-12 w-12 text-white" strokeWidth={1.5} />
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-            <Star className="h-3 w-3" /> Most installed
+            <Star className="h-3 w-3" />
+            {isComingSoon ? "Coming soon" : "Most installed"}
           </span>
         </div>
       </div>
@@ -815,6 +1164,8 @@ function Modal({
 function labelFor(key: FilterKey): string {
   if (key === "all" || key === "active") return key === "all" ? "All" : "Active";
   if (key === "bundles") return "Bundles";
+  if (isAddonMarketCategory(key)) return ADDON_MARKET_CATEGORY_LABEL[key];
+  if (key === "ai") return "AI extras";
   return PILLAR_LABEL[key];
 }
 

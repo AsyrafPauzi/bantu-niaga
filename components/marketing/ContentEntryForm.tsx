@@ -1,10 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils/cn";
+import {
+  ContentMediaUploader,
+  type ContentMediaUploaderHandle,
+} from "./ContentMediaUploader";
 import type {
   ContentChannel,
   ContentEntryRow,
@@ -16,20 +20,9 @@ import { ContentMediaList } from "./ContentMediaList";
 /**
  * Shared form for create + edit of a content_plan entry.
  *
- *  - `mode="create"`  → POST  /api/marketing/content
- *  - `mode="edit"`    → PATCH /api/marketing/content/[id]
- *
- * Status moves use the same PATCH path; the server-side transition
- * guard enforces `idea → drafted → scheduled → posted` (with backward
- * transitions allowed, except `posted` which is terminal). Submit
- * errors surface inline; the page redirects to the detail view on
- * success.
- *
- * Media attachments: in `create` mode we collect file_id uuids in a
- * local list and pass them on POST so they land via the single
- * "media_file_ids" param. In `edit` mode each add/remove hits
- * `/api/marketing/content/[id]/media` directly so we can refresh
- * incrementally without re-submitting the whole entry.
+ * Media uploads use the marketing-media bucket via ContentMediaUploader
+ * (same as New post). Edit mode attaches each upload immediately; create
+ * mode batches attach after the entry is created.
  */
 
 const CHANNELS: ContentChannel[] = ["tiktok", "instagram", "facebook"];
@@ -80,12 +73,6 @@ function mytPartsToUtcIso(date: string, time: string): string | null {
   return new Date(t).toISOString();
 }
 
-function isUuid(v: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    v.trim(),
-  );
-}
-
 export function ContentEntryForm({
   mode,
   initial,
@@ -109,10 +96,42 @@ export function ContentEntryForm({
     caption: initial?.caption ?? "",
   });
   const [media, setMedia] = useState<ContentMediaRow[]>(initialMedia ?? []);
-  const [pendingMediaIds, setPendingMediaIds] = useState<string[]>([]);
-  const [mediaInput, setMediaInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mediaRef = useRef<ContentMediaUploaderHandle | null>(null);
+
+  const handleFileUploaded = useCallback(
+    async (fileId: string) => {
+      if (mode !== "edit" || !initial) return;
+      try {
+        const res = await fetch(`/api/marketing/content/${initial.id}/media`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            file_id: fileId,
+            position: media.length,
+          }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as {
+            error?: string;
+            message?: string;
+          } | null;
+          setError(body?.message ?? body?.error ?? `HTTP ${res.status}`);
+          return;
+        }
+        setMedia((s) =>
+          s.some((m) => m.file_id === fileId)
+            ? s
+            : [...s, { file_id: fileId, position: s.length }],
+        );
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not attach media.");
+      }
+    },
+    [mode, initial, media.length, router],
+  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((s) => ({ ...s, [key]: value }));
@@ -121,6 +140,10 @@ export function ContentEntryForm({
   async function handleSubmit(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
     if (busy) return;
+    if (mediaRef.current?.isUploading()) {
+      setError("Wait for media uploads to finish before saving.");
+      return;
+    }
     setBusy(true);
     setError(null);
 
@@ -137,7 +160,7 @@ export function ContentEntryForm({
             scheduled_at: scheduledAt,
             hook: form.hook || null,
             caption: form.caption || null,
-            media_file_ids: pendingMediaIds,
+            media_file_ids: [],
           }),
         });
         const body = (await res.json().catch(() => null)) as {
@@ -151,6 +174,20 @@ export function ContentEntryForm({
           return;
         }
         const id = body?.entry?.id;
+        const fileIds = mediaRef.current?.getUploadedFileIds() ?? [];
+        if (id && fileIds.length > 0) {
+          const attachRes = await fetch("/api/marketing/media/attach-to-content", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content_plan_id: id,
+              file_ids: fileIds,
+            }),
+          });
+          if (!attachRes.ok) {
+            setError("Post created but some media could not be attached.");
+          }
+        }
         if (id) {
           router.push(`/marketing/content/${id}`);
           router.refresh();
@@ -199,65 +236,7 @@ export function ContentEntryForm({
     }
   }
 
-  async function attachMedia(): Promise<void> {
-    const trimmed = mediaInput.trim();
-    if (!trimmed) return;
-    if (!isUuid(trimmed)) {
-      setError("Media file_id must be a UUID (Admin Storage stub for v1).");
-      return;
-    }
-    setError(null);
-
-    if (mode === "create") {
-      // Stash; will be sent with the POST.
-      if (!pendingMediaIds.includes(trimmed)) {
-        setPendingMediaIds((s) => [...s, trimmed]);
-      }
-      setMediaInput("");
-      return;
-    }
-
-    if (!initial) return;
-    setBusy(true);
-    try {
-      const res = await fetch(
-        `/api/marketing/content/${initial.id}/media`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            file_id: trimmed,
-            position: media.length,
-          }),
-        },
-      );
-      const body = (await res.json().catch(() => null)) as {
-        action?: string;
-        media?: { file_id?: string; position?: number };
-        error?: string;
-        message?: string;
-      } | null;
-      if (!res.ok) {
-        setError(body?.message ?? body?.error ?? `HTTP ${res.status}`);
-        return;
-      }
-      setMedia((s) =>
-        s.find((m) => m.file_id === trimmed)
-          ? s
-          : [...s, { file_id: trimmed, position: body?.media?.position ?? s.length }],
-      );
-      setMediaInput("");
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function detachMedia(fileId: string): Promise<void> {
-    if (mode === "create") {
-      setPendingMediaIds((s) => s.filter((id) => id !== fileId));
-      return;
-    }
     if (!initial) return;
     setBusy(true);
     setError(null);
@@ -352,82 +331,34 @@ export function ContentEntryForm({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Media attachments</CardTitle>
+          <CardTitle className="text-base">Media</CardTitle>
         </CardHeader>
-        <CardBody className="space-y-3">
-          <p className="text-xs text-ink-muted dark:text-cream-400">
-            v1 stub: paste an Admin Storage file uuid. Real thumbnails arrive once
-            Admin ships its <code>files</code> table + signed-URL endpoint (D6).
-          </p>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              value={mediaInput}
-              onChange={(e) => setMediaInput(e.target.value)}
-              placeholder="00000000-0000-0000-0000-000000000000"
-              className="flex-1 rounded-md border border-cream-300 bg-panel-light px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={attachMedia}
-              disabled={busy || mediaInput.trim().length === 0}
-            >
-              Attach
-            </Button>
-          </div>
-
-          {mode === "create" && pendingMediaIds.length > 0 && (
-            <ul className="space-y-1 text-xs">
-              {pendingMediaIds.map((fid) => (
-                <li
-                  key={fid}
-                  className="flex items-center justify-between rounded border border-cream-200 px-2 py-1 dark:border-hairline-dark"
-                >
-                  <code className="break-all text-[11px] text-ink dark:text-cream-100">
-                    {fid}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => detachMedia(fid)}
-                    className="text-[11px] text-status-danger hover:underline"
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {mode === "edit" && (
+        <CardBody className="space-y-4">
+          {mode === "edit" && media.length > 0 ? (
             <div className="space-y-2">
               <ContentMediaList media={media} />
-              {media.length > 0 && (
-                <ul className="space-y-1 text-xs">
-                  {media.map((m) => (
-                    <li
-                      key={m.file_id}
-                      className="flex items-center justify-between rounded border border-cream-200 px-2 py-1 dark:border-hairline-dark"
-                    >
-                      <code className="break-all text-[11px] text-ink dark:text-cream-100">
-                        {m.file_id}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => detachMedia(m.file_id)}
-                        disabled={busy}
-                        className="text-[11px] text-status-danger hover:underline disabled:opacity-50"
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {media.map((m, index) => (
+                  <button
+                    key={m.file_id}
+                    type="button"
+                    onClick={() => detachMedia(m.file_id)}
+                    disabled={busy}
+                    className="text-xs font-semibold text-status-danger hover:underline disabled:opacity-50"
+                  >
+                    Remove file {index + 1}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
+          ) : null}
+
+          <ContentMediaUploader
+            ref={mediaRef}
+            onFileUploaded={
+              mode === "edit" ? (id) => void handleFileUploaded(id) : undefined
+            }
+          />
         </CardBody>
       </Card>
 
