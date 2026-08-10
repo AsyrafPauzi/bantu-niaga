@@ -30,7 +30,7 @@ import type {
   HrLeaveRow,
   HrOnboardingRow,
 } from "@/lib/hr/load";
-import type { HrWarningLetterRow } from "@/lib/hr/warning-letters";
+import type { HrWarningLetterRow } from "@/lib/hr/warning-letters-shared";
 import {
   documentTypeLabel,
   getEmployeeSetupChecklist,

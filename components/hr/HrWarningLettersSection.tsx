@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { HrWarningLetterRow } from "@/lib/hr/warning-letters";
-import { WARNING_LETTER_SEVERITIES } from "@/lib/hr/warning-letters";
+import type { HrWarningLetterRow } from "@/lib/hr/warning-letters-shared";
+import { WARNING_LETTER_SEVERITIES } from "@/lib/hr/warning-letters-shared";
 import { HrToast } from "@/components/hr/HrToast";
 import { hrClasses } from "@/lib/hr/theme";
 import { cn } from "@/lib/utils/cn";

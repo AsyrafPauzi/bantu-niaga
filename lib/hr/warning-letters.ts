@@ -2,25 +2,13 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type {
+  HrWarningLetterRow,
+  WarningLetterSeverity,
+} from "@/lib/hr/warning-letters-shared";
 
-export const WARNING_LETTER_SEVERITIES = [
-  "verbal",
-  "standard",
-  "final",
-] as const;
-
-export type WarningLetterSeverity = typeof WARNING_LETTER_SEVERITIES[number];
-
-export interface HrWarningLetterRow {
-  id: string;
-  employee_id: string;
-  issued_at: string;
-  reason: string;
-  severity: WarningLetterSeverity;
-  admin_file_id: string | null;
-  issued_by: string | null;
-  created_at: string;
-}
+export type { HrWarningLetterRow, WarningLetterSeverity };
+export { WARNING_LETTER_SEVERITIES } from "@/lib/hr/warning-letters-shared";
 
 const WARNING_LETTER_SELECT =
   "id, employee_id, issued_at, reason, severity, admin_file_id, issued_by, created_at";
