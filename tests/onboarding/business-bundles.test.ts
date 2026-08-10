@@ -195,54 +195,11 @@ describe("business bundles", () => {
     expect(pricing.addonSubtotalCents).toBe(1100 + 1400);
   });
 
-  it("excludes optional payroll unless selected", () => {
+  it("fnb bundle no longer includes payroll addon (payroll is HR core)", () => {
     const bundle = bundleForBusinessType("fnb");
-    const catalogBySlug = new Map([
-      [
-        "hr-staff-portal",
-        {
-          name: "Staff portal",
-          price_cents: 900,
-          cadence: "monthly",
-          included_in_tier: [],
-          is_coming_soon: false,
-        },
-      ],
-      [
-        "hr-payroll-statutory",
-        {
-          name: "Payroll statutory",
-          price_cents: 1600,
-          cadence: "monthly",
-          included_in_tier: [],
-          is_coming_soon: true,
-        },
-      ],
-    ]);
-
-    const withoutPayroll = computeBundlePricing({
-      bundle: bundle!,
-      planPriceCents: 7900,
-      catalogBySlug,
-      currentTier: "micro",
-      activeSlugs: new Set(),
-      selectedOptionalSlugs: new Set(),
-    });
-
-    const withPayroll = computeBundlePricing({
-      bundle: bundle!,
-      planPriceCents: 7900,
-      catalogBySlug,
-      currentTier: "micro",
-      activeSlugs: new Set(),
-      selectedOptionalSlugs: new Set(["hr-payroll-statutory"]),
-    });
-
-    expect(withoutPayroll.lines.some((l) => l.slug === "hr-payroll-statutory")).toBe(
-      false,
-    );
-    expect(withPayroll.lines.some((l) => l.slug === "hr-payroll-statutory")).toBe(
-      true,
-    );
+    expect(
+      bundle!.addons.some((a) => a.slug === "hr-payroll-statutory"),
+    ).toBe(false);
+    expect(bundle!.addons.some((a) => a.slug === "hr-staff-portal")).toBe(true);
   });
 });

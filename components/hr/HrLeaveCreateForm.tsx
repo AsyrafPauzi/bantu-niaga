@@ -10,6 +10,8 @@ import {
   MC_DOCUMENT_MAX_SIZE_LABEL,
 } from "@/lib/hr/mc-document-shared";
 import { LEAVE_TYPES, type LeaveTypeKey } from "@/lib/hr/leave-labels";
+import { filterLeaveTypesByEnabled } from "@/lib/hr/leave-type-policy";
+import { leaveTypeRequiresDocument } from "@/lib/hr/schemas";
 import { hrClasses } from "@/lib/hr/theme";
 import { cn } from "@/lib/utils/cn";
 
@@ -25,25 +27,45 @@ export function HrLeaveCreateForm({
   formId = "hr-leave-create",
   hideSubmit,
   defaultEmployeeId,
+  attachmentRequired,
+  enabledLeaveTypes,
 }: {
   employees: HrEmployeeRow[];
   redirectTo?: string;
   formId?: string;
   hideSubmit?: boolean;
   defaultEmployeeId?: string;
+  attachmentRequired?: Record<string, boolean>;
+  enabledLeaveTypes?: LeaveTypeKey[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ message: string; kind: "ok" | "err" } | null>(null);
-  const [leaveType, setLeaveType] = useState<LeaveTypeKey>("annual");
+  const typeOptions = useMemo(
+    () =>
+      filterLeaveTypesByEnabled(
+        LEAVE_TYPES,
+        enabledLeaveTypes ?? LEAVE_TYPES.map((t) => t.key),
+      ),
+    [enabledLeaveTypes],
+  );
+  const [leaveType, setLeaveType] = useState<LeaveTypeKey>(
+    () => typeOptions[0]?.key ?? "annual",
+  );
   const [employeeId, setEmployeeId] = useState(defaultEmployeeId ?? "");
+
+  function typeRequiresAttachment(type: LeaveTypeKey): boolean {
+    if (attachmentRequired?.[type] !== undefined) return attachmentRequired[type];
+    return leaveTypeRequiresDocument(type);
+  }
 
   const selectedEmployee = useMemo(
     () => employees.find((e) => e.id === employeeId) ?? null,
     [employees, employeeId],
   );
 
-  const selectedLeaveMeta = LEAVE_TYPES.find((t) => t.key === leaveType)!;
+  const selectedLeaveMeta =
+    typeOptions.find((t) => t.key === leaveType) ?? typeOptions[0]!;
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,10 +75,10 @@ export function HrLeaveCreateForm({
     const formData = new FormData(form);
     formData.set("leave_type", leaveType);
 
-    if (leaveType === "mc") {
+    if (typeRequiresAttachment(leaveType)) {
       const file = formData.get("mc_document");
       if (!(file instanceof File) || file.size <= 0) {
-        setToast({ kind: "err", message: "Upload the MC file (PNG, JPEG, or PDF)." });
+        setToast({ kind: "err", message: "Upload a supporting document (PNG, JPEG, or PDF)." });
         setBusy(false);
         return;
       }
@@ -107,7 +129,7 @@ export function HrLeaveCreateForm({
         <section className="space-y-2">
           <h3 className={hrClasses.sectionTitle}>Leave type</h3>
           <div className="grid gap-2 sm:grid-cols-3">
-            {LEAVE_TYPES.map((type) => {
+            {typeOptions.map((type) => {
               const Icon = type.icon;
               const active = leaveType === type.key;
               return (
@@ -223,11 +245,13 @@ export function HrLeaveCreateForm({
           </label>
         </section>
 
-        {leaveType === "mc" ? (
+        {typeRequiresAttachment(leaveType) ? (
           <section className="space-y-2 rounded-lg border border-amber-200/80 bg-amber-50/50 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
             <div className="flex items-center gap-2">
               <FileUp className="h-4 w-4 text-amber-700 dark:text-amber-300" />
-              <h3 className="text-sm font-semibold text-ink dark:text-cream-100">MC file</h3>
+              <h3 className="text-sm font-semibold text-ink dark:text-cream-100">
+                Supporting document
+              </h3>
             </div>
             <p className="text-xs text-ink-muted dark:text-cream-400">
               PNG, JPEG, or PDF · max {MC_DOCUMENT_MAX_SIZE_LABEL}

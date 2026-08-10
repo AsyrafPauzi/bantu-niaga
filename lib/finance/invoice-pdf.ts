@@ -114,6 +114,19 @@ export async function renderFinanceInvoicePdf(
     });
     y -= 14;
   }
+  if (invoice.customer_address?.trim()) {
+    const addrLines = invoice.customer_address.trim().split(/\n/);
+    for (const line of addrLines.slice(0, 4)) {
+      page.drawText(truncate(line.trim(), 60), {
+        x: 48,
+        y,
+        size: 10,
+        font: regular,
+        color: muted,
+      });
+      y -= 14;
+    }
+  }
 
   y -= 14;
   page.drawLine({ start: { x: 48, y }, end: { x: 547, y }, thickness: 1, color: line });

@@ -389,6 +389,14 @@ export function FinanceCustomerPanel({
                           <FileText className="h-3 w-3" />
                           Invoice
                         </Link>
+                        {hasBilling ? (
+                          <Link
+                            href={`/finance/customers/${encodeURIComponent(c.id)}/statement`}
+                            className="inline-flex items-center gap-1 rounded-full border border-cream-300 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:border-brand-300 hover:text-brand-700 dark:border-hairline-dark dark:text-cream-400"
+                          >
+                            Statement
+                          </Link>
+                        ) : null}
                         <button
                           type="button"
                           disabled={busy}

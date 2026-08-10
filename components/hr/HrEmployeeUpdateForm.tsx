@@ -92,9 +92,9 @@ export function HrEmployeeUpdateForm({ employee }: { employee: HrEmployeeRow }) 
     event.preventDefault();
     setBusy(true);
     const form = event.currentTarget;
-    const payload = Object.fromEntries(new FormData(form).entries()) as Record<
+    const formEntries = Object.fromEntries(new FormData(form).entries()) as Record<
       string,
-      FormDataEntryValue
+      string
     >;
 
     const resolvedBank =
@@ -102,14 +102,32 @@ export function HrEmployeeUpdateForm({ employee }: { employee: HrEmployeeRow }) 
     const resolvedRelationship =
       relationship === "Other" ? relationshipOther.trim() : relationship.trim();
 
-    payload.bank_name = resolvedBank;
-    payload.emergency_contact_relationship = resolvedRelationship;
+    const ent: Record<string, number> = { ...employee.leave_entitlements };
+    const mcRaw = String(formEntries.leave_entitlements_mc ?? "").trim();
+    const emergencyRaw = String(formEntries.leave_entitlements_emergency ?? "").trim();
+    const hospitalRaw = String(formEntries.leave_entitlements_hospitalisation ?? "").trim();
+    if (mcRaw === "") delete ent.mc;
+    else ent.mc = Number(mcRaw);
+    if (emergencyRaw === "") delete ent.emergency;
+    else ent.emergency = Number(emergencyRaw);
+    if (hospitalRaw === "") delete ent.hospitalisation;
+    else ent.hospitalisation = Number(hospitalRaw);
+
+    const body: Record<string, unknown> = {
+      ...formEntries,
+      bank_name: resolvedBank,
+      emergency_contact_relationship: resolvedRelationship,
+      leave_entitlements: ent,
+    };
+    delete body.leave_entitlements_mc;
+    delete body.leave_entitlements_emergency;
+    delete body.leave_entitlements_hospitalisation;
 
     try {
       const res = await fetch(`/api/hr/employees/${employee.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
@@ -146,6 +164,19 @@ export function HrEmployeeUpdateForm({ employee }: { employee: HrEmployeeRow }) 
               required
               maxLength={160}
               defaultValue={employee.full_name}
+              className={hrClasses.input}
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor="employee_number" optional>
+              Employee number
+            </FieldLabel>
+            <input
+              id="employee_number"
+              name="employee_number"
+              maxLength={40}
+              defaultValue={employee.employee_number ?? ""}
+              placeholder="e.g. EMP-001"
               className={hrClasses.input}
             />
           </div>
@@ -189,6 +220,18 @@ export function HrEmployeeUpdateForm({ employee }: { employee: HrEmployeeRow }) 
               <option value="terminated">Terminated</option>
             </select>
           </div>
+          <div>
+            <FieldLabel htmlFor="contract_end_date" optional>
+              Contract end date
+            </FieldLabel>
+            <input
+              id="contract_end_date"
+              name="contract_end_date"
+              type="date"
+              defaultValue={employee.contract_end_date ?? ""}
+              className={hrClasses.input}
+            />
+          </div>
           <div id="hr-field-al-entitlement">
             <FieldLabel htmlFor="annual_leave_entitlement_days">
               Annual leave (days per year)
@@ -205,6 +248,57 @@ export function HrEmployeeUpdateForm({ employee }: { employee: HrEmployeeRow }) 
             />
             <p className="mt-1 text-[11px] text-ink-muted dark:text-cream-500">
               Updates the leave balance shown at the top of this page. Save profile to apply.
+            </p>
+          </div>
+          <div>
+            <FieldLabel htmlFor="leave_entitlements_mc" optional>
+              MC days (per year)
+            </FieldLabel>
+            <input
+              id="leave_entitlements_mc"
+              name="leave_entitlements_mc"
+              type="number"
+              min={0}
+              max={365}
+              step={0.5}
+              placeholder="Use company default"
+              defaultValue={employee.leave_entitlements?.mc ?? ""}
+              className={hrClasses.input}
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor="leave_entitlements_emergency" optional>
+              Emergency leave days
+            </FieldLabel>
+            <input
+              id="leave_entitlements_emergency"
+              name="leave_entitlements_emergency"
+              type="number"
+              min={0}
+              max={365}
+              step={0.5}
+              placeholder="Use company default"
+              defaultValue={employee.leave_entitlements?.emergency ?? ""}
+              className={hrClasses.input}
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor="leave_entitlements_hospitalisation" optional>
+              Hospitalisation days
+            </FieldLabel>
+            <input
+              id="leave_entitlements_hospitalisation"
+              name="leave_entitlements_hospitalisation"
+              type="number"
+              min={0}
+              max={365}
+              step={0.5}
+              placeholder="Use company default"
+              defaultValue={employee.leave_entitlements?.hospitalisation ?? ""}
+              className={hrClasses.input}
+            />
+            <p className="mt-1 text-[11px] text-ink-muted dark:text-cream-500">
+              Leave blank to use the global quota from Leave policy.
             </p>
           </div>
         </Section>
@@ -376,6 +470,23 @@ export function HrEmployeeUpdateForm({ employee }: { employee: HrEmployeeRow }) 
               maxLength={80}
               defaultValue={emp.bank_account_no ?? ""}
               placeholder={emp.bank_account_no_masked ?? "Account number"}
+              className={hrClasses.input}
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor="base_salary_myr" optional>
+              Base salary (MYR/month)
+            </FieldLabel>
+            <input
+              id="base_salary_myr"
+              name="base_salary_myr"
+              type="number"
+              min={0}
+              step={0.01}
+              defaultValue={
+                employee.base_salary_myr != null ? employee.base_salary_myr : ""
+              }
+              placeholder="e.g. 3500"
               className={hrClasses.input}
             />
           </div>

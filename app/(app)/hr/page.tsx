@@ -3,7 +3,12 @@ import { Card, CardBody } from "@/components/ui/card";
 import { HrOverview } from "@/components/hr/HrOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canAccessStaffMe, canManageHrCore } from "@/lib/hr/access";
-import { loadHrDashboard } from "@/lib/hr/load";
+import { loadContractExpiringForOverview } from "@/lib/hr/contract-reminders";
+import { loadHrDashboard, loadHrStaffAppraisals } from "@/lib/hr/load";
+import {
+  hasHrReminderPackAddon,
+  hasStaffAppraisalAddon,
+} from "@/lib/marketplace/entitlements";
 
 export const metadata = { title: "People & Leave" };
 export const dynamic = "force-dynamic";
@@ -30,7 +35,26 @@ export default async function HrPage() {
     );
   }
 
-  const dashboard = await loadHrDashboard(user.businessId);
+  const [appraisalAddonActive, reminderPackActive] = await Promise.all([
+    hasStaffAppraisalAddon(user.businessId),
+    hasHrReminderPackAddon(user.businessId),
+  ]);
+  const [dashboard, appraisals, contractExpiring] = await Promise.all([
+    loadHrDashboard(user.businessId),
+    appraisalAddonActive
+      ? loadHrStaffAppraisals(user.businessId)
+      : Promise.resolve([]),
+    reminderPackActive
+      ? loadContractExpiringForOverview(user.businessId)
+      : Promise.resolve([]),
+  ]);
 
-  return <HrOverview dashboard={dashboard} />;
+  return (
+    <HrOverview
+      dashboard={dashboard}
+      appraisalAddonActive={appraisalAddonActive}
+      appraisals={appraisals}
+      contractExpiring={contractExpiring}
+    />
+  );
 }

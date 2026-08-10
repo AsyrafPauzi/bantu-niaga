@@ -3,17 +3,22 @@ import { ArrowLeft } from "lucide-react";
 import { HrLeaveCreateForm } from "@/components/hr/HrLeaveCreateForm";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import type { HrEmployeeRow } from "@/lib/hr/load";
+import type { LeaveTypeKey } from "@/lib/hr/leave-labels";
 import { hrClasses } from "@/lib/hr/theme";
 import { cn } from "@/lib/utils/cn";
 
 export interface HrLeaveRecordViewProps {
   employees: HrEmployeeRow[];
   defaultEmployeeId?: string;
+  attachmentRequired?: Record<LeaveTypeKey, boolean>;
+  enabledLeaveTypes?: LeaveTypeKey[];
 }
 
 export function HrLeaveRecordView({
   employees,
   defaultEmployeeId,
+  attachmentRequired,
+  enabledLeaveTypes,
 }: HrLeaveRecordViewProps) {
   const selected = defaultEmployeeId
     ? employees.find((e) => e.id === defaultEmployeeId)
@@ -57,6 +62,8 @@ export function HrLeaveRecordView({
           employees={employees}
           redirectTo="/hr/leave"
           defaultEmployeeId={defaultEmployeeId}
+          attachmentRequired={attachmentRequired}
+          enabledLeaveTypes={enabledLeaveTypes}
         />
       </div>
 

@@ -3,7 +3,9 @@ import { cn } from "@/lib/utils/cn";
 
 const LINKS = [
   { href: "/hr/me", label: "Overview", exact: true },
+  { href: "/hr/me/attendance", label: "Attendance", exact: false },
   { href: "/hr/me/leave/new", label: "Apply leave", exact: false },
+  { href: "/hr/me/payslips", label: "Payslips", exact: false },
   { href: "/hr/me/onboarding", label: "Onboarding", exact: false },
 ] as const;
 

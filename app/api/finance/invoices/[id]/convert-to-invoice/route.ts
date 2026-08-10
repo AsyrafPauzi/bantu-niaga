@@ -9,8 +9,8 @@ import {
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { buildInvoiceShareFields } from "@/lib/finance/share-link";
 import {
-  generateShareHash,
   nextFinanceInvoiceNumber,
 } from "@/lib/finance/helpers";
 import {
@@ -90,7 +90,7 @@ export async function POST(
 
   const admin = createServiceRoleClient();
   const number = await nextFinanceInvoiceNumber(admin, user.businessId, "INV");
-  const shareHash = generateShareHash();
+  const shareFields = buildInvoiceShareFields("draft");
   const now = new Date().toISOString();
   const defaultDue = new Date();
   defaultDue.setDate(defaultDue.getDate() + 30);
@@ -105,11 +105,14 @@ export async function POST(
     .insert({
       business_id: user.businessId,
       number,
-      share_hash: shareHash,
+      share_hash: shareFields.share_hash,
+      share_issued_at: shareFields.share_issued_at,
+      share_expires_at: shareFields.share_expires_at,
       customer_id: quote.customer_id,
       customer_name: quote.customer_name,
       customer_email: quote.customer_email,
       customer_phone: quote.customer_phone,
+      customer_address: quote.customer_address ?? null,
       title: quote.title,
       description: quote.description,
       invoice_date: quote.invoice_date,

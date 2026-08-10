@@ -9,10 +9,32 @@ import { hydrateEmployeeSensitiveFields, sealEmployeeSensitiveFields } from "@/l
 
 export { EMPLOYEE_DETAIL_SELECT, EMPLOYEE_LIST_SELECT };
 
+function mapEmployeeCommonFields(row: Record<string, unknown>) {
+  const rawEnt = row.leave_entitlements;
+  let leave_entitlements: Record<string, number> = {};
+  if (rawEnt && typeof rawEnt === "object" && !Array.isArray(rawEnt)) {
+    for (const [k, v] of Object.entries(rawEnt as Record<string, unknown>)) {
+      if (typeof v === "number" && Number.isFinite(v)) {
+        leave_entitlements[k] = v;
+      }
+    }
+  }
+  return {
+    employee_number: (row.employee_number as string | null) ?? null,
+    contract_end_date: (row.contract_end_date as string | null) ?? null,
+    base_salary_myr:
+      row.base_salary_myr != null && row.base_salary_myr !== ""
+        ? Number(row.base_salary_myr)
+        : null,
+    leave_entitlements,
+  };
+}
+
 export function mapEmployeeListRow(row: Record<string, unknown>): HrEmployeeRow {
   const { bank_account_no: _plain, ...rest } = row;
   return {
     ...(rest as unknown as HrEmployeeRow),
+    ...mapEmployeeCommonFields(row),
     bank_account_no: null,
     bank_account_no_sealed: row.bank_account_no_sealed ?? null,
   };
@@ -37,6 +59,7 @@ export function mapEmployeeDetailRow(
 
   return {
     ...(row as unknown as HrEmployeeRow),
+    ...mapEmployeeCommonFields(row),
     identity_type: (row.identity_type as string | null) ?? null,
     identity_number: sensitive.identity_number,
     bank_account_no: sensitive.bank_account_no,
@@ -53,10 +76,23 @@ export function buildEmployeeWritePayload(
     apply_default_onboarding: _onboarding,
     identity_number,
     bank_account_no,
+    leave_entitlements,
     ...rest
   } = parsed;
 
   const payload: Record<string, unknown> = { ...rest };
+
+  if (leave_entitlements !== undefined) {
+    const ent: Record<string, number> = {};
+    if (leave_entitlements && typeof leave_entitlements === "object") {
+      for (const [k, v] of Object.entries(
+        leave_entitlements as Record<string, unknown>,
+      )) {
+        if (typeof v === "number" && Number.isFinite(v)) ent[k] = v;
+      }
+    }
+    payload.leave_entitlements = ent;
+  }
 
   if (identity_number !== undefined || bank_account_no !== undefined) {
     const sealed = sealEmployeeSensitiveFields({

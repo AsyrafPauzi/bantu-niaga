@@ -21,9 +21,11 @@ export function HrEmployeeCreateWizard() {
   const [toast, setToast] = useState<{ message: string; kind: "ok" | "err" } | null>(null);
   const [form, setForm] = useState({
     full_name: "",
+    employee_number: "",
     role_title: "",
     employment_type: "full_time",
     start_date: "",
+    contract_end_date: "",
     phone_e164: "",
     email: "",
     emergency_contact_name: "",
@@ -32,6 +34,11 @@ export function HrEmployeeCreateWizard() {
     bank_name: "",
     bank_account_no: "",
     bank_account_holder: "",
+    base_salary_myr: "",
+    annual_leave_entitlement_days: "8",
+    leave_entitlements_mc: "",
+    leave_entitlements_emergency: "",
+    leave_entitlements_hospitalisation: "",
   });
   const [relationshipOther, setRelationshipOther] = useState("");
   const [bankOther, setBankOther] = useState("");
@@ -57,11 +64,39 @@ export function HrEmployeeCreateWizard() {
       const bankName =
         form.bank_name === "Other" ? bankOther.trim() : form.bank_name.trim();
 
+      const leave_entitlements: Record<string, number> = {};
+      const mcRaw = form.leave_entitlements_mc.trim();
+      const emergencyRaw = form.leave_entitlements_emergency.trim();
+      const hospitalRaw = form.leave_entitlements_hospitalisation.trim();
+      if (mcRaw !== "") leave_entitlements.mc = Number(mcRaw);
+      if (emergencyRaw !== "") leave_entitlements.emergency = Number(emergencyRaw);
+      if (hospitalRaw !== "") leave_entitlements.hospitalisation = Number(hospitalRaw);
+
+      const {
+        leave_entitlements_mc: _mc,
+        leave_entitlements_emergency: _el,
+        leave_entitlements_hospitalisation: _hosp,
+        annual_leave_entitlement_days: alDays,
+        ...restForm
+      } = form;
+
       const res = await fetch("/api/hr/employees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
+          ...restForm,
+          employee_number: form.employee_number.trim() || undefined,
+          contract_end_date: form.contract_end_date.trim() || undefined,
+          base_salary_myr: form.base_salary_myr.trim()
+            ? Number(form.base_salary_myr)
+            : undefined,
+          annual_leave_entitlement_days: alDays.trim()
+            ? Number(alDays)
+            : 8,
+          leave_entitlements:
+            Object.keys(leave_entitlements).length > 0
+              ? leave_entitlements
+              : undefined,
           emergency_contact_relationship: relationship || undefined,
           bank_name: bankName || undefined,
         }),
@@ -138,6 +173,19 @@ export function HrEmployeeCreateWizard() {
                 />
               </label>
               <label className={hrClasses.label}>
+                Employee number{" "}
+                <span className="font-normal text-ink-subtle">(optional)</span>
+                <input
+                  value={form.employee_number}
+                  onChange={(e) => update("employee_number", e.target.value)}
+                  placeholder="Auto-assigns EMP-001 if blank"
+                  maxLength={40}
+                  className={hrClasses.input}
+                />
+              </label>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className={hrClasses.label}>
                 Job title
                 <input
                   required
@@ -146,8 +194,6 @@ export function HrEmployeeCreateWizard() {
                   className={hrClasses.input}
                 />
               </label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
               <label className={hrClasses.label}>
                 Employment type
                 <select
@@ -161,6 +207,8 @@ export function HrEmployeeCreateWizard() {
                   <option value="intern">Intern</option>
                 </select>
               </label>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <label className={hrClasses.label}>
                 Start date
                 <input
@@ -168,6 +216,16 @@ export function HrEmployeeCreateWizard() {
                   required
                   value={form.start_date}
                   onChange={(e) => update("start_date", e.target.value)}
+                  className={hrClasses.input}
+                />
+              </label>
+              <label className={hrClasses.label}>
+                Contract end date{" "}
+                <span className="font-normal text-ink-subtle">(optional)</span>
+                <input
+                  type="date"
+                  value={form.contract_end_date}
+                  onChange={(e) => update("contract_end_date", e.target.value)}
                   className={hrClasses.input}
                 />
               </label>
@@ -309,6 +367,89 @@ export function HrEmployeeCreateWizard() {
                   className={hrClasses.input}
                 />
               </label>
+              <label className={hrClasses.label}>
+                Base salary (MYR/month){" "}
+                <span className="font-normal text-ink-subtle">(optional)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={form.base_salary_myr}
+                  onChange={(e) => update("base_salary_myr", e.target.value)}
+                  placeholder="e.g. 3500"
+                  className={hrClasses.input}
+                />
+              </label>
+            </div>
+            <div className="border-t border-cream-200 pt-4 dark:border-hairline-dark">
+              <h3 className={hrClasses.sectionTitle}>Leave entitlements</h3>
+              <p className={cn("mt-1", hrClasses.sectionHint)}>
+                Blank MC / emergency / hospitalisation uses company leave policy defaults.
+              </p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <label className={hrClasses.label}>
+                  Annual leave (days/year)
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    step={0.5}
+                    value={form.annual_leave_entitlement_days}
+                    onChange={(e) =>
+                      update("annual_leave_entitlement_days", e.target.value)
+                    }
+                    className={hrClasses.input}
+                  />
+                </label>
+                <label className={hrClasses.label}>
+                  MC days{" "}
+                  <span className="font-normal text-ink-subtle">(optional)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    step={0.5}
+                    value={form.leave_entitlements_mc}
+                    onChange={(e) =>
+                      update("leave_entitlements_mc", e.target.value)
+                    }
+                    placeholder="Company default"
+                    className={hrClasses.input}
+                  />
+                </label>
+                <label className={hrClasses.label}>
+                  Emergency leave days{" "}
+                  <span className="font-normal text-ink-subtle">(optional)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    step={0.5}
+                    value={form.leave_entitlements_emergency}
+                    onChange={(e) =>
+                      update("leave_entitlements_emergency", e.target.value)
+                    }
+                    placeholder="Company default"
+                    className={hrClasses.input}
+                  />
+                </label>
+                <label className={hrClasses.label}>
+                  Hospitalisation days{" "}
+                  <span className="font-normal text-ink-subtle">(optional)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    step={0.5}
+                    value={form.leave_entitlements_hospitalisation}
+                    onChange={(e) =>
+                      update("leave_entitlements_hospitalisation", e.target.value)
+                    }
+                    placeholder="Company default"
+                    className={hrClasses.input}
+                  />
+                </label>
+              </div>
             </div>
           </div>
         ) : null}

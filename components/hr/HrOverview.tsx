@@ -3,15 +3,20 @@ import {
   ArrowRight,
   Calendar,
   CalendarPlus,
+  ClipboardCheck,
   Clock,
   Plus,
   UserCheck,
   Users,
 } from "lucide-react";
+import { HrContractExpiringWidget } from "@/components/hr/HrContractExpiringWidget";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrPendingLeaveCard } from "@/components/hr/HrPendingLeaveCard";
+import { HrStaffAppraisalGate } from "@/components/hr/HrStaffAppraisalGate";
 import { OnboardingProgressBar } from "@/components/hr/HrOnboardingProgress";
-import type { HrDashboardData } from "@/lib/hr/load";
+import type { HrDashboardData, HrStaffAppraisalRow } from "@/lib/hr/load";
+import type { ContractExpiringEmployee } from "@/lib/hr/contract-reminders";
+import { appraisalDisplayStatus } from "@/lib/hr/appraisal";
 import {
   describeProfileGaps,
   getProfileCompletionGaps,
@@ -76,9 +81,17 @@ function daysUntil(iso: string): number {
 
 export interface HrOverviewProps {
   dashboard: HrDashboardData;
+  appraisalAddonActive?: boolean;
+  appraisals?: HrStaffAppraisalRow[];
+  contractExpiring?: ContractExpiringEmployee[];
 }
 
-export function HrOverview({ dashboard }: HrOverviewProps) {
+export function HrOverview({
+  dashboard,
+  appraisalAddonActive = false,
+  appraisals = [],
+  contractExpiring = [],
+}: HrOverviewProps) {
   const {
     employees,
     leavePending,
@@ -122,6 +135,11 @@ export function HrOverview({ dashboard }: HrOverviewProps) {
   const showNeedsAttention =
     profilesToFinish.length > 0 ||
     (counts.onboardingTotal > 0 && counts.incompleteOnboarding > 0);
+
+  const appraisalPending = appraisals.filter((row) => row.status !== "completed");
+  const appraisalOverdue = appraisalPending.filter(
+    (row) => appraisalDisplayStatus(row, todayYmd) === "overdue",
+  );
 
   return (
     <div className="space-y-6">
@@ -208,6 +226,10 @@ export function HrOverview({ dashboard }: HrOverviewProps) {
           ))}
         </div>
       </section>
+
+      {contractExpiring.length > 0 ? (
+        <HrContractExpiringWidget employees={contractExpiring} />
+      ) : null}
 
       <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
         <Panel
@@ -365,6 +387,73 @@ export function HrOverview({ dashboard }: HrOverviewProps) {
             </div>
           </Panel>
         ) : null}
+
+        <Panel
+          title="Performance reviews"
+          subtitle={
+            !appraisalAddonActive
+              ? "Staff Appraisal Checker add-on"
+              : appraisals.length === 0
+                ? "No reviews scheduled"
+                : `${appraisals.length - appraisalPending.length} of ${appraisals.length} complete` +
+                  (appraisalOverdue.length > 0 ? ` · ${appraisalOverdue.length} overdue` : "")
+          }
+          action={
+            appraisalAddonActive
+              ? { href: "/hr/appraisals", label: "Appraisals" }
+              : undefined
+          }
+        >
+          {!appraisalAddonActive ? (
+            <div className="p-3 sm:p-4">
+              <HrStaffAppraisalGate />
+            </div>
+          ) : appraisals.length === 0 ? (
+            <EmptyState
+              icon={ClipboardCheck}
+              title="No appraisals scheduled"
+              cta={{ href: "/hr/appraisals", label: "Schedule review" }}
+            />
+          ) : (
+            <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
+              {appraisalPending.slice(0, 4).map((row) => {
+                const displayStatus = appraisalDisplayStatus(row, todayYmd);
+                return (
+                  <li
+                    key={row.id}
+                    className="flex items-center justify-between gap-3 px-3 py-2 sm:px-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-ink dark:text-cream-100">
+                        {row.hr_employees?.full_name ?? "Employee"}
+                      </p>
+                      <p className="text-xs text-ink-muted dark:text-cream-400">
+                        {row.period_label} · due {fmtShortDate(row.due_date)}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                        displayStatus === "overdue"
+                          ? "bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+                          : "bg-[#EEF3FE] text-brand-700 dark:bg-brand-900/40 dark:text-brand-200",
+                      )}
+                    >
+                      {displayStatus === "overdue" ? "Overdue" : "Due"}
+                    </span>
+                  </li>
+                );
+              })}
+              {appraisalPending.length > 4 ? (
+                <li className="px-3 py-2 text-center sm:px-4">
+                  <Link href="/hr/appraisals" className={cn("text-xs font-semibold", hrClasses.link)}>
+                    {appraisalPending.length - 4} more pending
+                  </Link>
+                </li>
+              ) : null}
+            </ul>
+          )}
+        </Panel>
 
         {nextHolidays.length > 0 ? (
           <Panel

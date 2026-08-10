@@ -59,12 +59,6 @@ export const BUSINESS_BUNDLES: readonly BusinessBundle[] = [
         slug: "sales-daily-closeout",
         plannedLabel: "Tutup kas harian",
       },
-      {
-        slug: "hr-payroll-statutory",
-        optional: true,
-        optionalHint: "Bila ada staf bergaji & KWSP/SOCSO",
-        plannedLabel: "Payroll & statutory",
-      },
     ],
   },
   {

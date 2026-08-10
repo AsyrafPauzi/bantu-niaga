@@ -6,8 +6,8 @@ import type {
 } from "@/lib/finance/schemas";
 
 export const INVOICE_SELECT =
-  "id, business_id, number, share_hash, customer_id, customer_name, customer_email, " +
-  "customer_phone, title, description, invoice_date, amount_myr, discount_myr, " +
+  "id, business_id, number, share_hash, share_issued_at, share_expires_at, customer_id, customer_name, customer_email, " +
+  "customer_phone, customer_address, title, description, invoice_date, amount_myr, discount_myr, " +
   "discount_pct, tax_myr, tax_pct, shipping_myr, total_myr, status, due_date, notes, " +
   "paid_at, sent_at, document_kind, show_duitnow, converted_from_id, admin_file_id, created_by, created_at, updated_at";
 
@@ -20,6 +20,7 @@ interface CustomerSnapshot {
   customer_name: string;
   customer_email: string | null;
   customer_phone: string | null;
+  customer_address: string | null;
 }
 
 export async function resolveCustomerSnapshot(
@@ -35,7 +36,7 @@ export async function resolveCustomerSnapshot(
   if (customerId) {
     const { data } = await supabase
       .from("customers")
-      .select("id, name, email, phone_e164")
+      .select("id, name, email, phone_e164, address")
       .eq("business_id", businessId)
       .eq("id", customerId)
       .is("deleted_at", null)
@@ -47,12 +48,14 @@ export async function resolveCustomerSnapshot(
         name: string;
         email: string | null;
         phone_e164: string | null;
+        address: string | null;
       };
       return {
         customer_id: row.id,
         customer_name: row.name,
         customer_email: row.email,
         customer_phone: row.phone_e164,
+        customer_address: row.address,
       };
     }
   }
@@ -62,6 +65,7 @@ export async function resolveCustomerSnapshot(
     customer_name: fallback?.customer_name?.trim() ?? "",
     customer_email: fallback?.customer_email ?? null,
     customer_phone: fallback?.customer_phone ?? null,
+    customer_address: null,
   };
 }
 

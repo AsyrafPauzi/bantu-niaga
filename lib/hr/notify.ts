@@ -81,3 +81,28 @@ export function notifyHrDocumentUploaded(input: {
     { document_id: input.documentId },
   );
 }
+
+export function notifyHrContractExpiring(input: {
+  businessId: string;
+  employeeId: string;
+  employeeName: string;
+  contractEndDate: string;
+  daysUntil: number;
+}): void {
+  const when =
+    input.daysUntil === 0
+      ? "today"
+      : input.daysUntil === 1
+        ? "tomorrow"
+        : `in ${input.daysUntil} days`;
+  postHr(
+    input.businessId,
+    `hr.contract.expiring_${input.daysUntil}`,
+    `Contract ending ${when}: ${input.employeeName} · ends ${input.contractEndDate}`,
+    {
+      employee_id: input.employeeId,
+      contract_end_date: input.contractEndDate,
+      days_until: input.daysUntil,
+    },
+  );
+}

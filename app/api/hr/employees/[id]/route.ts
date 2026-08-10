@@ -9,6 +9,7 @@ import {
   mapEmployeeDetailRow,
 } from "@/lib/hr/employee-api";
 import { employeeUpdateSchema } from "@/lib/hr/schemas";
+import { isEmployeeNumberTaken } from "@/lib/hr/helpers";
 import { hrEncryptionReady } from "@/lib/hr/sensitive";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -85,6 +86,28 @@ export async function PATCH(request: Request, context: RouteContext) {
   const updatePayload = buildEmployeeWritePayload(parsed as Record<string, unknown>);
 
   const supabase = await createSupabaseServerClient();
+
+  if (parsed.employee_number !== undefined) {
+    const resolvedNumber = parsed.employee_number?.trim() || null;
+    if (
+      resolvedNumber &&
+      (await isEmployeeNumberTaken(
+        supabase,
+        user.businessId,
+        resolvedNumber,
+        id,
+      ))
+    ) {
+      return NextResponse.json(
+        {
+          error: "duplicate_employee_number",
+          message: "That employee number is already in use.",
+        },
+        { status: 400 },
+      );
+    }
+    updatePayload.employee_number = resolvedNumber;
+  }
   const { data, error } = await supabase
     .from("hr_employees")
     .update(updatePayload)

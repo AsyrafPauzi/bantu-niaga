@@ -14,9 +14,11 @@ const employees: HrEmployeeRow[] = [
   {
     id: "employee-1",
     full_name: "Aisyah Rahman",
+    employee_number: "EMP-001",
     employment_type: "full_time",
     role_title: "Cafe Supervisor",
     start_date: "2025-03-10",
+    contract_end_date: null,
     status: "active",
     phone_e164: "+60123456701",
     email: "aisyah@example.test",
@@ -27,6 +29,7 @@ const employees: HrEmployeeRow[] = [
     bank_account_no: null,
     bank_account_holder: null,
     notes: null,
+    base_salary_myr: null,
     created_at: "2026-06-01T00:00:00.000Z",
   },
 ];

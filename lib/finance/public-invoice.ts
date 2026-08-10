@@ -1,5 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isInvoiceShareExpired } from "@/lib/finance/share-link";
 
 export interface PublicFinanceInvoiceItem {
   description: string;
@@ -15,6 +16,7 @@ export interface PublicFinanceInvoice {
   share_hash: string;
   customer_name: string;
   customer_email: string | null;
+  customer_address: string | null;
   title: string | null;
   description: string | null;
   invoice_date: string | null;
@@ -62,7 +64,7 @@ export async function loadPublicFinanceInvoice(
   const { data: invoice } = await admin
     .from("finance_invoices")
     .select(
-      "id, number, share_hash, customer_name, customer_email, title, description, invoice_date, " +
+      "id, number, share_hash, share_expires_at, customer_name, customer_email, customer_address, title, description, invoice_date, " +
         "amount_myr, discount_myr, tax_myr, shipping_myr, total_myr, status, " +
         "due_date, paid_at, notes, show_duitnow, document_kind",
     )
@@ -74,7 +76,16 @@ export async function loadPublicFinanceInvoice(
 
   if (!invoice) return null;
 
-  const row = invoice as unknown as Omit<PublicFinanceInvoice, "business" | "items">;
+  const row = invoice as unknown as Omit<
+    PublicFinanceInvoice,
+    "business" | "items"
+  > & { share_expires_at: string | null };
+
+  if (
+    isInvoiceShareExpired(row.status, row.share_expires_at)
+  ) {
+    return null;
+  }
 
   const { data: items } = await admin
     .from("finance_invoice_items")
@@ -85,9 +96,7 @@ export async function loadPublicFinanceInvoice(
 
   return {
     ...row,
-    discount_myr: Number(row.discount_myr ?? 0),
-    shipping_myr: Number(row.shipping_myr ?? 0),
-    items: (items ?? []) as unknown as PublicFinanceInvoiceItem[],
     business: biz,
+    items: (items ?? []) as PublicFinanceInvoiceItem[],
   };
 }

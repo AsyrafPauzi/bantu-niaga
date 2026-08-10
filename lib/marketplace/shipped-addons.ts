@@ -22,6 +22,8 @@ export const SHIPPED_MARKETPLACE_ADDON_SLUGS: readonly string[] = [
   "hr-public-holidays",
   "hr-staff-appraisal",
   "hr-staff-portal",
+  "hr-shift-attendance",
+  "hr-reminder-pack",
   "storage-10gb",
   "boardroom-weekly",
   ...CREDIT_TOPUP_ADDON_SLUGS,

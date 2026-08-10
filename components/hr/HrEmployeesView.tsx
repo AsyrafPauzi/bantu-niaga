@@ -99,7 +99,8 @@ export function HrEmployeesView({ employees, documents }: HrEmployeesViewProps) 
       return (
         e.full_name.toLowerCase().includes(q) ||
         e.role_title.toLowerCase().includes(q) ||
-        (e.email?.toLowerCase().includes(q) ?? false)
+        (e.email?.toLowerCase().includes(q) ?? false) ||
+        (e.employee_number?.toLowerCase().includes(q) ?? false)
       );
     });
     return list.sort((a, b) => {
@@ -247,7 +248,7 @@ export function HrEmployeesView({ employees, documents }: HrEmployeesViewProps) 
                     type="search"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search name, role, or email…"
+                    placeholder="Search name, role, number, or email…"
                     className="w-full min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-subtle focus:outline-none dark:text-cream-100"
                   />
                 </div>
@@ -387,9 +388,16 @@ function EmployeeTableRow({
           >
             {initials(employee.full_name)}
           </span>
-          <span className="font-semibold text-ink hover:text-[#0D9488] dark:text-cream-100 dark:hover:text-teal-300">
-            {employee.full_name}
-          </span>
+          <div className="min-w-0">
+            <span className="font-semibold text-ink hover:text-[#0D9488] dark:text-cream-100 dark:hover:text-teal-300">
+              {employee.full_name}
+            </span>
+            {employee.employee_number ? (
+              <p className="text-[11px] font-medium text-ink-muted dark:text-cream-500">
+                {employee.employee_number}
+              </p>
+            ) : null}
+          </div>
         </Link>
       </td>
       <td className="px-3 py-3 text-sm text-ink-muted dark:text-cream-400">
@@ -454,6 +462,12 @@ function EmployeeMobileRow({
           </StatusPill>
         </div>
         <p className="truncate text-xs text-ink-muted dark:text-cream-400">
+          {employee.employee_number ? (
+            <span className="font-medium text-ink-muted dark:text-cream-300">
+              {employee.employee_number}
+              <span className="mx-1 text-ink-subtle">·</span>
+            </span>
+          ) : null}
           {employee.role_title} · {employmentLabel(employee.employment_type)}
         </p>
         {incomplete ? (

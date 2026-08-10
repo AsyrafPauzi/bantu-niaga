@@ -55,7 +55,28 @@ export const MALAYSIAN_BANKS = [
   "Other",
 ] as const;
 
-export const LEAVE_TYPES = ["annual", "emergency", "mc"] as const;
+export const LEAVE_TYPES = [
+  "annual",
+  "emergency",
+  "mc",
+  "hospitalisation",
+  "unpaid",
+] as const;
+
+/** Leave types that require an uploaded supporting document (MC, emergency proof, etc.). */
+export const LEAVE_TYPES_REQUIRING_DOCUMENT = [
+  "mc",
+  "emergency",
+  "hospitalisation",
+] as const;
+
+export function leaveTypeRequiresDocument(
+  leaveType: string,
+): leaveType is typeof LEAVE_TYPES_REQUIRING_DOCUMENT[number] {
+  return (LEAVE_TYPES_REQUIRING_DOCUMENT as readonly string[]).includes(
+    leaveType,
+  );
+}
 
 export const LEAVE_STATUSES = ["pending", "approved", "rejected"] as const;
 
@@ -68,12 +89,31 @@ export const DOCUMENT_TYPES = [
   "other",
 ] as const;
 
+const optionalSalaryMyr = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z.coerce.number().min(0).max(99999999.99).nullable().optional(),
+);
+
+const leaveEntitlementDays = z.coerce.number().min(0).max(365).optional();
+
+export const employeeLeaveEntitlementsSchema = z
+  .object({
+    mc: leaveEntitlementDays,
+    emergency: leaveEntitlementDays,
+    hospitalisation: leaveEntitlementDays,
+  })
+  .partial()
+  .optional();
+
 export const employeeCreateSchema = z
   .object({
     full_name: z.string().trim().min(1).max(160),
+    employee_number: optionalText(40),
     employment_type: z.enum(EMPLOYMENT_TYPES),
     role_title: z.string().trim().min(1).max(120),
     start_date: isoDate,
+    contract_end_date: z.preprocess(emptyToNull, isoDate.nullable().optional()),
     status: z.enum(EMPLOYEE_STATUSES).default("active"),
     identity_type: z.preprocess(
       emptyToNull,
@@ -93,6 +133,8 @@ export const employeeCreateSchema = z
     bank_account_holder: optionalText(160),
     notes: optionalText(1000),
     annual_leave_entitlement_days: z.coerce.number().min(0).max(365).optional(),
+    leave_entitlements: employeeLeaveEntitlementsSchema,
+    base_salary_myr: optionalSalaryMyr,
     apply_default_onboarding: z.boolean().optional(),
   })
   .strict();
@@ -132,6 +174,42 @@ export const leaveStatusUpdateSchema = z
   .object({
     status: z.enum(["approved", "rejected"]),
     decision_note: optionalText(500),
+  })
+  .strict();
+
+export const leaveUpdateSchema = z
+  .object({
+    leave_type: z.enum(LEAVE_TYPES).optional(),
+    start_date: isoDate.optional(),
+    end_date: isoDate.optional(),
+    reason: optionalText(500),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field is required",
+  })
+  .refine(
+    (value) => {
+      if (value.start_date && value.end_date) {
+        return value.end_date >= value.start_date;
+      }
+      return true;
+    },
+    { message: "End date cannot be before start date", path: ["end_date"] },
+  );
+
+export const leaveTypeSettingsUpdateSchema = z
+  .object({
+    settings: z.array(
+      z.object({
+        leave_type: z.enum(LEAVE_TYPES),
+        default_quota_days: z
+          .union([z.coerce.number().min(0).max(365), z.null()])
+          .optional(),
+        attachment_required: z.boolean().optional(),
+        enabled: z.boolean().optional(),
+      }),
+    ),
   })
   .strict();
 
@@ -225,6 +303,38 @@ export const holidayOverrideCreateSchema = z
     }
   });
 
+export const attendanceClockInSchema = z
+  .object({
+    employee_id: z.string().uuid(),
+    notes: optionalText(500),
+  })
+  .strict();
+
+export const attendanceClockOutSchema = z
+  .object({
+    notes: optionalText(500),
+  })
+  .strict();
+
+export const WARNING_LETTER_SEVERITIES = [
+  "verbal",
+  "standard",
+  "final",
+] as const;
+
+export const warningLetterCreateSchema = z
+  .object({
+    employee_id: z.string().uuid(),
+    issued_at: isoDate,
+    reason: z.string().trim().min(1).max(2000),
+    severity: z.enum(WARNING_LETTER_SEVERITIES).default("standard"),
+    admin_file_id: z.preprocess(
+      emptyToNull,
+      z.string().uuid().nullable().optional(),
+    ),
+  })
+  .strict();
+
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
 export type EmployeeUpdateInput = z.infer<typeof employeeUpdateSchema>;
 export type LeaveCreateInput = z.infer<typeof leaveCreateSchema>;
@@ -243,3 +353,19 @@ export type HolidayCreateInput = z.infer<typeof holidayCreateSchema>;
 export type HolidayOverrideCreateInput = z.infer<
   typeof holidayOverrideCreateSchema
 >;
+
+const payslipMonth = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use YYYY-MM format");
+
+export const payslipCreateSchema = z
+  .object({
+    employee_id: z.string().uuid(),
+    month: payslipMonth,
+  })
+  .strict();
+
+export type PayslipCreateInput = z.infer<typeof payslipCreateSchema>;
+export type AttendanceClockInInput = z.infer<typeof attendanceClockInSchema>;
+export type AttendanceClockOutInput = z.infer<typeof attendanceClockOutSchema>;
+export type WarningLetterCreateInput = z.infer<typeof warningLetterCreateSchema>;

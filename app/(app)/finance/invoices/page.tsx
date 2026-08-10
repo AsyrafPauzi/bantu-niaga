@@ -107,7 +107,11 @@ export default async function InvoicesPage({
 
   const [{ data, error, count }, summary] = await Promise.all([
     listQuery,
-    loadFinanceInvoicesSummary(supabase, user.businessId),
+    loadFinanceInvoicesSummary(
+      supabase,
+      user.businessId,
+      customerIdFilter ? { customerId: customerIdFilter } : undefined,
+    ),
   ]);
   const total = count ?? data?.length ?? 0;
 

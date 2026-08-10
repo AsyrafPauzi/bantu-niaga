@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { loadStaffMeLeaveRecords } from "@/lib/hr/load";
 import {
-  storeMcLeaveDocument,
-  validateMcDocumentFile,
-} from "@/lib/hr/mc-document";
+  isLeaveTypeEnabled,
+  loadHrLeaveTypeSettings,
+} from "@/lib/hr/leave-type-settings";
 import { parseStaffLeaveRequest } from "@/lib/hr/parse-staff-leave-request";
+import { processLeaveDocumentUpload } from "@/lib/hr/process-leave-document";
 import { requireStaffMeContext } from "@/lib/hr/staff-self-service";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -44,51 +45,27 @@ export async function POST(request: Request) {
   }
 
   const { fields, mcFile } = parsed;
-  let mcDocument:
-    | {
-        mc_document_path: string;
-        mc_document_name: string;
-        mc_document_mime: string;
-        mc_document_size_bytes: number;
-        admin_file_id: string;
-      }
-    | undefined;
 
-  if (fields.leave_type === "mc") {
-    const mcValidation = validateMcDocumentFile(mcFile, { required: true });
-    if (!mcValidation.ok) {
-      return NextResponse.json(
-        { error: "mc_document_invalid", message: mcValidation.message },
-        { status: 400 },
-      );
-    }
-
-    const admin = createServiceRoleClient();
-    try {
-      const stored = await storeMcLeaveDocument(
-        admin,
-        ctx.user.businessId,
-        ctx.user.id,
-        mcValidation.file,
-        mcValidation.mimeType,
-      );
-      mcDocument = {
-        mc_document_path: stored.path,
-        mc_document_name: stored.name,
-        mc_document_mime: stored.mime,
-        mc_document_size_bytes: stored.size,
-        admin_file_id: stored.admin_file_id,
-      };
-    } catch {
-      return NextResponse.json(
-        {
-          error: "mc_upload_failed",
-          message: "Could not upload your MC document. Please try again.",
-        },
-        { status: 500 },
-      );
-    }
+  const admin = createServiceRoleClient();
+  const leaveSettings = await loadHrLeaveTypeSettings(admin, ctx.user.businessId);
+  if (!isLeaveTypeEnabled(fields.leave_type, leaveSettings)) {
+    return NextResponse.json(
+      {
+        error: "leave_type_disabled",
+        message: "That leave type is disabled in leave policy.",
+      },
+      { status: 400 },
+    );
   }
+  const docResult = await processLeaveDocumentUpload(admin, {
+    leaveType: fields.leave_type,
+    mcFile,
+    settings: leaveSettings,
+    businessId: ctx.user.businessId,
+    uploadedByUserId: ctx.user.id,
+  });
+  if (!docResult.ok) return docResult.response;
+  const mcDocument = docResult.document;
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase

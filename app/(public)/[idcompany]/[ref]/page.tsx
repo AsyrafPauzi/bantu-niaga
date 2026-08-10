@@ -109,6 +109,11 @@ async function InvoiceView({
         <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
           Bill to: {invoice.customer_name}
         </p>
+        {invoice.customer_address?.trim() ? (
+          <p className="mt-1 text-sm text-ink-muted dark:text-cream-400 whitespace-pre-line">
+            {invoice.customer_address.trim()}
+          </p>
+        ) : null}
         {invoice.title ? (
           <p className="mt-1 text-sm text-ink dark:text-cream-100">{invoice.title}</p>
         ) : null}

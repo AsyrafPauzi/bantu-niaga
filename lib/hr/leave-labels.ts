@@ -1,7 +1,18 @@
 import type { LucideIcon } from "lucide-react";
-import { AlertTriangle, CalendarDays, Stethoscope } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Hospital,
+  Stethoscope,
+  Wallet,
+} from "lucide-react";
 
-export type LeaveTypeKey = "annual" | "emergency" | "mc";
+export type LeaveTypeKey =
+  | "annual"
+  | "emergency"
+  | "mc"
+  | "hospitalisation"
+  | "unpaid";
 
 export interface LeaveTypeMeta {
   key: LeaveTypeKey;
@@ -36,6 +47,22 @@ export const LEAVE_TYPES: readonly LeaveTypeMeta[] = [
     description: "Sick leave with a medical certificate or doctor's note.",
     icon: Stethoscope,
     tone: "warning",
+  },
+  {
+    key: "hospitalisation",
+    short: "HL",
+    label: "Hospitalisation leave",
+    description: "Inpatient care or hospital admission with supporting documents.",
+    icon: Hospital,
+    tone: "warning",
+  },
+  {
+    key: "unpaid",
+    short: "UL",
+    label: "Unpaid leave",
+    description: "Time off without pay — personal matters or extended absence.",
+    icon: Wallet,
+    tone: "accent",
   },
 ] as const;
 

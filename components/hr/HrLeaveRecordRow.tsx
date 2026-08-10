@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { HrLeaveRow } from "@/lib/hr/load";
+import { leaveTypeRequiresDocument } from "@/lib/hr/schemas";
+import { HrLeaveManageActions } from "@/components/hr/HrLeaveManageActions";
 import {
   leaveTypeBadgeClass,
   leaveTypeLabel,
@@ -23,16 +25,21 @@ interface HrLeaveRecordRowProps {
   row: HrLeaveRow;
   showStatus?: boolean;
   hideEmployeeName?: boolean;
+  showManageActions?: boolean;
 }
 
 export function HrLeaveRecordRow({
   row,
   showStatus = false,
   hideEmployeeName = false,
+  showManageActions = false,
 }: HrLeaveRecordRowProps) {
   const reason = row.reason?.trim() ? row.reason.trim() : "—";
-  const hasMcDocument =
-    row.leave_type === "mc" && Boolean(row.mc_document_path && row.mc_document_name);
+  const hasSupportingDocument =
+    leaveTypeRequiresDocument(row.leave_type) &&
+    Boolean(row.mc_document_path && row.mc_document_name);
+  const docLabel =
+    row.leave_type === "mc" ? "MC document" : "Supporting document";
 
   return (
     <div className="border-b border-cream-200 py-3 last:border-0 dark:border-hairline-dark">
@@ -74,12 +81,12 @@ export function HrLeaveRecordRow({
         <span className="font-medium text-ink dark:text-cream-300">Reason:</span>{" "}
         {reason}
       </p>
-      {row.leave_type === "mc" ? (
+      {leaveTypeRequiresDocument(row.leave_type) ? (
         <p className="mt-1 text-xs">
-          {hasMcDocument ? (
+          {hasSupportingDocument ? (
             <>
               <span className="font-medium text-ink-muted dark:text-cream-400">
-                MC document:{" "}
+                {docLabel}:{" "}
               </span>
               <Link
                 href={`/api/hr/leave/${row.id}/mc-document`}
@@ -92,11 +99,12 @@ export function HrLeaveRecordRow({
             </>
           ) : (
             <span className="text-ink-muted dark:text-cream-500">
-              MC document: —
+              {docLabel}: —
             </span>
           )}
         </p>
       ) : null}
+      {showManageActions ? <HrLeaveManageActions row={row} /> : null}
     </div>
   );
 }

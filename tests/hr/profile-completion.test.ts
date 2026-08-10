@@ -10,9 +10,11 @@ import {
 const baseEmployee: HrEmployeeRow = {
   id: "emp-1",
   full_name: "Aisyah Rahman",
+  employee_number: "EMP-001",
   employment_type: "full_time",
   role_title: "Supervisor",
   start_date: "2025-01-01",
+  contract_end_date: null,
   status: "active",
   phone_e164: "+60123456701",
   email: "aisyah@example.test",
@@ -23,6 +25,7 @@ const baseEmployee: HrEmployeeRow = {
   bank_account_no: "123456",
   bank_account_holder: "Aisyah Rahman",
   notes: null,
+  base_salary_myr: null,
   created_at: "2025-01-01T00:00:00Z",
 };
 

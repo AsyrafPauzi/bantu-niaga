@@ -8,6 +8,7 @@ import {
   buildInvoiceShareMessage,
   invoiceShareUrl,
 } from "@/lib/finance/schemas";
+import { buildInvoiceShareFields } from "@/lib/finance/share-link";
 import { sendEmail } from "@/lib/marketing/email-resend";
 import { loadBusiness } from "@/lib/settings/business";
 import {
@@ -117,9 +118,25 @@ export async function POST(
     throw e;
   }
 
+  const shareFields = buildInvoiceShareFields(
+    invoice.status === "paid" ? "paid" : "sent",
+  );
+  await supabase
+    .from("finance_invoices")
+    .update({
+      share_hash: shareFields.share_hash,
+      share_issued_at: shareFields.share_issued_at,
+      share_expires_at: shareFields.share_expires_at,
+    })
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null);
+
+  const activeShareHash = shareFields.share_hash;
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
   const shareUrl = appUrl
-    ? invoiceShareUrl(appUrl, business.idcompany, invoice.share_hash)
+    ? invoiceShareUrl(appUrl, business.idcompany, activeShareHash)
     : "";
   const message = buildInvoiceShareMessage(
     business.name,

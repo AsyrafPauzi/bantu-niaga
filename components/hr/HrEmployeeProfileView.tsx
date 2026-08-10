@@ -22,6 +22,7 @@ import { HrLeaveRecordRow } from "@/components/hr/HrLeaveRecordRow";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrOnboardingPanel } from "@/components/hr/HrOnboardingPanel";
 import { HrSetupChecklist } from "@/components/hr/HrSetupChecklist";
+import { HrWarningLettersSection } from "@/components/hr/HrWarningLettersSection";
 import type {
   HrDocumentRow,
   HrEmployeeLeaveBalance,
@@ -29,6 +30,7 @@ import type {
   HrLeaveRow,
   HrOnboardingRow,
 } from "@/lib/hr/load";
+import type { HrWarningLetterRow } from "@/lib/hr/warning-letters";
 import {
   documentTypeLabel,
   getEmployeeSetupChecklist,
@@ -56,6 +58,13 @@ function fmtJoined(iso: string): string {
   });
 }
 
+function fmtSalaryMyr(amount: number): string {
+  return `RM ${amount.toLocaleString("en-MY", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function statusChipClass(status: string): string {
   if (status === "active") {
     return "bg-teal-50 text-[#0F766E] ring-teal-200/80 dark:bg-teal-950/40 dark:text-teal-200 dark:ring-teal-800";
@@ -72,6 +81,7 @@ export interface HrEmployeeProfileViewProps {
   onboarding: HrOnboardingRow[];
   leaveBalance: HrEmployeeLeaveBalance;
   leaveRecords: HrLeaveRow[];
+  warningLetters: HrWarningLetterRow[];
 }
 
 export function HrEmployeeProfileView({
@@ -80,6 +90,7 @@ export function HrEmployeeProfileView({
   onboarding,
   leaveBalance,
   leaveRecords,
+  warningLetters,
 }: HrEmployeeProfileViewProps) {
   const searchParams = useSearchParams();
   const welcome = searchParams.get("welcome") === "1";
@@ -228,10 +239,22 @@ export function HrEmployeeProfileView({
                 </span>
               </div>
               <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
+                {employee.employee_number ? (
+                  <span className="font-medium text-ink-muted dark:text-cream-300">
+                    {employee.employee_number}
+                    <span className="mx-1.5 text-ink-subtle">·</span>
+                  </span>
+                ) : null}
                 {employee.role_title} · {employmentLabel(employee.employment_type)}
               </p>
               <p className="mt-1 truncate text-[11px] text-ink-muted dark:text-cream-500">
                 Joined {fmtJoined(employee.start_date)}
+                {employee.contract_end_date
+                  ? ` · Contract ends ${fmtJoined(employee.contract_end_date)}`
+                  : null}
+                {employee.base_salary_myr != null
+                  ? ` · ${fmtSalaryMyr(employee.base_salary_myr)} / month`
+                  : null}
                 {contactMeta.length > 0
                   ? contactMeta.map(({ icon: Icon, label }) => (
                       <span
@@ -266,6 +289,15 @@ export function HrEmployeeProfileView({
               >
                 Set entitlement
               </button>
+              {employee.leave_entitlements?.mc != null ||
+              employee.leave_entitlements?.emergency != null ||
+              employee.leave_entitlements?.hospitalisation != null ? (
+                <p className="mt-1 text-[10px] text-ink-muted dark:text-cream-500">
+                  MC {employee.leave_entitlements?.mc ?? "—"} · EL{" "}
+                  {employee.leave_entitlements?.emergency ?? "—"} · Hosp{" "}
+                  {employee.leave_entitlements?.hospitalisation ?? "—"}
+                </p>
+              ) : null}
             </div>
 
             <Link
@@ -371,8 +403,14 @@ export function HrEmployeeProfileView({
 
       <div className="mt-5 pb-16 lg:pb-6">
         {tab === "profile" ? (
-          <div className="rounded-2xl border border-cream-200 bg-white p-5 sm:p-6 dark:border-hairline-dark dark:bg-panel-dark">
-            <HrEmployeeUpdateForm employee={employee} />
+          <div className="space-y-0">
+            <div className="rounded-2xl border border-cream-200 bg-white p-5 sm:p-6 dark:border-hairline-dark dark:bg-panel-dark">
+              <HrEmployeeUpdateForm employee={employee} />
+            </div>
+            <HrWarningLettersSection
+              employeeId={employee.id}
+              letters={warningLetters}
+            />
           </div>
         ) : null}
 
@@ -472,6 +510,7 @@ export function HrEmployeeProfileView({
                     row={row}
                     showStatus
                     hideEmployeeName
+                    showManageActions
                   />
                 ))}
               </div>

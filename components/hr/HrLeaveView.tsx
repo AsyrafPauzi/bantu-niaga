@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Calendar,
+  CalendarDays,
   CalendarPlus,
   History,
   Link2,
@@ -8,7 +9,10 @@ import {
 } from "lucide-react";
 import { HrLeaveRecordRow } from "@/components/hr/HrLeaveRecordRow";
 import { HrPendingLeaveCard } from "@/components/hr/HrPendingLeaveCard";
-import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
+import {
+  HrLeaveMobileSubnav,
+  HrMobileSubnav,
+} from "@/components/hr/layout/hr-mobile-subnav";
 import {
   ModuleListPanel,
   ModuleListPanelHeader,
@@ -71,6 +75,7 @@ export function HrLeaveView({ leave }: HrLeaveViewProps) {
   return (
     <div className="space-y-6">
       <HrMobileSubnav />
+      <HrLeaveMobileSubnav />
 
       <section
         className={cn(
@@ -111,6 +116,25 @@ export function HrLeaveView({ leave }: HrLeaveViewProps) {
             >
               <History className="h-3.5 w-3.5" />
               Full history
+            </Link>
+            <Link
+              href="/hr/leave/policy"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
+                hrClasses.btnSecondary,
+              )}
+            >
+              Policy
+            </Link>
+            <Link
+              href="/hr/leave/calendar"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
+                hrClasses.btnSecondary,
+              )}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Calendar
             </Link>
           </div>
         </div>
@@ -239,7 +263,7 @@ export function HrLeaveView({ leave }: HrLeaveViewProps) {
           ) : (
             <div className="divide-y divide-cream-200 px-2 dark:divide-hairline-dark sm:px-3">
               {recentApproved.map((row) => (
-                <HrLeaveRecordRow key={row.id} row={row} showStatus />
+                <HrLeaveRecordRow key={row.id} row={row} showStatus showManageActions />
               ))}
             </div>
           )}

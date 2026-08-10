@@ -16,9 +16,11 @@ export interface HrEmployeeLeaveBalance {
 export interface HrEmployeeRow {
   id: string;
   full_name: string;
+  employee_number: string | null;
   employment_type: string;
   role_title: string;
   start_date: string;
+  contract_end_date: string | null;
   status: string;
   phone_e164: string | null;
   email: string | null;
@@ -31,6 +33,8 @@ export interface HrEmployeeRow {
   bank_account_holder: string | null;
   notes: string | null;
   annual_leave_entitlement_days?: number;
+  leave_entitlements?: Record<string, number>;
+  base_salary_myr: number | null;
   created_at: string;
 }
 
@@ -172,20 +176,50 @@ export async function loadHrEmployees(
   );
 }
 
+const HR_LEAVE_SELECT =
+  "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
+  "mc_document_path, mc_document_name, mc_document_mime, " +
+  "hr_employees(full_name, role_title)";
+
 export async function loadHrLeaveRecords(
   businessId: string,
 ): Promise<HrLeaveRow[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("hr_leave_records")
-    .select(
-      "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
-        "mc_document_path, mc_document_name, mc_document_mime, " +
-        "hr_employees(full_name, role_title)",
-    )
+    .select(HR_LEAVE_SELECT)
     .eq("business_id", businessId)
     .order("start_date", { ascending: false })
     .limit(200);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as HrLeaveRow[];
+}
+
+function monthRangeIso(year: number, month: number): { start: string; end: string } {
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { start, end };
+}
+
+/** Leave overlapping a calendar month (approved or pending). */
+export async function loadHrLeaveRecordsForMonth(
+  businessId: string,
+  year: number,
+  month: number,
+): Promise<HrLeaveRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { start, end } = monthRangeIso(year, month);
+  const { data, error } = await supabase
+    .from("hr_leave_records")
+    .select(HR_LEAVE_SELECT)
+    .eq("business_id", businessId)
+    .in("status", ["approved", "pending"])
+    .lte("start_date", end)
+    .gte("end_date", start)
+    .order("start_date", { ascending: true })
+    .limit(500);
 
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as HrLeaveRow[];

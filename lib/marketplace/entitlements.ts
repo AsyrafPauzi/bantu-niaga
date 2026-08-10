@@ -15,6 +15,8 @@ import {
   HR_STAFF_APPRAISAL_ADDON_SLUG,
   HR_STAFF_PORTAL_ADDON_SLUG,
   HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG,
+  HR_SHIFT_ATTENDANCE_ADDON_SLUG,
+  HR_REMINDER_PACK_ADDON_SLUG,
   ADMIN_ASSISTANT_ADDON_SLUG,
   FINANCE_ASSISTANT_ADDON_SLUG,
   MARKETING_ASSISTANT_ADDON_SLUG,
@@ -153,6 +155,18 @@ export async function hasAdvancedLeavePolicyAddon(
   businessId: string,
 ): Promise<boolean> {
   return hasActiveAddon(businessId, HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG);
+}
+
+export async function hasHrShiftAttendanceAddon(
+  businessId: string,
+): Promise<boolean> {
+  return hasActiveAddon(businessId, HR_SHIFT_ATTENDANCE_ADDON_SLUG);
+}
+
+export async function hasHrReminderPackAddon(
+  businessId: string,
+): Promise<boolean> {
+  return hasActiveAddon(businessId, HR_REMINDER_PACK_ADDON_SLUG);
 }
 
 export async function loadBusinessAgentSettings(

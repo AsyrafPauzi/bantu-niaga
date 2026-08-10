@@ -5,10 +5,15 @@ import {
   MC_DOCUMENT_MAX_BYTES,
   MC_DOCUMENT_MAX_SIZE_LABEL,
 } from "@/lib/hr/mc-document-shared";
+import { LEAVE_TYPES, type LeaveTypeKey } from "@/lib/hr/leave-labels";
+import { filterLeaveTypesByEnabled } from "@/lib/hr/leave-type-policy";
+import { leaveTypeRequiresDocument } from "@/lib/hr/schemas";
 
 interface StaffLeaveRequestFormProps {
   token: string;
   employeeName: string;
+  attachmentRequired?: Record<string, boolean>;
+  enabledLeaveTypes?: LeaveTypeKey[];
 }
 
 const inputClass =
@@ -26,11 +31,22 @@ function formatBytes(bytes: number): string {
 export function StaffLeaveRequestForm({
   token,
   employeeName,
+  attachmentRequired,
+  enabledLeaveTypes,
 }: StaffLeaveRequestFormProps) {
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [leaveType, setLeaveType] = useState("annual");
+  const typeOptions = filterLeaveTypesByEnabled(
+    LEAVE_TYPES,
+    enabledLeaveTypes ?? LEAVE_TYPES.map((t) => t.key),
+  );
+  const [leaveType, setLeaveType] = useState(typeOptions[0]?.key ?? "annual");
+
+  function typeRequiresAttachment(type: string): boolean {
+    if (attachmentRequired?.[type] !== undefined) return attachmentRequired[type];
+    return leaveTypeRequiresDocument(type);
+  }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,10 +56,10 @@ export function StaffLeaveRequestForm({
 
     const formData = new FormData(form);
 
-    if (leaveType === "mc") {
+    if (typeRequiresAttachment(leaveType)) {
       const file = formData.get("mc_document");
       if (!(file instanceof File) || file.size <= 0) {
-        setMessage("Please upload your MC document (PNG, JPEG, or PDF).");
+        setMessage("Please upload a supporting document (PNG, JPEG, or PDF).");
         setBusy(false);
         return;
       }
@@ -94,12 +110,14 @@ export function StaffLeaveRequestForm({
           required
           disabled={submitted}
           value={leaveType}
-          onChange={(event) => setLeaveType(event.target.value)}
+          onChange={(event) =>
+            setLeaveType(event.target.value as LeaveTypeKey)
+          }
           className={inputClass}
         >
-          <option value="annual">Annual leave</option>
-          <option value="emergency">Emergency leave</option>
-          <option value="mc">MC</option>
+          {typeOptions.map((type) => (
+            <option key={type.key} value={type.key}>{type.label}</option>
+          ))}
         </select>
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -134,9 +152,9 @@ export function StaffLeaveRequestForm({
           className={inputClass}
         />
       </label>
-      {leaveType === "mc" ? (
+      {typeRequiresAttachment(leaveType) ? (
         <label className={labelClass}>
-          MC document
+          Supporting document
           <span className="block text-[11px] font-normal leading-relaxed text-ink-subtle">
             PNG, JPEG, or PDF only. Maximum file size: {MC_DOCUMENT_MAX_SIZE_LABEL}.
           </span>

@@ -190,3 +190,93 @@ export async function applyAnnualLeaveApproval(
 
   return { days, warning };
 }
+
+export async function reverseAnnualLeaveApproval(
+  supabase: SupabaseClient,
+  args: {
+    businessId: string;
+    employeeId: string;
+    startDate: string;
+    endDate: string;
+    entitlementDays: number;
+  },
+): Promise<void> {
+  const holidays = await loadHolidayDateSet(supabase, args.businessId);
+  const days = countWorkingLeaveDays(args.startDate, args.endDate, holidays);
+  if (days <= 0) return;
+
+  const leaveYear = calendarYearFromIso(args.startDate);
+  const balance = await getOrCreateLeaveBalance(
+    supabase,
+    args.businessId,
+    args.employeeId,
+    leaveYear,
+    args.entitlementDays,
+  );
+
+  const newTaken = Math.max(0, balance.takenDays - days);
+  const { error } = await supabase
+    .from("hr_leave_balances")
+    .update({ taken_days: newTaken })
+    .eq("business_id", args.businessId)
+    .eq("employee_id", args.employeeId)
+    .eq("leave_year", leaveYear);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function adjustAnnualLeaveApproval(
+  supabase: SupabaseClient,
+  args: {
+    businessId: string;
+    employeeId: string;
+    oldStartDate: string;
+    oldEndDate: string;
+    newStartDate: string;
+    newEndDate: string;
+    entitlementDays: number;
+  },
+): Promise<{ warning: BalanceWarning | null }> {
+  const holidays = await loadHolidayDateSet(supabase, args.businessId);
+  const oldDays = countWorkingLeaveDays(
+    args.oldStartDate,
+    args.oldEndDate,
+    holidays,
+  );
+  const newDays = countWorkingLeaveDays(
+    args.newStartDate,
+    args.newEndDate,
+    holidays,
+  );
+  const delta = newDays - oldDays;
+  if (delta === 0) return { warning: null };
+
+  const leaveYear = calendarYearFromIso(args.newStartDate);
+  const balance = await getOrCreateLeaveBalance(
+    supabase,
+    args.businessId,
+    args.employeeId,
+    leaveYear,
+    args.entitlementDays,
+  );
+
+  const warning =
+    delta > 0
+      ? buildOverBalanceWarning(
+          balance.entitlementDays,
+          balance.takenDays,
+          delta,
+        )
+      : null;
+
+  const newTaken = Math.max(0, balance.takenDays + delta);
+  const { error } = await supabase
+    .from("hr_leave_balances")
+    .update({ taken_days: newTaken })
+    .eq("business_id", args.businessId)
+    .eq("employee_id", args.employeeId)
+    .eq("leave_year", leaveYear);
+
+  if (error) throw new Error(error.message);
+  return { warning };
+}

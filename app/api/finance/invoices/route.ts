@@ -5,8 +5,8 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { buildInvoiceShareFields } from "@/lib/finance/share-link";
 import {
-  generateShareHash,
   isFinanceInvoiceNumberTaken,
   nextFinanceInvoiceNumber,
 } from "@/lib/finance/helpers";
@@ -181,9 +181,9 @@ export async function POST(request: Request) {
       );
     }
   }
-  const shareHash = generateShareHash();
   const now = new Date().toISOString();
   const status = parsed.status ?? "draft";
+  const shareFields = buildInvoiceShareFields(status);
   const invoiceDate =
     parsed.invoice_date ?? new Date().toISOString().slice(0, 10);
 
@@ -229,11 +229,14 @@ export async function POST(request: Request) {
     .insert({
       business_id: user.businessId,
       number,
-      share_hash: shareHash,
+      share_hash: shareFields.share_hash,
+      share_issued_at: shareFields.share_issued_at,
+      share_expires_at: shareFields.share_expires_at,
       customer_id: customer.customer_id,
       customer_name: customer.customer_name,
       customer_email: customer.customer_email,
       customer_phone: customer.customer_phone,
+      customer_address: customer.customer_address,
       title: parsed.title ?? null,
       description: parsed.description ?? null,
       invoice_date: invoiceDate,

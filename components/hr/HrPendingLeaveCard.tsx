@@ -5,6 +5,8 @@ import {
   leaveTypeLabel,
   leaveTypeShort,
 } from "@/lib/hr/leave-labels";
+import { leaveTypeRequiresDocument } from "@/lib/hr/schemas";
+import { HrLeaveManageActions } from "@/components/hr/HrLeaveManageActions";
 import { HrLeaveStatusActions } from "@/components/hr/HrLeaveStatusActions";
 
 function fmtDate(iso: string): string {
@@ -21,8 +23,11 @@ interface HrPendingLeaveCardProps {
 
 export function HrPendingLeaveCard({ row }: HrPendingLeaveCardProps) {
   const reason = row.reason?.trim() ? row.reason.trim() : "—";
-  const hasMcDocument =
-    row.leave_type === "mc" && Boolean(row.mc_document_path && row.mc_document_name);
+  const requiresDoc = leaveTypeRequiresDocument(row.leave_type);
+  const hasSupportingDocument =
+    requiresDoc && Boolean(row.mc_document_path && row.mc_document_name);
+  const docLabel =
+    row.leave_type === "mc" ? "MC document" : "Supporting document";
 
   return (
     <div className="rounded-xl border border-cream-200 bg-white p-3 dark:border-hairline-dark dark:bg-panel-dark">
@@ -50,12 +55,12 @@ export function HrPendingLeaveCard({ row }: HrPendingLeaveCardProps) {
           <span className="font-semibold text-ink dark:text-cream-300">Reason:</span>{" "}
           {reason}
         </p>
-        {row.leave_type === "mc" ? (
+        {requiresDoc ? (
           <p className="text-xs">
-            {hasMcDocument ? (
+            {hasSupportingDocument ? (
               <>
                 <span className="font-semibold text-ink-muted dark:text-cream-400">
-                  MC document:{" "}
+                  {docLabel}:{" "}
                 </span>
                 <Link
                   href={`/api/hr/leave/${row.id}/mc-document`}
@@ -68,12 +73,14 @@ export function HrPendingLeaveCard({ row }: HrPendingLeaveCardProps) {
               </>
             ) : (
               <span className="text-amber-700 dark:text-amber-300">
-                MC document: not uploaded yet
+                {docLabel}: not uploaded yet
               </span>
             )}
           </p>
         ) : null}
       </div>
+
+      <HrLeaveManageActions row={row} />
 
       <div className="mt-3">
         <HrLeaveStatusActions leaveId={row.id} />

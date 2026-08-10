@@ -25,21 +25,47 @@ function jsonRequest(url: string, body: unknown): Request {
 
 function buildInsertClient(result: { data: unknown; error: null | { message: string } }) {
   const single = vi.fn(async () => result);
-  const select = vi.fn(() => ({ single }));
-  const insert = vi.fn(() => ({ select }));
-  const eq = vi.fn(() => ({ insert, select }));
-  const from = vi.fn(() => ({ insert, select, eq }));
+  const selectAfterInsert = vi.fn(() => ({ single }));
+  const insert = vi.fn(() => ({ select: selectAfterInsert }));
+
+  const employeeNumberLookup = vi.fn(async () => ({ data: [], error: null }));
+  const lookupLimit = vi.fn(() => employeeNumberLookup);
+  const lookupOrder = vi.fn(() => ({ limit: lookupLimit }));
+  const lookupLike = vi.fn(() => ({ order: lookupOrder }));
+  const lookupIs = vi.fn(() => ({ like: lookupLike }));
+  const lookupEq = vi.fn(() => ({ is: lookupIs }));
+  const lookupSelect = vi.fn(() => ({ eq: lookupEq }));
+
+  const select = vi.fn((cols?: string) => {
+    if (cols === "employee_number") return lookupSelect();
+    return selectAfterInsert();
+  });
+
+  const from = vi.fn(() => ({ insert, select }));
   return { client: { from }, insert, select, single };
 }
 
 function buildUpdateClient(result: { data: unknown; error: null | { message: string } }) {
   const single = vi.fn(async () => result);
-  const select = vi.fn(() => ({ single }));
-  const eqSecond = vi.fn(() => ({ select }));
+  const maybeSingle = vi.fn(async () => ({
+    data: {
+      id: "leave_1",
+      employee_id: "emp_1",
+      leave_type: "emergency",
+      start_date: "2026-08-01",
+      end_date: "2026-08-02",
+      status: "pending",
+      hr_employees: { annual_leave_entitlement_days: 8, full_name: "Test" },
+    },
+    error: null,
+  }));
+  const selectAfterUpdate = vi.fn(() => ({ single }));
+  const eqSecond = vi.fn(() => ({ select: selectAfterUpdate, maybeSingle }));
   const eqFirst = vi.fn(() => ({ eq: eqSecond }));
+  const selectOnly = vi.fn(() => ({ eq: eqFirst }));
   const update = vi.fn(() => ({ eq: eqFirst }));
-  const from = vi.fn(() => ({ update }));
-  return { client: { from }, update, eqFirst, eqSecond, select, single };
+  const from = vi.fn(() => ({ update, select: selectOnly }));
+  return { client: { from }, update, eqFirst, eqSecond, select: selectOnly, single };
 }
 
 function buildLeaveLinkGenerateClient(results: {
@@ -82,11 +108,21 @@ function buildPublicLeaveClient(results: {
   const leaveSelect = vi.fn(() => ({ single: leaveSingle }));
   const leaveInsert = vi.fn(() => ({ select: leaveSelect }));
 
+  const settingsEq = vi.fn(async () => ({ data: [], error: null }));
+  const settingsSelect = vi.fn(() => ({ eq: settingsEq }));
+
+  const employeeMaybeSingle = vi.fn(async () => ({ data: { user_id: null }, error: null }));
+  const employeeEqBusiness = vi.fn(() => ({ maybeSingle: employeeMaybeSingle }));
+  const employeeEqId = vi.fn(() => ({ eq: employeeEqBusiness }));
+  const employeeSelect = vi.fn(() => ({ eq: employeeEqId }));
+
   const from = vi.fn((table: string) => {
     if (table === "hr_leave_request_links") {
       return { select: linkSelect, update: usedUpdate };
     }
     if (table === "hr_leave_records") return { insert: leaveInsert };
+    if (table === "hr_leave_type_settings") return { select: settingsSelect };
+    if (table === "hr_employees") return { select: employeeSelect };
     throw new Error(`unexpected table ${table}`);
   });
 
@@ -116,12 +152,25 @@ async function mockRoute(opts: {
   vi.doMock("@/lib/supabase/server", () => ({
     createSupabaseServerClient: vi.fn(async () => opts.client),
   }));
+  vi.doMock("@/lib/audit/log", () => ({
+    writeAuditLog: vi.fn(async () => undefined),
+  }));
+  vi.doMock("@/lib/events/dispatch-cross-pillar", () => ({
+    dispatchLeaveStatus: vi.fn(async () => undefined),
+  }));
+  vi.doMock("@/lib/hr/notify", () => ({
+    notifyHrLeaveStatusChanged: vi.fn(),
+    notifyHrEmployeeCreated: vi.fn(),
+  }));
 }
 
 afterEach(() => {
   vi.resetModules();
   vi.doUnmock("@/lib/auth/current-user");
   vi.doUnmock("@/lib/supabase/server");
+  vi.doUnmock("@/lib/audit/log");
+  vi.doUnmock("@/lib/events/dispatch-cross-pillar");
+  vi.doUnmock("@/lib/hr/notify");
 });
 
 describe("POST /api/hr/employees", () => {
@@ -174,6 +223,7 @@ describe("POST /api/hr/employees", () => {
         business_id: OWNER_USER.businessId,
         created_by: OWNER_USER.id,
         full_name: "Siti Aminah",
+        employee_number: "EMP-001",
       }),
     );
   });

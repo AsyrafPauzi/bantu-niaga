@@ -4,6 +4,12 @@ import { HrLeaveRecordView } from "@/components/hr/HrLeaveRecordView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
 import { loadHrEmployees } from "@/lib/hr/load";
+import {
+  attachmentRequiredMap,
+  enabledLeaveTypeKeys,
+  loadHrLeaveTypeSettings,
+} from "@/lib/hr/leave-type-settings";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Record leave" };
 export const dynamic = "force-dynamic";
@@ -33,11 +39,17 @@ export default async function RecordLeavePage({
 
   const { employee_id: defaultEmployeeId } = await searchParams;
   const employees = await loadHrEmployees(user.businessId);
+  const supabase = await createSupabaseServerClient();
+  const leaveSettings = await loadHrLeaveTypeSettings(supabase, user.businessId);
+  const attachmentRequired = attachmentRequiredMap(leaveSettings);
+  const enabledLeaveTypes = enabledLeaveTypeKeys(leaveSettings);
 
   return (
     <HrLeaveRecordView
       employees={employees}
       defaultEmployeeId={defaultEmployeeId}
+      attachmentRequired={attachmentRequired}
+      enabledLeaveTypes={enabledLeaveTypes}
     />
   );
 }

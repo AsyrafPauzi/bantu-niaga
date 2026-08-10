@@ -18,6 +18,8 @@ export const HR_PUBLIC_HOLIDAYS_ADDON_SLUG = "hr-public-holidays";
 export const HR_STAFF_APPRAISAL_ADDON_SLUG = "hr-staff-appraisal";
 export const HR_STAFF_PORTAL_ADDON_SLUG = "hr-staff-portal";
 export const HR_ADVANCED_LEAVE_POLICY_ADDON_SLUG = "hr-advanced-leave-policy";
+export const HR_SHIFT_ATTENDANCE_ADDON_SLUG = "hr-shift-attendance";
+export const HR_REMINDER_PACK_ADDON_SLUG = "hr-reminder-pack";
 export const HR_AGENT_SLUG = "hr";
 export const HR_ASSISTANT_MONTHLY_CREDITS = 100;
 

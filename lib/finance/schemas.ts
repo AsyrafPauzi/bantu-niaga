@@ -254,10 +254,13 @@ export interface FinanceInvoiceRow {
   business_id: string;
   number: string;
   share_hash: string;
+  share_issued_at: string | null;
+  share_expires_at: string | null;
   customer_id: string | null;
   customer_name: string;
   customer_email: string | null;
   customer_phone: string | null;
+  customer_address: string | null;
   title: string | null;
   description: string | null;
   invoice_date: string;

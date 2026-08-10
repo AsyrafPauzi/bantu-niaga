@@ -10,6 +10,7 @@ import { analyzeLeaveDateRange } from "@/lib/hr/leave-date-check";
 import {
   appraisalCreateSchema,
   appraisalUpdateSchema,
+  LEAVE_TYPES,
   leaveCreateSchema,
   leaveStatusUpdateSchema,
 } from "@/lib/hr/schemas";
@@ -48,7 +49,7 @@ export const HR_ASSISTANT_TOOLS = [
           employee_name: { type: "string" },
           leave_type: {
             type: "string",
-            enum: ["annual", "emergency", "mc"],
+            enum: [...LEAVE_TYPES],
           },
           start_date: { type: "string", description: "YYYY-MM-DD" },
           end_date: { type: "string", description: "YYYY-MM-DD" },
@@ -166,7 +167,7 @@ const getBalanceArgsSchema = z.object({
 
 const createLeaveArgsSchema = z.object({
   employee_name: z.string().trim().min(1).max(160),
-  leave_type: z.enum(["annual", "emergency", "mc"]),
+  leave_type: z.enum(LEAVE_TYPES),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   reason: z.string().trim().max(500).optional(),

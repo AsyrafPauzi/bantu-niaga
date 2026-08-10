@@ -11,6 +11,7 @@ import {
   loadHrLeaveRecords,
   loadHrOnboardingItems,
 } from "@/lib/hr/load";
+import { loadHrWarningLetters } from "@/lib/hr/warning-letters";
 
 export const metadata = { title: "Employee" };
 export const dynamic = "force-dynamic";
@@ -43,16 +44,18 @@ export default async function EmployeeDetailPage({ params }: PageProps) {
   const employee = await loadHrEmployee(user.businessId, id);
   if (!employee) notFound();
 
-  const [allDocuments, onboardingItems, leaveBalance, allLeave] = await Promise.all([
-    loadHrDocuments(user.businessId),
-    loadHrOnboardingItems(user.businessId),
-    loadHrEmployeeLeaveBalanceSummary(
-      user.businessId,
-      id,
-      employee.annual_leave_entitlement_days ?? 8,
-    ),
-    loadHrLeaveRecords(user.businessId),
-  ]);
+  const [allDocuments, onboardingItems, leaveBalance, allLeave, warningLetters] =
+    await Promise.all([
+      loadHrDocuments(user.businessId),
+      loadHrOnboardingItems(user.businessId),
+      loadHrEmployeeLeaveBalanceSummary(
+        user.businessId,
+        id,
+        employee.annual_leave_entitlement_days ?? 8,
+      ),
+      loadHrLeaveRecords(user.businessId),
+      loadHrWarningLetters(user.businessId, id),
+    ]);
 
   const employeeDocuments = allDocuments.filter((d) => d.employee_id === employee.id);
   const employeeOnboarding = onboardingItems.filter((item) => item.employee_id === employee.id);
@@ -68,6 +71,7 @@ export default async function EmployeeDetailPage({ params }: PageProps) {
         onboarding={employeeOnboarding}
         leaveBalance={leaveBalance}
         leaveRecords={employeeLeave}
+        warningLetters={warningLetters}
       />
     </Suspense>
   );

@@ -9,6 +9,7 @@ import {
   mapEmployeeDetailRow,
 } from "@/lib/hr/employee-api";
 import { DEFAULT_ONBOARDING_LABELS } from "@/lib/hr/employee-fields";
+import { isEmployeeNumberTaken, nextEmployeeNumber } from "@/lib/hr/helpers";
 import { loadHrEmployees } from "@/lib/hr/load";
 import { employeeCreateSchema } from "@/lib/hr/schemas";
 import { notifyHrEmployeeCreated } from "@/lib/hr/notify";
@@ -89,10 +90,33 @@ export async function POST(request: Request) {
     );
   }
 
-  const { apply_default_onboarding, ...fields } = parsed;
-  const insertPayload = buildEmployeeWritePayload(fields as Record<string, unknown>);
+  const { apply_default_onboarding, employee_number, ...fields } = parsed;
 
   const supabase = await createSupabaseServerClient();
+
+  let resolvedEmployeeNumber = employee_number?.trim() || null;
+  if (!resolvedEmployeeNumber) {
+    resolvedEmployeeNumber = await nextEmployeeNumber(supabase, user.businessId);
+  } else if (
+    await isEmployeeNumberTaken(
+      supabase,
+      user.businessId,
+      resolvedEmployeeNumber,
+    )
+  ) {
+    return NextResponse.json(
+      {
+        error: "duplicate_employee_number",
+        message: "That employee number is already in use.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const insertPayload = buildEmployeeWritePayload({
+    ...fields,
+    employee_number: resolvedEmployeeNumber,
+  } as Record<string, unknown>);
   const { data, error } = await supabase
     .from("hr_employees")
     .insert({

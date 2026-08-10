@@ -7,6 +7,12 @@ import { HrPageBody } from "@/components/hr/layout/hr-page-body";
 import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
 import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
 import { resolveStaffMePage } from "@/lib/hr/staff-self-service";
+import {
+  attachmentRequiredMap,
+  enabledLeaveTypeKeys,
+  loadHrLeaveTypeSettings,
+} from "@/lib/hr/leave-type-settings";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Apply leave" };
 export const dynamic = "force-dynamic";
@@ -15,7 +21,11 @@ export default async function HrMeLeaveNewPage() {
   const ctx = await resolveStaffMePage();
   if (!ctx) return null;
 
-  const { employee } = ctx;
+  const { employee, user } = ctx;
+  const supabase = await createSupabaseServerClient();
+  const leaveSettings = await loadHrLeaveTypeSettings(supabase, user.businessId);
+  const attachmentRequired = attachmentRequiredMap(leaveSettings);
+  const enabledLeaveTypes = enabledLeaveTypeKeys(leaveSettings);
 
   return (
     <HrPageShell
@@ -37,7 +47,11 @@ export default async function HrMeLeaveNewPage() {
       <HrPageBody>
         <MeMobileSubnav pathname="/hr/me/leave/new" />
         <SectionCard title="Leave request" subtitle="All fields are required unless noted">
-          <MeLeaveRequestForm employeeName={employee.full_name} />
+          <MeLeaveRequestForm
+            employeeName={employee.full_name}
+            attachmentRequired={attachmentRequired}
+            enabledLeaveTypes={enabledLeaveTypes}
+          />
         </SectionCard>
       </HrPageBody>
     </HrPageShell>

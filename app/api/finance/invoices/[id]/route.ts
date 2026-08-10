@@ -19,6 +19,7 @@ import {
   resolveCustomerSnapshot,
 } from "@/lib/finance/invoice-db";
 import { resolveAdminFileIdPatch, loadAdminFileNames } from "@/lib/admin/validate-admin-file";
+import { buildInvoiceShareFields } from "@/lib/finance/share-link";
 import {
   notifyFinanceInvoicePaid,
   notifyFinanceInvoiceSent,
@@ -167,6 +168,7 @@ export async function PATCH(
     patch.customer_name = customer.customer_name;
     patch.customer_email = customer.customer_email;
     patch.customer_phone = customer.customer_phone;
+    patch.customer_address = customer.customer_address;
   }
 
   const shouldRecalc =
@@ -214,8 +216,17 @@ export async function PATCH(
   }
 
   const now = new Date().toISOString();
-  if (parsed.status === "sent") patch.sent_at = now;
-  if (parsed.status === "paid") patch.paid_at = now;
+  if (parsed.status === "sent") {
+    patch.sent_at = now;
+    const shareFields = buildInvoiceShareFields("sent");
+    patch.share_hash = shareFields.share_hash;
+    patch.share_issued_at = shareFields.share_issued_at;
+    patch.share_expires_at = shareFields.share_expires_at;
+  }
+  if (parsed.status === "paid") {
+    patch.paid_at = now;
+    patch.share_expires_at = null;
+  }
 
   delete patch.items;
 

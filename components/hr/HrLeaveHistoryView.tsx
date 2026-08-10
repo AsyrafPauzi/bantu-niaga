@@ -238,6 +238,7 @@ export function HrLeaveHistoryView({ leave, employee }: HrLeaveHistoryViewProps)
                   row={row}
                   showStatus
                   hideEmployeeName={Boolean(employee)}
+                  showManageActions
                 />
               ))}
             </div>

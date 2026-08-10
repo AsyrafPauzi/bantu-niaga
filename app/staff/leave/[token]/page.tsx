@@ -2,6 +2,11 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { StaffLeaveRequestForm } from "@/components/hr/StaffLeaveRequestForm";
 import { hashLeaveLinkToken, isLeaveLinkUsable } from "@/lib/hr/leave-links";
+import {
+  attachmentRequiredMap,
+  enabledLeaveTypeKeys,
+  loadHrLeaveTypeSettings,
+} from "@/lib/hr/leave-type-settings";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export const metadata = { title: "Apply Leave" };
@@ -13,6 +18,7 @@ interface PageProps {
 
 interface LeaveLinkPageRow {
   id: string;
+  business_id: string;
   expires_at: string;
   used_at: string | null;
   revoked_at: string | null;
@@ -23,7 +29,9 @@ async function loadLeaveLink(token: string): Promise<LeaveLinkPageRow | null> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("hr_leave_request_links")
-    .select("id, expires_at, used_at, revoked_at, hr_employees(full_name, role_title)")
+    .select(
+      "id, business_id, expires_at, used_at, revoked_at, hr_employees(full_name, role_title)",
+    )
     .eq("token_hash", hashLeaveLinkToken(token))
     .maybeSingle();
 
@@ -40,6 +48,10 @@ export default async function StaffLeavePage({ params }: PageProps) {
 
   const employee = link.hr_employees;
   const usable = isLeaveLinkUsable(link);
+  const supabase = createServiceRoleClient();
+  const leaveSettings = await loadHrLeaveTypeSettings(supabase, link.business_id);
+  const attachmentRequired = attachmentRequiredMap(leaveSettings);
+  const enabledLeaveTypes = enabledLeaveTypeKeys(leaveSettings);
 
   return (
     <main className="flex h-dvh flex-col items-center overflow-y-auto overscroll-y-contain bg-[#FAF7F2] px-6 py-8">
@@ -85,6 +97,8 @@ export default async function StaffLeavePage({ params }: PageProps) {
               <StaffLeaveRequestForm
                 token={token}
                 employeeName={employee.full_name}
+                attachmentRequired={attachmentRequired}
+                enabledLeaveTypes={enabledLeaveTypes}
               />
             </div>
           ) : (
