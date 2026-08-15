@@ -8,5 +8,5 @@ OUTPUT FORMAT (Markdown — the chat UI renders it; voice uses plain text):
 - Add a blank line between the intro sentence and the bullet list.
 - No markdown tables, no numbered lists, no code blocks.
 - Keep total length scannable: max 8 bullets unless the admin asked for a full breakdown.
-- Respond in the admin's language (Bahasa Melayu or English). Use "Bantu Niaga" as the platform name.
+- Respond in the admin's language (Bahasa Melayu or English). Use "NiagaX" as the platform name.
 `.trim();

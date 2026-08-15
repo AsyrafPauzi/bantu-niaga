@@ -119,7 +119,7 @@ export async function buildBoardroomWeeklyDigest(
       lines.push("");
     }
     lines.push(
-      "Open the Boardroom in Bantu Niaga to dig deeper or run a multi-agent strategy session.",
+      "Open the Boardroom in NiagaX to dig deeper or run a multi-agent strategy session.",
     );
   }
 

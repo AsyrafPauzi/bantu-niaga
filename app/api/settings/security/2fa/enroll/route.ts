@@ -46,7 +46,7 @@ export async function POST() {
 
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: "totp",
-    friendlyName: `Bantu Niaga · ${new Date().toISOString().slice(0, 10)}`,
+    friendlyName: `NiagaX · ${new Date().toISOString().slice(0, 10)}`,
   });
 
   if (error || !data) {

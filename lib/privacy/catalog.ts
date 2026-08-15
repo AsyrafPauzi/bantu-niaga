@@ -25,7 +25,7 @@ export const CONSENT_CATALOG: readonly ConsentDescriptor[] = [
     kind: "terms_of_service",
     title: "Terms of Service",
     description:
-      "The baseline agreement that lets you use Bantu Niaga. Required to keep your account active.",
+      "The baseline agreement that lets you use NiagaX. Required to keep your account active.",
     required: true,
     defaultGranted: true,
   },

@@ -25,7 +25,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
             >
               <Sparkles className="h-4 w-4" strokeWidth={2.5} />
             </span>
-            Bantu Niaga
+            NiagaX
           </Link>
           <nav className="flex items-center gap-4 text-sm">
             <Link

@@ -132,7 +132,7 @@ export function AddCompanyForm({
             Your password
           </span>
           <span className="mb-1.5 block text-xs text-ink-muted dark:text-cream-400">
-            Re-enter your Bantu Niaga password to confirm it&apos;s you.
+            Re-enter your NiagaX password to confirm it&apos;s you.
           </span>
           <div className="relative">
             <input

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "Bantu Niaga — unified AI Business Operating System for Malaysian micro-SMEs.",
+  "description": "NiagaX — unified AI Business Operating System for Malaysian micro-SMEs.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

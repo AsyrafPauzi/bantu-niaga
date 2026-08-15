@@ -15,7 +15,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         {children}
         <footer className="mt-12 pt-6 border-t border-cream-300 text-xs text-ink-subtle text-center">
           Powered by{" "}
-          <span className="font-medium text-ink-muted">Bantu Niaga</span>
+          <span className="font-medium text-ink-muted">NiagaX</span>
         </footer>
       </div>
     </div>

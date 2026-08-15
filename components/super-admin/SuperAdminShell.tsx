@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
+import { NiagaXLogo } from "@/components/brand/NiagaXLogo";
 
 interface NavItem {
   href: string;
@@ -106,7 +107,7 @@ export function SuperAdminShell({ admin, children }: SuperAdminShellProps) {
                 <ShieldCheck className="w-5 h-5 text-white" />
               </div>
               <div className="leading-tight">
-                <p className="text-sm font-bold">Bantu Niaga</p>
+                <NiagaXLogo tone="inverse" className="text-sm" />
                 <p className="text-[10px] font-semibold text-accent-300 uppercase tracking-wider">
                   Platform Admin
                 </p>

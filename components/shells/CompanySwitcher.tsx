@@ -76,7 +76,7 @@ export function CompanySwitcher({
         aria-expanded={open}
         aria-haspopup="listbox"
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg border border-[#D5E2FB] bg-white/80 px-3 py-2.5 text-left transition-colors hover:bg-white dark:border-hairline-dark dark:bg-panel-dark/80 dark:hover:bg-panel-dark",
+          "flex w-full items-center gap-2 rounded-lg border border-brand-100 bg-white/80 px-3 py-2.5 text-left transition-colors hover:bg-white dark:border-hairline-dark dark:bg-panel-dark/80 dark:hover:bg-panel-dark",
           compact ? "py-2" : "",
         )}
       >
@@ -105,7 +105,7 @@ export function CompanySwitcher({
       {open ? (
         <div
           role="listbox"
-          className="absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-xl border border-[#E5E0D8] bg-white shadow-lg dark:border-hairline-dark dark:bg-panel-dark"
+          className="absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-xl border border-hairline-light bg-white shadow-lg dark:border-hairline-dark dark:bg-panel-dark"
         >
           <div className="max-h-56 overflow-y-auto py-1">
             {memberships.map((m) => {
@@ -132,7 +132,7 @@ export function CompanySwitcher({
               );
             })}
           </div>
-          <div className="border-t border-[#E5E0D8] p-1 dark:border-hairline-dark">
+          <div className="border-t border-hairline-light p-1 dark:border-hairline-dark">
             {canCreateCompany ? (
               <Link
                 href="/add-company"

@@ -1,4 +1,4 @@
-# Bantu Niaga
+# NiagaX
 
 The unified AI Business Operating System for Malaysian micro-SMEs.
 
@@ -184,4 +184,4 @@ supabase/
 
 ## Design tokens
 
-UI direction: SME-friendly, not corporate, no gradients. See `tailwind.config.ts` for the full palette. The brand and accent colors are sampled directly from the Bantu Niaga logo: primary is **royal blue** (`brand-500: #1D4ED8`, the "Bantu" wordmark and bag-and-B mark), CTA is **vibrant orange** (`accent-500: #F97316`, the "Niaga" wordmark and awning stripes), and the background stays **warm cream** (`cream-100: #FAF7F2`) with warm ink neutrals so the UI keeps its SME warmth instead of feeling cold-corporate. Status `success` is intentionally retained as a separate green so confirmations stay semantically distinct from primary actions.
+UI direction: SME-friendly, not corporate, no gradients. See `tailwind.config.ts` for the full palette. Tokens match the NiagaX marketing site: primary is **cyan-teal** (`brand-500: #0E7490`), CTA is **teal** (`accent-500: #0F766E`), and the background is **cool paper** (`cream-100: #EEF2F6`). Status `success` is intentionally retained as a separate green so confirmations stay semantically distinct from primary actions.

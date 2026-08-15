@@ -42,3 +42,5 @@ supabase/.env
 
 # Generated types
 lib/types/database.generated.ts
+.vercel
+.env*

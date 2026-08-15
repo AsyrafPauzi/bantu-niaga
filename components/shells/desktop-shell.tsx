@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -13,6 +12,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { NiagaXLogo } from "@/components/brand/NiagaXLogo";
 import { useSidebarCollapsed } from "@/lib/navigation/use-sidebar-collapsed";
 import {
   buildAppNavGroups,
@@ -80,29 +80,18 @@ export function DesktopShell({
       <div className="flex h-dvh min-h-0 overflow-hidden">
         <aside
           className={cn(
-            "sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-[#E5E0D8] bg-white transition-[width,border-color] duration-300 ease-in-out dark:border-hairline-dark dark:bg-panel-dark lg:flex",
+            "sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-hairline-light bg-white transition-[width,border-color] duration-300 ease-in-out dark:border-hairline-dark dark:bg-panel-dark lg:flex",
             sidebarCollapsed ? "w-0 border-r-0" : "w-[272px]",
             !sidebarReady && "w-[272px]",
           )}
           aria-hidden={sidebarCollapsed}
         >
           <div className="flex w-[272px] shrink-0 flex-col h-full">
-          <div className="border-b border-[#D5E2FB] bg-[#EEF3FE] px-5 py-5 dark:border-hairline-dark dark:bg-brand-900/30">
+          <div className="border-b border-brand-100 bg-brand-50 px-5 py-5 dark:border-hairline-dark dark:bg-brand-900/30">
             <div className="flex items-start justify-between gap-2">
               <Link href="/" className="flex min-w-0 flex-1 items-center gap-3">
-              <Image
-                src="/icon.png"
-                alt="Bantu Niaga"
-                width={48}
-                height={48}
-                priority
-                className="h-11 w-11 shrink-0"
-              />
               <div className="leading-tight min-w-0">
-                <p className="text-lg font-bold tracking-tight">
-                  <span className="text-brand-700 dark:text-brand-200">Bantu</span>{" "}
-                  <span className="text-accent-500">Niaga</span>
-                </p>
+                <NiagaXLogo className="text-lg" />
                 <p className="text-[10px] text-ink-muted dark:text-cream-400 mt-0.5 truncate">
                   SME-OS · All-in-One
                 </p>
@@ -120,7 +109,7 @@ export function DesktopShell({
             </div>
           </div>
 
-          <div className="border-b border-[#D5E2FB] bg-[#EEF3FE] px-4 py-3 dark:border-hairline-dark dark:bg-brand-900/30">
+          <div className="border-b border-brand-100 bg-brand-50 px-4 py-3 dark:border-hairline-dark dark:bg-brand-900/30">
             <CompanySwitcher
               memberships={memberships}
               canCreateCompany={canCreateCompany}
@@ -174,7 +163,7 @@ export function DesktopShell({
                               className={cn(
                                 "flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                                 isOverviewActive
-                                  ? "bg-[#EEF3FE] font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
+                                  ? "bg-brand-50 font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
                                   : isSectionActive && !locked
                                     ? "font-semibold text-brand-700 dark:text-brand-200"
                                     : locked
@@ -226,7 +215,7 @@ export function DesktopShell({
                             ) : null}
                           </div>
                           {showSubItems ? (
-                            <ul className="mb-1 ml-3 mt-0.5 space-y-0.5 border-l border-[#E5E0D8] pl-3 dark:border-hairline-dark">
+                            <ul className="mb-1 ml-3 mt-0.5 space-y-0.5 border-l border-hairline-light pl-3 dark:border-hairline-dark">
                               {visibleSubItems.map((sub) => {
                                 const subActive = isNavSubItemActive(
                                   sub.href,
@@ -239,7 +228,7 @@ export function DesktopShell({
                                       className={cn(
                                         "block rounded-md py-1.5 pl-2 pr-2 text-[13px] transition-colors",
                                         subActive
-                                          ? "bg-[#EEF3FE] font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
+                                          ? "bg-brand-50 font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
                                           : "text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100",
                                       )}
                                     >
@@ -259,7 +248,7 @@ export function DesktopShell({
             ))}
           </nav>
 
-          <div className="space-y-1.5 border-t border-[#E5E0D8] p-3 dark:border-hairline-dark">
+          <div className="space-y-1.5 border-t border-hairline-light p-3 dark:border-hairline-dark">
             <p className="flex items-center gap-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-2.5 py-2 text-[11px] leading-snug text-[#C2410C]/90 dark:border-accent-900/40 dark:bg-accent-900/20 dark:text-accent-200/80">
               <CircleHelp
                 className="h-3.5 w-3.5 shrink-0 text-[#C2410C] dark:text-accent-300"
@@ -297,7 +286,7 @@ export function DesktopShell({
             <button
               type="button"
               onClick={toggleSidebar}
-              className="absolute left-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E0D8] bg-white text-ink-muted shadow-sm transition-colors hover:bg-cream-100 hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100 lg:flex"
+              className="absolute left-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-hairline-light bg-white text-ink-muted shadow-sm transition-colors hover:bg-cream-100 hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100 lg:flex"
               aria-label="Expand sidebar"
               title="Expand sidebar"
             >

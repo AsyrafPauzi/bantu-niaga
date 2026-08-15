@@ -179,7 +179,7 @@ export async function POST(request: Request) {
           {
             error: "email_in_use",
             message:
-              "This email already has a Bantu Niaga account. Use a different email or ask them to contact support.",
+              "This email already has a NiagaX account. Use a different email or ask them to contact support.",
           },
           { status: 409 },
         );

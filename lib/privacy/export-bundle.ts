@@ -321,7 +321,7 @@ export async function buildExportBundle(opts: {
     row_limit_per_table: EXPORT_ROW_LIMIT,
     notice:
       scope === "personal"
-        ? "Personal data Bantu Niaga holds for you in this business."
+        ? "Personal data NiagaX holds for you in this business."
         : "Full business data export for the tenant. Secrets (API keys, webhook signing secrets) are excluded.",
     data: sections,
   };

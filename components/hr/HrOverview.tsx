@@ -436,7 +436,7 @@ export function HrOverview({
                         "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
                         displayStatus === "overdue"
                           ? "bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
-                          : "bg-[#EEF3FE] text-brand-700 dark:bg-brand-900/40 dark:text-brand-200",
+                          : "bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200",
                       )}
                     >
                       {displayStatus === "overdue" ? "Overdue" : "Due"}

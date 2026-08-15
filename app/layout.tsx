@@ -5,16 +5,16 @@ import { ThemeScript } from "@/components/theme/theme-script";
 
 export const metadata: Metadata = {
   title: {
-    default: "Bantu Niaga",
-    template: "%s · Bantu Niaga",
+    default: "NiagaX",
+    template: "%s · NiagaX",
   },
   description:
     "The unified AI Business Operating System for Malaysian micro-SMEs.",
-  applicationName: "Bantu Niaga",
+  applicationName: "NiagaX",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    title: "Bantu Niaga",
+    title: "NiagaX",
     statusBarStyle: "default",
   },
   icons: {
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1D4ED8",
+  themeColor: "#0E7490",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -39,6 +39,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400..800&display=swap"
+        />
         <ThemeScript />
       </head>
       <body suppressHydrationWarning>

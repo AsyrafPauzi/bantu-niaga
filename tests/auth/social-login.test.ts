@@ -26,7 +26,7 @@ describe("sanitizeAuthNextPath", () => {
 
 describe("socialAuthErrorMessage", () => {
   it("maps known OAuth errors", () => {
-    expect(socialAuthErrorMessage("no_account")).toMatch(/No Bantu Niaga account/);
+    expect(socialAuthErrorMessage("no_account")).toMatch(/No NiagaX account/);
     expect(socialAuthErrorMessage("oauth_cancelled")).toMatch(/cancelled/i);
   });
 });

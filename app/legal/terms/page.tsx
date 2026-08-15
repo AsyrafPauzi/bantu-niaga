@@ -1,7 +1,7 @@
 export const metadata = {
-  title: "Terms of Service — Bantu Niaga",
+  title: "Terms of Service — NiagaX",
   description:
-    "The agreement between Bantu Niaga Sdn. Bhd. and each business using the platform.",
+    "The agreement between Bantu Niaga Sdn. Bhd. and each business using the NiagaX platform.",
 };
 
 export default function TermsPage() {
@@ -15,7 +15,7 @@ export default function TermsPage() {
           Terms of Service
         </h1>
         <p className="text-sm text-ink-muted dark:text-cream-400">
-          By creating a Bantu Niaga account you accept these terms together
+          By creating a NiagaX account you accept these terms together
           with the linked{" "}
           <a
             href="/legal/privacy"
@@ -29,7 +29,7 @@ export default function TermsPage() {
 
       <Section title="1. The service">
         <p>
-          Bantu Niaga is a multi-tenant SaaS platform for Malaysian SMEs
+          NiagaX is a multi-tenant SaaS platform for Malaysian SMEs
           providing accounting, HR, marketing, point-of-sale, and AI
           assistants in a single workspace.
         </p>

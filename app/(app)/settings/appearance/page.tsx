@@ -43,7 +43,7 @@ export default function AppearanceSettingsPage() {
     <>
       <SettingsPageHero
         title="Appearance"
-        subcopy="Pick a theme for Bantu Niaga. The setting is saved in this browser only — we'll sync it to your account in a later release."
+        subcopy="Pick a theme for NiagaX. The setting is saved in this browser only — we'll sync it to your account in a later release."
         cta={<Badge tone="brand">v1 core</Badge>}
       />
 

@@ -1,9 +1,9 @@
 import { RETENTION_SCHEDULE } from "@/lib/privacy/catalog";
 
 export const metadata = {
-  title: "Privacy Notice — Bantu Niaga",
+  title: "Privacy Notice — NiagaX",
   description:
-    "How Bantu Niaga collects, uses, retains, and shares personal data under Malaysia's Personal Data Protection Act 2010.",
+    "How NiagaX collects, uses, retains, and shares personal data under Malaysia's Personal Data Protection Act 2010.",
 };
 
 const POLICY_VERSION = process.env.PRIVACY_POLICY_VERSION || "2026-06-14";
@@ -27,14 +27,14 @@ export default function PrivacyNoticePage() {
 
       <Section title="1. Who we are">
         <p>
-          <strong>Bantu Niaga Sdn. Bhd.</strong> (&ldquo;Bantu Niaga&rdquo;,
-          &ldquo;we&rdquo;, &ldquo;us&rdquo;) is the data controller of personal
-          data submitted to the Bantu Niaga platform. We&rsquo;re registered in
+          <strong>Bantu Niaga Sdn. Bhd.</strong> (&ldquo;we&rdquo;,
+          &ldquo;us&rdquo;) is the data controller of personal
+          data submitted to the NiagaX platform. We&rsquo;re registered in
           Malaysia and we comply with the Personal Data Protection Act 2010
           (&ldquo;PDPA&rdquo;) and its 2024 amendments.
         </p>
         <p>
-          Data Protection Officer: <a href="mailto:dpo@bantuniaga.com">dpo@bantuniaga.com</a>.
+          Data Protection Officer: <a href="mailto:dpo@niagax.my">dpo@niagax.my</a>.
         </p>
       </Section>
 
@@ -231,7 +231,7 @@ export default function PrivacyNoticePage() {
         <p>
           Data Protection Officer<br />
           Bantu Niaga Sdn. Bhd.<br />
-          Email: <a href="mailto:dpo@bantuniaga.com">dpo@bantuniaga.com</a>
+          Email: <a href="mailto:dpo@niagax.my">dpo@niagax.my</a>
         </p>
         <p>
           If you&rsquo;re unhappy with our handling of a request, you may also

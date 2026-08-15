@@ -88,7 +88,7 @@ export async function POST(_request: Request, context: RouteContext) {
     emitted_at: new Date().toISOString(),
     data: {
       test: true,
-      message: "Bantu Niaga webhook test delivery",
+      message: "NiagaX webhook test delivery",
     },
   };
 

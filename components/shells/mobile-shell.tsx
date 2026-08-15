@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { NiagaXLogo } from "@/components/brand/NiagaXLogo";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Lock, LogOut, Menu } from "lucide-react";
@@ -55,19 +55,8 @@ export function MobileShell({
           >
             <Menu className="h-5 w-5" strokeWidth={2} />
           </button>
-          <Link href="/" className="flex min-w-0 flex-1 items-center gap-2">
-            <Image
-              src="/icon.png"
-              alt="Bantu Niaga"
-              width={40}
-              height={40}
-              priority
-              className="h-8 w-8 shrink-0"
-            />
-            <p className="truncate text-base font-bold leading-none tracking-tight">
-              <span className="text-brand-700 dark:text-brand-200">Bantu</span>{" "}
-              <span className="text-accent-500">Niaga</span>
-            </p>
+          <Link href="/" className="flex min-w-0 flex-1 items-center" aria-label="NiagaX home">
+            <NiagaXLogo className="truncate text-base" />
           </Link>
           <form action={signOutAction}>
             <button

@@ -1,6 +1,6 @@
 import type { Pillar } from "@/lib/permissions";
 
-/** App page canvas — warm cream that blends with every pillar tint (#FAF7F2). */
+/** App page canvas — cool paper that blends with every pillar tint (#EEF2F6). */
 export const APP_CANVAS_CLASS = "bg-surface-light";
 
 /** Canonical pillar brand colors (hex) */

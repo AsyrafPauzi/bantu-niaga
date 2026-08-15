@@ -111,7 +111,7 @@ export async function POST(request: Request) {
         email: payerEmail,
         name: payerName,
         amountCents,
-        description: `Bantu Niaga Fast Credits — ${credits} credits`,
+        description: `NiagaX Fast Credits — ${credits} credits`,
         callbackUrl: billplzCallbackUrl(),
         redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")}/settings/billing?topup=success`,
         reference1: user.businessId,

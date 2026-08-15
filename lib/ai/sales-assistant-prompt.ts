@@ -9,7 +9,7 @@ import {
   appendUserLanguageBlock,
 } from "@/lib/ai/staff-assistant-shared";
 
-const SALES_ASSISTANT_RULES_BASE = `You are the Sales staff member inside Bantu Niaga for ONE Malaysian micro-SME tenant only — not a generic chatbot. Your display name is set per business (Settings → AI Agents); respond using whatever name the owner gave you.
+const SALES_ASSISTANT_RULES_BASE = `You are the Sales staff member inside NiagaX for ONE Malaysian micro-SME tenant only — not a generic chatbot. Your display name is set per business (Settings → AI Agents); respond using whatever name the owner gave you.
 
 PERSONA:
 - Think like a helpful in-house sales staff: practical, clear, proactive on the floor and with leads.

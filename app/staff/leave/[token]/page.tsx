@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
+import { NiagaXLogo } from "@/components/brand/NiagaXLogo";
 import { StaffLeaveRequestForm } from "@/components/hr/StaffLeaveRequestForm";
 import { hashLeaveLinkToken, isLeaveLinkUsable } from "@/lib/hr/leave-links";
 import {
@@ -54,19 +54,13 @@ export default async function StaffLeavePage({ params }: PageProps) {
   const enabledLeaveTypes = enabledLeaveTypeKeys(leaveSettings);
 
   return (
-    <main className="flex h-dvh flex-col items-center overflow-y-auto overscroll-y-contain bg-[#FAF7F2] px-6 py-8">
+    <main className="flex h-dvh flex-col items-center overflow-y-auto overscroll-y-contain bg-cream-100 px-6 py-8">
       <div className="flex w-full max-w-[480px] flex-col items-center gap-6">
-        <Image
-          src="/icon.png"
-          alt="Bantu Niaga"
-          width={48}
-          height={48}
-          className="h-12 w-12"
-        />
+        <NiagaXLogo className="text-2xl" />
 
         <header className="w-full space-y-2 text-center">
           <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand-700">
-            Bantu Niaga HR
+            NiagaX HR
           </p>
           <h1 className="text-2xl font-bold text-ink">Leave application</h1>
           <p className="text-[13px] leading-relaxed text-ink-muted">
@@ -74,7 +68,7 @@ export default async function StaffLeavePage({ params }: PageProps) {
           </p>
         </header>
 
-        <div className="w-full rounded-2xl border border-[#E5E0D8] bg-white p-6 shadow-sm">
+        <div className="w-full rounded-2xl border border-hairline-light bg-white p-6 shadow-sm">
           {!usable ? (
             <div className="space-y-2 py-4 text-center">
               <h2 className="text-lg font-semibold text-ink">Link expired</h2>
@@ -85,7 +79,7 @@ export default async function StaffLeavePage({ params }: PageProps) {
             </div>
           ) : employee ? (
             <div className="space-y-5">
-              <div className="rounded-xl border border-[#D5E2FB] bg-[#EEF3FE] p-3.5">
+              <div className="rounded-xl border border-brand-100 bg-brand-50 p-3.5">
                 <p className="text-[11px] font-semibold text-ink-muted">
                   Staff name (locked)
                 </p>

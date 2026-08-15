@@ -58,7 +58,7 @@ export async function buildOperationsExportCsv(
   ]);
 
   const lines: string[] = [
-    "# Bantu Niaga — Operations export",
+    "# NiagaX — Operations export",
     `# Generated: ${new Date().toISOString()}`,
     "",
     "## Orders",

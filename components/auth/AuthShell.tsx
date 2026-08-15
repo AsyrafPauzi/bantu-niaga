@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
+import { NiagaXLogo } from "@/components/brand/NiagaXLogo";
 
 interface AuthShellProps {
   brandHeading: string;
@@ -26,18 +26,8 @@ export function AuthShell({
             href="/"
             className="inline-flex w-fit items-center gap-3 rounded-xl bg-white px-4 py-2.5 shadow-card"
           >
-            <Image
-              src="/icon.png"
-              alt="Bantu Niaga"
-              width={36}
-              height={36}
-              priority
-              className="h-9 w-9 shrink-0"
-            />
             <span className="leading-tight">
-              <span className="block text-base font-bold tracking-tight text-brand-700">
-                Bantu <span className="text-accent-500">Niaga</span>
-              </span>
+              <NiagaXLogo className="block text-base" />
               <span className="block text-[10px] uppercase tracking-wider text-ink-muted">
                 SME Operating System
               </span>
@@ -84,19 +74,8 @@ export function AuthShell({
 
         <section className="flex items-center justify-center px-6 py-10 sm:px-10">
           <div className="w-full max-w-md space-y-8">
-            <div className="flex items-center justify-center gap-3 lg:hidden">
-              <Image
-                src="/icon.png"
-                alt="Bantu Niaga"
-                width={48}
-                height={48}
-                priority
-                className="h-12 w-12"
-              />
-              <span className="text-xl font-bold tracking-tight">
-                <span className="text-brand-700 dark:text-brand-200">Bantu</span>{" "}
-                <span className="text-accent-500">Niaga</span>
-              </span>
+            <div className="flex items-center justify-center lg:hidden">
+              <NiagaXLogo className="text-xl" />
             </div>
             {children}
           </div>

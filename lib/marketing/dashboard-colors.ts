@@ -1,5 +1,5 @@
 /**
- * Bantu Niaga — chart-ready palette for the Marketing dashboard.
+ * NiagaX — chart-ready palette for the Marketing dashboard.
  *
  * Recharts components take SVG fill / stroke as plain strings, so we
  * keep one tiny module that re-exports the relevant tailwind tokens as
@@ -11,38 +11,38 @@
 
 export const DASHBOARD_COLORS = {
   brand: {
-    50: "#EEF3FE",
-    100: "#D5E2FB",
-    200: "#B0C5F6",
-    300: "#809FEC",
-    400: "#4D78E1",
-    500: "#1D4ED8",
-    600: "#1740B1",
-    700: "#11328A",
-    800: "#0C2363",
-    900: "#07153D",
+    50: "#ECFEFF",
+    100: "#CFFAFE",
+    200: "#A5F3FC",
+    300: "#67E8F9",
+    400: "#22D3EE",
+    500: "#0E7490",
+    600: "#0E7490",
+    700: "#155E75",
+    800: "#164E63",
+    900: "#083344",
   },
   accent: {
-    50: "#FFF7ED",
-    100: "#FFEDD5",
-    200: "#FED7AA",
-    300: "#FDBA74",
-    400: "#FB923C",
-    500: "#F97316",
-    600: "#EA580C",
-    700: "#C2410C",
+    50: "#F0FDFA",
+    100: "#CCFBF1",
+    200: "#99F6E4",
+    300: "#5EEAD4",
+    400: "#2DD4BF",
+    500: "#0F766E",
+    600: "#0D9488",
+    700: "#115E59",
   },
   cream: {
-    50: "#FFFEFB",
-    100: "#FAF7F2",
-    200: "#F2EDE3",
-    300: "#E5E0D8",
-    400: "#C9C2B5",
+    50: "#F8FAFC",
+    100: "#EEF2F6",
+    200: "#E4EAF1",
+    300: "#D6DEE8",
+    400: "#94A3B8",
   },
   ink: {
-    DEFAULT: "#1A1A1A",
-    muted: "#6B6B6B",
-    subtle: "#9A9A9A",
+    DEFAULT: "#0B1220",
+    muted: "#5B6775",
+    subtle: "#7A8794",
   },
   status: {
     success: "#0F7B4A",
@@ -51,7 +51,7 @@ export const DASHBOARD_COLORS = {
     info: "#2D6A8A",
   },
   hairline: {
-    light: "#E5E0D8",
+    light: "#D6DEE8",
     dark: "#262B33",
   },
   panel: {
@@ -63,7 +63,7 @@ export const DASHBOARD_COLORS = {
 /**
  * Per-segment chart colors for the auto-tag donut + tag chips.
  *
- * Mirrors the priority order used in `<TagBadge>` (vip = orange, repeat
+ * Mirrors the priority order used in `<TagBadge>` (vip = accent, repeat
  * = brand, new = info, dormant = neutral, at-risk = warning).
  */
 export const SEGMENT_COLORS = {

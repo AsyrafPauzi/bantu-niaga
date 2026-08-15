@@ -120,7 +120,7 @@ export async function loadBillingUsageReport(
 
 export function billingUsageToCsv(report: BillingUsageReport): string {
   const lines: string[] = [
-    "Bantu Niaga — Usage billing report",
+    "NiagaX — Usage billing report",
     `Period,${report.from},${report.to}`,
     "",
     "Summary",

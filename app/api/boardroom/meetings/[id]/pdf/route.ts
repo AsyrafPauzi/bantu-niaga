@@ -132,7 +132,7 @@ export async function GET(_request: Request, context: RouteContext) {
     }
   }
 
-  drawText("Bantu Niaga - Boardroom", 16, true);
+  drawText("NiagaX - Boardroom", 16, true);
   drawText(businessName, 11);
   drawText(
     meeting.title ||

@@ -80,7 +80,7 @@ export function leaveTypeLabel(type: string): string {
 
 const BADGE_CLASS: Record<LeaveTypeMeta["tone"], string> = {
   brand:
-    "bg-[#EEF3FE] text-brand-700 dark:bg-brand-900/40 dark:text-brand-200",
+    "bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200",
   accent:
     "bg-[#FFF7ED] text-[#C2410C] dark:bg-accent-900/30 dark:text-accent-300",
   warning:

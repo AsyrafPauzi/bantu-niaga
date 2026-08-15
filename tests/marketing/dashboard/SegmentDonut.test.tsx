@@ -50,10 +50,10 @@ describe("<SegmentDonut>", () => {
     expect(swatches.length).toBe(5);
     const styleColor = (n: number) =>
       (swatches[n] as HTMLElement).style.backgroundColor;
-    // VIP slice should use accent (the orange)
+    // VIP slice should use accent (conversion teal)
     const vipColor = styleColor(0);
-    // dictated by SEGMENT_COLORS.vip = #F97316 → rgb(249, 115, 22)
-    expect(vipColor).toContain("249");
+    // dictated by SEGMENT_COLORS.vip = #0F766E → rgb(15, 118, 110)
+    expect(vipColor).toContain("15");
   });
 
   it("renders the count + percentage for each segment", () => {

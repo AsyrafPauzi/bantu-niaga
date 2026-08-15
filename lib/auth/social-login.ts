@@ -41,7 +41,7 @@ export function socialAuthErrorMessage(code: string | null): string | null {
     case "missing_code":
       return "That sign-in link is missing its security code. Try signing in directly.";
     case "no_account":
-      return "No Bantu Niaga account exists for this Google email. Start a trial or ask your manager for an invite.";
+      return "No NiagaX account exists for this Google email. Start a trial or ask your manager for an invite.";
     case "oauth_cancelled":
       return "Google sign-in was cancelled. Try again when you're ready.";
     default:

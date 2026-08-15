@@ -120,7 +120,7 @@ export async function middleware(request: NextRequest) {
               ok: false,
               error: {
                 code: "email_not_verified",
-                message: "Verify your email before using Bantu Niaga.",
+                message: "Verify your email before using NiagaX.",
               },
               requestId,
             },

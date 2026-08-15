@@ -320,7 +320,7 @@ function SignUpForm() {
       </form>
 
       <p className="text-center text-sm text-ink-muted dark:text-cream-400">
-        Already running on Bantu Niaga?{" "}
+        Already running on NiagaX?{" "}
         <Link
           href="/sign-in"
           className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"

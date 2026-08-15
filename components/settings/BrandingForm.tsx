@@ -889,7 +889,7 @@ function SignInPreview({
           <LogoMark logoUrl={logoUrl} name={name} primary={primary} size="lg" />
         </div>
         <p className="mt-3 text-sm font-semibold text-white">{name}</p>
-        <p className="text-xs text-white/80">Sign in to Bantu Niaga</p>
+        <p className="text-xs text-white/80">Sign in to NiagaX</p>
       </div>
       <div className="space-y-2 bg-white p-4 dark:bg-panel-dark">
         <div className="h-9 rounded-lg bg-cream-100 dark:bg-hairline-dark/40" />

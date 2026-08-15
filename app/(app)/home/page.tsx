@@ -373,7 +373,7 @@ export default async function HomePage() {
       </section>
 
       <AiBanner
-        label="Bantu Niaga AI"
+        label="NiagaX AI"
         message={
           snapshot.atRiskCount > 0
             ? `${formatCount(snapshot.atRiskCount)} customers at-risk and revenue MTD is ${formatGrowthPct(figures.revenueGrowthPct).toLowerCase()}. Open the Boardroom for a synthesised plan.`

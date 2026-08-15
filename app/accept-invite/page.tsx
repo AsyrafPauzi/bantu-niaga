@@ -84,7 +84,7 @@ export default function AcceptInvitePage() {
   return (
     <AuthShell
       brandHeading="You're almost in."
-      brandSubheading="Set a password once and you can sign in to Bantu Niaga any time."
+      brandSubheading="Set a password once and you can sign in to NiagaX any time."
     >
       <div>
         <h2 className="text-3xl font-bold tracking-tight text-ink dark:text-cream-100">

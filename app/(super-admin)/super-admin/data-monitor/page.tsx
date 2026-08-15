@@ -43,7 +43,7 @@ export default async function SuperAdminDataMonitor() {
     <>
       <PageTopbar
         title="Data monitor"
-        subtitle="Live volume + growth across the Bantu Niaga platform"
+        subtitle="Live volume + growth across the NiagaX platform"
         right={
           <button className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100">
             <Database className="h-3.5 w-3.5" />

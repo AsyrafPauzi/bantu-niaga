@@ -36,7 +36,7 @@ export default async function HrMeLeaveNewPage() {
           action={
             <Link
               href="/hr/me"
-              className="inline-flex rounded-[10px] border border-[#E5E0D8] bg-[#FAF7F2] px-3.5 py-2.5 text-[13px] font-semibold text-[#11328A] dark:border-hairline-dark dark:bg-panel-dark dark:text-brand-200"
+              className="inline-flex rounded-[10px] border border-hairline-light bg-cream-100 px-3.5 py-2.5 text-[13px] font-semibold text-brand-700 dark:border-hairline-dark dark:bg-panel-dark dark:text-brand-200"
             >
               ← Back
             </Link>

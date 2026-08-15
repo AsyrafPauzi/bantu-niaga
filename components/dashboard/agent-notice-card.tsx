@@ -15,7 +15,7 @@ export function AgentNoticeCard({
   assistantName = "Hana",
 }: AgentNoticeCardProps) {
   return (
-    <div className="rounded-2xl border border-[#D5E2FB] bg-[#EEF3FE] p-4 dark:border-brand-900/60 dark:bg-brand-900/20">
+    <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4 dark:border-brand-900/60 dark:bg-brand-900/20">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">
           <Sparkles className="h-4 w-4" strokeWidth={2} />
