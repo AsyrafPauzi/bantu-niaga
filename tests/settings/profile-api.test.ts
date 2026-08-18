@@ -20,6 +20,7 @@ const CURRENT_PROFILE = {
   phone_e164: "+60123456789",
   email: "owner@example.test",
   role: "owner",
+  preferred_locale: "en",
 };
 
 type FluentCall = {
@@ -54,6 +55,7 @@ interface HarnessState {
 
 interface Harness {
   PATCH: (request: Request) => Promise<Response>;
+  GET: (request: Request) => Promise<Response>;
   state: HarnessState;
 }
 
@@ -162,7 +164,7 @@ async function loadRoute(opts: {
   }));
 
   const route = await import("@/app/api/settings/profile/route");
-  return { PATCH: route.PATCH, state };
+  return { PATCH: route.PATCH, GET: route.GET, state };
 }
 
 function buildRequest(body: unknown): Request {
@@ -235,6 +237,7 @@ describe("PATCH /api/settings/profile", () => {
         phone_e164: "+60199887766",
         email: "owner@example.test",
         role: "owner",
+        preferred_locale: "en",
       },
     });
     expect(state.updatePayloads).toEqual([
@@ -313,5 +316,60 @@ describe("PATCH /api/settings/profile", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body).toEqual({ error: "update_failed" });
+  });
+
+  it("persists preferred_locale for the current user", async () => {
+    const { PATCH, state } = await loadRoute({
+      updateResult: {
+        data: { ...CURRENT_PROFILE, preferred_locale: "ms" },
+        error: null,
+      },
+    });
+
+    const res = await PATCH(buildRequest({ preferred_locale: "ms" }));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.profile.preferred_locale).toBe("ms");
+    expect(state.updatePayloads).toEqual([{ preferred_locale: "ms" }]);
+  });
+});
+
+describe("GET /api/settings/profile", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("returns 401 when getCurrentUser throws UnauthorizedError", async () => {
+    const { GET } = await loadRoute({ user: "unauthorized" });
+    const res = await GET(
+      new Request("http://localhost/api/settings/profile", { method: "GET" }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("returns preferred_locale for the current user and business", async () => {
+    const { GET, state } = await loadRoute();
+    const res = await GET(
+      new Request("http://localhost/api/settings/profile", { method: "GET" }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.profile.preferred_locale).toBe("en");
+    const userEqCalls = state.calls.filter(
+      (call) => call.table === "users" && call.method === "eq",
+    );
+    expect(
+      userEqCalls.some(
+        (call) => call.args[0] === "id" && call.args[1] === CURRENT_USER.id,
+      ),
+    ).toBe(true);
+    expect(
+      userEqCalls.some(
+        (call) =>
+          call.args[0] === "business_id" &&
+          call.args[1] === CURRENT_USER.businessId,
+      ),
+    ).toBe(true);
   });
 });

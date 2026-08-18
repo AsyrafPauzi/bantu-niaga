@@ -70,6 +70,12 @@ export function runProductionEnvChecks(): ProductionEnvCheck[] {
       required: false,
       hint: "From address for Resend emails.",
     },
+    {
+      key: "AUTH_SEND_EMAIL_HOOK_SECRET",
+      ok: Boolean(process.env.AUTH_SEND_EMAIL_HOOK_SECRET?.trim()),
+      required: false,
+      hint: "Supabase Auth Send Email hook signing secret.",
+    },
   ];
 
   return checks;

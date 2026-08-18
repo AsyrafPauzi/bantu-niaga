@@ -3,6 +3,8 @@ import { isStandaloneDeployment } from "@/lib/platform/deployment";
 import { canAcceptPublicSignup } from "@/lib/platform/standalone-bootstrap";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Gate self-serve sign-up in standalone mode — only open during first-time
  * bootstrap (zero businesses). Otherwise owners sign in via seeded accounts.

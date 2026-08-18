@@ -27,4 +27,16 @@ describe("email-broadcast-template", () => {
   it("escapeHtml handles quotes", () => {
     expect(escapeHtml('"hi"')).toBe("&quot;hi&quot;");
   });
+
+  it("uses NiagaX teal chrome instead of the old purple gradient", () => {
+    const html = buildMarketingEmailHtml({
+      subject: "Hello",
+      bodyText: "Body",
+      businessName: "Demo Cafe",
+    });
+    expect(html).toContain("#0E7490");
+    expect(html).toContain("#EEF2F6");
+    expect(html).not.toContain("#6d28d9");
+    expect(html).not.toContain("linear-gradient");
+  });
 });
