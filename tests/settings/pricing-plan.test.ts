@@ -21,9 +21,9 @@ describe("subscription billing", () => {
     expect(tierAmountMyr("enterprise")).toBe(299);
   });
 
-  it("uses 30-day free cycle and 14-day trial", () => {
+  it("uses 30-day free cycle and 7-day trial", () => {
     expect(MONTHLY_RENEWAL_DAYS).toBe(30);
-    expect(TRIAL_RENEWAL_DAYS).toBe(14);
+    expect(TRIAL_RENEWAL_DAYS).toBe(7);
   });
 });
 

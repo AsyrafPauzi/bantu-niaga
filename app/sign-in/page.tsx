@@ -210,7 +210,7 @@ function SignInInner() {
               href="/sign-up"
               className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              Start a 14-day trial
+              Start a 7-day Basic trial
             </Link>
           </>
         )}

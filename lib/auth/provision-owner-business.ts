@@ -14,14 +14,14 @@ import {
   subscriptionPeriodLabel,
   trialRenewalAt,
 } from "@/lib/settings/subscription-billing";
-import { grantTierBundledCredits } from "@/lib/settings/subscription-credits";
+import { grantBasicTrialCredits } from "@/lib/settings/subscription-credits";
 
 export type SignupPath = "free" | "starter_trial";
 
 export function ownerProvisionPlan(signupPath: SignupPath): {
-  tier: "starter" | "micro";
+  tier: "starter" | "basic";
   subscriptionStatus: "active" | "trial";
-  trialDays: 0 | 14;
+  trialDays: 0 | 7;
   grantCredits: boolean;
   periodLabel: string;
 } {
@@ -35,11 +35,11 @@ export function ownerProvisionPlan(signupPath: SignupPath): {
     };
   }
   return {
-    tier: "micro",
+    tier: "basic",
     subscriptionStatus: "trial",
-    trialDays: 14,
+    trialDays: 7,
     grantCredits: true,
-    periodLabel: "14-day Solo trial",
+    periodLabel: "7-day Basic trial",
   };
 }
 
@@ -127,6 +127,8 @@ export async function provisionOwnerBusiness(
       brand_primary_hex: "#5B8C5A",
       brand_accent_hex: "#F4A340",
       credit_balance: 0,
+      self_serve_trial_used_at:
+        input.signupPath === "starter_trial" ? new Date().toISOString() : null,
       business_type: quizDb.business_type,
       team_size_band: quizDb.team_size_band,
       onboarding_priorities: quizDb.priorities,
@@ -202,12 +204,7 @@ export async function provisionOwnerBusiness(
 
   if (plan.grantCredits) {
     try {
-      await grantTierBundledCredits(
-        businessRow.id,
-        "micro",
-        input.authUserId,
-        admin,
-      );
+      await grantBasicTrialCredits(businessRow.id, input.authUserId, admin);
     } catch (creditError) {
       await rollbackProvision(admin, input.authUserId, businessRow.id);
       return {

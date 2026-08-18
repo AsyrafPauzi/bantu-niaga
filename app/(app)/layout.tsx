@@ -13,6 +13,7 @@ import { getConsentFlags } from "@/lib/privacy/consent";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TierKey } from "@/lib/settings/plans";
 import { ImpersonationBanner } from "@/components/super-admin/ImpersonationBanner";
+import { BasicTrialBannerHost } from "@/components/settings/BasicTrialBannerHost";
 import { normalizeBusinessType } from "@/lib/operations/vertical";
 import type { BusinessType } from "@/lib/onboarding/plan-quiz";
 import type { Role } from "@/lib/permissions";
@@ -79,6 +80,7 @@ export default async function AppLayout({
       <SessionRegistrar />
       <ProductAnalytics enabled={analyticsConsent} />
       <ImpersonationBanner />
+      <BasicTrialBannerHost />
       {children}
     </AdaptiveShell>
   );
