@@ -1,7 +1,7 @@
 # Sign-up language preference — Design Spec
 
 **Date:** 2026-08-19  
-**Status:** Written — awaiting user review of this file
+**Status:** Approved, plan ready (`docs/superpowers/plans/2026-08-19-signup-language-preference.md`)
 
 ---
 
