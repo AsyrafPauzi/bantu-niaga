@@ -76,6 +76,7 @@ export async function POST(request: Request) {
     user_metadata: {
       business_name: parsed.business_name,
       signup_source: "self_serve",
+      preferred_locale: parsed.preferred_locale,
     },
   });
 
@@ -120,6 +121,7 @@ export async function POST(request: Request) {
     sourceIp,
     userAgent,
     signupSource: "self_serve",
+    preferredLocale: parsed.preferred_locale,
   });
 
   if (!provisioned.ok) {
