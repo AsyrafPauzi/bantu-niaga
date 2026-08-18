@@ -1,7 +1,7 @@
 # 7-day Basic trial + credit expiry — Design Spec
 
 **Date:** 2026-08-19  
-**Status:** Approved for planning
+**Status:** Approved, plan ready (`docs/superpowers/plans/2026-08-19-basic-trial-credits.md`)
 
 ---
 
