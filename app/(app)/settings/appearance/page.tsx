@@ -1,6 +1,7 @@
 "use client";
 
 import { Sun, Moon, Monitor, type LucideIcon } from "lucide-react";
+import { AppearanceLanguageCard } from "@/components/settings/AppearanceLanguageCard";
 import { SettingsPageHero } from "@/components/settings/SettingsPageHero";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +44,7 @@ export default function AppearanceSettingsPage() {
     <>
       <SettingsPageHero
         title="Appearance"
-        subcopy="Pick a theme for NiagaX. The setting is saved in this browser only — we'll sync it to your account in a later release."
+        subcopy="Pick a theme for this browser, and a language for NiagaX emails. Language is saved on your account."
         cta={<Badge tone="brand">v1 core</Badge>}
       />
 
@@ -130,6 +131,8 @@ export default function AppearanceSettingsPage() {
           </p>
         </CardBody>
       </Card>
+
+      <AppearanceLanguageCard />
 
       <Card>
         <CardHeader>

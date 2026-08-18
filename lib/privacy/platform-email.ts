@@ -32,6 +32,7 @@ export async function sendPlatformEmail(input: {
   to: string;
   subject: string;
   body: string;
+  html?: string;
   fromEmail: string;
   apiKey: string;
 }): Promise<PlatformEmailResult> {
@@ -45,6 +46,7 @@ export async function sendPlatformEmail(input: {
     to: input.to,
     subject: input.subject,
     body: input.body,
+    html: input.html,
     fromEmail: input.fromEmail,
     apiKey: input.apiKey,
   });

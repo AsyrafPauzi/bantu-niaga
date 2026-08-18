@@ -59,7 +59,7 @@ Team invites use `auth.admin.inviteUserByEmail()` (`POST /api/settings/team/invi
 | Username | `resend` |
 | Password | Your `RESEND_API_KEY` |
 | Sender email | Same address as `MARKETING_FROM_EMAIL` (verified domain) |
-| Sender name | `Bantu Niaga` |
+| Sender name | `NiagaX` |
 
 4. **Authentication → URL Configuration**
    - **Site URL**: `https://app.yourdomain.com` (must match `NEXT_PUBLIC_APP_URL`)
@@ -67,16 +67,15 @@ Team invites use `auth.admin.inviteUserByEmail()` (`POST /api/settings/team/invi
      `https://app.yourdomain.com/auth/callback`  
      `https://app.yourdomain.com/accept-invite`
 
-### Email templates (recommended)
+### Send Email hook (NiagaX HTML)
 
-Under **Authentication → Email Templates**, customise:
+Auth HTML (confirm, reset, invite, magic link, email change) is sent by the app via Resend, not GoTrue’s built-in template.
 
-| Template | Purpose |
-|----------|---------|
-| **Invite user** | Team invite from Settings → Team |
-| **Confirm signup** | New owner sign-up (if verification enabled) |
-| **Reset password** | Forgot password flow |
-| **Magic link** | Optional passwordless sign-in |
+1. Set Vercel `AUTH_SEND_EMAIL_HOOK_SECRET` to the secret Supabase shows when creating the hook (`v1,whsec_…`). Production and Preview.
+2. Authentication → Hooks → Send Email → HTTPS `https://app.niagax.my/api/webhooks/auth-send-email`.
+3. After the hook is on, GoTrue does not send its own HTML. Leave dashboard templates with: `Handled by NiagaX Send Email hook.`
+4. Confirm in Resend: From `noreply@app.niagax.my`, one mail per reset, not `noreply@mail.app.supabase.io`.
+5. Appearance → Bahasa Melayu, then reset, to verify Malay copy.
 
 Invite link redirect: the app sets `redirectTo` to `/auth/callback?next=/accept-invite` so invitees land on the password-setup page.
 

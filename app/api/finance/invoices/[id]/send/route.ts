@@ -9,6 +9,7 @@ import {
   invoiceShareUrl,
 } from "@/lib/finance/schemas";
 import { buildInvoiceShareFields } from "@/lib/finance/share-link";
+import { renderNiagaXEmail } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/marketing/email-resend";
 import { loadBusiness } from "@/lib/settings/business";
 import {
@@ -150,10 +151,23 @@ export async function POST(
   const filename = `${invoice.number.replace(/[^\w-]+/g, "-")}.pdf`;
 
   const fromName = business.email_from_name?.trim() || business.name;
+  const subject = `Invoice ${invoice.number} from ${business.name}`;
+  const html = renderNiagaXEmail({
+    locale: "en",
+    brandName: business.name,
+    subject,
+    heading: `Invoice ${invoice.number}`,
+    bodyText: message,
+    ctaLabel: "View invoice",
+    ctaHref: shareUrl || undefined,
+    footerText:
+      "You received this invoice from a NiagaX customer. Bantu Niaga Sdn. Bhd.",
+  });
   const result = await sendEmail({
     to: invoice.customer_email.trim(),
-    subject: `Invoice ${invoice.number} from ${business.name}`,
+    subject,
     body: `${message}\n\nPDF attached. You can also view online: ${shareUrl || "(link unavailable)"}`,
+    html,
     fromEmail: `${fromName} <${fromEmail}>`,
     apiKey,
     attachments: [{ filename, content: pdfBase64 }],

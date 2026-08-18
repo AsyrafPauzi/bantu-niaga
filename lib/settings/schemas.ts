@@ -63,6 +63,7 @@ export const profileUpdateSchema = z
       .regex(/^\+\d{8,15}$/, "Must be an E.164 phone number")
       .nullable()
       .optional(),
+    preferred_locale: z.enum(["en", "ms"]).optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {

@@ -4,6 +4,8 @@ import { dbErrorResponse } from "@/lib/api/db-error";
 import { ok } from "@/lib/api/response";
 import { getRequestId, requireCronAuth } from "@/lib/api/require-cron";
 import { buildBoardroomWeeklyDigest } from "@/lib/ai/boardroom-weekly-digest";
+import { formatPlatformFrom } from "@/lib/email/from";
+import { renderNiagaXEmail } from "@/lib/email/layout";
 import { logger } from "@/lib/logger";
 import { sendPlatformEmail } from "@/lib/privacy/platform-email";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -69,13 +71,27 @@ export async function GET(request: Request) {
         admin,
       );
 
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+      const html = renderNiagaXEmail({
+        locale: "en",
+        brandName: "NiagaX",
+        subject: digest.subject,
+        heading: digest.subject,
+        bodyText: digest.body,
+        ctaLabel: "Open Boardroom",
+        ctaHref: appUrl ? `${appUrl}/boardroom` : undefined,
+        footerText:
+          "Weekly Boardroom digest from NiagaX. Bantu Niaga Sdn. Bhd.",
+      });
+
       const result = await sendPlatformEmail({
         userId: owner.id as string,
         category: "product_updates",
         to: owner.email,
         subject: digest.subject,
         body: digest.body,
-        fromEmail,
+        html,
+        fromEmail: formatPlatformFrom(fromEmail),
         apiKey,
       });
 

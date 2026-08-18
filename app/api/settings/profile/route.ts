@@ -16,13 +16,18 @@ type ProfileRow = {
   phone_e164: string | null;
   email: string | null;
   role: string;
+  preferred_locale: "en" | "ms";
 };
 
 type ProfileDiff = Partial<
-  Record<"display_name" | "phone_e164", { before: string | null; after: string | null }>
+  Record<
+    "display_name" | "phone_e164" | "preferred_locale",
+    { before: string | null; after: string | null }
+  >
 >;
 
-const SAFE_PROFILE_SELECT = "id, display_name, phone_e164, email, role";
+const SAFE_PROFILE_SELECT =
+  "id, display_name, phone_e164, email, role, preferred_locale";
 
 function hasOwn<T extends object, K extends PropertyKey>(
   value: T,
@@ -38,6 +43,7 @@ function safeProfile(row: ProfileRow) {
     phone_e164: row.phone_e164,
     email: row.email,
     role: row.role,
+    preferred_locale: row.preferred_locale === "ms" ? "ms" : "en",
   };
 }
 
@@ -93,7 +99,9 @@ export async function PATCH(request: Request) {
   }
 
   const currentProfile = current as ProfileRow;
-  const updates: Partial<Pick<ProfileRow, "display_name" | "phone_e164">> = {};
+  const updates: Partial<
+    Pick<ProfileRow, "display_name" | "phone_e164" | "preferred_locale">
+  > = {};
   const diff: ProfileDiff = {};
 
   if (hasOwn(parsed, "display_name")) {
@@ -117,6 +125,17 @@ export async function PATCH(request: Request) {
       diff.phone_e164 = {
         before: currentProfile.phone_e164,
         after: nextPhone,
+      };
+    }
+  }
+
+  if (hasOwn(parsed, "preferred_locale")) {
+    const nextLocale = parsed.preferred_locale;
+    if (nextLocale && nextLocale !== currentProfile.preferred_locale) {
+      updates.preferred_locale = nextLocale;
+      diff.preferred_locale = {
+        before: currentProfile.preferred_locale,
+        after: nextLocale,
       };
     }
   }
@@ -157,6 +176,42 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json(
     { ok: true, profile: safeProfile(updated as ProfileRow) },
+    { status: 200 },
+  );
+}
+
+export async function GET() {
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch (e) {
+    if (e instanceof UnauthorizedError) {
+      return NextResponse.json(
+        { error: "unauthorized", code: e.code },
+        { status: 401 },
+      );
+    }
+    throw e;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: current, error: loadError } = await supabase
+    .from("users")
+    .select(SAFE_PROFILE_SELECT)
+    .eq("id", user.id)
+    .eq("business_id", user.businessId)
+    .maybeSingle();
+
+  if (loadError) {
+    console.error("profile load failed", loadError);
+    return NextResponse.json({ error: "load_failed" }, { status: 500 });
+  }
+  if (!current) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  return NextResponse.json(
+    { ok: true, profile: safeProfile(current as ProfileRow) },
     { status: 200 },
   );
 }
