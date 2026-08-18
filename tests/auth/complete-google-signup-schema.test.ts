@@ -6,6 +6,7 @@ const valid = {
   state_code: "KUL",
   accept_terms: true as const,
   signup_path: "free" as const,
+  preferred_locale: "en" as const,
 };
 
 describe("completeGoogleSignupSchema", () => {
@@ -42,5 +43,18 @@ describe("completeGoogleSignupSchema", () => {
       completeGoogleSignupSchema.safeParse({ ...valid, business_name: "A" })
         .success,
     ).toBe(false);
+  });
+
+  it("requires preferred_locale en or ms", () => {
+    const { preferred_locale: _locale, ...rest } = valid;
+    expect(completeGoogleSignupSchema.safeParse(rest).success).toBe(false);
+    expect(
+      completeGoogleSignupSchema.safeParse({ ...valid, preferred_locale: "fr" })
+        .success,
+    ).toBe(false);
+    expect(
+      completeGoogleSignupSchema.parse({ ...valid, preferred_locale: "ms" })
+        .preferred_locale,
+    ).toBe("ms");
   });
 });

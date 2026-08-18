@@ -12,6 +12,7 @@ const VALID_BODY = {
   state_code: "KUL",
   accept_terms: true,
   signup_path: "free",
+  preferred_locale: "en",
 };
 
 interface HarnessOpts {

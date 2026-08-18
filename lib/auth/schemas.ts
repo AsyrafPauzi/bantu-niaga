@@ -46,6 +46,7 @@ export const signUpSchema = z
     }),
     signup_path: z.enum(["free", "starter_trial"]).optional().default("free"),
     onboarding_quiz: onboardingQuizSchema.optional(),
+    preferred_locale: z.enum(["en", "ms"]),
   })
   .strict();
 
@@ -62,6 +63,7 @@ export const completeGoogleSignupSchema = z
     }),
     signup_path: z.enum(["free", "starter_trial"]).optional().default("free"),
     onboarding_quiz: onboardingQuizSchema.optional(),
+    preferred_locale: z.enum(["en", "ms"]),
   })
   .strict();
 
