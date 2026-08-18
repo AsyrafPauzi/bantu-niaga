@@ -159,3 +159,20 @@ export function authEmailCopy(
     footerText,
   };
 }
+
+export function digestEmailChrome(locale: EmailLocale): {
+  ctaLabel: string;
+  footerText: string;
+} {
+  if (locale === "ms") {
+    return {
+      ctaLabel: "Buka Boardroom",
+      footerText:
+        "Ringkasan Boardroom mingguan daripada NiagaX. Bantu Niaga Sdn. Bhd.",
+    };
+  }
+  return {
+    ctaLabel: "Open Boardroom",
+    footerText: "Weekly Boardroom digest from NiagaX. Bantu Niaga Sdn. Bhd.",
+  };
+}

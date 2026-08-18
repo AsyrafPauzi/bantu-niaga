@@ -4,8 +4,10 @@ import { dbErrorResponse } from "@/lib/api/db-error";
 import { ok } from "@/lib/api/response";
 import { getRequestId, requireCronAuth } from "@/lib/api/require-cron";
 import { buildBoardroomWeeklyDigest } from "@/lib/ai/boardroom-weekly-digest";
+import { digestEmailChrome } from "@/lib/email/copy";
 import { formatPlatformFrom } from "@/lib/email/from";
 import { renderNiagaXEmail } from "@/lib/email/layout";
+import { parseEmailLocaleHint } from "@/lib/email/resolve-locale";
 import { logger } from "@/lib/logger";
 import { sendPlatformEmail } from "@/lib/privacy/platform-email";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -51,7 +53,7 @@ export async function GET(request: Request) {
         .maybeSingle(),
       admin
         .from("users")
-        .select("id, email")
+        .select("id, email, preferred_locale")
         .eq("business_id", businessId)
         .eq("role", "owner")
         .limit(1)
@@ -72,16 +74,17 @@ export async function GET(request: Request) {
       );
 
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+      const locale = parseEmailLocaleHint(owner.preferred_locale) ?? "en";
+      const chrome = digestEmailChrome(locale);
       const html = renderNiagaXEmail({
-        locale: "en",
+        locale,
         brandName: "NiagaX",
         subject: digest.subject,
         heading: digest.subject,
         bodyText: digest.body,
-        ctaLabel: "Open Boardroom",
+        ctaLabel: chrome.ctaLabel,
         ctaHref: appUrl ? `${appUrl}/boardroom` : undefined,
-        footerText:
-          "Weekly Boardroom digest from NiagaX. Bantu Niaga Sdn. Bhd.",
+        footerText: chrome.footerText,
       });
 
       const result = await sendPlatformEmail({
