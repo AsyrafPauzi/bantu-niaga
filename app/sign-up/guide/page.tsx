@@ -209,7 +209,7 @@ export default function SignUpGuidePage() {
                 onClick={() => goToSignUp("starter_trial")}
                 className="h-11 rounded-lg bg-brand-500 text-sm font-semibold text-white hover:bg-brand-600"
               >
-                Start 14-day Solo trial
+                Start 7-day Basic trial
               </button>
             )}
             <button
@@ -219,7 +219,7 @@ export default function SignUpGuidePage() {
               }
               className="h-11 rounded-lg border border-cream-300 text-sm font-semibold text-ink hover:bg-cream-50 dark:border-hairline-dark dark:text-cream-100"
             >
-              {result.canStayFree ? "Try Solo trial instead" : "Start on Free instead"}
+              {result.canStayFree ? "Try Basic trial instead" : "Start on Free instead"}
             </button>
             <Link
               href="/sign-up"

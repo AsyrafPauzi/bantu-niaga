@@ -134,7 +134,7 @@ function SignUpForm() {
       brandHeading={
         signupPath === "free"
           ? "Start free — invoices and payments."
-          : "Start your 14-day Solo trial."
+          : "Start your 7-day Basic trial."
       }
       brandSubheading={
         signupPath === "free"
@@ -149,7 +149,7 @@ function SignUpForm() {
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
           {signupPath === "free"
             ? "Free plan · invoices & payment tracking · upgrade any time."
-            : "14-day Solo trial · all six modules · upgrade any time."}
+            : "7-day Basic trial · 20 AI credits · upgrade any time."}
         </p>
       </div>
 
@@ -191,10 +191,10 @@ function SignUpForm() {
           }`}
         >
           <span className="block font-semibold text-ink dark:text-cream-100">
-            14-day Solo trial
+            7-day Basic trial
           </span>
           <span className="mt-0.5 block text-xs text-ink-muted dark:text-cream-400">
-            Admin + Operations modules
+            Admin, Sales, and Finance · 20 credits
           </span>
         </button>
       </div>

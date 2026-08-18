@@ -99,7 +99,7 @@ export function CompleteGoogleSignupForm({ email }: { email: string }) {
       brandHeading={
         signupPath === "free"
           ? "Start free — invoices and payments."
-          : "Start your 14-day Solo trial."
+          : "Start your 7-day Basic trial."
       }
       brandSubheading={
         signupPath === "free"
@@ -144,10 +144,10 @@ export function CompleteGoogleSignupForm({ email }: { email: string }) {
           }`}
         >
           <span className="block font-semibold text-ink dark:text-cream-100">
-            14-day Solo trial
+            7-day Basic trial
           </span>
           <span className="mt-0.5 block text-xs text-ink-muted dark:text-cream-400">
-            Admin + Operations modules
+            Admin, Sales, and Finance · 20 credits
           </span>
         </button>
       </div>

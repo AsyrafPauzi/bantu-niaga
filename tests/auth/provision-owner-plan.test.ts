@@ -10,11 +10,12 @@ describe("ownerProvisionPlan", () => {
     expect(plan.trialDays).toBe(0);
   });
 
-  it("maps starter_trial to micro trial with credits", () => {
+  it("maps starter_trial to basic trial with credits", () => {
     const plan = ownerProvisionPlan("starter_trial");
-    expect(plan.tier).toBe("micro");
+    expect(plan.tier).toBe("basic");
     expect(plan.subscriptionStatus).toBe("trial");
     expect(plan.grantCredits).toBe(true);
-    expect(plan.trialDays).toBe(14);
+    expect(plan.trialDays).toBe(7);
+    expect(plan.periodLabel).toBe("7-day Basic trial");
   });
 });

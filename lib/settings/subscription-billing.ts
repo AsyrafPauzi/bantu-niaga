@@ -6,7 +6,10 @@ import type { TierKey } from "@/lib/settings/plans";
 export const MONTHLY_RENEWAL_DAYS = 30;
 
 /** Paid trial length in days. */
-export const TRIAL_RENEWAL_DAYS = 14;
+export const TRIAL_RENEWAL_DAYS = 7;
+
+/** Credits granted at Basic trial start (not the Basic monthly bundle). */
+export const BASIC_TRIAL_CREDITS = 20;
 
 export function addDaysFromNow(days: number): string {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();

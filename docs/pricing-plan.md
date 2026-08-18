@@ -480,7 +480,7 @@ See also [`architecture/super-admin.md`](./architecture/super-admin.md).
 | Rule | Detail |
 |------|--------|
 | Free | Permanent; no card |
-| Self-serve paid trial | **14 days** on Basic, Solo, or Micro — full tier entitlements + credit grant |
+| Self-serve paid trial | **7 days on Basic only** — 20 credits. Unused bundle credits expire when the trial ends. Subscribe to Basic, Solo, SME, or Small during trial: leftover credits + that plan’s monthly bundle. Existing 14-day Solo trials keep their clock; expiry uses the same credit wipe. |
 | Super-admin promo | **N months free** on any tier (§12) — for campaigns, not self-serve |
 | Annual | **2 months free** (pay 10, get 12) on Basic, Solo, Micro, Small |
 | Early founder | First **100 businesses**: lock price **12 months** |
