@@ -117,7 +117,7 @@ describe("POST /api/webhooks/auth-send-email", () => {
   it("uses Malay copy when the profile locale is ms", async () => {
     const { POST } = await loadRoute({ profileLocale: "ms" });
     await POST(signedRequest(JSON.stringify(PAYLOAD), true));
-    expect(sendEmail.mock.calls[0][0]).toEqual(
+    expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({ subject: "Tetapkan semula kata laluan NiagaX" }),
     );
   });
@@ -132,7 +132,7 @@ describe("POST /api/webhooks/auth-send-email", () => {
       },
     };
     await POST(signedRequest(JSON.stringify(body), true));
-    expect(sendEmail.mock.calls[0][0]).toEqual(
+    expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({ subject: "Tetapkan semula kata laluan NiagaX" }),
     );
   });
@@ -147,7 +147,7 @@ describe("POST /api/webhooks/auth-send-email", () => {
       },
     };
     await POST(signedRequest(JSON.stringify(body), true));
-    expect(sendEmail.mock.calls[0][0]).toEqual(
+    expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({ subject: "Reset your NiagaX password" }),
     );
   });

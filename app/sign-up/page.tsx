@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Check, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { SignupLanguageCards } from "@/components/auth/SignupLanguageCards";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import { readQuizFromSession } from "@/lib/onboarding/session-quiz";
 import { isPublicStandaloneDeployment } from "@/lib/platform/deployment";
@@ -44,6 +45,9 @@ function SignUpForm() {
   const [businessName, setBusinessName] = useState("");
   const [stateCode, setStateCode] = useState<string>("KUL");
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [preferredLocale, setPreferredLocale] = useState<"en" | "ms" | null>(
+    null,
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -58,6 +62,10 @@ function SignUpForm() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (!preferredLocale) {
+      setError("Choose English or Bahasa Melayu.");
+      return;
+    }
     if (!acceptTerms) {
       setError("Accept the terms to continue.");
       return;
@@ -80,6 +88,7 @@ function SignUpForm() {
           state_code: stateCode,
           accept_terms: acceptTerms,
           signup_path: signupPath,
+          preferred_locale: preferredLocale,
           ...(sessionQuiz
             ? {
                 onboarding_quiz: {
@@ -210,6 +219,10 @@ function SignUpForm() {
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <SignupLanguageCards
+          value={preferredLocale}
+          onChange={setPreferredLocale}
+        />
         <Field label="Business name">
           <input
             value={businessName}

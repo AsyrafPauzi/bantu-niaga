@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { SignupLanguageCards } from "@/components/auth/SignupLanguageCards";
 import { signOutAction } from "@/app/sign-in/actions";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import { readQuizFromSession } from "@/lib/onboarding/session-quiz";
@@ -39,12 +40,19 @@ export function CompleteGoogleSignupForm({ email }: { email: string }) {
   const [businessName, setBusinessName] = useState("");
   const [stateCode, setStateCode] = useState("KUL");
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [preferredLocale, setPreferredLocale] = useState<"en" | "ms" | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (!preferredLocale) {
+      setError("Choose English or Bahasa Melayu.");
+      return;
+    }
     if (!acceptTerms) {
       setError("Accept the terms to continue.");
       return;
@@ -60,6 +68,7 @@ export function CompleteGoogleSignupForm({ email }: { email: string }) {
           state_code: stateCode,
           accept_terms: acceptTerms,
           signup_path: signupPath,
+          preferred_locale: preferredLocale,
           ...(sessionQuiz
             ? {
                 onboarding_quiz: {
@@ -153,6 +162,10 @@ export function CompleteGoogleSignupForm({ email }: { email: string }) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <SignupLanguageCards
+          value={preferredLocale}
+          onChange={setPreferredLocale}
+        />
         <label className="block text-sm">
           <span className="mb-1.5 block font-medium text-ink dark:text-cream-100">
             Business name
