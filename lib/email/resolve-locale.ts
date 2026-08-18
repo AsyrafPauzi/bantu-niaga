@@ -3,9 +3,14 @@ import type { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
 
+export function parseEmailLocaleHint(raw: unknown): EmailLocale | null {
+  return raw === "ms" || raw === "en" ? raw : null;
+}
+
 export async function resolvePreferredLocale(
   admin: Admin,
   userId: string,
+  metadataHint?: unknown,
 ): Promise<EmailLocale> {
   const { data } = await admin
     .from("users")
@@ -17,5 +22,7 @@ export async function resolvePreferredLocale(
     data && typeof data === "object" && "preferred_locale" in data
       ? (data as { preferred_locale?: unknown }).preferred_locale
       : null;
-  return raw === "ms" ? "ms" : "en";
+  if (raw === "ms" || raw === "en") return raw;
+
+  return parseEmailLocaleHint(metadataHint) ?? "en";
 }
