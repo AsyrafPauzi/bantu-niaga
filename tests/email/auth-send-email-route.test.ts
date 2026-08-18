@@ -46,18 +46,26 @@ function signedRequest(body: string, secretOk = true): Request {
 
 const sendEmail = vi.fn(async () => ({ ok: true as const, id: "re_test" }));
 
-async function loadRoute() {
+async function loadRoute(opts?: { profileLocale?: string | null }) {
   vi.resetModules();
   vi.doMock("@/lib/marketing/email-resend", () => ({ sendEmail }));
   vi.doMock("@/lib/logger", () => ({
     logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), child: () => ({ error: vi.fn() }) },
   }));
+  const profileLocale =
+    opts?.profileLocale === undefined ? "en" : opts.profileLocale;
   vi.doMock("@/lib/supabase/service-role", () => ({
     createServiceRoleClient: () => ({
       from: () => ({
         select: () => ({
           eq: () => ({
-            maybeSingle: async () => ({ data: { preferred_locale: "en" }, error: null }),
+            maybeSingle: async () => ({
+              data:
+                profileLocale === null
+                  ? null
+                  : { preferred_locale: profileLocale },
+              error: null,
+            }),
           }),
         }),
       }),
@@ -104,5 +112,43 @@ describe("POST /api/webhooks/auth-send-email", () => {
     const html = (sendEmail.mock.calls as unknown as [{ html?: string }][])[0]?.[0]
       ?.html;
     expect(html).toContain("#0E7490");
+  });
+
+  it("uses Malay copy when the profile locale is ms", async () => {
+    const { POST } = await loadRoute({ profileLocale: "ms" });
+    await POST(signedRequest(JSON.stringify(PAYLOAD), true));
+    expect(sendEmail.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ subject: "Tetapkan semula kata laluan NiagaX" }),
+    );
+  });
+
+  it("uses Malay copy from metadata when there is no profile", async () => {
+    const { POST } = await loadRoute({ profileLocale: null });
+    const body = {
+      ...PAYLOAD,
+      user: {
+        ...PAYLOAD.user,
+        user_metadata: { preferred_locale: "ms" },
+      },
+    };
+    await POST(signedRequest(JSON.stringify(body), true));
+    expect(sendEmail.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ subject: "Tetapkan semula kata laluan NiagaX" }),
+    );
+  });
+
+  it("uses English when metadata locale is fr and there is no profile", async () => {
+    const { POST } = await loadRoute({ profileLocale: null });
+    const body = {
+      ...PAYLOAD,
+      user: {
+        ...PAYLOAD.user,
+        user_metadata: { preferred_locale: "fr" },
+      },
+    };
+    await POST(signedRequest(JSON.stringify(body), true));
+    expect(sendEmail.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ subject: "Reset your NiagaX password" }),
+    );
   });
 });

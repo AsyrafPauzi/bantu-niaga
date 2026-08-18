@@ -5,7 +5,10 @@ import { authEmailCopy } from "@/lib/email/copy";
 import { formatPlatformFrom } from "@/lib/email/from";
 import { verifyAuthHookSignature } from "@/lib/email/hook-secret";
 import { renderNiagaXEmail } from "@/lib/email/layout";
-import { resolvePreferredLocale } from "@/lib/email/resolve-locale";
+import {
+  parseEmailLocaleHint,
+  resolvePreferredLocale,
+} from "@/lib/email/resolve-locale";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/marketing/email-resend";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -86,12 +89,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "send_failed" }, { status: 500 });
   }
 
+  const meta = (user as { user_metadata?: unknown }).user_metadata;
+  const localeHint = metadataString(meta, "preferred_locale");
   const locale =
     typeof userId === "string"
-      ? await resolvePreferredLocale(createServiceRoleClient(), userId)
-      : "en";
+      ? await resolvePreferredLocale(
+          createServiceRoleClient(),
+          userId,
+          localeHint,
+        )
+      : parseEmailLocaleHint(localeHint) ?? "en";
 
-  const meta = (user as { user_metadata?: unknown }).user_metadata;
   const copy = authEmailCopy(action, locale, {
     businessName: metadataString(meta, "business_name"),
     inviterName: metadataString(meta, "inviter_name"),
