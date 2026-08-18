@@ -8,6 +8,7 @@ import {
 } from "@/lib/onboarding/default-quiz";
 import type { PlanQuizAnswers } from "@/lib/onboarding/plan-quiz";
 import type { OnboardingQuizInput } from "@/lib/onboarding/schemas";
+import type { EmailLocale } from "@/lib/email/types";
 import {
   freePlanRenewalAt,
   issueSubscriptionInvoice,
@@ -81,6 +82,31 @@ export interface ProvisionOwnerInput {
   sourceIp: string | null;
   userAgent: string | null;
   signupSource: "self_serve" | "google";
+  preferredLocale: EmailLocale;
+}
+
+export function ownerProfileInsertPayload(
+  input: Pick<
+    ProvisionOwnerInput,
+    "authUserId" | "email" | "businessName" | "preferredLocale"
+  >,
+  businessId: string,
+): {
+  id: string;
+  business_id: string;
+  role: "owner";
+  display_name: string;
+  email: string;
+  preferred_locale: EmailLocale;
+} {
+  return {
+    id: input.authUserId,
+    business_id: businessId,
+    role: "owner",
+    display_name: input.businessName,
+    email: input.email,
+    preferred_locale: input.preferredLocale,
+  };
 }
 
 export type ProvisionOwnerResult =
@@ -146,11 +172,7 @@ export async function provisionOwnerBusiness(
   }
 
   const { error: profileError } = await admin.from("users").insert({
-    id: input.authUserId,
-    business_id: businessRow.id,
-    role: "owner",
-    display_name: input.businessName,
-    email: input.email,
+    ...ownerProfileInsertPayload(input, businessRow.id),
     last_password_change_at: new Date().toISOString(),
   });
 
