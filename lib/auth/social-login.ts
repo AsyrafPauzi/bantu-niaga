@@ -44,6 +44,8 @@ export function socialAuthErrorMessage(code: string | null): string | null {
       return "No NiagaX account exists for this Google email. Start a trial or ask your manager for an invite.";
     case "oauth_cancelled":
       return "Google sign-in was cancelled. Try again when you're ready.";
+    case "email_taken":
+      return "That Google email already belongs to a NiagaX account. Sign in with the original method.";
     default:
       return code.length > 120
         ? "Google sign-in could not be completed. Try email sign-in instead."

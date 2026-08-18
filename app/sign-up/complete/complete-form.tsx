@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, type FormEvent, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
-import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { signOutAction } from "@/app/sign-in/actions";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import { readQuizFromSession } from "@/lib/onboarding/session-quiz";
-import { isPublicStandaloneDeployment } from "@/lib/platform/deployment";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const STATES = [
   { code: "KUL", label: "Kuala Lumpur" },
@@ -32,28 +30,17 @@ const STATES = [
 
 type SignupPath = "free" | "starter_trial";
 
-function SignUpForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const initialPath: SignupPath =
-    searchParams.get("path") === "starter_trial" ? "starter_trial" : "free";
+const inputCx =
+  "block w-full rounded-lg border border-cream-300 bg-white px-3.5 py-2.5 text-base text-ink shadow-card placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:placeholder:text-cream-400";
 
-  const [signupPath, setSignupPath] = useState<SignupPath>(initialPath);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export function CompleteGoogleSignupForm({ email }: { email: string }) {
+  const router = useRouter();
+  const [signupPath, setSignupPath] = useState<SignupPath>("free");
   const [businessName, setBusinessName] = useState("");
-  const [stateCode, setStateCode] = useState<string>("KUL");
+  const [stateCode, setStateCode] = useState("KUL");
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-
-  // Real-time password rule checks
-  const lengthOk = password.length >= 12;
-  const upperOk = /[A-Z]/.test(password);
-  const lowerOk = /[a-z]/.test(password);
-  const numberOk = /[0-9]/.test(password);
-  const passwordOk = lengthOk && upperOk && lowerOk && numberOk;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -62,20 +49,13 @@ function SignUpForm() {
       setError("Accept the terms to continue.");
       return;
     }
-    if (!passwordOk) {
-      setError("Password doesn't meet the requirements yet.");
-      return;
-    }
-
     setPending(true);
     try {
       const sessionQuiz = readQuizFromSession();
-      const res = await fetch("/api/auth/sign-up", {
+      const res = await fetch("/api/auth/complete-google-signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
-          password,
           business_name: businessName,
           state_code: stateCode,
           accept_terms: acceptTerms,
@@ -92,39 +72,24 @@ function SignUpForm() {
         }),
       });
       const json = await res.json();
+      if (res.status === 401) {
+        router.replace("/sign-in");
+        return;
+      }
       if (!res.ok) {
         setError(apiErrorMessage(json, "Could not create account"));
         setPending(false);
         return;
       }
-
-      if (json.verification_required === true) {
-        const verifyUrl = new URL("/verify-email", window.location.origin);
-        verifyUrl.searchParams.set("email", email);
-        if (typeof json.dev_verification_link === "string") {
-          verifyUrl.searchParams.set("dev_link", json.dev_verification_link);
-        }
-        router.replace(verifyUrl.pathname + verifyUrl.search);
+      if (json.already_complete === true) {
+        router.replace("/home");
+        router.refresh();
         return;
       }
-
-      const supabase = createSupabaseBrowserClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signInError) {
-        setError(
-          "Account created but auto-sign-in failed. Sign in manually with the credentials you just chose.",
-        );
-        setPending(false);
-        return;
-      }
-
       router.replace("/onboarding/recommendation");
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Sign-up failed");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign-up failed");
       setPending(false);
     }
   }
@@ -147,22 +112,10 @@ function SignUpForm() {
           Create your business
         </h2>
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-          {signupPath === "free"
-            ? "Free plan · invoices & payment tracking · upgrade any time."
-            : "14-day Solo trial · all six modules · upgrade any time."}
+          Finish the same details as email sign-up. Your Google email is already
+          signed in.
         </p>
       </div>
-
-      {!isPublicStandaloneDeployment() ? (
-        <>
-          <GoogleSignInButton nextPath="/home" />
-          <div className="flex items-center gap-3 text-xs text-ink-subtle dark:text-cream-400">
-            <span className="h-px flex-1 bg-cream-300 dark:bg-hairline-dark" />
-            OR SIGN UP WITH EMAIL
-            <span className="h-px flex-1 bg-cream-300 dark:bg-hairline-dark" />
-          </div>
-        </>
-      ) : null}
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <button
@@ -199,18 +152,11 @@ function SignUpForm() {
         </button>
       </div>
 
-      <p className="text-center text-sm text-ink-muted dark:text-cream-400">
-        Not sure?{" "}
-        <Link
-          href="/sign-up/guide"
-          className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-        >
-          Help me choose a plan
-        </Link>
-      </p>
-
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label="Business name">
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-medium text-ink dark:text-cream-100">
+            Business name
+          </span>
           <input
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
@@ -219,17 +165,16 @@ function SignUpForm() {
             required
             className={inputCx}
           />
-        </Field>
+        </label>
 
-        <Field label="Operating state">
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-medium text-ink dark:text-cream-100">
+            Operating state
+          </span>
           <select
             value={stateCode}
             onChange={(e) => setStateCode(e.target.value)}
             className={`${inputCx} appearance-none bg-no-repeat bg-[right_0.75rem_center] pr-9`}
-            style={{
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12'%3E%3Cpath fill='%2378716C' d='M6 8 1 3h10z'/%3E%3C/svg%3E\")",
-            }}
           >
             {STATES.map((s) => (
               <option key={s.code} value={s.code}>
@@ -237,51 +182,19 @@ function SignUpForm() {
               </option>
             ))}
           </select>
-        </Field>
+        </label>
 
-        <Field label="Work email">
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-medium text-ink dark:text-cream-100">
+            Work email
+          </span>
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@business.com"
-            autoComplete="email"
-            required
-            className={inputCx}
+            readOnly
+            className={`${inputCx} bg-cream-50 text-ink-muted dark:bg-hairline-dark/40`}
           />
-        </Field>
-
-        <Field label="Password">
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min 12 characters · upper + lower + number"
-              autoComplete="new-password"
-              required
-              className={`${inputCx} pr-10`}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100"
-            >
-              {showPassword ? (
-                <EyeOff className="h-4 w-4" strokeWidth={2} />
-              ) : (
-                <Eye className="h-4 w-4" strokeWidth={2} />
-              )}
-            </button>
-          </div>
-          <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-ink-muted dark:text-cream-400">
-            <PwdRule ok={lengthOk}>12+ characters</PwdRule>
-            <PwdRule ok={upperOk}>One uppercase letter</PwdRule>
-            <PwdRule ok={lowerOk}>One lowercase letter</PwdRule>
-            <PwdRule ok={numberOk}>One number</PwdRule>
-          </ul>
-        </Field>
+        </label>
 
         <label className="flex items-start gap-2 text-sm">
           <input
@@ -320,7 +233,7 @@ function SignUpForm() {
 
         <button
           type="submit"
-          disabled={pending || !passwordOk || !acceptTerms}
+          disabled={pending || !acceptTerms}
           className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-500 text-base font-semibold text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:bg-cream-300 disabled:text-ink-subtle dark:disabled:bg-hairline-dark dark:disabled:text-cream-400"
         >
           {pending ? (
@@ -328,70 +241,20 @@ function SignUpForm() {
           ) : (
             <Sparkles className="h-4 w-4" strokeWidth={2} />
           )}
-          {signupPath === "free" ? "Create business — Free" : "Create business & start trial"}
+          {signupPath === "free"
+            ? "Create business — Free"
+            : "Create business & start trial"}
         </button>
       </form>
 
-      <p className="text-center text-sm text-ink-muted dark:text-cream-400">
-        Already running on NiagaX?{" "}
-        <Link
-          href="/sign-in"
-          className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+      <form action={signOutAction} className="text-center">
+        <button
+          type="submit"
+          className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-200"
         >
-          Sign in
-        </Link>
-      </p>
+          Use a different account
+        </button>
+      </form>
     </AuthShell>
-  );
-}
-
-export default function SignUpPage() {
-  return (
-    <Suspense fallback={null}>
-      <SignUpForm />
-    </Suspense>
-  );
-}
-
-function PwdRule({
-  ok,
-  children,
-}: {
-  ok: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <li
-      className={`inline-flex items-center gap-1.5 ${
-        ok ? "text-status-success" : ""
-      }`}
-    >
-      {ok ? (
-        <Check className="h-3 w-3" strokeWidth={3} />
-      ) : (
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-40" />
-      )}
-      {children}
-    </li>
-  );
-}
-
-const inputCx =
-  "block w-full rounded-lg border border-cream-300 bg-white px-3.5 py-2.5 text-base text-ink shadow-card placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:placeholder:text-cream-400";
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block text-sm">
-      <span className="mb-1.5 block font-medium text-ink dark:text-cream-100">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }

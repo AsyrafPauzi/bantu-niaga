@@ -16,31 +16,31 @@ const passwordRules = z
   .regex(/[a-z]/, "Add a lowercase letter")
   .regex(/[0-9]/, "Add a number");
 
+export const malaysianStateCodeSchema = z.enum([
+  "JHR",
+  "KDH",
+  "KTN",
+  "MLK",
+  "NSN",
+  "PHG",
+  "PNG",
+  "PRK",
+  "PLS",
+  "SBH",
+  "SWK",
+  "SGR",
+  "TRG",
+  "KUL",
+  "LBN",
+  "PJY",
+]);
+
 export const signUpSchema = z
   .object({
     email: z.string().trim().toLowerCase().email("Use a valid email"),
     password: passwordRules,
     business_name: z.string().trim().min(2, "Business name is too short").max(120),
-    state_code: z
-      .enum([
-        "JHR",
-        "KDH",
-        "KTN",
-        "MLK",
-        "NSN",
-        "PHG",
-        "PNG",
-        "PRK",
-        "PLS",
-        "SBH",
-        "SWK",
-        "SGR",
-        "TRG",
-        "KUL",
-        "LBN",
-        "PJY",
-      ])
-      .optional(),
+    state_code: malaysianStateCodeSchema.optional(),
     accept_terms: z.literal(true, {
       message: "Accept the terms to continue",
     }),
@@ -48,6 +48,26 @@ export const signUpSchema = z
     onboarding_quiz: onboardingQuizSchema.optional(),
   })
   .strict();
+
+export const completeGoogleSignupSchema = z
+  .object({
+    business_name: z
+      .string()
+      .trim()
+      .min(2, "Business name is too short")
+      .max(120),
+    state_code: malaysianStateCodeSchema.optional(),
+    accept_terms: z.literal(true, {
+      message: "Accept the terms to continue",
+    }),
+    signup_path: z.enum(["free", "starter_trial"]).optional().default("free"),
+    onboarding_quiz: onboardingQuizSchema.optional(),
+  })
+  .strict();
+
+export type CompleteGoogleSignupInput = z.infer<
+  typeof completeGoogleSignupSchema
+>;
 
 export const forgotPasswordSchema = z
   .object({
@@ -65,26 +85,7 @@ export const addBusinessSchema = z
   .object({
     password: z.string().min(1, "Enter your password to continue"),
     business_name: z.string().trim().min(2, "Business name is too short").max(120),
-    state_code: z
-      .enum([
-        "JHR",
-        "KDH",
-        "KTN",
-        "MLK",
-        "NSN",
-        "PHG",
-        "PNG",
-        "PRK",
-        "PLS",
-        "SBH",
-        "SWK",
-        "SGR",
-        "TRG",
-        "KUL",
-        "LBN",
-        "PJY",
-      ])
-      .optional(),
+    state_code: malaysianStateCodeSchema.optional(),
     accept_terms: z.literal(true, {
       message: "Accept the terms to continue",
     }),

@@ -29,4 +29,10 @@ describe("socialAuthErrorMessage", () => {
     expect(socialAuthErrorMessage("no_account")).toMatch(/No NiagaX account/);
     expect(socialAuthErrorMessage("oauth_cancelled")).toMatch(/cancelled/i);
   });
+
+  it("maps email_taken", () => {
+    expect(socialAuthErrorMessage("email_taken")).toMatch(
+      /already belongs to a NiagaX account/i,
+    );
+  });
 });

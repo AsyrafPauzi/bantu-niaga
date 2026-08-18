@@ -3,52 +3,23 @@ import { ZodError } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { signUpSchema } from "@/lib/auth/schemas";
 import { authCallbackUrl } from "@/lib/auth/site-url";
-import {
-  DEFAULT_GENERIC_QUIZ_ANSWERS,
-  planQuizToDbPayload,
-} from "@/lib/onboarding/default-quiz";
-import type { PlanQuizAnswers } from "@/lib/onboarding/plan-quiz";
-import type { OnboardingQuizInput } from "@/lib/onboarding/schemas";
 import { isEmailVerificationRequired } from "@/lib/auth/email-verification-policy";
 import { sendSignupVerificationEmail } from "@/lib/auth/send-verification-email";
-import { ensureMembership } from "@/lib/auth/memberships";
 import { enforceAuthRateLimit } from "@/lib/api/auth-rate-limit";
-import {
-  freePlanRenewalAt,
-  issueSubscriptionInvoice,
-  subscriptionPeriodLabel,
-  trialRenewalAt,
-} from "@/lib/settings/subscription-billing";
 import { isStandaloneDeployment } from "@/lib/platform/deployment";
 import { canAcceptPublicSignup } from "@/lib/platform/standalone-bootstrap";
-import { grantTierBundledCredits } from "@/lib/settings/subscription-credits";
+import { provisionOwnerBusiness } from "@/lib/auth/provision-owner-business";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function quizAnswersForSignUp(
-  onboardingQuiz: OnboardingQuizInput | undefined,
-): PlanQuizAnswers {
-  if (onboardingQuiz) {
-    return {
-      businessType: onboardingQuiz.business_type,
-      teamSize: onboardingQuiz.team_size_band,
-      priorities: onboardingQuiz.priorities,
-    };
-  }
-  return DEFAULT_GENERIC_QUIZ_ANSWERS;
-}
-
 /**
  * POST /api/auth/sign-up — open self-serve registration.
  *
- * Pipeline (all in this single endpoint so partial failures roll back):
+ * Pipeline:
  *   1. Validate input with Zod.
  *   2. Create the auth user (auto-confirmed when verification is bypassed).
- *   3. Create the business row (Starter tier, 30-day renewal window).
- *   4. Create the public.users profile row (role='owner').
- *   5. Seed a single 'starter' invoice marker so the billing page has
- *      something to show on first visit.
+ *   3. Provision business + owner profile via shared helper.
  *
  * On any failure after step 2 we DELETE the auth user to keep state
  * consistent — otherwise the user could sign in but never reach /home
@@ -98,7 +69,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // Step 1: auth user
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email: parsed.email,
     password: parsed.password,
@@ -124,7 +94,6 @@ export async function POST(request: Request) {
 
   const authUser = created.user;
 
-  // Helper — cleanup on rollback.
   async function rollback() {
     try {
       await admin.auth.admin.deleteUser(authUser.id);
@@ -135,186 +104,39 @@ export async function POST(request: Request) {
     }
   }
 
-  // Step 2: business + users + first invoice (single transaction via RPC)
-  const idcompany = slugifyBusiness(parsed.business_name) + "-" + randomShort();
-  const isFreePath = parsed.signup_path === "free";
-  const quizDb = planQuizToDbPayload(quizAnswersForSignUp(parsed.onboarding_quiz));
-
-  const { data: businessRow, error: businessError } = await admin
-    .from("businesses")
-    .insert({
-      idcompany,
-      name: parsed.business_name,
-      state_code: parsed.state_code ?? null,
-      tier: isFreePath ? "starter" : "micro",
-      subscription_status: isFreePath ? "active" : "trial",
-      subscription_renewal_at: isFreePath ? freePlanRenewalAt() : trialRenewalAt(),
-      brand_primary_hex: "#5B8C5A",
-      brand_accent_hex: "#F4A340",
-      credit_balance: 0,
-      business_type: quizDb.business_type,
-      team_size_band: quizDb.team_size_band,
-      onboarding_priorities: quizDb.priorities,
-    })
-    .select("id, idcompany, name")
-    .single();
-
-  if (businessError || !businessRow) {
-    await rollback();
-    return NextResponse.json(
-      {
-        error: "business_create_failed",
-        message: businessError?.message ?? "Could not create business",
-      },
-      { status: 500 },
-    );
-  }
-
-  const { error: profileError } = await admin.from("users").insert({
-    id: authUser.id,
-    business_id: businessRow.id,
-    role: "owner",
-    display_name: parsed.business_name,
-    email: parsed.email,
-    last_password_change_at: new Date().toISOString(),
-  });
-
-  if (profileError) {
-    await admin.from("businesses").delete().eq("id", businessRow.id);
-    await rollback();
-    return NextResponse.json(
-      { error: "profile_create_failed", message: profileError.message },
-      { status: 500 },
-    );
-  }
-
-  try {
-    await ensureMembership(authUser.id, businessRow.id, "owner", {
-      email: parsed.email,
-      display_name: parsed.business_name,
-    });
-  } catch (membershipError) {
-    await admin.from("users").delete().eq("id", authUser.id);
-    await admin.from("businesses").delete().eq("id", businessRow.id);
-    await rollback();
-    return NextResponse.json(
-      {
-        error: "membership_create_failed",
-        message:
-          membershipError instanceof Error
-            ? membershipError.message
-            : "Could not link business membership",
-      },
-      { status: 500 },
-    );
-  }
-
-  // Step 3: seed a welcome audit entry
-  // explicit PDPA-aligned consent rows for the two required consents.
-  // The remaining (opt-in) consents default to false until the user toggles
-  // them in /settings/privacy.
   const sourceIp =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip") ||
     null;
   const userAgent = request.headers.get("user-agent") || null;
-  const policyVersion = process.env.PRIVACY_POLICY_VERSION || "2026-06-14";
 
-  try {
-    await issueSubscriptionInvoice(admin, {
-      businessId: businessRow.id,
-      userId: authUser.id,
-      periodLabel: isFreePath
-        ? `${subscriptionPeriodLabel()} — Free plan`
-        : "14-day Solo trial",
-      amountMyr: 0,
-    });
-  } catch (invoiceError) {
-    await admin.from("users").delete().eq("id", authUser.id);
-    await admin.from("businesses").delete().eq("id", businessRow.id);
+  const provisioned = await provisionOwnerBusiness(admin, {
+    authUserId: authUser.id,
+    email: parsed.email,
+    businessName: parsed.business_name,
+    stateCode: parsed.state_code,
+    signupPath: parsed.signup_path,
+    onboardingQuiz: parsed.onboarding_quiz,
+    sourceIp,
+    userAgent,
+    signupSource: "self_serve",
+  });
+
+  if (!provisioned.ok) {
     await rollback();
     return NextResponse.json(
-      {
-        error: "invoice_create_failed",
-        message:
-          invoiceError instanceof Error
-            ? invoiceError.message
-            : "Could not create subscription invoice",
-      },
-      { status: 500 },
+      { error: provisioned.error, message: provisioned.message },
+      { status: provisioned.status },
     );
   }
-
-  if (!isFreePath) {
-    try {
-      await grantTierBundledCredits(
-        businessRow.id,
-        "micro",
-        authUser.id,
-        admin,
-      );
-    } catch (creditError) {
-      await admin.from("users").delete().eq("id", authUser.id);
-      await admin.from("businesses").delete().eq("id", businessRow.id);
-      await rollback();
-      return NextResponse.json(
-        {
-          error: "credit_grant_failed",
-          message:
-            creditError instanceof Error
-              ? creditError.message
-              : "Could not grant trial credits",
-        },
-        { status: 500 },
-      );
-    }
-  }
-
-  await Promise.all([
-    admin.from("audit_log").insert({
-      business_id: businessRow.id,
-      actor_user_id: authUser.id,
-      action: "auth.sign_up",
-      entity_type: "business",
-      entity_id: businessRow.id,
-      diff: {
-        tier: isFreePath ? "starter" : "micro",
-        signup_path: parsed.signup_path,
-        trial_days: isFreePath ? 0 : 14,
-        policy_version: policyVersion,
-      },
-    }),
-    admin.from("user_consents").insert([
-      {
-        business_id: businessRow.id,
-        user_id: authUser.id,
-        kind: "terms_of_service",
-        granted: true,
-        policy_version: policyVersion,
-        granted_at: new Date().toISOString(),
-        source_ip: sourceIp,
-        user_agent: userAgent,
-      },
-      {
-        business_id: businessRow.id,
-        user_id: authUser.id,
-        kind: "privacy_notice",
-        granted: true,
-        policy_version: policyVersion,
-        granted_at: new Date().toISOString(),
-        source_ip: sourceIp,
-        user_agent: userAgent,
-      },
-    ]),
-  ]);
 
   if (!verificationRequired) {
     return NextResponse.json(
       {
         ok: true,
         verification_required: false,
-        business_id: businessRow.id,
-        idcompany: businessRow.idcompany,
+        business_id: provisioned.businessId,
+        idcompany: provisioned.idcompany,
         email: parsed.email,
       },
       { status: 201 },
@@ -338,7 +160,7 @@ export async function POST(request: Request) {
   } catch (emailError) {
     await admin.from("user_consents").delete().eq("user_id", authUser.id);
     await admin.from("users").delete().eq("id", authUser.id);
-    await admin.from("businesses").delete().eq("id", businessRow.id);
+    await admin.from("businesses").delete().eq("id", provisioned.businessId);
     await rollback();
     return NextResponse.json(
       {
@@ -356,24 +178,11 @@ export async function POST(request: Request) {
     {
       ok: true,
       verification_required: true,
-      business_id: businessRow.id,
-      idcompany: businessRow.idcompany,
+      business_id: provisioned.businessId,
+      idcompany: provisioned.idcompany,
       email: parsed.email,
       dev_verification_link: devVerificationLink,
     },
     { status: 201 },
   );
-}
-
-function slugifyBusiness(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40) || "business";
-}
-
-function randomShort(): string {
-  return Math.random().toString(36).slice(2, 8);
 }

@@ -23,6 +23,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { isEmailVerified } from "@/lib/auth/email-verification-policy";
 import {
+  incompleteSessionDecision,
+  isPublicAuthPath,
+} from "@/lib/auth/incomplete-session";
+import {
   getSupabasePublicEnv,
   warnSupabaseNotConfiguredOnce,
 } from "@/lib/supabase/env";
@@ -66,6 +70,7 @@ export async function middleware(request: NextRequest) {
   }
 
   let user = null;
+  let hasProfile = false;
 
   try {
     const supabase = createServerClient(env.url, env.anonKey, {
@@ -90,6 +95,19 @@ export async function middleware(request: NextRequest) {
 
     const result = await supabase.auth.getUser();
     user = result.data.user;
+
+    if (user) {
+      const { data: profileRow, error: profileLookupError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profileLookupError) {
+        user = null;
+      } else {
+        hasProfile = Boolean(profileRow);
+      }
+    }
   } catch (err) {
     // Fail closed: if Supabase is unreachable, env is misconfigured, or the
     // SDK throws for any reason, treat the request as unauthenticated rather
@@ -111,6 +129,8 @@ export async function middleware(request: NextRequest) {
       const allowedWhileUnverified =
         pathname === "/verify-email" ||
         pathname === "/api/auth/resend-verification" ||
+        pathname === "/sign-up/complete" ||
+        pathname === "/api/auth/complete-google-signup" ||
         pathname.startsWith("/auth/callback");
 
       if (!allowedWhileUnverified) {
@@ -146,12 +166,49 @@ export async function middleware(request: NextRequest) {
       }
     }
 
+    const decision = incompleteSessionDecision({
+      pathname,
+      hasProfile,
+    });
+    if (decision === "forbidden_api") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "signup_incomplete",
+            message: "Finish creating your business first.",
+          },
+          requestId,
+        },
+        {
+          status: 403,
+          headers: {
+            "x-request-id": requestId,
+            "Cache-Control": "private, no-store",
+          },
+        },
+      );
+    }
+    if (decision === "redirect_complete") {
+      const completeUrl = request.nextUrl.clone();
+      completeUrl.pathname = "/sign-up/complete";
+      completeUrl.search = "";
+      const redirect = NextResponse.redirect(completeUrl);
+      redirect.headers.set("x-request-id", requestId);
+      return redirect;
+    }
+
+    return response;
+  }
+
+  if (isPublicAuthPath(pathname)) {
     return response;
   }
 
   // Registration and password recovery must work while logged out.
   if (
     pathname === "/api/auth/sign-up" ||
+    pathname === "/api/auth/complete-google-signup" ||
     pathname === "/api/auth/add-business" ||
     pathname === "/api/auth/forgot-password" ||
     pathname === "/api/auth/reset-password" ||
@@ -216,6 +273,11 @@ export const config = {
   matcher: [
     "/(add-company|admin|boardroom|finance|home|hr|marketing|marketplace|more|operations|sales|settings)/:path*",
     "/super-admin/:path*",
+    "/sign-in",
+    "/sign-up",
+    "/sign-up/:path*",
+    "/legal/:path*",
+    "/onboarding/:path*",
     "/api/((?!health|webhooks).*)",
   ],
 };
