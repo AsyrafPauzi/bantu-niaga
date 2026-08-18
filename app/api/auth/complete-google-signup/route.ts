@@ -6,6 +6,7 @@ import { provisionOwnerBusiness } from "@/lib/auth/provision-owner-business";
 import { isStandaloneDeployment } from "@/lib/platform/deployment";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -97,6 +98,7 @@ export async function POST(request: Request) {
     sourceIp,
     userAgent: request.headers.get("user-agent"),
     signupSource: "google",
+    preferredLocale: parsed.preferred_locale,
   });
 
   if (!result.ok) {
@@ -104,6 +106,23 @@ export async function POST(request: Request) {
       { error: result.error, message: result.message },
       { status: result.status },
     );
+  }
+
+  const existingMeta =
+    user.user_metadata && typeof user.user_metadata === "object"
+      ? user.user_metadata
+      : {};
+  const { error: metaError } = await admin.auth.admin.updateUserById(user.id, {
+    user_metadata: {
+      ...existingMeta,
+      preferred_locale: parsed.preferred_locale,
+      signup_source: "google",
+    },
+  });
+  if (metaError) {
+    logger.warn("auth.complete_google.metadata_locale_failed", {
+      userId: user.id,
+    });
   }
 
   return NextResponse.json({ ok: true });

@@ -26,6 +26,7 @@ interface HarnessOpts {
 interface Harness {
   POST: (request: Request) => Promise<Response>;
   provisionOwnerBusiness: ReturnType<typeof vi.fn>;
+  updateUserById: ReturnType<typeof vi.fn>;
 }
 
 async function loadRoute(opts: HarnessOpts = {}): Promise<Harness> {
@@ -73,9 +74,12 @@ async function loadRoute(opts: HarnessOpts = {}): Promise<Harness> {
     provisionOwnerBusiness,
   }));
 
+  const updateUserById = vi.fn(async () => ({ data: {}, error: null }));
+
   let idLookup = true;
   vi.doMock("@/lib/supabase/service-role", () => ({
     createServiceRoleClient: () => ({
+      auth: { admin: { updateUserById } },
       from: (table: string) => {
         if (table !== "users") {
           throw new Error(`unexpected table: ${table}`);
@@ -98,7 +102,7 @@ async function loadRoute(opts: HarnessOpts = {}): Promise<Harness> {
   }));
 
   const route = await import("@/app/api/auth/complete-google-signup/route");
-  return { POST: route.POST, provisionOwnerBusiness };
+  return { POST: route.POST, provisionOwnerBusiness, updateUserById };
 }
 
 let requestSeq = 0;
@@ -165,7 +169,7 @@ describe("POST /api/auth/complete-google-signup", () => {
   });
 
   it("is idempotent when the profile already exists", async () => {
-    const { POST, provisionOwnerBusiness } = await loadRoute({
+    const { POST, provisionOwnerBusiness, updateUserById } = await loadRoute({
       profileById: { id: AUTH_USER.id },
     });
     const res = await POST(buildRequest(VALID_BODY));
@@ -173,6 +177,7 @@ describe("POST /api/auth/complete-google-signup", () => {
     const json = await res.json();
     expect(json).toEqual({ ok: true, already_complete: true });
     expect(provisionOwnerBusiness).not.toHaveBeenCalled();
+    expect(updateUserById).not.toHaveBeenCalled();
   });
 
   it("provisions from the session email, not the body", async () => {
@@ -194,5 +199,26 @@ describe("POST /api/auth/complete-google-signup", () => {
     expect(input.email).toBe(AUTH_USER.email);
     expect(input.signupSource).toBe("google");
     expect(input.businessName).toBe("Kedai Contoh");
+  });
+
+  it("provisions preferredLocale and updates Auth metadata", async () => {
+    const { POST, provisionOwnerBusiness, updateUserById } = await loadRoute({
+      profileById: null,
+      profileByEmail: null,
+    });
+    const res = await POST(
+      buildRequest({ ...VALID_BODY, preferred_locale: "ms" }),
+    );
+    expect(res.status).toBe(200);
+    const input = provisionOwnerBusiness.mock.calls[0][1] as {
+      preferredLocale: string;
+    };
+    expect(input.preferredLocale).toBe("ms");
+    expect(updateUserById).toHaveBeenCalledWith(
+      AUTH_USER.id,
+      expect.objectContaining({
+        user_metadata: expect.objectContaining({ preferred_locale: "ms" }),
+      }),
+    );
   });
 });
