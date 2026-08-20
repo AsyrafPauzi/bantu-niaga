@@ -47,7 +47,7 @@ export function MobileShell({
   const tabGridClass = mobileBottomTabGridClass(bottomTabs.length);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
+    <div className="flex h-dvh flex-col bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
       <header className="sticky top-0 z-30 bg-brand-50/95 backdrop-blur border-b border-brand-100 dark:bg-brand-900/40 dark:border-hairline-dark">
         <div className="flex items-center justify-between gap-2 px-4 py-3">
           <button
@@ -85,7 +85,7 @@ export function MobileShell({
           "flex-1 min-h-0",
           isAssistantRoute
             ? "flex flex-col overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
-            : "px-4 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]",
+            : "overflow-y-auto px-4 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]",
         )}
       >
         {children}
