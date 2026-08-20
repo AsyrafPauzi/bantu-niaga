@@ -174,6 +174,7 @@ export const leaveStatusUpdateSchema = z
   .object({
     status: z.enum(["approved", "rejected"]),
     decision_note: optionalText(500),
+    acknowledge_booking_conflicts: z.boolean().optional(),
   })
   .strict();
 

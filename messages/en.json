@@ -133,7 +133,14 @@
     "leave": "Leave",
     "holidays": "Public holidays",
     "staffPortal": "Staff portal",
-    "myPayslips": "My payslips"
+    "myPayslips": "My payslips",
+    "deskOffTitle": "Off today / this week",
+    "deskPendingTitle": "Pending approvals",
+    "deskExpiringTitle": "Expiring docs",
+    "deskFullTeam": "Full team in",
+    "deskInboxClear": "Inbox clear",
+    "deskNothingExpiring": "Nothing expiring",
+    "deskNeedsFile": "Needs file"
   },
   "admin": {
     "title": "Admin",

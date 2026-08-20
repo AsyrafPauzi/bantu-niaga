@@ -145,7 +145,7 @@ export async function POST(request: Request) {
           ok: false,
           error: {
             code: "staff_on_leave",
-            message: `${c.employeeName} is on leave (${c.startsOn} – ${c.endsOn}).`,
+            message: `${c.employeeName} is on leave ${c.startsOn}–${c.endsOn}.`,
             conflicts: leaveConflicts,
           },
         },

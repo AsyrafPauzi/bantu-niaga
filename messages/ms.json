@@ -133,7 +133,14 @@
     "leave": "Cuti",
     "holidays": "Cuti umum",
     "staffPortal": "Portal staf",
-    "myPayslips": "Slip gaji saya"
+    "myPayslips": "Slip gaji saya",
+    "deskOffTitle": "Cuti hari ini / minggu ini",
+    "deskPendingTitle": "Menunggu kelulusan",
+    "deskExpiringTitle": "Dokumen hampir tamat",
+    "deskFullTeam": "Semua staf hadir",
+    "deskInboxClear": "Tiada menunggu",
+    "deskNothingExpiring": "Tiada yang hampir tamat",
+    "deskNeedsFile": "Fail belum lengkap"
   },
   "admin": {
     "title": "Admin",
