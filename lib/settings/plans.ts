@@ -10,6 +10,8 @@ export interface Tier {
   key: TierKey;
   label: string;
   priceMyr: number | null;
+  /** Annual price = priceMyr × 10 (pay-10-get-12). Undefined for Free / Scale tiers. */
+  annualPriceMyr?: number;
   cadence: string;
   blurb: string;
   features: string[];
@@ -47,6 +49,7 @@ export const TIERS: readonly Tier[] = [
     key: "basic",
     label: "Basic",
     priceMyr: 39,
+    annualPriceMyr: 39 * 10,
     cadence: "/month",
     blurb: "Freelancers — Admin, Sales, and Finance desk.",
     features: [
@@ -66,6 +69,7 @@ export const TIERS: readonly Tier[] = [
     key: "micro",
     label: "Solo",
     priceMyr: 79,
+    annualPriceMyr: 79 * 10,
     cadence: "/month",
     blurb: "Full six-module stack for solo owners.",
     features: [
@@ -85,6 +89,7 @@ export const TIERS: readonly Tier[] = [
     key: "sme",
     label: "Micro",
     priceMyr: 169,
+    annualPriceMyr: 169 * 10,
     cadence: "/month",
     blurb: "Primary tier for micro teams.",
     features: [
@@ -105,6 +110,7 @@ export const TIERS: readonly Tier[] = [
     key: "enterprise",
     label: "Small",
     priceMyr: 299,
+    annualPriceMyr: 299 * 10,
     cadence: "/month",
     blurb: "Growing SMEs with larger teams.",
     features: [

@@ -23,6 +23,7 @@ export interface StartSubscriptionCheckoutInput {
   amountMyr: number;
   payerEmail: string;
   payerName: string;
+  cadence?: "monthly" | "annual";
 }
 
 export interface StartSubscriptionCheckoutResult {
@@ -42,36 +43,47 @@ export async function startSubscriptionCheckout(
     throw new BillplzNotConfiguredError();
   }
 
+  const cadence = input.cadence ?? "monthly";
   const collectionId = process.env.BILLPLZ_COLLECTION_ID!.trim();
   const amountCents = Math.round(input.amountMyr * 100);
   if (amountCents < 100) {
     throw new Error("Minimum subscription payment is RM 1.00.");
   }
 
+  const cadenceNote = cadence === "annual" ? " — annual (2 months free)" : " — monthly";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
-  const bill = await createBillplzBill({
-    collectionId,
-    email: input.payerEmail,
-    name: input.payerName,
-    amountCents,
-    description: subscriptionBillDescription(input.pendingTier),
-    callbackUrl: billplzCallbackUrl(),
-    redirectUrl: appUrl
-      ? `${appUrl}/settings/subscription?paid=1`
-      : undefined,
-    reference1: input.businessId,
-    reference2: input.pendingTier,
-  });
+
+  let bill;
+  try {
+    bill = await createBillplzBill({
+      collectionId,
+      email: input.payerEmail,
+      name: input.payerName,
+      amountCents,
+      description: subscriptionBillDescription(input.pendingTier) + cadenceNote,
+      callbackUrl: billplzCallbackUrl(),
+      redirectUrl: appUrl
+        ? `${appUrl}/settings/subscription?paid=1`
+        : undefined,
+      reference1: input.businessId,
+      reference2: input.pendingTier,
+    });
+  } catch (e) {
+    throw new Error(
+      e instanceof Error ? e.message : "Failed to create Billplz bill",
+    );
+  }
 
   const { data: pending, error: pendingErr } = await input.supabase.rpc(
     "settings_create_subscription_pending",
     {
-      p_business_id: input.businessId,
-      p_tier: input.pendingTier,
-      p_amount_myr: input.amountMyr,
-      p_user_id: input.userId,
-      p_billplz_id: bill.id,
-      p_billplz_url: bill.url,
+      p_business_id:     input.businessId,
+      p_tier:            input.pendingTier,
+      p_amount_myr:      input.amountMyr,
+      p_user_id:         input.userId,
+      p_billplz_id:      bill.id,
+      p_billplz_url:     bill.url,
+      p_billing_cadence: cadence,
     },
   );
 

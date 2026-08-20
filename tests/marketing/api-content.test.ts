@@ -566,6 +566,18 @@ describe.runIf(ENABLED)("/api/marketing/content/[id]/media — attach", () => {
       channel: "tiktok",
     });
     const fileId = randomUUID();
+    const { error: fileInsertErr } = await fixture!.service
+      .from("marketing_files")
+      .insert({
+        id: fileId,
+        business_id: fixture!.bizA,
+        uploaded_by: fixture!.ownerAId,
+        storage_path: `${fixture!.bizA}/test/${fileId}.jpg`,
+        file_name: "test.jpg",
+        mime_type: "image/jpeg",
+        file_size_bytes: 1024,
+      });
+    if (fileInsertErr) throw new Error(`seed marketing_files: ${fileInsertErr.message}`);
     const { POST } = await import(
       "@/app/api/marketing/content/[id]/media/route"
     );
@@ -589,6 +601,18 @@ describe.runIf(ENABLED)("/api/marketing/content/[id]/media — attach", () => {
       channel: "tiktok",
     });
     const fileId = randomUUID();
+    const { error: fileInsertErr } = await fixture!.service
+      .from("marketing_files")
+      .insert({
+        id: fileId,
+        business_id: fixture!.bizA,
+        uploaded_by: fixture!.ownerAId,
+        storage_path: `${fixture!.bizA}/test/${fileId}.jpg`,
+        file_name: "test.jpg",
+        mime_type: "image/jpeg",
+        file_size_bytes: 1024,
+      });
+    if (fileInsertErr) throw new Error(`seed marketing_files: ${fileInsertErr.message}`);
     const { POST } = await import(
       "@/app/api/marketing/content/[id]/media/route"
     );

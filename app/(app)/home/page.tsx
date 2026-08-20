@@ -141,7 +141,7 @@ function fmtRel(iso: string): string {
 }
 
 function formatGrowthPct(pct: number | null): string {
-  if (pct === null) return "No prior month";
+  if (pct === null) return "";
   return `${pct >= 0 ? "+" : ""}${pct}%`;
 }
 
@@ -238,71 +238,73 @@ export default async function HomePage() {
   const PILLAR_OVERVIEW: PillarTile[] = [
     {
       href: "/admin",
-      label: "Admin",
+      label: tHome("nav.admin"),
       pillar: "admin",
       icon: FileText,
       metric: String(figures.docsThisMonth),
-      secondary: "docs",
-      helper: `${figures.docsThisMonth} uploaded this month`,
+      secondary: tHome("home.docsUploadedHelper", { count: figures.docsThisMonth }),
+      helper: tHome("home.docsUploadedHelper", { count: figures.docsThisMonth }),
       tone: "admin",
       live: true,
     },
     {
       href: "/finance",
-      label: "Finance",
+      label: tHome("nav.finance"),
       pillar: "finance",
       icon: Banknote,
       metric: `RM ${formatMyrAmount(figures.financeMtd)}`,
       secondary: "MTD",
-      helper: `${figures.outstandingInvoices} invoices outstanding`,
+      helper: tHome("home.invoicesOutstandingHelper", { count: figures.outstandingInvoices }),
       tone: "finance",
       live: true,
     },
     {
       href: "/operations",
-      label: "Operations",
+      label: tHome("nav.operations"),
       pillar: "operations",
       icon: Boxes,
       metric: String(figures.opsBacklog),
-      secondary: `${figures.opsAtRisk} SLA risk`,
+      secondary: tHome("home.slaRisk", { count: figures.opsAtRisk }),
       helper:
-        figures.opsAtRisk > 0 ? "Some orders need attention" : "All on track",
+        figures.opsAtRisk > 0
+          ? tHome("home.ordersNeedAttention")
+          : tHome("home.allOnTrack"),
       tone: figures.opsAtRisk > 0 ? "warning" : "operations",
       live: true,
     },
     {
       href: "/marketing",
-      label: "Marketing",
+      label: tHome("nav.marketing"),
       pillar: "marketing",
       icon: Megaphone,
       metric: formatCount(snapshot.totalCustomers),
       secondary: `+${formatCount(snapshot.newThisMonth)} MTD`,
-      helper: "Customers in CRM",
+      helper: tHome("home.customersInCrm"),
       tone: "marketing",
       live: true,
     },
     {
       href: "/sales",
-      label: "Sales",
+      label: tHome("nav.sales"),
       pillar: "sales",
       icon: ShoppingCart,
       metric: formatCount(figures.salesTickets),
       secondary: `RM ${formatMyrAmount(figures.salesToday)} today`,
-      helper: "Across all channels",
+      helper: tHome("home.acrossChannels"),
       tone: "sales",
       live: true,
     },
     {
       href: "/hr",
-      label: "HR",
+      label: tHome("nav.hr"),
       pillar: "hr",
       icon: Users,
       metric: String(figures.hrHeadcount),
       secondary: `${figures.hrPendingLeave} pending leave`,
       helper:
         figures.hrPendingLeave > 0
-          ? "Approve in HR dashboard"
-          : "All caught up",
+          ? tHome("home.approveInHr")
+          : tHome("home.allCaughtUp"),
       tone: "hr",
       live: true,
     },
@@ -341,9 +343,13 @@ export default async function HomePage() {
         className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4"
       >
         <KpiTile
-          label="Revenue (MTD)"
+          label={tHome("home.kpiRevenueMtd")}
           value={`RM ${formatMyrAmount(figures.revenueMtd)}`}
-          delta={formatGrowthPct(figures.revenueGrowthPct)}
+          delta={
+            figures.revenueGrowthPct === null
+              ? tHome("home.noPriorMonth")
+              : formatGrowthPct(figures.revenueGrowthPct)
+          }
           deltaTone={
             figures.revenueGrowthPct === null
               ? "neutral"
@@ -351,27 +357,27 @@ export default async function HomePage() {
                 ? "success"
                 : "warning"
           }
-          helper="vs last month"
+          helper={tHome("home.vsLastMonth")}
           icon={TrendingUp}
         />
         <KpiTile
-          label="Outstanding"
+          label={tHome("home.kpiOutstanding")}
           value={`RM ${formatMyrAmount(figures.outstanding)}`}
-          delta={`${figures.outstandingInvoices} invoices`}
+          delta={tHome("home.invoicesDelta", { count: figures.outstandingInvoices })}
           deltaTone="warning"
-          helper="unpaid"
+          helper={tHome("home.unpaid")}
           icon={Clock}
         />
         <KpiTile
-          label="Low stock"
+          label={tHome("home.kpiLowStock")}
           value={`${figures.lowStock} SKU`}
-          delta={figures.lowStock > 0 ? "Needs reorder" : "All stocked"}
+          delta={figures.lowStock > 0 ? tHome("home.needsReorder") : tHome("home.allStocked")}
           deltaTone={figures.lowStock > 0 ? "danger" : "success"}
-          helper="active products tracked"
+          helper={tHome("home.activeTracked")}
           icon={AlertTriangle}
         />
         <KpiTile
-          label="New customers"
+          label={tHome("home.kpiNewCustomers")}
           value={formatCount(snapshot.newThisMonth)}
           delta={
             snapshot.newThisMonth > 0
@@ -379,7 +385,7 @@ export default async function HomePage() {
               : "0"
           }
           deltaTone={snapshot.newThisMonth > 0 ? "success" : "neutral"}
-          helper="this month · live"
+          helper={tHome("home.thisMonthLive")}
           icon={UserPlus}
         />
       </section>
@@ -391,7 +397,7 @@ export default async function HomePage() {
             ? `${formatCount(snapshot.atRiskCount)} customers at-risk and revenue MTD is ${formatGrowthPct(figures.revenueGrowthPct).toLowerCase()}. Open the Boardroom for a synthesised plan.`
             : `Outstanding AR is RM ${formatMyrAmount(figures.outstanding)} across ${figures.outstandingInvoices} invoices, ${figures.lowStock} SKUs are running low, and ${formatCount(snapshot.newThisMonth)} new customers joined this month. Open the Boardroom for a synthesised plan.`
         }
-        cta="Open Boardroom"
+        cta={tHome("home.openBoardroom")}
         href="/boardroom"
       />
 
@@ -402,13 +408,13 @@ export default async function HomePage() {
       <section aria-label="Module overview">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-brand-700/70 dark:text-brand-200/70">
-            Module overview
+            {tHome("home.moduleOverview")}
           </h2>
           <Link
             href="/boardroom"
             className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
           >
-            Ask Bantu AI →
+            {tHome("home.askAiCta")}
           </Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
@@ -463,10 +469,10 @@ export default async function HomePage() {
                 {locked ? (
                   <>
                     <p className="mt-3 text-xs text-ink dark:text-cream-100">
-                      Locked on your current plan
+                      {tHome("home.lockedPlanTitle")}
                     </p>
                     <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-                      Upgrade to <strong>{minTier?.label}</strong> to unlock
+                      {tHome("home.lockedPlanDesc", { tier: minTier?.label ?? "—" })}
                     </p>
                   </>
                 ) : (
@@ -482,7 +488,7 @@ export default async function HomePage() {
                     <p
                       className={`mt-1 text-xs ${pillar.live ? "text-status-success" : "text-ink-muted"} dark:text-cream-400`}
                     >
-                      {pillar.live ? "● Live" : pillar.helper}
+                      {pillar.live ? tHome("home.liveDot") : pillar.helper}
                     </p>
                   </>
                 )}
@@ -494,18 +500,18 @@ export default async function HomePage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
         <SectionCard
-          title="7-day cashflow"
-          subtitle="Inflow vs outflow · last 7 days"
+          title={tHome("home.cashflow7d")}
+          subtitle={tHome("home.cashflowSub")}
           className="lg:col-span-2"
           action={
             <span className="inline-flex flex-wrap items-center gap-2 text-[11px] font-medium text-ink-muted dark:text-cream-400 sm:gap-3">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-brand-500" />
-                Inflow
+                {tHome("home.inflowLabel")}
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-accent-500" />
-                Outflow
+                {tHome("home.outflowLabel")}
               </span>
             </span>
           }
@@ -540,7 +546,7 @@ export default async function HomePage() {
                 +RM {formatMyrAmount(inflow7d)}
               </p>
               <p className="text-xs text-ink-muted dark:text-cream-400">
-                Inflow · 7 days
+                {tHome("home.inflow7dLabel")}
               </p>
             </div>
             <div>
@@ -548,7 +554,7 @@ export default async function HomePage() {
                 −RM {formatMyrAmount(outflow7d)}
               </p>
               <p className="text-xs text-ink-muted dark:text-cream-400">
-                Outflow · 7 days
+                {tHome("home.outflow7dLabel")}
               </p>
             </div>
             <div>
@@ -556,22 +562,22 @@ export default async function HomePage() {
                 +RM {formatMyrAmount(inflow7d - outflow7d)}
               </p>
               <p className="text-xs text-ink-muted dark:text-cream-400">
-                Net change
+                {tHome("home.netChange")}
               </p>
             </div>
           </div>
         </SectionCard>
 
         <SectionCard
-          title="Recent activity"
-          subtitle="Live cross-module events"
+          title={tHome("home.recentActivity")}
+          subtitle={tHome("home.recentActivitySub")}
           bodyClassName="divide-y divide-cream-200 dark:divide-hairline-dark"
           action={
             <Link
               href="/marketing/customers"
               className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              All
+              {tHome("common.viewAll")}
             </Link>
           }
         >
@@ -606,8 +612,7 @@ export default async function HomePage() {
             })
           ) : (
             <p className="py-6 text-center text-sm text-ink-muted dark:text-cream-400">
-              No recent activity yet — invoices, POS sales, and CRM events will
-              show up here.
+              {tHome("home.noActivity")}
             </p>
           )}
         </SectionCard>
@@ -615,37 +620,37 @@ export default async function HomePage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
         <SectionCard
-          title="Today's quick actions"
-          subtitle="One-tap entries into the most-used flows"
+          title={tHome("home.quickActionsTitle")}
+          subtitle={tHome("home.quickActionsSub")}
           className="lg:col-span-2"
           bodyClassName="grid gap-3 sm:grid-cols-2"
         >
           {[
             {
               icon: UserPlus,
-              title: "Add customer",
-              subtitle: "Card-index CRM",
+              title: tHome("home.quickAddCustomer"),
+              subtitle: tHome("home.quickAddCustomerSub"),
               href: "/marketing/customers/new",
               tone: "accent" as const,
             },
             {
               icon: Megaphone,
-              title: "Plan a post",
-              subtitle: "TikTok · IG · FB",
+              title: tHome("home.quickPlanPost"),
+              subtitle: tHome("home.quickPlanPostSub"),
               href: "/marketing/content/new",
               tone: "brand" as const,
             },
             {
               icon: TrendingUp,
-              title: "Create invoice",
-              subtitle: "Bill a customer in seconds",
+              title: tHome("home.quickCreateInvoice"),
+              subtitle: tHome("home.quickCreateInvoiceSub"),
               href: "/finance/invoices",
               tone: "success" as const,
             },
             {
               icon: ShoppingCart,
-              title: "Open POS",
-              subtitle: "Process a sale or refund",
+              title: tHome("home.quickOpenPos"),
+              subtitle: tHome("home.quickOpenPosSub"),
               href: "/sales/pos",
               tone: "brand" as const,
             },
@@ -676,8 +681,8 @@ export default async function HomePage() {
         </SectionCard>
 
         <SectionCard
-          title="What's next"
-          subtitle="System status"
+          title={tHome("home.whatsNext")}
+          subtitle={tHome("home.systemStatus")}
           bodyClassName="space-y-2.5"
         >
           <p className="text-sm text-ink-muted dark:text-cream-400">
@@ -713,7 +718,7 @@ export default async function HomePage() {
       </div>
 
       <p className="text-center text-[11px] text-ink-subtle">
-        All figures on this page are live from your business data.
+        {tHome("home.allLiveFigures")}
       </p>
     </div>
   );

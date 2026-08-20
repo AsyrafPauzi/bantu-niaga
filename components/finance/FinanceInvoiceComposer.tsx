@@ -1176,8 +1176,8 @@ export function FinanceInvoiceComposer({
                   return (
                     <tr key={line.key} className="group">
                       <td className="px-2 py-1.5">
-                        <input
-                          type="text"
+                        <textarea
+                          rows={2}
                           value={line.description}
                           onChange={(e) => {
                             setLines((prev) =>
@@ -1194,7 +1194,7 @@ export function FinanceInvoiceComposer({
                           }
                           placeholder="What are you billing?"
                           className={cn(
-                            tableInputCx,
+                            tableTextareaCx,
                             lineInvalid &&
                               "border-status-danger focus:border-status-danger focus:ring-status-danger/30",
                           )}
@@ -1795,6 +1795,9 @@ const textareaFieldCx =
 
 const tableInputCx =
   "h-8 w-full rounded border-0 bg-transparent px-2 text-sm text-ink placeholder:text-ink-muted/60 focus:bg-cream-50 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:text-cream-100 dark:focus:bg-panel-dark/80";
+
+const tableTextareaCx =
+  "w-full resize-none rounded border-0 bg-transparent px-2 py-1 text-sm leading-snug text-ink placeholder:text-ink-muted/60 focus:bg-cream-50 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:text-cream-100 dark:focus:bg-panel-dark/80";
 
 const summaryInputCx =
   "h-8 w-full rounded border border-cream-300 bg-white px-2 text-right text-sm tabular-nums focus:border-brand-500 focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";

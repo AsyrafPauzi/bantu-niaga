@@ -51,7 +51,7 @@ export async function GET(request: Request) {
   if (isBillplzConfigured()) {
     const { data: pendingInvoices, error: listErr } = await admin
       .from("invoices")
-      .select("id, business_id, amount_myr, number")
+      .select("id, business_id, amount_myr, number, businesses(billing_cadence)")
       .eq("kind", "subscription")
       .eq("status", "pending")
       .gt("amount_myr", 0)
@@ -87,12 +87,18 @@ export async function GET(request: Request) {
         if (amountCents < 100) continue;
 
         try {
+          const billingCadence =
+            inv.businesses && !Array.isArray(inv.businesses)
+              ? (inv.businesses as { billing_cadence?: string }).billing_cadence ?? "monthly"
+              : "monthly";
+          const cadenceNote =
+            billingCadence === "annual" ? " (annual — 2 months free)" : "";
           const bill = await createBillplzBill({
             collectionId,
             email: owner?.email ?? "owner@business.local",
             name: owner?.display_name ?? "Business owner",
             amountCents,
-            description: `NiagaX subscription renewal — ${inv.number}`,
+            description: `NiagaX subscription renewal${cadenceNote} — ${inv.number}`,
             callbackUrl: billplzCallbackUrl(),
             redirectUrl: appUrl
               ? `${appUrl}/settings/subscription?paid=1`

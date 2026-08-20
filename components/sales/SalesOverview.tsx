@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   Banknote,
   Clock,
@@ -39,7 +40,7 @@ function fmtTodayLabel(ymd: string): string {
   });
 }
 
-function fmtSaleWhen(iso: string, todayYmd: string): string {
+function fmtSaleWhen(iso: string, todayYmd: string, todayLabel: string): string {
   const d = new Date(iso);
   const saleDay = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kuala_Lumpur",
@@ -49,7 +50,7 @@ function fmtSaleWhen(iso: string, todayYmd: string): string {
     minute: "2-digit",
     timeZone: "Asia/Kuala_Lumpur",
   });
-  if (saleDay === todayYmd) return `Today · ${time}`;
+  if (saleDay === todayYmd) return `${todayLabel} · ${time}`;
   return d.toLocaleDateString("en-MY", {
     day: "numeric",
     month: "short",
@@ -59,8 +60,8 @@ function fmtSaleWhen(iso: string, todayYmd: string): string {
   });
 }
 
-function payLabel(method: string): string {
-  if (method === "cash") return "Cash";
+function payLabel(method: string, cashLabel: string): string {
+  if (method === "cash") return cashLabel;
   if (method === "duitnow_qr_static") return "DuitNow QR";
   return method;
 }
@@ -72,12 +73,13 @@ interface SalesOverviewProps {
   showHistory?: boolean;
 }
 
-export function SalesOverview({
+export async function SalesOverview({
   data,
   showPos,
   showLeads,
   showHistory = false,
 }: SalesOverviewProps) {
+  const t = await getTranslations("sales");
   const { summary, leads, recentSales, todayYmd, week, topProducts, cashiers, notifications } =
     data;
   const hasSalesToday = summary.txnToday > 0;
@@ -89,13 +91,13 @@ export function SalesOverview({
       : null;
 
   const heroHeadline = !hasSalesToday
-    ? "Counter is ready — ring up your first sale"
+    ? t("heroReady")
     : summary.txnToday === 1
-      ? "One sale in the bag today"
-      : `${summary.txnToday} sales · ${formatMyr(summary.salesTodayMyr)} today`;
+      ? t("heroOneSale")
+      : t("heroMany", { count: summary.txnToday, amount: formatMyr(summary.salesTodayMyr) });
 
   const heroSub = !hasSalesToday
-    ? "Cash and static DuitNow from your Operations catalog. Every completed sale posts to Finance automatically."
+    ? t("heroReadySub")
     : summary.avgTicketMyr > 0
       ? `Average ticket ${formatMyr(summary.avgTicketMyr)} · ${fmtTodayLabel(todayYmd)}${week.txnCount > 0 ? ` · ${formatMyr(week.salesMyr)} this week${weekDelta != null ? ` (${weekDelta >= 0 ? "+" : ""}${weekDelta}% vs prior week)` : ""}` : ""}`
       : fmtTodayLabel(todayYmd);
@@ -133,24 +135,24 @@ export function SalesOverview({
       ? {
           href: "/sales/pos",
           icon: ShoppingCart,
-          title: "POS counter",
-          subtitle: "Ring up a sale",
+          title: t("posCounter"),
+          subtitle: t("ringUpSale"),
         }
       : null,
     showLeads
       ? {
           href: "/sales/leads",
           icon: Users,
-          title: "Leads",
-          subtitle: "Pipeline & follow-ups",
+          title: t("leads"),
+          subtitle: t("leadsSubtitle"),
         }
       : null,
     showHistory
       ? {
           href: "/sales/history",
           icon: CreditCard,
-          title: "History",
-          subtitle: "Receipts & export",
+          title: t("history"),
+          subtitle: t("historySubtitle"),
         }
       : null,
   ].filter(Boolean) as Array<{
@@ -179,35 +181,35 @@ export function SalesOverview({
               )}
             >
               <Plus className="h-4 w-4" strokeWidth={2} />
-              New sale
+              {t("newSale")}
             </Link>
           ) : null
         }
       >
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat
-            label="Sales today"
+            label={t("statSalesToday")}
             value={formatMyr(summary.salesTodayMyr)}
-            hint={hasSalesToday ? `${summary.txnToday} ticket${summary.txnToday === 1 ? "" : "s"}` : "No tickets yet"}
+            hint={hasSalesToday ? `${summary.txnToday} ticket${summary.txnToday === 1 ? "" : "s"}` : t("noTicketsYet")}
             icon={ShoppingCart}
             iconClassName={salesTheme.eyebrow}
           />
           <ModuleHeroStat
-            label="Avg ticket"
+            label={t("statAvgTicket")}
             value={hasSalesToday ? formatMyr(summary.avgTicketMyr) : "—"}
-            hint={hasSalesToday ? "Per transaction" : "Opens after first sale"}
+            hint={hasSalesToday ? t("perTransaction") : t("opensAfterFirst")}
             icon={CreditCard}
             iconClassName={salesTheme.eyebrow}
           />
           <ModuleHeroStat
-            label="Cash"
+            label={t("statCash")}
             value={formatMyr(summary.cashTodayMyr)}
             hint={hasSalesToday ? `${summary.cashPct}% of today` : "—"}
             icon={Banknote}
             iconClassName={salesTheme.eyebrow}
           />
           <ModuleHeroStat
-            label="DuitNow QR"
+            label={t("statDuitnow")}
             value={formatMyr(summary.duitnowTodayMyr)}
             hint={hasSalesToday ? `${summary.duitnowPct}% of today` : "—"}
             icon={Smartphone}
@@ -247,8 +249,8 @@ export function SalesOverview({
 
       {topProducts.length > 0 ? (
         <AdminOverviewPanel
-          title="Top sellers today"
-          subtitle="By revenue at the counter"
+          title={t("topSellersTitle")}
+          subtitle={t("topSellersSub")}
         >
           <ul>
             {topProducts.map((p) => (
@@ -261,7 +263,7 @@ export function SalesOverview({
                     {p.product_name}
                   </p>
                   <p className="text-xs text-ink-muted">
-                    {p.quantity} sold
+                    {t("soldCount", { count: p.quantity })}
                   </p>
                 </div>
                 <span className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
@@ -275,8 +277,8 @@ export function SalesOverview({
 
       {cashiers.length > 1 ? (
         <AdminOverviewPanel
-          title="Cashiers today"
-          subtitle="Sales by staff member"
+          title={t("cashiersTitle")}
+          subtitle={t("cashiersSub")}
         >
           <ul>
             {cashiers.map((c) => (
@@ -297,22 +299,22 @@ export function SalesOverview({
       ) : null}
 
       <AdminOverviewPanel
-        title="Recent receipts"
-        subtitle="Today's completed POS sales"
+        title={t("recentReceipts")}
+        subtitle={t("recentReceiptsSub")}
         action={
           showHistory ? (
             <Link
               href="/sales/history"
               className="text-xs font-semibold text-[#2563EB] hover:text-blue-800 dark:text-blue-300"
             >
-              View history
+              {t("viewHistory")}
             </Link>
           ) : showPos ? (
             <Link
               href="/sales/pos"
               className="text-xs font-semibold text-[#2563EB] hover:text-blue-800 dark:text-blue-300"
             >
-              Open POS
+              {t("openPos")}
             </Link>
           ) : null
         }
@@ -321,11 +323,11 @@ export function SalesOverview({
           <div className="p-4 sm:p-5">
             <AdminCatalogEmpty
               icon={ShoppingCart}
-              title="No sales yet"
+              title={t("noSalesYet")}
               hint={
                 showPos
-                  ? "Tap New sale to open the counter and ring up from your product catalog."
-                  : "Ask a cashier or manager to complete the first sale."
+                  ? t("tapNewSale")
+                  : t("askCashier")
               }
               action={
                 showPos ? (
@@ -337,7 +339,7 @@ export function SalesOverview({
                     )}
                   >
                     <ShoppingCart className="h-4 w-4" />
-                    Open POS
+                    {t("openPos")}
                   </Link>
                 ) : undefined
               }
@@ -354,8 +356,8 @@ export function SalesOverview({
                       ? `/sales/receipts/${row.id}`
                       : "/sales/pos"
                   }
-                  title={`${row.sale_number} · ${row.customer_name?.trim() || "Walk-in"}`}
-                  subtitle={fmtSaleWhen(row.created_at, todayYmd)}
+                  title={`${row.sale_number} · ${row.customer_name?.trim() || t("walkIn")}`}
+                  subtitle={fmtSaleWhen(row.created_at, todayYmd, "Today")}
                   badge={
                     <span
                       className={cn(
@@ -365,7 +367,7 @@ export function SalesOverview({
                           : "bg-sky-50 text-sky-800 dark:bg-sky-950/40 dark:text-sky-100",
                       )}
                     >
-                      {payLabel(row.payment_method)}
+                      {payLabel(row.payment_method, t("cashPayment"))}
                     </span>
                   }
                   trailing={
@@ -381,13 +383,13 @@ export function SalesOverview({
       </AdminOverviewPanel>
 
       <AdminOverviewPanel
-        title="Activity feed"
-        subtitle="Recent sales events for your team"
+        title={t("activityFeed")}
+        subtitle={t("activityFeedSub")}
       >
         <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
           {notifications.length === 0 ? (
             <div className="px-4 py-6 text-sm text-ink-muted sm:px-5 dark:text-cream-400">
-              Leads, POS sales, and exports will appear here.
+              {t("noActivityFeed")}
             </div>
           ) : (
             notifications.map((item) => (

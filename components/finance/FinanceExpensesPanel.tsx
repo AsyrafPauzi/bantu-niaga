@@ -485,13 +485,13 @@ export function FinanceExpensesPanel({
             />
           </div>
 
-          <input
-            type="text"
+          <textarea
+            rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What was it? e.g. Grab to client, printer ink…"
             required
-            className="w-full rounded-lg border border-cream-300 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+            className="w-full resize-y rounded-lg border border-cream-300 px-3 py-2.5 text-sm leading-relaxed dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
           />
 
           <div className="space-y-2">

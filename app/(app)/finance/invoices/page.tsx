@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { FinanceBackLink } from "@/components/finance/FinanceBackLink";
 import { FinanceInvoicePanel } from "@/components/finance/FinanceInvoicePanel";
 import { FinanceSubpageShell } from "@/components/finance/FinanceSubpageShell";
@@ -25,6 +26,7 @@ export default async function InvoicesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await getTranslations("finance");
   let user;
   try {
     user = await getCurrentUser();
@@ -40,7 +42,7 @@ export default async function InvoicesPage({
         <Card>
           <CardBody className="py-10 text-center">
             <p className="text-sm text-ink-muted dark:text-cream-400">
-              You don&apos;t have access to Finance.
+              {t("noAccess")}
             </p>
           </CardBody>
         </Card>
@@ -142,22 +144,22 @@ export default async function InvoicesPage({
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat
-            label="Outstanding"
+            label={t("statOutstanding")}
             value={formatMyr(summary.outstanding_myr)}
             iconClassName="text-amber-700 dark:text-amber-300"
           />
           <ModuleHeroStat
-            label="Awaiting pay"
+            label={t("statAwaitingPay")}
             value={summary.sent_count}
             iconClassName="text-rose-700 dark:text-rose-300"
           />
           <ModuleHeroStat
-            label="Drafts"
+            label={t("statDrafts")}
             value={summary.draft_count}
             iconClassName="text-sky-700 dark:text-sky-300"
           />
           <ModuleHeroStat
-            label="Open quotes"
+            label={t("statOpenQuotes")}
             value={summary.quote_count}
             iconClassName="text-violet-700 dark:text-violet-300"
           />

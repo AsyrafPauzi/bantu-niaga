@@ -81,6 +81,7 @@ export const TIERS = ["starter", "basic", "micro", "sme", "enterprise"] as const
 export const tierChangeSchema = z
   .object({
     tier: z.enum(TIERS),
+    cadence: z.enum(["monthly", "annual"]).default("monthly").optional(),
   })
   .strict();
 

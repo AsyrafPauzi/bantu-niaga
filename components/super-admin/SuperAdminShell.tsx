@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   ArrowLeftRight,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -75,6 +76,11 @@ const GROUPS: readonly NavGroup[] = [
         href: "/super-admin/investor-metrics",
         label: "Investor metrics",
         icon: TrendingUp,
+      },
+      {
+        href: "/super-admin/analytics/email-cogs",
+        label: "Email COGS",
+        icon: Mail,
       },
     ],
   },

@@ -35,6 +35,10 @@ import {
   isFreeTierLimitError,
 } from "@/lib/settings/free-tier-limits";
 import { loadBusinessTier } from "@/lib/settings/load-business-tier";
+import {
+  assertBusinessSubscriptionWritable,
+  SubscriptionPastDueError,
+} from "@/lib/settings/assert-business-writable";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +114,19 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+
+  try {
+    await assertBusinessSubscriptionWritable(supabase, user.businessId);
+  } catch (e) {
+    if (e instanceof SubscriptionPastDueError) {
+      return NextResponse.json(
+        { ok: false, error: { code: e.code, message: e.message } },
+        { status: 403 },
+      );
+    }
+    throw e;
+  }
+
   const tier = await loadBusinessTier(user.businessId, supabase);
 
   try {

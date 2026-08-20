@@ -2,9 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Check, Crown, Loader2, Sparkles, Users, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TIERS, tierBy, type TierKey } from "@/lib/settings/plans";
+
+type BillingCadence = "monthly" | "annual";
 
 interface SubscriptionViewProps {
   tier: "starter" | "basic" | "micro" | "sme" | "enterprise";
@@ -56,7 +59,10 @@ export function SubscriptionView({
   lockedPillar,
 }: SubscriptionViewProps) {
   const router = useRouter();
+  const tSettings = useTranslations("settings");
+  const tCommon = useTranslations("common");
   const [confirmTier, setConfirmTier] = useState<TierKey | null>(null);
+  const [billingCadence, setBillingCadence] = useState<BillingCadence>("monthly");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -81,11 +87,11 @@ export function SubscriptionView({
       const res = await fetch("/api/settings/subscription/change", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: confirmTier }),
+        body: JSON.stringify({ tier: confirmTier, cadence: billingCadence }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(json?.message ?? json?.error ?? "Could not change plan");
+        setError(json?.message ?? json?.error ?? tSettings("changePlanError"));
         return;
       }
       if (json?.checkout_url && typeof json.checkout_url === "string") {
@@ -102,14 +108,13 @@ export function SubscriptionView({
       {lockedLabel && lockedMinTier ? (
         <div className="rounded-xl border border-status-warning/40 bg-status-warning/10 p-4 text-sm text-ink dark:text-cream-100">
           <p className="font-semibold">
-            {lockedLabel} is not unlocked on your current plan
+            {tSettings("lockedModuleTitle", { module: lockedLabel ?? "" })}
           </p>
           <p className="mt-1 text-ink-muted dark:text-cream-400">
-            Switch to <strong>{lockedMinTier.label}</strong>
-            {lockedMinTier.priceMyr != null
-              ? ` (RM ${lockedMinTier.priceMyr}${lockedMinTier.cadence})`
-              : ""}{" "}
-            or higher to access the {lockedLabel} module.
+            {tSettings("lockedModuleDesc", {
+              tier: `${lockedMinTier.label}${lockedMinTier.priceMyr != null ? ` (RM ${lockedMinTier.priceMyr}${lockedMinTier.cadence})` : ""}`,
+              module: lockedLabel ?? "",
+            })}
           </p>
         </div>
       ) : null}
@@ -124,27 +129,27 @@ export function SubscriptionView({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold text-ink dark:text-cream-100">
-                  {current?.label ?? tier} tier
+                  {tSettings("tierSuffix", { tier: current?.label ?? tier })}
                 </h2>
-                <Badge tone="accent">Current</Badge>
+                <Badge tone="accent">{tSettings("currentBadge")}</Badge>
               </div>
               <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
                 {current?.priceMyr != null
                   ? `RM ${current.priceMyr.toFixed(0)}${current.cadence}`
-                  : "Custom pricing"}
+                  : tSettings("customPricing")}
                 {" · "}
                 {subscriptionStatus === "trial" ? (
                   <>
-                    Trial ends <strong>{fmtDate(subscriptionRenewalAt)}</strong>
+                    {tSettings("trialEnds")} <strong>{fmtDate(subscriptionRenewalAt)}</strong>
                   </>
                 ) : tier === "starter" ? (
                   <>
-                    Free plan renews{" "}
+                    {tSettings("freePlanRenews")}{" "}
                     <strong>{fmtDate(subscriptionRenewalAt)}</strong>
                   </>
                 ) : (
                   <>
-                    Renews <strong>{fmtDate(subscriptionRenewalAt)}</strong>
+                    {tSettings("planRenews")} <strong>{fmtDate(subscriptionRenewalAt)}</strong>
                   </>
                 )}
               </p>
@@ -154,13 +159,13 @@ export function SubscriptionView({
 
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           <UsageRow
-            label="Staff seats"
+            label={tSettings("staffSeats")}
             used={usage.seats}
             total={seats}
             icon={Users}
           />
           <UsageRow
-            label="Customers"
+            label={tSettings("customerUsage")}
             used={usage.customers}
             total={customers}
             icon={Users}
@@ -171,7 +176,7 @@ export function SubscriptionView({
             }
           />
           <UsageRow
-            label="AI add-on credits"
+            label={tSettings("aiCredits")}
             used={usage.credits_used_this_month}
             total={monthlyCredits}
             icon={Zap}
@@ -183,15 +188,48 @@ export function SubscriptionView({
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-ink dark:text-cream-100">
-            Compare plans
+            {tSettings("comparePlans")}
           </h2>
           {!canEdit ? (
-            <Badge tone="warning">Owner role required to change plan</Badge>
+            <Badge tone="warning">{tSettings("ownerRequired")}</Badge>
           ) : null}
         </div>
+
+        {/* Billing cadence toggle */}
+        <div className="flex items-center justify-center gap-1 rounded-xl border border-cream-200 bg-cream-50 p-1 dark:border-hairline-dark dark:bg-panel-dark/60 sm:w-fit">
+          <button
+            type="button"
+            onClick={() => setBillingCadence("monthly")}
+            className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors ${
+              billingCadence === "monthly"
+                ? "bg-white text-ink shadow-card dark:bg-panel-dark dark:text-cream-100"
+                : "text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100"
+            }`}
+          >
+            {tSettings("monthly")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingCadence("annual")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors ${
+              billingCadence === "annual"
+                ? "bg-white text-ink shadow-card dark:bg-panel-dark dark:text-cream-100"
+                : "text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100"
+            }`}
+          >
+            {tSettings("annual")}
+            <span className="rounded-full bg-status-success/15 px-1.5 py-0.5 text-[10px] font-bold text-status-success">
+              {tSettings("saveTwoMonths")}
+            </span>
+          </button>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {TIERS.map((t) => {
             const isCurrent = t.key === tier;
+            const showAnnual = billingCadence === "annual" && !!t.annualPriceMyr;
+            const displayPrice = showAnnual ? t.annualPriceMyr : t.priceMyr;
+            const displayCadence = showAnnual ? "/year" : t.cadence;
             return (
               <div
                 key={t.key}
@@ -207,9 +245,9 @@ export function SubscriptionView({
                       {t.label}
                     </h3>
                     {isCurrent ? (
-                      <Badge tone="accent">Current</Badge>
+                      <Badge tone="accent">{tSettings("currentBadge")}</Badge>
                     ) : t.highlighted ? (
-                      <Badge tone="brand">Most popular</Badge>
+                      <Badge tone="brand">{tSettings("mostPopular")}</Badge>
                     ) : null}
                   </div>
                   <p className="text-[11px] text-ink-muted dark:text-cream-400">
@@ -218,11 +256,16 @@ export function SubscriptionView({
                 </div>
                 <div>
                   <span className="text-3xl font-bold text-ink dark:text-cream-100">
-                    {t.priceMyr != null ? `RM ${t.priceMyr}` : "Custom"}
+                    {displayPrice != null ? `RM ${displayPrice}` : tSettings("customPrice")}
                   </span>
                   <span className="text-sm text-ink-muted dark:text-cream-400">
-                    {t.cadence}
+                    {displayCadence}
                   </span>
+                  {showAnnual && t.priceMyr != null ? (
+                    <p className="mt-0.5 text-[11px] text-ink-muted dark:text-cream-400">
+                      RM {t.priceMyr}/mo × 10 months billed yearly
+                    </p>
+                  ) : null}
                 </div>
                 <ul className="flex-1 space-y-1.5">
                   {t.features.map((f) => (
@@ -240,7 +283,12 @@ export function SubscriptionView({
                 </ul>
                 <button
                   type="button"
-                  disabled={isCurrent || !canEdit || pending}
+                  disabled={
+                    isCurrent ||
+                    !canEdit ||
+                    pending ||
+                    (billingCadence === "annual" && !t.annualPriceMyr && t.key !== "starter")
+                  }
                   onClick={() => requestSwitch(t.key)}
                   className={`mt-2 w-full rounded-lg px-3 py-2 text-sm font-semibold ${
                     isCurrent
@@ -248,7 +296,7 @@ export function SubscriptionView({
                       : "bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-60"
                   }`}
                 >
-                  {isCurrent ? "Active" : "Switch plan"}
+                  {isCurrent ? tSettings("activePlan") : tSettings("switchPlan")}
                 </button>
               </div>
             );
@@ -266,12 +314,18 @@ export function SubscriptionView({
               </span>
               <div className="min-w-0 flex-1">
                 <h3 className="text-base font-bold text-ink dark:text-cream-100">
-                  Switch to {tierBy(confirmTier)?.label}?
+                  {tSettings("switchToTitle", { tier: tierBy(confirmTier)?.label ?? confirmTier })}{" "}
+                  {billingCadence === "annual" ? (
+                    <span className="text-sm font-normal text-status-success">{tSettings("annualFreeMonths")}</span>
+                  ) : null}
                 </h3>
+                {billingCadence === "annual" && tierBy(confirmTier)?.annualPriceMyr ? (
+                  <p className="mt-1 text-sm font-semibold text-ink dark:text-cream-100">
+                    {tSettings("annualBilledToday", { price: tierBy(confirmTier)!.annualPriceMyr ?? 0 })}
+                  </p>
+                ) : null}
                 <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
-                  Your plan will change immediately. We&apos;ll prorate the
-                  difference on your next invoice (
-                  {fmtDate(subscriptionRenewalAt)}).
+                  {tSettings("switchConfirmDesc", { date: fmtDate(subscriptionRenewalAt) })}
                 </p>
               </div>
             </div>
@@ -287,7 +341,7 @@ export function SubscriptionView({
                 disabled={pending}
                 className="rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
               >
-                Cancel
+                {tCommon("cancel")}
               </button>
               <button
                 type="button"
@@ -298,7 +352,7 @@ export function SubscriptionView({
                 {pending ? (
                   <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
                 ) : null}
-                Confirm switch
+                {tSettings("confirmSwitch")}
               </button>
             </div>
           </div>

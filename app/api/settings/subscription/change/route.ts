@@ -10,7 +10,7 @@ import {
 } from "@/lib/settings/require-billplz-prod";
 import { tierAmountMyr } from "@/lib/settings/subscription-billing";
 import { startSubscriptionCheckout } from "@/lib/settings/subscription-checkout";
-import type { TierKey } from "@/lib/settings/plans";
+import { tierBy, type TierKey } from "@/lib/settings/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +63,22 @@ export async function POST(request: Request) {
   }
 
   const tier = parsed.tier as TierKey;
-  const amount = tierAmountMyr(tier);
+  const cadence = (parsed.cadence ?? "monthly") as "monthly" | "annual";
+
+  const tierDef = tierBy(tier);
+  let amount: number;
+  if (cadence === "annual") {
+    if (!tierDef?.annualPriceMyr) {
+      return NextResponse.json(
+        { error: "annual_not_available", message: "Annual billing is not available for this tier." },
+        { status: 400 },
+      );
+    }
+    amount = tierDef.annualPriceMyr;
+  } else {
+    amount = tierAmountMyr(tier);
+  }
+
   const supabase = await createSupabaseServerClient();
 
   if (amount > 0) {
@@ -98,6 +113,7 @@ export async function POST(request: Request) {
           amountMyr: amount,
           payerEmail: profile?.email ?? "owner@business.local",
           payerName: profile?.display_name ?? "Business owner",
+          cadence,
         });
         return NextResponse.json(checkout, { status: 201 });
       } catch (e) {
