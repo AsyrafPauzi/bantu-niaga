@@ -10,6 +10,12 @@ import {
 } from "@/lib/settings/tier-agents";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isCreditTopupSlug } from "@/lib/marketplace/credit-topup-purchase";
+import { isShippedMarketplaceAddon } from "@/lib/marketplace/shipped-addons";
+import {
+  assertBusinessSubscriptionWritable,
+  SubscriptionPastDueError,
+} from "@/lib/settings/assert-business-writable";
+import { pastDueJsonResponse } from "@/lib/settings/past-due-response";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -85,6 +91,15 @@ export async function POST(request: Request) {
 
   const supabase = await createSupabaseServerClient();
 
+  try {
+    await assertBusinessSubscriptionWritable(supabase, user.businessId);
+  } catch (e) {
+    if (e instanceof SubscriptionPastDueError) {
+      return pastDueJsonResponse(e);
+    }
+    throw e;
+  }
+
   const [{ data: business, error: businessError }, { data: addon, error: addonError }] =
     await Promise.all([
       supabase
@@ -110,6 +125,16 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "not_found", message: `Add-on not found: ${parsed.slug}` },
       { status: 404 },
+    );
+  }
+
+  if (!isShippedMarketplaceAddon(parsed.slug)) {
+    return NextResponse.json(
+      {
+        error: "not_available",
+        message: "This add-on is not available yet.",
+      },
+      { status: 403 },
     );
   }
 

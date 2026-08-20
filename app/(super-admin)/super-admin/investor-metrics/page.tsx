@@ -1,5 +1,7 @@
 import { TrendingUp } from "lucide-react";
 import { loadDataMonitor, loadOverview } from "@/lib/super-admin/load";
+import { activationWithinSevenDaysRate } from "@/lib/home/activation-checklist";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { PageTopbar } from "@/components/super-admin/PageTopbar";
 import {
   KpiCard,
@@ -16,6 +18,13 @@ export default async function SuperAdminInvestorMetrics() {
     loadOverview(),
     loadDataMonitor(),
   ]);
+
+  const admin = createServiceRoleClient();
+  const { data: activationRows } = await admin
+    .from("businesses")
+    .select("first_paid_at, activated_at")
+    .neq("tier", "starter");
+  const activation = activationWithinSevenDaysRate(activationRows ?? []);
 
   const totalTenants = kpis.totalTenants;
   const arpu = kpis.paidTenants
@@ -58,6 +67,13 @@ export default async function SuperAdminInvestorMetrics() {
             label="ARPU / tenant"
             value={formatMyr(arpu)}
             subtle="across paying plans"
+          />
+          <KpiCard
+            label="7-day activation"
+            value={
+              activation.ratePct == null ? "—" : `${activation.ratePct}%`
+            }
+            subtle={`${activation.activated}/${activation.eligible} paid (invoice or POS)`}
           />
         </div>
 

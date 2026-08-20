@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { useAuthLocale } from "@/components/auth/useAuthLocale";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
+  const { locale } = useAuthLocale();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -65,12 +67,21 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthShell
-      brandHeading="Pick a new password and you're in."
-      brandSubheading="Once you confirm, every other device is signed out automatically — your account is fresh."
+      locale={locale}
+      brandHeading={
+        locale === "ms"
+          ? "Pilih kata laluan baharu yang kukuh."
+          : "Pick a new password and you're in."
+      }
+      brandSubheading={
+        locale === "ms"
+          ? "Guna sekurang-kurangnya 12 aksara dengan huruf besar, kecil, dan nombor."
+          : "Once you confirm, every other device is signed out automatically — your account is fresh."
+      }
     >
       <div>
         <h2 className="text-3xl font-bold tracking-tight text-ink dark:text-cream-100">
-          Set a new password
+          {locale === "ms" ? "Tetapkan kata laluan baharu" : "Set a new password"}
         </h2>
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
           Choose something memorable but strong. We use bcrypt and never store

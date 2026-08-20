@@ -31,6 +31,8 @@ import {
 } from "@/lib/auth/entitlements";
 import { tierBy } from "@/lib/settings/plans";
 import { isAssistantChatRoute } from "@/lib/navigation/assistant-routes";
+import { useTranslations } from "next-intl";
+import { navGroupMessageKey, navLabelFor } from "@/lib/i18n/nav-labels";
 
 export function DesktopShell({
   tier,
@@ -46,6 +48,8 @@ export function DesktopShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const tNav = useTranslations("nav");
+  const tShell = useTranslations("shell");
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar, ready: sidebarReady } =
     useSidebarCollapsed();
   const [expandedSections, setExpandedSections] = useState<
@@ -117,14 +121,17 @@ export function DesktopShell({
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">
-            {sidebarGroups.map((group) => (
+            {sidebarGroups.map((group) => {
+              const groupKey = navGroupMessageKey(group.label);
+              return (
               <div key={group.label} className="mb-4">
                 <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-700/70 dark:text-brand-200/70">
-                  {group.label}
+                  {groupKey ? tNav(groupKey) : group.label}
                 </p>
                 <ul>
                   {group.items.map(
                     ({ href, label, icon: Icon, pillar, subItems }) => {
+                      const displayLabel = navLabelFor(href, label, tNav);
                       const isOverviewActive = pathname === href;
                       const isSectionActive = isNavSectionActive(
                         href,
@@ -157,7 +164,9 @@ export function DesktopShell({
                               href={lockedHref}
                               title={
                                 locked
-                                  ? `Available on ${minTier?.label ?? "a higher"} plan`
+                                  ? tShell("availableOnPlan", {
+                                      plan: minTier?.label ?? "—",
+                                    })
                                   : undefined
                               }
                               className={cn(
@@ -176,13 +185,13 @@ export function DesktopShell({
                                   className="h-4 w-4 shrink-0"
                                   strokeWidth={2}
                                 />
-                                <span className="truncate">{label}</span>
+                                <span className="truncate">{displayLabel}</span>
                               </span>
                               {locked ? (
                                 <Lock
                                   className="h-3.5 w-3.5 shrink-0 text-ink-subtle dark:text-cream-500"
                                   strokeWidth={2}
-                                  aria-label="Locked on this plan"
+                                  aria-label={tShell("locked")}
                                 />
                               ) : null}
                             </Link>
@@ -196,7 +205,7 @@ export function DesktopShell({
                                   }))
                                 }
                                 aria-expanded={isExpanded}
-                                aria-label={`${isExpanded ? "Collapse" : "Expand"} ${label} submenu`}
+                                aria-label={`${isExpanded ? "Collapse" : "Expand"} ${displayLabel} submenu`}
                                 className={cn(
                                   "flex shrink-0 items-center justify-center rounded-lg px-2 py-2.5 text-ink-muted transition-colors hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
                                   isSectionActive &&
@@ -232,7 +241,7 @@ export function DesktopShell({
                                           : "text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100",
                                       )}
                                     >
-                                      {sub.label}
+                                      {navLabelFor(sub.href, sub.label, tNav)}
                                     </Link>
                                   </li>
                                 );
@@ -245,7 +254,8 @@ export function DesktopShell({
                   )}
                 </ul>
               </div>
-            ))}
+            );
+            })}
           </nav>
 
           <div className="space-y-1.5 border-t border-hairline-light p-3 dark:border-hairline-dark">
@@ -256,9 +266,9 @@ export function DesktopShell({
               />
               <span>
                 <span className="font-semibold text-[#C2410C] dark:text-accent-300">
-                  Need help?
+                  {tShell("needHelp")}
                 </span>{" "}
-                Use the help button on any page.
+                {tShell("needHelpBody")}
               </span>
             </p>
             <form action={signOutAction}>
@@ -267,7 +277,7 @@ export function DesktopShell({
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100"
               >
                 <LogOut className="h-4 w-4" strokeWidth={2} />
-                <span>Sign out</span>
+                <span>{tShell("signOut")}</span>
               </button>
             </form>
           </div>
@@ -287,8 +297,8 @@ export function DesktopShell({
               type="button"
               onClick={toggleSidebar}
               className="absolute left-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-hairline-light bg-white text-ink-muted shadow-sm transition-colors hover:bg-cream-100 hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100 lg:flex"
-              aria-label="Expand sidebar"
-              title="Expand sidebar"
+              aria-label={tShell("expandSidebar")}
+              title={tShell("expandSidebar")}
             >
               <PanelLeftOpen className="h-4 w-4" strokeWidth={2} />
             </button>

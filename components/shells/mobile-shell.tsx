@@ -21,6 +21,8 @@ import {
 } from "@/lib/navigation/app-nav";
 import type { BusinessType } from "@/lib/onboarding/plan-quiz";
 import type { Role } from "@/lib/permissions";
+import { useTranslations } from "next-intl";
+import { navMessageKey } from "@/lib/i18n/nav-labels";
 
 export function MobileShell({
   tier,
@@ -38,6 +40,7 @@ export function MobileShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const tNav = useTranslations("nav");
   const isAssistantRoute = isAssistantChatRoute(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
   const bottomTabs = getMobileBottomTabsForRole(role);
@@ -121,7 +124,7 @@ export function MobileShell({
                     ) : null}
                     <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
                     <span className={cn(active && "font-semibold")}>
-                      {tab.label}
+                      {tNav("more")}
                     </span>
                   </button>
                 </li>
@@ -132,6 +135,8 @@ export function MobileShell({
             const href = locked
               ? `/settings/subscription?locked=${tab.pillar}`
               : tab.href;
+            const navKey = navMessageKey(tab.href);
+            const tabLabel = navKey ? tNav(navKey) : tab.label;
 
             return (
               <li key={tab.href} className="relative">
@@ -166,7 +171,7 @@ export function MobileShell({
                     ) : null}
                   </span>
                   <span className={cn(active && "font-semibold")}>
-                    {tab.label}
+                    {tabLabel}
                   </span>
                 </Link>
               </li>

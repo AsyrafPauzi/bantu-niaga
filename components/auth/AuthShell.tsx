@@ -1,23 +1,27 @@
+"use client";
+
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { NiagaXLogo } from "@/components/brand/NiagaXLogo";
+import { TenantI18nProvider } from "@/components/i18n/TenantI18nProvider";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getMessages } from "@/lib/i18n/messages";
 
 interface AuthShellProps {
+  locale?: AppLocale;
   brandHeading: string;
   brandSubheading: string;
   children: React.ReactNode;
 }
 
-/**
- * Shared two-column shell for /sign-in, /sign-up, /forgot-password,
- * /reset-password. Matches the design in pencil-new.pen — left brand
- * panel + right form panel.
- */
-export function AuthShell({
+function AuthShellInner({
   brandHeading,
   brandSubheading,
   children,
-}: AuthShellProps) {
+}: Omit<AuthShellProps, "locale">) {
+  const t = useTranslations("auth");
+
   return (
     <main className="h-dvh overflow-y-auto overscroll-y-contain bg-cream-100 text-ink dark:bg-surface-dark dark:text-cream-100">
       <div className="grid min-h-full grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -29,14 +33,14 @@ export function AuthShell({
             <span className="leading-tight">
               <NiagaXLogo className="block text-base" />
               <span className="block text-[10px] uppercase tracking-wider text-ink-muted">
-                SME Operating System
+                {t("brandTagline")}
               </span>
             </span>
           </Link>
 
           <div className="max-w-md space-y-6">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-200">
-              AI Business Operating System
+              {t("brandEyebrow")}
             </p>
             <h1 className="text-4xl font-bold leading-tight tracking-tight sm:text-[44px]">
               {brandHeading}
@@ -48,19 +52,19 @@ export function AuthShell({
               <div>
                 <dt className="text-3xl font-bold text-white">6</dt>
                 <dd className="mt-1 text-xs uppercase tracking-wider text-brand-200">
-                  Pilar bersepadu
+                  {t("brandPillars")}
                 </dd>
               </div>
               <div>
                 <dt className="text-3xl font-bold text-white">24/7</dt>
                 <dd className="mt-1 text-xs uppercase tracking-wider text-brand-200">
-                  AI penasihat
+                  {t("brandAi")}
                 </dd>
               </div>
               <div>
                 <dt className="text-3xl font-bold text-white">100%</dt>
                 <dd className="mt-1 text-xs uppercase tracking-wider text-brand-200">
-                  Lokal Malaysia
+                  {t("brandLocal")}
                 </dd>
               </div>
             </dl>
@@ -68,7 +72,7 @@ export function AuthShell({
 
           <p className="inline-flex items-center gap-2 text-xs text-brand-100">
             <ShieldCheck className="h-4 w-4 text-accent-300" strokeWidth={2} />
-            PDPA &amp; Bank Negara aligned · Supabase Singapore region
+            {t("brandFooter")}
           </p>
         </aside>
 
@@ -82,5 +86,29 @@ export function AuthShell({
         </section>
       </div>
     </main>
+  );
+}
+
+/**
+ * Shared two-column shell for /sign-in, /sign-up, /forgot-password,
+ * /reset-password. Matches the design in pencil-new.pen — left brand
+ * panel + right form panel.
+ */
+export function AuthShell({
+  locale = "en",
+  brandHeading,
+  brandSubheading,
+  children,
+}: AuthShellProps) {
+  const messages = getMessages(locale);
+  return (
+    <TenantI18nProvider locale={locale} messages={messages}>
+      <AuthShellInner
+        brandHeading={brandHeading}
+        brandSubheading={brandSubheading}
+      >
+        {children}
+      </AuthShellInner>
+    </TenantI18nProvider>
   );
 }

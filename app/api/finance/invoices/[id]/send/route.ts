@@ -21,6 +21,12 @@ import {
   isFreeTierLimitError,
 } from "@/lib/settings/free-tier-limits";
 import { loadBusinessTier } from "@/lib/settings/load-business-tier";
+import {
+  assertBusinessSubscriptionWritable,
+  SubscriptionPastDueError,
+} from "@/lib/settings/assert-business-writable";
+import { pastDueJsonResponse } from "@/lib/settings/past-due-response";
+import { touchActivation } from "@/lib/settings/activation";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +56,16 @@ export async function POST(
     );
   }
 
+  const supabase = await createSupabaseServerClient();
+  try {
+    await assertBusinessSubscriptionWritable(supabase, user.businessId);
+  } catch (e) {
+    if (e instanceof SubscriptionPastDueError) {
+      return pastDueJsonResponse(e);
+    }
+    throw e;
+  }
+
   const apiKey = process.env.RESEND_API_KEY?.trim() ?? "";
   const fromEmail = process.env.MARKETING_FROM_EMAIL?.trim() ?? "";
   if (!apiKey || !fromEmail) {
@@ -66,7 +82,6 @@ export async function POST(
     );
   }
 
-  const supabase = await createSupabaseServerClient();
   const invoice = await loadInvoiceWithItems(supabase, user.businessId, id);
   if (!invoice) {
     return NextResponse.json(
@@ -234,6 +249,8 @@ export async function POST(
       totalMyr: Number(invoice.total_myr),
     });
   }
+
+  await touchActivation(supabase, user.businessId, "invoice");
 
   return NextResponse.json(
     {

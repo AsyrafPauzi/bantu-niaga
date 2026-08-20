@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils/cn";
 
 export function SettingsSubpageShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const t = useTranslations("settings");
   const isIndex = pathname === "/settings";
 
   if (isIndex) {
@@ -22,7 +24,7 @@ export function SettingsSubpageShell({ children }: { children: ReactNode }) {
         className={cn("inline-flex items-center gap-1.5 text-sm", settingsClasses.link)}
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-        Back to settings
+        {t("backToSettings")}
       </Link>
       {children}
     </div>

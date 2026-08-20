@@ -4,10 +4,13 @@ import { Suspense, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { useAuthLocale } from "@/components/auth/useAuthLocale";
 import { apiErrorMessage } from "@/lib/api/client-error";
 
 function VerifyEmailInner() {
+  const { locale } = useAuthLocale();
   const params = useSearchParams();
   const initialEmail = params.get("email") ?? "";
   const initialDevLink = params.get("dev_link");
@@ -44,28 +47,70 @@ function VerifyEmailInner() {
 
   return (
     <AuthShell
-      brandHeading="Almost there — verify your email."
-      brandSubheading="We sent a secure link to your inbox. Click it to unlock your business workspace."
+      locale={locale}
+      brandHeading={
+        locale === "ms"
+          ? "Hampir siap — sahkan e-mel anda."
+          : "Almost there — verify your email."
+      }
+      brandSubheading={
+        locale === "ms"
+          ? "Kami hantar pautan selamat ke peti masuk anda. Klik untuk buka ruang kerja bisnes."
+          : "We sent a secure link to your inbox. Click it to unlock your business workspace."
+      }
     >
+      <VerifyForm
+        initialEmail={initialEmail}
+        email={email}
+        setEmail={setEmail}
+        sent={sent}
+        devLink={devLink}
+        error={error}
+        pending={pending}
+        onResend={handleResend}
+      />
+    </AuthShell>
+  );
+}
+
+function VerifyForm({
+  initialEmail,
+  email,
+  setEmail,
+  sent,
+  devLink,
+  error,
+  pending,
+  onResend,
+}: {
+  initialEmail: string;
+  email: string;
+  setEmail: (v: string) => void;
+  sent: boolean;
+  devLink: string | null;
+  error: string | null;
+  pending: boolean;
+  onResend: (e: FormEvent<HTMLFormElement>) => void;
+}) {
+  const t = useTranslations("auth");
+
+  return (
+    <>
       <div>
         <Link
           href="/sign-in"
           className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-          Back to sign in
+          {t("backToSignIn")}
         </Link>
         <h2 className="mt-4 text-3xl font-bold tracking-tight text-ink dark:text-cream-100">
-          Verify your email
+          {t("verifyTitle")}
         </h2>
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-          Your account is created but locked until you confirm{" "}
-          {initialEmail ? (
-            <strong className="text-ink dark:text-cream-100">{initialEmail}</strong>
-          ) : (
-            "your email"
-          )}
-          . Check spam if you don&apos;t see it within a minute.
+          {t("verifySubtitle", {
+            email: initialEmail || t("yourEmail"),
+          })}
         </p>
       </div>
 
@@ -77,11 +122,10 @@ function VerifyEmailInner() {
             </span>
             <div>
               <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                Link sent again
+                {t("linkSentAgain")}
               </p>
               <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-                If <strong>{email}</strong> matches an unverified account, a new
-                link is on its way.
+                {t("resetSentBody", { email })}
               </p>
             </div>
           </div>
@@ -96,10 +140,10 @@ function VerifyEmailInner() {
         </div>
       ) : null}
 
-      <form onSubmit={handleResend} className="space-y-4">
+      <form onSubmit={onResend} className="space-y-4">
         <label className="block text-sm">
           <span className="mb-1.5 block font-medium text-ink dark:text-cream-100">
-            Work email
+            {t("email")}
           </span>
           <input
             type="email"
@@ -125,10 +169,10 @@ function VerifyEmailInner() {
           className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-500 text-base font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Resend verification email
+          {t("resendVerification")}
         </button>
       </form>
-    </AuthShell>
+    </>
   );
 }
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { TierKey } from "@/lib/settings/plans";
+import { tierLabel } from "@/lib/settings/plans";
 
 /** Free (starter) and paid plans bill on a 30-day cycle. */
 export const MONTHLY_RENEWAL_DAYS = 30;
@@ -38,6 +39,10 @@ export function tierAmountMyr(tier: TierKey): number {
     default:
       return 0;
   }
+}
+
+export function subscriptionBillDescription(tier: TierKey): string {
+  return `NiagaX ${tierLabel(tier)} plan — monthly`;
 }
 
 export interface IssueSubscriptionInvoiceInput {

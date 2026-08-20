@@ -1,12 +1,19 @@
+"use client";
+
 import Link from "next/link";
 import { ChevronRight, MapPin } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { Role } from "@/lib/permissions";
 import type { SettingsNavGroup } from "@/lib/settings/nav";
 import { settingsClasses } from "@/lib/settings/theme";
 import { cn } from "@/lib/utils/cn";
+import {
+  settingsGroupMessageKey,
+  settingsNavMessageKeys,
+} from "@/lib/i18n/nav-labels";
 
-function roleLabel(role: Role): string {
-  if (role === "owner") return "Owner";
+function roleLabel(role: Role, ownerLabel: string): string {
+  if (role === "owner") return ownerLabel;
   return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -29,6 +36,8 @@ export function SettingsView({
   role,
   groups,
 }: SettingsViewProps) {
+  const t = useTranslations("settings");
+  const tCommon = useTranslations("common");
   const stateMissing = !stateLabel;
 
   return (
@@ -48,14 +57,16 @@ export function SettingsView({
                 settingsClasses.textMuted,
               )}
             >
-              Account settings
+              {t("accountSettings")}
             </p>
             <h1 className="mt-1 text-xl font-bold tracking-tight text-ink dark:text-cream-100 sm:text-2xl">
               {businessName}
             </h1>
             <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
-              {roleLabel(role)}
-              {planLabel && showPlan ? ` · ${planLabel} plan` : ""}
+              {roleLabel(role, t("owner"))}
+              {planLabel && showPlan
+                ? ` · ${t("planLabel", { plan: planLabel })}`
+                : ""}
             </p>
           </div>
           <Link
@@ -65,27 +76,27 @@ export function SettingsView({
               settingsClasses.btnPrimary,
             )}
           >
-            Edit business profile
+            {t("editBusiness")}
           </Link>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {[
             {
-              label: "State",
-              value: stateLabel ?? "Not set",
-              sub: stateMissing ? "needed for holidays" : "for HR calendar",
+              label: t("state"),
+              value: stateLabel ?? tCommon("notSet"),
+              sub: stateMissing ? t("stateNeeded") : t("stateForHr"),
               warn: stateMissing,
             },
             {
-              label: "Plan",
+              label: t("plan"),
               value: showPlan && planLabel ? planLabel : "—",
-              sub: showPlan ? "subscription" : "managed locally",
+              sub: showPlan ? t("subscription") : t("managedLocally"),
             },
             {
-              label: "Company ID",
+              label: t("companyId"),
               value: companyId ?? "—",
-              sub: "your business code",
+              sub: t("yourBusinessCode"),
               wide: true,
             },
           ].map((stat) => (
@@ -123,77 +134,80 @@ export function SettingsView({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-ink dark:text-cream-100">
-              Set your business state
+              {t("editBusiness")}
             </p>
             <p className="text-xs text-ink-muted dark:text-cream-400">
-              Required to import Malaysian public holidays in HR and calculate
-              working days for leave.
+              {t("stateNeeded")}
             </p>
           </div>
           <ChevronRight className="h-4 w-4 shrink-0 text-amber-700 transition group-hover:translate-x-0.5 dark:text-amber-300" />
         </Link>
       ) : null}
 
-      {groups.map((group) => (
-        <section key={group.title}>
-          <h2
-            className={cn(
-              "mb-3 text-[11px] font-bold uppercase tracking-widest",
-              settingsClasses.textMuted,
-            )}
-          >
-            {group.title}
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {group.items.map((item) => {
-              const Icon = item.icon;
-              const highlight =
-                item.href === "/settings/business" && stateMissing;
+      {groups.map((group) => {
+        const groupKey = settingsGroupMessageKey(group.title);
+        return (
+          <section key={group.title}>
+            <h2
+              className={cn(
+                "mb-3 text-[11px] font-bold uppercase tracking-widest",
+                settingsClasses.textMuted,
+              )}
+            >
+              {groupKey ? t(groupKey) : group.title}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const highlight =
+                  item.href === "/settings/business" && stateMissing;
+                const keys = settingsNavMessageKeys(item.href);
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="group block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-                >
-                  <div
-                    className={cn(
-                      "flex h-full items-center gap-3 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-md dark:bg-panel-dark",
-                      highlight
-                        ? "border-amber-300/80 hover:border-amber-400 dark:border-amber-800/60"
-                        : "border-cream-200 hover:border-brand-200 dark:border-hairline-dark dark:hover:border-brand-800",
-                    )}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="group block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
                   >
-                    <span
+                    <div
                       className={cn(
-                        "grid h-10 w-10 shrink-0 place-items-center rounded-lg",
+                        "flex h-full items-center gap-3 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-md dark:bg-panel-dark",
                         highlight
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
-                          : settingsClasses.iconBox,
+                          ? "border-amber-300/80 hover:border-amber-400 dark:border-amber-800/60"
+                          : "border-cream-200 hover:border-brand-200 dark:border-hairline-dark dark:hover:border-brand-800",
                       )}
                     >
-                      <Icon className="h-4 w-4" strokeWidth={2} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-semibold text-ink dark:text-cream-100">
-                        {item.label}
-                      </h3>
-                      <p className="text-xs text-ink-muted dark:text-cream-400">
-                        {item.description}
-                      </p>
+                      <span
+                        className={cn(
+                          "grid h-10 w-10 shrink-0 place-items-center rounded-lg",
+                          highlight
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+                            : settingsClasses.iconBox,
+                        )}
+                      >
+                        <Icon className="h-4 w-4" strokeWidth={2} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-semibold text-ink dark:text-cream-100">
+                          {keys ? t(keys.title) : item.label}
+                        </h3>
+                        <p className="text-xs text-ink-muted dark:text-cream-400">
+                          {keys ? t(keys.desc) : item.description}
+                        </p>
+                      </div>
+                      <ChevronRight
+                        aria-hidden
+                        className="h-4 w-4 shrink-0 text-ink-subtle transition group-hover:translate-x-0.5 dark:text-cream-400"
+                        strokeWidth={2}
+                      />
                     </div>
-                    <ChevronRight
-                      aria-hidden
-                      className="h-4 w-4 shrink-0 text-ink-subtle transition group-hover:translate-x-0.5 dark:text-cream-400"
-                      strokeWidth={2}
-                    />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

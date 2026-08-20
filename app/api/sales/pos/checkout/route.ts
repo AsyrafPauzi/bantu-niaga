@@ -12,6 +12,12 @@ import { loadBusiness } from "@/lib/settings/business";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { notifySalesPosCompleted } from "@/lib/sales/notify";
+import {
+  assertBusinessSubscriptionWritable,
+  SubscriptionPastDueError,
+} from "@/lib/settings/assert-business-writable";
+import { pastDueJsonResponse } from "@/lib/settings/past-due-response";
+import { touchActivation } from "@/lib/settings/activation";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +55,16 @@ export async function POST(request: Request) {
       { error: "forbidden", message: "You cannot complete POS sales." },
       { status: 403 },
     );
+  }
+
+  const supabase = await createSupabaseServerClient();
+  try {
+    await assertBusinessSubscriptionWritable(supabase, user.businessId);
+  } catch (e) {
+    if (e instanceof SubscriptionPastDueError) {
+      return pastDueJsonResponse(e);
+    }
+    throw e;
   }
 
   const limited = enforceRateLimit({
@@ -105,8 +121,6 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-
-  const supabase = await createSupabaseServerClient();
 
   const productIds = parsed.items
     .filter((i) => i.product_id)
@@ -446,6 +460,8 @@ export async function POST(request: Request) {
     totalMyr: Number(sale.total_myr),
     paymentMethod: sale.payment_method as string,
   });
+
+  await touchActivation(supabase, user.businessId, "pos");
 
   return NextResponse.json(
     {

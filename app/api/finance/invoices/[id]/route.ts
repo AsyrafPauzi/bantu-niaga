@@ -30,6 +30,12 @@ import {
   financeInvoiceUpdateSchema,
   type FinanceInvoiceRow,
 } from "@/lib/finance/schemas";
+import {
+  assertBusinessSubscriptionWritable,
+  SubscriptionPastDueError,
+} from "@/lib/settings/assert-business-writable";
+import { pastDueJsonResponse } from "@/lib/settings/past-due-response";
+import { touchActivation } from "@/lib/settings/activation";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +93,18 @@ export async function PATCH(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  if (parsed.status === "sent") {
+    try {
+      await assertBusinessSubscriptionWritable(supabase, user.businessId);
+    } catch (e) {
+      if (e instanceof SubscriptionPastDueError) {
+        return pastDueJsonResponse(e);
+      }
+      throw e;
+    }
+  }
+
   const { data: existing } = await supabase
     .from("finance_invoices")
     .select(INVOICE_SELECT)
@@ -321,6 +339,7 @@ export async function PATCH(
         customerName: row.customer_name,
         totalMyr: Number(row.total_myr),
       });
+      await touchActivation(supabase, user.businessId, "invoice");
     }
     if (parsed.status === "paid" && row.document_kind === "invoice") {
       notifyFinanceInvoicePaid({

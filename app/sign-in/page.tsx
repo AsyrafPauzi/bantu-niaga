@@ -4,9 +4,15 @@ import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { socialAuthErrorMessage } from "@/lib/auth/social-login";
+import type { AppLocale } from "@/lib/i18n/locale";
+import {
+  readPreferredLocaleCookie,
+  writePreferredLocaleCookie,
+} from "@/lib/i18n/preferred-locale-cookie";
 import { isPublicStandaloneDeployment } from "@/lib/platform/deployment";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -21,12 +27,17 @@ export default function SignInPage() {
 function SignInInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const [locale, setLocale] = useState<AppLocale>("en");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setLocale(readPreferredLocaleCookie());
+  }, []);
 
   useEffect(() => {
     const flash = params.get("auth_error");
@@ -91,38 +102,137 @@ function SignInInner() {
 
   return (
     <AuthShell
-      brandHeading="Run your entire business from one screen."
-      brandSubheading="Finance, sales, inventory, HR, marketing — unified with Boardroom for Malaysian SMEs."
+      locale={locale}
+      brandHeading={
+        locale === "ms"
+          ? "Urus seluruh bisnes dari satu skrin."
+          : "Run your entire business from one screen."
+      }
+      brandSubheading={
+        locale === "ms"
+          ? "Kewangan, jualan, inventori, HR, pemasaran — disatukan dengan Bilik mesyuarat untuk PKS Malaysia."
+          : "Finance, sales, inventory, HR, marketing — unified with Boardroom for Malaysian SMEs."
+      }
     >
+      <SignInForm
+        locale={locale}
+        onLocaleChange={(next) => {
+          writePreferredLocaleCookie(next);
+          setLocale(next);
+        }}
+        email={email}
+        setEmail={setEmail}
+        password={password}
+        setPassword={setPassword}
+        showPassword={showPassword}
+        setShowPassword={setShowPassword}
+        remember={remember}
+        setRemember={setRemember}
+        error={error}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+        switchAccount={params.get("reason") === "switch_account"}
+        nextPath={params.get("next") || "/home"}
+        onError={setError}
+      />
+    </AuthShell>
+  );
+}
+
+function SignInForm({
+  locale,
+  onLocaleChange,
+  email,
+  setEmail,
+  password,
+  setPassword,
+  showPassword,
+  setShowPassword,
+  remember,
+  setRemember,
+  error,
+  submitting,
+  onSubmit,
+  switchAccount,
+  nextPath,
+  onError,
+}: {
+  locale: AppLocale;
+  onLocaleChange: (locale: AppLocale) => void;
+  email: string;
+  setEmail: (v: string) => void;
+  password: string;
+  setPassword: (v: string) => void;
+  showPassword: boolean;
+  setShowPassword: (v: boolean | ((p: boolean) => boolean)) => void;
+  remember: boolean;
+  setRemember: (v: boolean) => void;
+  error: string | null;
+  submitting: boolean;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  switchAccount: boolean;
+  nextPath: string;
+  onError: (msg: string) => void;
+}) {
+  const t = useTranslations("auth");
+
+  return (
+    <>
+      <div className="flex items-center justify-end gap-2 text-xs">
+        <span className="text-ink-muted dark:text-cream-400">
+          {t("languageToggle")}
+        </span>
+        <button
+          type="button"
+          onClick={() => onLocaleChange("en")}
+          className={
+            locale === "en"
+              ? "font-semibold text-brand-700 dark:text-brand-200"
+              : "text-ink-muted hover:text-ink dark:text-cream-400"
+          }
+        >
+          EN
+        </button>
+        <span className="text-ink-subtle">/</span>
+        <button
+          type="button"
+          onClick={() => onLocaleChange("ms")}
+          className={
+            locale === "ms"
+              ? "font-semibold text-brand-700 dark:text-brand-200"
+              : "text-ink-muted hover:text-ink dark:text-cream-400"
+          }
+        >
+          MS
+        </button>
+      </div>
+
       <div>
         <h2 className="text-3xl font-bold tracking-tight text-ink dark:text-cream-100">
-          Welcome back
+          {t("welcomeBack")}
         </h2>
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-          {params.get("reason") === "switch_account"
-            ? "Sign in with the account for the company you want to open."
-            : "Sign in to keep managing your business."}
+          {switchAccount ? t("switchAccount") : t("signInSubtitle")}
         </p>
       </div>
 
       {!isPublicStandaloneDeployment() ? (
         <>
-          <GoogleSignInButton
-            nextPath={params.get("next") || "/home"}
-            onError={setError}
-          />
+          <GoogleSignInButton nextPath={nextPath} onError={onError} />
 
           <div className="flex items-center gap-3 text-xs text-ink-subtle dark:text-cream-400">
             <span className="h-px flex-1 bg-cream-300 dark:bg-hairline-dark" />
-            OR SIGN IN WITH EMAIL
+            {t("orEmail")}
             <span className="h-px flex-1 bg-cream-300 dark:bg-hairline-dark" />
           </div>
         </>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4">
         <label className="block text-sm">
-          <span className="font-medium text-ink dark:text-cream-100">Email</span>
+          <span className="font-medium text-ink dark:text-cream-100">
+            {t("email")}
+          </span>
           <input
             type="email"
             autoComplete="email"
@@ -135,7 +245,9 @@ function SignInInner() {
         </label>
 
         <label className="block text-sm">
-          <span className="font-medium text-ink dark:text-cream-100">Password</span>
+          <span className="font-medium text-ink dark:text-cream-100">
+            {t("password")}
+          </span>
           <div className="relative mt-1.5">
             <input
               type={showPassword ? "text" : "password"}
@@ -149,7 +261,7 @@ function SignInInner() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? t("hidePassword") : t("showPassword")}
               className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100"
             >
               {showPassword ? (
@@ -169,13 +281,13 @@ function SignInInner() {
               onChange={(e) => setRemember(e.target.checked)}
               className="h-4 w-4 rounded border-cream-300 text-brand-500 focus:ring-brand-400 dark:border-hairline-dark dark:bg-panel-dark"
             />
-            Remember me
+            {t("rememberMe")}
           </label>
           <Link
             href="/forgot-password"
             className="font-medium text-brand-700 hover:text-brand-800 dark:text-brand-200"
           >
-            Forgot password?
+            {t("forgotPassword")}
           </Link>
         </div>
 
@@ -196,25 +308,25 @@ function SignInInner() {
           {submitting ? (
             <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
           ) : null}
-          {submitting ? "Signing in…" : "Sign in"}
+          {submitting ? t("signingIn") : t("signIn")}
         </button>
       </form>
 
       <p className="text-center text-sm text-ink-muted dark:text-cream-400">
         {isPublicStandaloneDeployment() ? (
-          <>Sign in with the account your administrator created.</>
+          <>{t("adminCreated")}</>
         ) : (
           <>
-            Don&apos;t have an account?{" "}
+            {t("noAccount")}{" "}
             <Link
               href="/sign-up"
               className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              Start a 7-day Basic trial
+              {t("startTrial")}
             </Link>
           </>
         )}
       </p>
-    </AuthShell>
+    </>
   );
 }

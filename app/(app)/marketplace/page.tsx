@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/dashboard/page-header";
-import { Badge } from "@/components/ui/badge";
+import { MarketplacePageHeader } from "@/components/marketplace/MarketplacePageHeader";
 import { MarketplaceView } from "@/components/marketplace/MarketplaceView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { loadCatalog } from "@/lib/marketplace/load";
@@ -30,17 +29,9 @@ export default async function MarketplacePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Marketplace"
-        title="Add-ons & integrations"
-        description="Switch on extra capacity, channels, or AI capability — billed prorated to your next renewal."
-        action={
-          canEdit ? (
-            <Badge tone="brand">{tier?.label ?? business.tier} plan</Badge>
-          ) : (
-            <Badge tone="warning">Read-only — owner role required</Badge>
-          )
-        }
+      <MarketplacePageHeader
+        canEdit={canEdit}
+        planLabel={tier?.label ?? business.tier}
       />
 
       <MarketplaceView
@@ -52,3 +43,4 @@ export default async function MarketplacePage() {
     </div>
   );
 }
+

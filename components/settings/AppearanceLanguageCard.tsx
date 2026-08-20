@@ -1,30 +1,39 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiErrorMessage } from "@/lib/api/client-error";
+import { writePreferredLocaleCookie } from "@/lib/i18n/preferred-locale-cookie";
 import { cn } from "@/lib/utils/cn";
 
 type EmailLocale = "en" | "ms";
 
-const OPTIONS: readonly { value: EmailLocale; label: string; caption: string }[] =
-  [
+export function AppearanceLanguageCard() {
+  const t = useTranslations("settings");
+  const tAuth = useTranslations("auth");
+  const router = useRouter();
+  const [locale, setLocale] = useState<EmailLocale>("en");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const OPTIONS: readonly {
+    value: EmailLocale;
+    label: string;
+    caption: string;
+  }[] = [
     {
       value: "en",
       label: "English",
-      caption: "Emails and this preference default to English.",
+      caption: t("languageEnCaption"),
     },
     {
       value: "ms",
       label: "Bahasa Melayu",
-      caption: "Auth and product emails use Bahasa Melayu.",
+      caption: t("languageMsCaption"),
     },
   ];
-
-export function AppearanceLanguageCard() {
-  const [locale, setLocale] = useState<EmailLocale>("en");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +79,9 @@ export function AppearanceLanguageCard() {
       if (!res.ok) {
         setLocale(previous);
         setError(apiErrorMessage(json, "Could not save language."));
+      } else {
+        writePreferredLocaleCookie(next);
+        router.refresh();
       }
     } catch {
       setLocale(previous);
@@ -82,14 +94,14 @@ export function AppearanceLanguageCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Language</CardTitle>
+        <CardTitle>{t("languageTitle")}</CardTitle>
       </CardHeader>
       <CardBody>
         <fieldset disabled={pending}>
-          <legend className="sr-only">Email language</legend>
+          <legend className="sr-only">{tAuth("languageToggle")}</legend>
           <div
             role="radiogroup"
-            aria-label="Email language"
+            aria-label={tAuth("languageToggle")}
             className="grid gap-3 sm:grid-cols-2"
           >
             {OPTIONS.map((option) => {
@@ -132,16 +144,10 @@ export function AppearanceLanguageCard() {
           </div>
         </fieldset>
         {error ? (
-          <p
-            role="alert"
-            className="mt-3 text-sm text-status-danger"
-          >
+          <p role="alert" className="mt-3 text-sm text-status-danger">
             {error}
           </p>
         ) : null}
-        <p className="mt-4 text-xs text-ink-muted dark:text-cream-400">
-          Saved on your account. Theme above stays on this browser only.
-        </p>
       </CardBody>
     </Card>
   );

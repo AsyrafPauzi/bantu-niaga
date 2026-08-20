@@ -3,11 +3,14 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { useAuthLocale } from "@/components/auth/useAuthLocale";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import { isPublicStandaloneDeployment } from "@/lib/platform/deployment";
 
 export default function ForgotPasswordPage() {
+  const { locale } = useAuthLocale();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,23 +39,65 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      brandHeading="Locked out? We'll send you back in."
-      brandSubheading="A one-time reset link lands in your inbox within a minute. The link expires in 60 minutes for safety."
+      locale={locale}
+      brandHeading={
+        locale === "ms"
+          ? "Terkunci? Kami hantar anda masuk semula."
+          : "Locked out? We'll send you back in."
+      }
+      brandSubheading={
+        locale === "ms"
+          ? "Pautan set semula sekali guna sampai ke peti masuk dalam seminit. Pautan tamat dalam 60 minit demi keselamatan."
+          : "A one-time reset link lands in your inbox within a minute. The link expires in 60 minutes for safety."
+      }
     >
+      <ForgotForm
+        email={email}
+        setEmail={setEmail}
+        sent={sent}
+        setSent={setSent}
+        error={error}
+        pending={pending}
+        onSubmit={handleSubmit}
+      />
+    </AuthShell>
+  );
+}
+
+function ForgotForm({
+  email,
+  setEmail,
+  sent,
+  setSent,
+  error,
+  pending,
+  onSubmit,
+}: {
+  email: string;
+  setEmail: (v: string) => void;
+  sent: boolean;
+  setSent: (v: boolean) => void;
+  error: string | null;
+  pending: boolean;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+}) {
+  const t = useTranslations("auth");
+
+  return (
+    <>
       <div>
         <Link
           href="/sign-in"
           className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:text-brand-800 dark:text-brand-200"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-          Back to sign in
+          {t("backToSignIn")}
         </Link>
         <h2 className="mt-4 text-3xl font-bold tracking-tight text-ink dark:text-cream-100">
-          Reset your password
+          {t("resetTitle")}
         </h2>
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-          Enter the email tied to your business. We&apos;ll send a secure link
-          to set a new password.
+          {t("resetSubtitle")}
         </p>
       </div>
 
@@ -64,11 +109,10 @@ export default function ForgotPasswordPage() {
             </span>
             <div>
               <p className="text-sm font-semibold text-ink dark:text-cream-100">
-                Check your inbox
+                {t("checkInbox")}
               </p>
               <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-                If <strong>{email}</strong> matches an account, the link is on
-                its way. The link expires in 60 minutes.
+                {t("resetSentBody", { email })}
               </p>
             </div>
           </div>
@@ -78,32 +122,32 @@ export default function ForgotPasswordPage() {
               setSent(false);
               setEmail("");
             }}
-            className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            className="text-sm font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
           >
-            Send to a different email
+            {t("tryAnotherEmail")}
           </button>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4">
           <label className="block text-sm">
-            <span className="mb-1.5 block font-medium text-ink dark:text-cream-100">
-              Email
+            <span className="font-medium text-ink dark:text-cream-100">
+              {t("email")}
             </span>
             <input
               type="email"
+              autoComplete="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@business.com"
-              autoComplete="email"
-              required
-              className="block w-full rounded-lg border border-cream-300 bg-white px-3.5 py-2.5 text-base text-ink shadow-card placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:placeholder:text-cream-400"
+              className="mt-1.5 block w-full rounded-lg border border-cream-300 bg-white px-3.5 py-2.5 text-base text-ink shadow-card placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:placeholder:text-cream-400"
             />
           </label>
 
           {error ? (
             <p
               role="alert"
-              className="rounded-md border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-sm text-status-danger dark:bg-status-danger/20"
+              className="rounded-md border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-sm text-status-danger"
             >
               {error}
             </p>
@@ -111,30 +155,28 @@ export default function ForgotPasswordPage() {
 
           <button
             type="submit"
-            disabled={pending || !email}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-500 text-base font-semibold text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:bg-cream-300 disabled:text-ink-subtle dark:disabled:bg-hairline-dark dark:disabled:text-cream-400"
+            disabled={pending}
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-500 text-base font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-cream-300"
           >
             {pending ? (
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
-            ) : (
-              <Mail className="h-4 w-4" strokeWidth={2} />
-            )}
-            Send reset link
+            ) : null}
+            {pending ? t("sending") : t("sendReset")}
           </button>
         </form>
       )}
 
-      {!isPublicStandaloneDeployment() ? (
+      {isPublicStandaloneDeployment() ? null : (
         <p className="text-center text-sm text-ink-muted dark:text-cream-400">
-          Don&apos;t have an account yet?{" "}
+          {t("noAccount")}{" "}
           <Link
             href="/sign-up"
             className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
           >
-            Start a 7-day Basic trial
+            {t("signUp")}
           </Link>
         </p>
-      ) : null}
-    </AuthShell>
+      )}
+    </>
   );
 }

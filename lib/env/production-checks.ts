@@ -50,7 +50,7 @@ export function runProductionEnvChecks(): ProductionEnvCheck[] {
       key: "BILLPLZ_API_KEY",
       ok: Boolean(process.env.BILLPLZ_API_KEY?.trim()),
       required: false,
-      hint: "Optional — without it, billing uses dev bypass.",
+      hint: "Required for paid subscription and top-up in production. No bypass.",
     },
     {
       key: "BILLPLZ_X_SIGNATURE_KEY",

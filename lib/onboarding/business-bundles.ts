@@ -229,7 +229,7 @@ export function computeBundlePricing(opts: {
   }
 
   const addonSubtotalCents = lines.reduce((sum, line) => {
-    if (line.active || line.includedInTier) return sum;
+    if (line.active || line.includedInTier || line.comingSoon) return sum;
     return sum + line.priceCents;
   }, 0);
 

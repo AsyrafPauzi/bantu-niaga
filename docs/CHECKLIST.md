@@ -117,7 +117,9 @@
 | ✅ | API key pepper fail-closed in production (`API_KEY_PEPPER` / `INTEGRATION_ENCRYPTION_KEY`) |
 | ✅ | AI Agent activation page (7 agents, daily budget, rename) |
 | 🟡 | Billplz live checkout for top-ups — webhook + pending invoice wired; set `BILLPLZ_*` in prod |
-| 🟡 | Billplz auto-renew for subscription — renewal cron still issues invoices only (no charge yet) |
+| ✅ | Billplz subscription checkout — paid tier change creates pending invoice + Billplz bill; webhook applies tier (`settings_complete_subscription_billplz`) |
+| ✅ | Subscription renewal — pending invoices + Billplz attach; `past_due` after 7 days past `subscription_renewal_at`; soft-lock writes |
+| ✅ | Production fail-closed — no top-up / paid bypass when Billplz missing in production |
 | ✅ | Recent migrations applied on remote — `npx supabase db push` (incl. `20260806100000_business_holiday_overrides`) |
 | ✅ | Multiple payment methods stored in UI |
 | ✅ | Accountant export pack |
@@ -705,7 +707,7 @@
 | ✅ | API keys (create, rotate, revoke) |
 | ✅ | Meta Facebook/Instagram OAuth + post |
 | ✅ | Billplz / iPay88 catalog entries in integrations |
-| 🟡 | Billplz live payment + webhook settlement |
+| ✅ | Billplz subscription + top-up webhook settlement (set `BILLPLZ_*` in prod) |
 | 🟡 | iPay88 — catalog only |
 | 🟡 | Channel integrations (WhatsApp, etc.) — UI “Coming soon” |
 | ⬜ | LHDN MyInvois connector |
@@ -768,6 +770,26 @@
 | `20260805190000_cross_module_polish.sql` | `sales_leads.source_order_id`, resource employee index |
 | `20260805220000_extend_cross_pillar_event_index.sql` | Index incl. invoice.paid + customer.* |
 | `20260806100000_business_holiday_overrides.sql` | Per-business holiday overrides + effective calendar |
+
+---
+
+## 12b. Phase 1 GTM core (2026-08-20)
+
+Spec: `docs/superpowers/specs/2026-08-20-phase-1-gtm-core-design.md`  
+Plan: `docs/superpowers/plans/2026-08-20-phase-1-gtm-core.md`
+
+| Status | Item |
+|--------|------|
+| ✅ | Soft lock on `past_due` (banner + invoice send / POS / top-up / marketplace activate) |
+| ✅ | Paid subscription Billplz checkout + webhook apply tier |
+| ✅ | Renewal pending invoices + past_due after 7 days |
+| ✅ | Marketplace tenant catalogue = shipped only (env `MARKETPLACE_SHOW_PLANNED` for demos) |
+| ✅ | Onboarding bundle pricing excludes coming-soon from purchasable subtotal |
+| ✅ | Activation timestamps + Home checklist + super-admin 7-day activation % |
+| ✅ | Tenant Bahasa — next-intl plumbing, shell/nav/subnav, past-due, activation, Home, Settings hub, Marketplace, Boardroom chrome, Finance/POS CTAs |
+| ✅ | Auth UI string migration (sign-in/up, forgot/reset, verify, accept-invite) + Settings → Appearance language drives in-app chrome |
+
+Migrations applied to linked DB: `20260820100000_subscription_billplz_checkout.sql`, `20260820110000_subscription_renewal_past_due.sql`, `20260820120000_business_activation.sql`.
 
 ---
 
