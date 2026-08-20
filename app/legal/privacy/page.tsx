@@ -117,7 +117,7 @@ export default function PrivacyNoticePage() {
             Instagram Business account so we can publish on your behalf.
           </li>
           <li>
-            <strong>Stripe / Billplz / iPay88</strong> — payment processing.
+            <strong>Billplz / ToyyibPay / CommercePay</strong> — payment processing (Billplz is the live gateway).
           </li>
           <li>
             <strong>AI model providers</strong> — OpenAI / Anthropic for the AI

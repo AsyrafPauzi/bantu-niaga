@@ -63,10 +63,10 @@
 | ✅ | Home dashboard with pillar snapshots |
 | ✅ | `/more` hub and pillar registry |
 | ✅ | User sessions migration (`20260707230000`) |
-| 🟡 | Team invite email + `/accept-invite` password setup — `NEXT_PUBLIC_APP_URL` ✅ in prod; still needs Supabase Auth SMTP / invite email templates |
+| ✅ | Team invite email + `/accept-invite` password setup — app path + NiagaX Send Email hook + Resend templates; confirm `AUTH_SEND_EMAIL_HOOK_SECRET` + Site URL in Supabase (see `docs/DEPLOY-SMTP.md`) |
 | ✅ | Staff login portal (`/hr/me`) — balance, apply leave, history, cancel pending, onboarding view; **included on Solo+** (no Marketplace purchase); still requires linked `user_id` |
 | ✅ | Google social login (sign-in via Supabase OAuth) — existing accounts / invites only |
-| 🟡 | Google OAuth production config — enable Google provider in Supabase + Google Cloud OAuth client; redirect `https://<domain>/auth/callback` |
+| ✅ | Google OAuth production config — Google provider + OAuth client + `/auth/callback` redirect |
 | ✅ | Organisation multi-company switching — sidebar dropdown, `/add-company`, `user_business_memberships` |
 | ✅ | Auth rate limiting — sign-up, forgot password, reset password (IP-based) |
 | ✅ | Free-first sign-up — default Free path + optional Starter trial |
@@ -90,7 +90,7 @@
 | ✅ | À la carte pricing unchanged — bundle discount is display-only in Phase 1 |
 | ✅ | Hybrid deployment mode — `DEPLOYMENT_MODE=saas|standalone` (Phase 2) |
 | ✅ | Standalone bootstrap — one-time sign-up when zero businesses |
-| ⬜ | Phase 2: Custom domain + Supabase SMTP + Resend |
+| ✅ | Phase 2: Custom domain + Supabase SMTP / Send Email hook + Resend |
 | ⬜ | Phase 2: Billplz single checkout for bundle plan + discounted add-ons |
 | ✅ | Persist quiz for users who skip guide — default `other` / `solo` / `invoices` saved on sign-up + recommendation backfill |
 
@@ -161,7 +161,7 @@
 | ✅ | Operations AI chat page (`/operations/assistant`) |
 | ✅ | Sales AI chat page |
 | ✅ | Admin AI chat page (`/admin/assistant`) |
-| 🟡 | Weekly Boardroom digest email — cron + Resend wired; needs `RESEND_API_KEY` |
+| ✅ | Weekly Boardroom digest email — cron + Resend (`RESEND_API_KEY` + `MARKETING_FROM_EMAIL`) |
 | ✅ | Credit rollover policy enforcement UI — top-up vs monthly bundle split; renewal resets bundle; Billing policy card |
 
 ### AI module agents (marketplace)
@@ -714,9 +714,8 @@
 | ✅ | Outbound webhooks + signing secret |
 | ✅ | API keys (create, rotate, revoke) |
 | ✅ | Meta Facebook/Instagram OAuth + post |
-| ✅ | Billplz / iPay88 catalog entries in integrations |
-| ✅ | Billplz subscription + top-up webhook settlement (set `BILLPLZ_*` in prod) |
-| 🟡 | iPay88 — catalog only |
+| ✅ | Billplz catalog + live webhook settlement (set `BILLPLZ_*` in prod) |
+| 🟡 | Alt payment gateways — catalog / planning only: ToyyibPay, CommercePay (Billplz is the live path) |
 | 🟡 | Channel integrations (WhatsApp, etc.) — UI “Coming soon” |
 | ⬜ | LHDN MyInvois connector |
 | ⬜ | Shopee / TikTok sync |
@@ -747,9 +746,9 @@
 | ✅ | Run `supabase db push` if remote behind local — 65 local migrations (includes `20260730130000`; verify remote after push) |
 | ✅ | `NEXT_PUBLIC_APP_URL` set in production |
 | ✅ | `CRON_SECRET` set in Vercel production |
-| 🟡 | Set production env: `INTEGRATION_ENCRYPTION_KEY`, `ILMU_API_KEY` (or configure ILMU in super-admin integrations) — `ILMU_API_KEY` ✅ if set in Vercel |
-| 🟡 | Configure Supabase Auth email templates / SMTP for team invites — see `docs/DEPLOY-SMTP.md` |
-| 🟡 | Google social login — Supabase Auth → Providers → Google; add OAuth client + `/auth/callback` redirect |
+| ✅ | Production env: `INTEGRATION_ENCRYPTION_KEY`, `ILMU_API_KEY` (or ILMU in super-admin integrations) |
+| ✅ | Supabase Auth email via NiagaX Send Email hook + Resend — team invites / reset / confirm (`docs/DEPLOY-SMTP.md`) |
+| ✅ | Google social login — Supabase Auth → Providers → Google; OAuth client + `/auth/callback` redirect |
 | ✅ | Vercel crons configured: `privacy-sweep`, `hr-daily-notice`, `marketing-daily-notice`, `sales-daily-notice`, `finance-daily-notice`, `operations-daily-notice`, `admin-daily-notice`, `hr-assistant-renewal`, `subscription-renewal`, `tenant-health`, `events-dispatch` |
 | ⬜ | Billplz production keys + webhook URL |
 | ⬜ | E2E test suite in CI |
@@ -849,7 +848,7 @@ Migration: `20260820140000_customers_last_contacted.sql`.
 - **Finance core:** ✅ feature-complete — verify on staging (`db push` + smoke test); **no new Finance add-ons**
 - **Operations core:** ✅ cross-module bridges shipped — verify on staging (`db push` incl. `20260805180000` + `20260805190000`)
 - **Sales core:** verify quote-on-lead + POS flows on staging
-- Auth: Supabase SMTP / Resend for invites + (later) email verification; Google OAuth provider in Supabase for social sign-in
+- Auth: team invites via Send Email hook + Resend (verify hook secret in prod); Google OAuth provider already configured for social sign-in
 - Module AI polish only after that module’s core is verified
 
 ### After cores settle (add-ons — do not start early)
