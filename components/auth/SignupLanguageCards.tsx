@@ -1,6 +1,8 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils/cn";
+import { writePreferredLocaleCookie } from "@/lib/i18n/preferred-locale-cookie";
 
 type Locale = "en" | "ms";
 
@@ -16,14 +18,17 @@ export function SignupLanguageCards({
   value: Locale | null;
   onChange: (next: Locale) => void;
 }) {
+  const t = useTranslations("auth");
+  const tSettings = useTranslations("settings");
+
   return (
     <fieldset>
       <legend className="mb-1.5 block text-sm font-medium text-ink dark:text-cream-100">
-        Language
+        {t("languageToggle")}
       </legend>
       <div
         role="radiogroup"
-        aria-label="Language"
+        aria-label={t("languageToggle")}
         className="grid gap-3 sm:grid-cols-2"
       >
         {OPTIONS.map((option) => {
@@ -44,7 +49,10 @@ export function SignupLanguageCards({
                 name="preferred-locale"
                 value={option.value}
                 checked={selected}
-                onChange={() => onChange(option.value)}
+                onChange={() => {
+                  writePreferredLocaleCookie(option.value);
+                  onChange(option.value);
+                }}
                 className="sr-only"
               />
               <span
@@ -57,13 +65,15 @@ export function SignupLanguageCards({
               >
                 {option.label}
               </span>
+              <span className="text-xs text-ink-muted dark:text-cream-400">
+                {option.value === "ms"
+                  ? tSettings("languageMsCaption")
+                  : tSettings("languageEnCaption")}
+              </span>
             </label>
           );
         })}
       </div>
-      <p className="mt-2 text-xs text-ink-muted dark:text-cream-400">
-        Used for emails. You can change this later in Settings.
-      </p>
     </fieldset>
   );
 }

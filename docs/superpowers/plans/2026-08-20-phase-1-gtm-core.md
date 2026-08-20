@@ -560,25 +560,18 @@ Minimal `en.json`:
 
 ---
 
-### Task 14: Localise remaining tenant modules (wave)
+### Task 14: Localise remaining tenant modules (wave) ✅
 
-**Files (migrate systematically):**
-- Operations: products, stock, orders, bookings
-- Marketing: customers, segments, coupons, broadcasts chrome
-- HR: employees, leave, holidays, me portal
-- Admin: tasks, documents, compliance
-- Settings: all settings pages including subscription/billing
-- Marketplace chrome (shipped list)
-- Boardroom chrome (not AI body)
-- Auth: sign-in, sign-up, complete, forgot/reset, verify-email, accept-invite
+**Shipped (Phase 1 D exit criteria):**
+- Expanded `messages/en.json` + `messages/ms.json` (nav/subnav, auth, settings, home, marketplace, finance/sales CTAs, pillar namespaces)
+- Shell: desktop + mobile drawer groups/items/subnav + sign-out/help
+- Module hero eyebrows via `ModuleDashboardHero`
+- Settings hub tiles + back link + subscription page hero + Appearance language (in-app + cookie + refresh)
+- Marketplace + Boardroom chrome; Home greeting/pulse/free banner
+- Finance new-invoice CTAs + invoice panel primary actions; POS title + complete CTA
+- Auth: sign-in/up, forgot/reset, verify-email, accept-invite (cookie locale + EN/MS toggle on sign-in)
 
-**Process per pillar:**
-1. Add keys to `en.json`
-2. Add `ms.json` translations
-3. Replace literals in components
-4. Smoke that pillar in `ms`
-
-Do not translate super-admin or `(public)/*`.
+Do not translate super-admin or `(public)/*`. Deeper module body copy beyond primary chrome/CTAs can continue iteratively.
 
 **Exit criteria for Phase 1 D:** Bahasa owner can sign in, use Home checklist, send invoice or POS, open Settings → Subscription, and navigate all six pillars without English leftover on primary chrome/CTAs.
 

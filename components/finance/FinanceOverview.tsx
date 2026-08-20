@@ -29,6 +29,7 @@ import {
 import { StatusPill } from "@/components/dashboard/status-pill";
 import { AccountantExportButton } from "@/components/finance/AccountantExportButton";
 import { FinanceMonthPicker } from "@/components/finance/FinanceMonthPicker";
+import { FinanceNewInvoiceButton } from "@/components/finance/FinanceNewInvoiceButton";
 import type { FinanceDashboardData } from "@/lib/finance/dashboard";
 import {
   buildInvoiceShareMessage,
@@ -255,18 +256,7 @@ export function FinanceOverview({
             ) : null}
           </div>
         }
-        cta={
-          <Link
-            href="/finance/invoices/new"
-            className={cn(
-              "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
-              financeTheme.btnPrimary,
-            )}
-          >
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            New invoice
-          </Link>
-        }
+        cta={<FinanceNewInvoiceButton />}
       >
         <p className="mt-1 text-xs font-medium text-ink-muted dark:text-cream-400">
           {monthLabel}

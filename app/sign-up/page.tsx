@@ -11,6 +11,8 @@ import { apiErrorMessage } from "@/lib/api/client-error";
 import { readQuizFromSession } from "@/lib/onboarding/session-quiz";
 import { isPublicStandaloneDeployment } from "@/lib/platform/deployment";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useTranslations } from "next-intl";
+import { writePreferredLocaleCookie } from "@/lib/i18n/preferred-locale-cookie";
 
 const STATES = [
   { code: "KUL", label: "Kuala Lumpur" },
@@ -66,6 +68,7 @@ function SignUpForm() {
       setError("Choose English or Bahasa Melayu.");
       return;
     }
+    writePreferredLocaleCookie(preferredLocale);
     if (!acceptTerms) {
       setError("Accept the terms to continue.");
       return;
@@ -140,25 +143,38 @@ function SignUpForm() {
 
   return (
     <AuthShell
+      locale={preferredLocale ?? "en"}
       brandHeading={
-        signupPath === "free"
-          ? "Start free — invoices and payments."
-          : "Start your 7-day Basic trial."
+        preferredLocale === "ms"
+          ? signupPath === "free"
+            ? "Mula percuma — invois dan bayaran."
+            : "Mula percubaan Basic 7 hari."
+          : signupPath === "free"
+            ? "Start free — invoices and payments."
+            : "Start your 7-day Basic trial."
       }
       brandSubheading={
-        signupPath === "free"
-          ? "No card required. Upgrade when you need expenses, stock, or staff."
-          : "No card required. Activate add-ons later from the Marketplace."
+        preferredLocale === "ms"
+          ? signupPath === "free"
+            ? "Tiada kad diperlukan. Naik taraf bila perlukan perbelanjaan, stok, atau staf."
+            : "Tiada kad diperlukan. Aktifkan add-on kemudian dari Pasaran."
+          : signupPath === "free"
+            ? "No card required. Upgrade when you need expenses, stock, or staff."
+            : "No card required. Activate add-ons later from the Marketplace."
       }
     >
       <div>
         <h2 className="text-3xl font-bold tracking-tight text-ink dark:text-cream-100">
-          Create your business
+          <SignUpTitle />
         </h2>
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-          {signupPath === "free"
-            ? "Free plan · invoices & payment tracking · upgrade any time."
-            : "7-day Basic trial · 20 AI credits · upgrade any time."}
+          {preferredLocale === "ms"
+            ? signupPath === "free"
+              ? "Pelan Free · invois & jejak bayaran · naik taraf bila-bila."
+              : "Percubaan Basic 7 hari · 20 kredit AI · naik taraf bila-bila."
+            : signupPath === "free"
+              ? "Free plan · invoices & payment tracking · upgrade any time."
+              : "7-day Basic trial · 20 AI credits · upgrade any time."}
         </p>
       </div>
 
@@ -407,4 +423,9 @@ function Field({
       {children}
     </label>
   );
+}
+
+function SignUpTitle() {
+  const t = useTranslations("auth");
+  return <>{t("signUpTitle")}</>;
 }

@@ -27,6 +27,7 @@ import {
 import { ModuleListFilterChipLink } from "@/components/dashboard/module-list-search";
 import type { FinanceInvoicesSummary } from "@/lib/finance/invoices-summary";
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "next-intl";
 import {
   buildInvoiceShareMessage,
   emailShareUrl,
@@ -134,6 +135,7 @@ export function FinanceInvoicePanel({
   total = initialInvoices.length,
   shellMode = false,
 }: FinanceInvoicePanelProps) {
+  const tFinance = useTranslations("finance");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [invoices, setInvoices] = useState(initialInvoices);
@@ -434,14 +436,14 @@ export function FinanceInvoicePanel({
             className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-600"
           >
             <Plus className="h-4 w-4" />
-            New invoice
+            {tFinance("newInvoice")}
           </Link>
           <Link
             href="/finance/invoices/new?kind=quote"
             className="inline-flex items-center gap-1.5 rounded-xl border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50 dark:border-violet-800 dark:bg-panel-dark dark:text-violet-100"
           >
             <MessageSquareQuote className="h-4 w-4" />
-            New quote
+            {tFinance("newQuote")}
           </Link>
         </div>
       ) : (
@@ -480,14 +482,14 @@ export function FinanceInvoicePanel({
               className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-600"
             >
               <Plus className="h-4 w-4" />
-              New invoice
+              {tFinance("newInvoice")}
             </Link>
             <Link
               href="/finance/invoices/new?kind=quote"
               className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-white/90 px-4 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50 dark:border-violet-800 dark:bg-panel-dark/90 dark:text-violet-100 dark:hover:bg-violet-950/40"
             >
               <MessageSquareQuote className="h-4 w-4" />
-              New quote
+              {tFinance("newQuote")}
             </Link>
           </div>
         </div>
@@ -542,7 +544,7 @@ export function FinanceInvoicePanel({
               href={`/finance/invoices/new?customer_id=${encodeURIComponent(customerIdFilter)}`}
               className="text-xs font-semibold text-brand-700 hover:underline dark:text-brand-200"
             >
-              + New invoice
+              + {tFinance("newInvoice")}
             </Link>
             <Link
               href="/finance/invoices"
@@ -650,7 +652,7 @@ export function FinanceInvoicePanel({
             <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
               {documentKind === "quote"
                 ? "Send a quote first — convert to invoice when they say yes."
-                : "Create an invoice, share on WhatsApp, mark paid when money arrives."}
+                : tFinance("emptyHint")}
             </p>
             <Link
               href={
@@ -661,7 +663,9 @@ export function FinanceInvoicePanel({
               className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
             >
               <Plus className="h-4 w-4" />
-              {documentKind === "quote" ? "New quote" : "New invoice"}
+              {documentKind === "quote"
+                ? tFinance("newQuote")
+                : tFinance("newInvoice")}
             </Link>
           </div>
         ) : (

@@ -117,6 +117,7 @@ export function PosCheckoutClient({
   initialLeadPhone,
 }: PosCheckoutClientProps) {
   const tSales = useTranslations("sales");
+  const tNav = useTranslations("nav");
   const [products, setProducts] = useState<PosProduct[]>([]);
   const [services, setServices] = useState<PosService[]>([]);
   const [catalogMode, setCatalogMode] = useState<"products" | "services">(
@@ -543,10 +544,10 @@ export function PosCheckoutClient({
                 salesClasses.textMuted,
               )}
             >
-              Sales
+              {tNav("sales")}
             </p>
             <h1 className="text-xl font-bold tracking-tight text-ink dark:text-cream-100 sm:text-2xl">
-              Point of sale
+              {tSales("pos")}
             </h1>
             <p className="text-sm text-ink-muted dark:text-cream-400">{businessName}</p>
           </div>

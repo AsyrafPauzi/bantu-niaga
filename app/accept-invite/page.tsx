@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Eye, EyeOff, KeyRound, Loader2, Users } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { useAuthLocale } from "@/components/auth/useAuthLocale";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import { ROLE_LABELS } from "@/lib/settings/team-shared";
 import type { Role } from "@/lib/permissions";
@@ -18,6 +19,7 @@ interface InviteContext {
 }
 
 export default function AcceptInvitePage() {
+  const { locale } = useAuthLocale();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -83,12 +85,21 @@ export default function AcceptInvitePage() {
 
   return (
     <AuthShell
-      brandHeading="You're almost in."
-      brandSubheading="Set a password once and you can sign in to NiagaX any time."
+      locale={locale}
+      brandHeading={
+        locale === "ms"
+          ? "Anda dijemput ke pasukan."
+          : "You're almost in."
+      }
+      brandSubheading={
+        locale === "ms"
+          ? "Tetapkan kata laluan untuk menyertai ruang kerja bisnes."
+          : "Set a password once and you can sign in to NiagaX any time."
+      }
     >
       <div>
         <h2 className="text-3xl font-bold tracking-tight text-ink dark:text-cream-100">
-          Join your team
+          {locale === "ms" ? "Terima jemputan" : "Join your team"}
         </h2>
         <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
           Create a password for your account. You&apos;ll use this email and

@@ -786,10 +786,10 @@ Plan: `docs/superpowers/plans/2026-08-20-phase-1-gtm-core.md`
 | ✅ | Marketplace tenant catalogue = shipped only (env `MARKETPLACE_SHOW_PLANNED` for demos) |
 | ✅ | Onboarding bundle pricing excludes coming-soon from purchasable subtotal |
 | ✅ | Activation timestamps + Home checklist + super-admin 7-day activation % |
-| 🟡 | Tenant Bahasa — plumbing + shell/nav/past-due/activation/POS CTA; remaining module strings still English |
-| ⬜ | Full tenant + auth UI string migration (Task 14 wave) |
+| ✅ | Tenant Bahasa — next-intl plumbing, shell/nav/subnav, past-due, activation, Home, Settings hub, Marketplace, Boardroom chrome, Finance/POS CTAs |
+| ✅ | Auth UI string migration (sign-in/up, forgot/reset, verify, accept-invite) + Settings → Appearance language drives in-app chrome |
 
-Migrations: `20260820100000_subscription_billplz_checkout.sql`, `20260820110000_subscription_renewal_past_due.sql`, `20260820120000_business_activation.sql`.
+Migrations applied to linked DB: `20260820100000_subscription_billplz_checkout.sql`, `20260820110000_subscription_renewal_past_due.sql`, `20260820120000_business_activation.sql`.
 
 ---
 

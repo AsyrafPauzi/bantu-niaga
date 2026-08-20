@@ -43,7 +43,10 @@ import {
   type Pillar,
 } from "@/lib/auth/entitlements";
 import { ActivationChecklist } from "@/components/home/ActivationChecklist";
+import { HomePageHeader } from "@/components/home/HomePageHeader";
 import { loadActivationChecklistState } from "@/lib/home/activation-checklist";
+import { createAppTranslator } from "@/lib/i18n/translator";
+import { getSessionLocale } from "@/lib/i18n/session-locale";
 import { tierBy, type TierKey } from "@/lib/settings/plans";
 
 export const metadata = { title: "Home" };
@@ -109,12 +112,20 @@ const TONE_TILE: Record<
   },
 };
 
-function todayParts() {
+function todayParts(locale: "en" | "ms") {
+  const t = createAppTranslator(locale);
   const now = new Date();
-  const weekday = now.toLocaleDateString("en-MY", { weekday: "long" });
+  const weekday = now.toLocaleDateString(
+    locale === "ms" ? "ms-MY" : "en-MY",
+    { weekday: "long" },
+  );
   const hour = now.getHours();
   const greeting =
-    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+    hour < 12
+      ? t("home.greetingMorning")
+      : hour < 18
+        ? t("home.greetingAfternoon")
+        : t("home.greetingEvening");
   return { weekday: weekday.toUpperCase(), greeting };
 }
 
@@ -162,7 +173,9 @@ export default async function HomePage() {
     throw e;
   }
 
-  const { weekday, greeting } = todayParts();
+  const locale = await getSessionLocale();
+  const tHome = createAppTranslator(locale);
+  const { weekday, greeting } = todayParts(locale);
   const supabase = await createSupabaseServerClient();
   const [displayName, snapshot, homeSnapshot, recentActivity, homeNotices] =
     await Promise.all([
@@ -297,19 +310,10 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow={weekday}
-        title={`${greeting}, ${displayName}`}
-        description="One screen, every module. Here's the pulse of your business right now."
-        action={
-          <Link
-            href="/boardroom"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-600 active:bg-accent-700"
-          >
-            <Sparkles className="h-4 w-4" strokeWidth={2} />
-            Open Boardroom
-          </Link>
-        }
+      <HomePageHeader
+        weekday={weekday}
+        greeting={greeting}
+        displayName={displayName}
       />
 
       <ActivationChecklist state={activationState} />
@@ -317,16 +321,15 @@ export default async function HomePage() {
       {onFreePlan ? (
         <div className="rounded-2xl border border-brand-200 bg-brand-50/80 px-5 py-4 dark:border-brand-800 dark:bg-brand-900/20">
           <p className="text-sm font-semibold text-ink dark:text-cream-100">
-            You&apos;re on Free — great for invoicing and getting paid.
+            {tHome("home.freeBannerTitle")}
           </p>
           <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
-            When you need expenses, stock, or staff records, we&apos;ll suggest an
-            upgrade.{" "}
+            {tHome("home.freeBannerBody")}{" "}
             <Link
               href="/settings/subscription"
               className="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              Compare plans
+              {tHome("home.comparePlans")}
             </Link>
             .
           </p>
