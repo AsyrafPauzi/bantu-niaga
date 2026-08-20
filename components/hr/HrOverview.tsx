@@ -13,6 +13,7 @@ import { HrContractExpiringWidget } from "@/components/hr/HrContractExpiringWidg
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrPendingLeaveCard } from "@/components/hr/HrPendingLeaveCard";
 import { HrStaffAppraisalGate } from "@/components/hr/HrStaffAppraisalGate";
+import { HrTodayDeskPanels } from "@/components/hr/HrTodayDeskPanels";
 import { OnboardingProgressBar } from "@/components/hr/HrOnboardingProgress";
 import type { HrDashboardData, HrStaffAppraisalRow } from "@/lib/hr/load";
 import type { ContractExpiringEmployee } from "@/lib/hr/contract-reminders";
@@ -96,8 +97,10 @@ export function HrOverview({
     employees,
     leavePending,
     leaveOnToday,
+    leaveThisWeek,
     onboarding,
     documents,
+    expiringContracts,
     holidays,
     notifications,
     counts,
@@ -227,69 +230,38 @@ export function HrOverview({
         </div>
       </section>
 
-      {contractExpiring.length > 0 ? (
-        <HrContractExpiringWidget employees={contractExpiring} />
-      ) : null}
+      <HrTodayDeskPanels
+        leaveOnToday={leaveOnToday}
+        leaveThisWeek={leaveThisWeek}
+        leavePending={leavePending}
+        expiringContracts={
+          expiringContracts.length > 0
+            ? expiringContracts
+            : contractExpiring.map((e) => ({
+                id: e.id,
+                full_name: e.full_name,
+                role_title: e.role_title,
+                contract_end_date: e.contract_end_date,
+              }))
+        }
+        incompleteEmployees={profilesToFinish.slice(0, 5).map((emp) => {
+          const gaps = getProfileCompletionGaps(emp, documents);
+          const missing =
+            gaps.missingContactFields.length + gaps.missingDocuments.length;
+          const totalSlots = 4 + 3; // contact fields tracked + compulsory docs
+          const percent = Math.max(
+            0,
+            Math.round(((totalSlots - missing) / totalSlots) * 100),
+          );
+          return {
+            id: emp.id,
+            full_name: emp.full_name,
+            percent,
+          };
+        })}
+      />
 
       <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <Panel
-          title="Out today"
-          subtitle={leaveOnToday.length === 0 ? "Full team in" : `${leaveOnToday.length} away`}
-          action={{ href: "/hr/leave", label: "Leave" }}
-        >
-          {leaveOnToday.length === 0 ? (
-            <EmptyState icon={UserCheck} title="Everyone is working" />
-          ) : (
-            <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
-              {leaveOnToday.map((row) => (
-                <li
-                  key={row.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 sm:px-4"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-ink dark:text-cream-100">
-                      {row.hr_employees?.full_name ?? "Employee"}
-                    </p>
-                    <p className="text-xs text-ink-muted dark:text-cream-400">
-                      {fmtLeaveRange(row.start_date, row.end_date)}
-                    </p>
-                  </div>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
-                      leaveTypeBadgeClass(row.leave_type),
-                    )}
-                  >
-                    {leaveTypeShort(row.leave_type)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel
-          title="Pending approvals"
-          subtitle={leavePending.length === 0 ? "Inbox clear" : `${leavePending.length} waiting`}
-          action={{ href: "/hr/leave", label: "View all" }}
-        >
-          {leavePending.length === 0 ? (
-            <EmptyState icon={Calendar} title="Nothing pending" />
-          ) : (
-            <div className="space-y-2 p-2 sm:p-3">
-              {leavePending.slice(0, 2).map((row) => (
-                <HrPendingLeaveCard key={row.id} row={row} />
-              ))}
-              {leavePending.length > 2 ? (
-                <Link href="/hr/leave" className={cn("flex items-center justify-center gap-1 py-2 text-xs", hrClasses.link)}>
-                  {leavePending.length - 2} more
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              ) : null}
-            </div>
-          )}
-        </Panel>
-
         <Panel
           title="Team"
           subtitle={`${counts.activeEmployees} active`}

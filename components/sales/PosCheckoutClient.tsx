@@ -71,6 +71,7 @@ interface ReceiptData {
     change_myr: number;
     customer_name: string | null;
     created_at: string;
+    coupon_code?: string | null;
   };
   items: Array<{
     product_name: string;
@@ -456,7 +457,11 @@ export function PosCheckoutClient({
               <div className="space-y-1 border-t border-cream-200 pt-3 text-sm dark:border-hairline-dark">
                 {Number(receipt.sale.discount_amount_myr) > 0 ? (
                   <div className="flex justify-between text-ink-muted">
-                    <span>Discount</span>
+                    <span>
+                      {receipt.sale.coupon_code
+                        ? `Coupon ${receipt.sale.coupon_code}`
+                        : "Discount"}
+                    </span>
                     <span className="tabular-nums">
                       −{money(Number(receipt.sale.discount_amount_myr))}
                     </span>
@@ -1036,8 +1041,12 @@ export function PosCheckoutClient({
                       }
                     }}
                     placeholder="Coupon code"
+                    aria-label="Coupon code from Marketing"
                     className="w-full rounded-lg border border-cream-200 px-3 py-2 text-xs uppercase dark:border-hairline-dark dark:bg-panel-dark"
                   />
+                  <p className="mt-1 text-[10px] text-ink-muted dark:text-cream-500">
+                    Coupon code from Marketing
+                  </p>
                 </div>
               ) : null}
 

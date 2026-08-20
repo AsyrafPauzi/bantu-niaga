@@ -3,7 +3,12 @@ import { Card, CardBody } from "@/components/ui/card";
 import { HrEmployeesView } from "@/components/hr/HrEmployeesView";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
-import { loadHrDocuments, loadHrEmployees } from "@/lib/hr/load";
+import {
+  loadHrDocuments,
+  loadHrEmployees,
+  loadHrOnboardingItems,
+} from "@/lib/hr/load";
+import { onboardingProgressByEmployeeId } from "@/lib/hr/onboarding-progress";
 
 export const metadata = { title: "Employees" };
 export const dynamic = "force-dynamic";
@@ -27,10 +32,25 @@ export default async function EmployeesPage() {
     );
   }
 
-  const [employees, documents] = await Promise.all([
+  const [employees, documents, onboardingItems] = await Promise.all([
     loadHrEmployees(user.businessId),
     loadHrDocuments(user.businessId),
+    loadHrOnboardingItems(user.businessId),
   ]);
 
-  return <HrEmployeesView employees={employees} documents={documents} />;
+  const progressMap = onboardingProgressByEmployeeId(onboardingItems);
+  const onboardingPercentByEmployeeId: Record<string, number> = {};
+  for (const [id, progress] of progressMap) {
+    if (progress.total > 0) {
+      onboardingPercentByEmployeeId[id] = progress.percent;
+    }
+  }
+
+  return (
+    <HrEmployeesView
+      employees={employees}
+      documents={documents}
+      onboardingPercentByEmployeeId={onboardingPercentByEmployeeId}
+    />
+  );
 }

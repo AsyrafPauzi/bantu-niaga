@@ -85,6 +85,36 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
+  if (
+    parsed.status === "approved" &&
+    existing.status === "pending" &&
+    parsed.acknowledge_booking_conflicts !== true
+  ) {
+    const { findOpenBookingsOverlappingLeave } = await import(
+      "@/lib/hr/booking-leave-overlap"
+    );
+    const bookingConflicts = await findOpenBookingsOverlappingLeave(
+      supabase,
+      user.businessId,
+      {
+        employeeId: existing.employee_id as string,
+        startDate: String(existing.start_date),
+        endDate: String(existing.end_date),
+      },
+    );
+    if (bookingConflicts.length > 0) {
+      return NextResponse.json(
+        {
+          error: "booking_conflicts",
+          message:
+            "This leave overlaps open bookings. Confirm to approve anyway.",
+          booking_conflicts: bookingConflicts,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from("hr_leave_records")
     .update({

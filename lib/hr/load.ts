@@ -1,5 +1,6 @@
 import { EMPLOYEE_DETAIL_SELECT, EMPLOYEE_LIST_SELECT } from "@/lib/hr/employee-fields";
 import { mapEmployeeDetailRow, mapEmployeeListRow } from "@/lib/hr/employee-api";
+import { addDaysYmd, selectExpiringContracts } from "@/lib/hr/desk";
 import { loadEmployeeLeaveBalance } from "@/lib/hr/leave-balance";
 import { isEmployeeProfileIncomplete } from "@/lib/hr/profile-completion";
 import { dedupeHolidayRows } from "@/lib/hr/holiday-dedupe";
@@ -51,7 +52,11 @@ export interface HrLeaveRow {
   mc_document_path?: string | null;
   mc_document_name?: string | null;
   mc_document_mime?: string | null;
-  hr_employees?: { full_name: string; role_title: string } | null;
+  hr_employees?: {
+    full_name: string;
+    role_title: string;
+    phone_e164?: string | null;
+  } | null;
 }
 
 export interface HrOnboardingRow {
@@ -98,15 +103,23 @@ export interface HrDashboardData {
   employees: HrEmployeeRow[];
   leavePending: HrLeaveRow[];
   leaveOnToday: HrLeaveRow[];
+  leaveThisWeek: HrLeaveRow[];
   leaveRecentApproved: HrLeaveRow[];
   onboarding: HrOnboardingRow[];
   documents: HrDocumentRow[];
+  expiringContracts: Array<{
+    id: string;
+    full_name: string;
+    role_title: string;
+    contract_end_date: string;
+  }>;
   holidays: HrHolidayRow[];
   notifications: HrNotificationItem[];
   counts: {
     activeEmployees: number;
     totalEmployees: number;
     leaveToday: number;
+    leaveThisWeek: number;
     pendingLeave: number;
     approvedThisMonth: number;
     documentCount: number;
@@ -114,6 +127,7 @@ export interface HrDashboardData {
     onboardingTotal: number;
     onboardingDone: number;
     incompleteProfiles: number;
+    expiringContracts: number;
   };
 }
 
@@ -311,7 +325,7 @@ export async function loadHrOnboardingItems(
     .select("id, employee_id, label, is_done, hr_employees(full_name)")
     .eq("business_id", businessId)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(2000);
 
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as HrOnboardingRow[];
@@ -354,19 +368,21 @@ export async function loadHrPublicHolidays(
 const LEAVE_DASHBOARD_SELECT =
   "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
   "mc_document_path, mc_document_name, mc_document_mime, " +
-  "hr_employees(full_name, role_title)";
+  "hr_employees(full_name, role_title, phone_e164)";
 
 export async function loadHrDashboard(
   businessId: string,
 ): Promise<HrDashboardData> {
   const supabase = await createSupabaseServerClient();
   const today = todayIso();
+  const weekEnd = addDaysYmd(today, 6);
   const monthPrefix = today.slice(0, 7);
 
   const [
     employees,
     pendingResult,
     onLeaveResult,
+    weekLeaveResult,
     recentApprovedResult,
     approvedMonthResult,
     onboardingResult,
@@ -395,6 +411,15 @@ export async function loadHrDashboard(
       .select(LEAVE_DASHBOARD_SELECT)
       .eq("business_id", businessId)
       .eq("status", "approved")
+      .lte("start_date", weekEnd)
+      .gte("end_date", today)
+      .order("start_date", { ascending: true })
+      .limit(50),
+    supabase
+      .from("hr_leave_records")
+      .select(LEAVE_DASHBOARD_SELECT)
+      .eq("business_id", businessId)
+      .eq("status", "approved")
       .order("start_date", { ascending: false })
       .limit(5),
     supabase
@@ -417,11 +442,13 @@ export async function loadHrDashboard(
 
   if (pendingResult.error) throw new Error(pendingResult.error.message);
   if (onLeaveResult.error) throw new Error(onLeaveResult.error.message);
+  if (weekLeaveResult.error) throw new Error(weekLeaveResult.error.message);
   if (recentApprovedResult.error) throw new Error(recentApprovedResult.error.message);
   if (onboardingResult.error) throw new Error(onboardingResult.error.message);
 
   const leavePending = (pendingResult.data ?? []) as unknown as HrLeaveRow[];
   const leaveOnToday = (onLeaveResult.data ?? []) as unknown as HrLeaveRow[];
+  const leaveThisWeek = (weekLeaveResult.data ?? []) as unknown as HrLeaveRow[];
   const leaveRecentApproved = (recentApprovedResult.data ?? []) as unknown as HrLeaveRow[];
   const onboarding = (onboardingResult.data ?? []) as unknown as HrOnboardingRow[];
   const onboardingDone = onboarding.filter((row) => row.is_done).length;
@@ -431,19 +458,31 @@ export async function loadHrDashboard(
     isEmployeeProfileIncomplete(emp, documents),
   ).length;
 
+  const expiringContracts = selectExpiringContracts(employees, today, 30).map(
+    (emp) => ({
+      id: emp.id,
+      full_name: emp.full_name,
+      role_title: emp.role_title,
+      contract_end_date: emp.contract_end_date as string,
+    }),
+  );
+
   return {
     employees,
     leavePending,
     leaveOnToday,
+    leaveThisWeek,
     leaveRecentApproved,
     onboarding: onboarding.filter((row) => !row.is_done).slice(0, 8),
     documents,
+    expiringContracts,
     holidays,
     notifications,
     counts: {
       activeEmployees: employees.filter((row) => row.status === "active").length,
       totalEmployees: employees.length,
       leaveToday: leaveOnToday.length,
+      leaveThisWeek: leaveThisWeek.length,
       pendingLeave: leavePending.length,
       approvedThisMonth: approvedMonthResult.count ?? 0,
       documentCount: documents.length,
@@ -451,6 +490,7 @@ export async function loadHrDashboard(
       onboardingTotal: onboarding.length,
       onboardingDone,
       incompleteProfiles,
+      expiringContracts: expiringContracts.length,
     },
   };
 }

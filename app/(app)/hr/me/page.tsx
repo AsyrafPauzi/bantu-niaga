@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { CalendarPlus } from "lucide-react";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { HrLeaveBalanceBadge } from "@/components/hr/HrLeaveBalanceBadge";
+import { HrLeaveBalanceStrip } from "@/components/hr/HrLeaveBalanceStrip";
 import { MeLeaveList } from "@/components/hr/me/MeLeaveList";
 import { MeMobileSubnav } from "@/components/hr/me/MeMobileSubnav";
 import { HrPageBody } from "@/components/hr/layout/hr-page-body";
 import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
 import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
+import {
+  buildLeaveBalanceLines,
+  countApprovedLeaveDaysByType,
+} from "@/lib/hr/leave-balance-display";
 import {
   loadHrEmployeeLeaveBalanceSummary,
   loadStaffMeLeaveRecords,
@@ -35,6 +39,18 @@ export default async function HrMePage() {
 
   const onboardingDone = onboarding.filter((item) => item.is_done).length;
   const pendingCount = leave.filter((row) => row.status === "pending").length;
+  const balanceLines = buildLeaveBalanceLines({
+    annual: {
+      entitlement: balance.entitlementDays,
+      taken: balance.takenDays,
+    },
+    caps: {
+      mc: employee.leave_entitlements?.mc,
+      emergency: employee.leave_entitlements?.emergency,
+      hospitalisation: employee.leave_entitlements?.hospitalisation,
+    },
+    usedByType: countApprovedLeaveDaysByType(leave, balance.leaveYear),
+  });
 
   return (
     <HrPageShell
@@ -57,25 +73,24 @@ export default async function HrMePage() {
       <HrPageBody>
         <MeMobileSubnav pathname="/hr/me" />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <HrLeaveBalanceBadge balance={balance} />
-          {onboarding.length > 0 ? (
-            <div className="rounded-xl border border-[#E5E0D8] bg-cream-50 px-4 py-3 dark:border-hairline-dark dark:bg-panel-dark/60">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
-                Onboarding
-              </p>
-              <p className="mt-1 text-lg font-bold text-ink dark:text-cream-100">
-                {onboardingDone}/{onboarding.length} done
-              </p>
-              <Link
-                href="/hr/me/onboarding"
-                className="mt-1 inline-block text-xs font-semibold text-brand-700 dark:text-brand-200"
-              >
-                View checklist →
-              </Link>
-            </div>
-          ) : null}
-        </div>
+        <HrLeaveBalanceStrip lines={balanceLines} />
+
+        {onboarding.length > 0 ? (
+          <div className="rounded-xl border border-[#E5E0D8] bg-cream-50 px-4 py-3 dark:border-hairline-dark dark:bg-panel-dark/60">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+              Onboarding
+            </p>
+            <p className="mt-1 text-lg font-bold text-ink dark:text-cream-100">
+              {onboardingDone}/{onboarding.length} done
+            </p>
+            <Link
+              href="/hr/me/onboarding"
+              className="mt-1 inline-block text-xs font-semibold text-brand-700 dark:text-brand-200"
+            >
+              View checklist →
+            </Link>
+          </div>
+        ) : null}
 
         <SectionCard
           title="Recent requests"

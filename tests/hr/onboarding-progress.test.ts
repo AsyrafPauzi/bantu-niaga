@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeOnboardingProgress,
   formatOnboardingProgress,
+  onboardingProgressByEmployeeId,
   onboardingProgressFromCounts,
 } from "@/lib/hr/onboarding-progress";
 
@@ -44,5 +45,17 @@ describe("onboarding progress", () => {
       open: 3,
       percent: 50,
     });
+  });
+
+  it("groups checklist percent by employee", () => {
+    const map = onboardingProgressByEmployeeId([
+      { employee_id: "a", is_done: true },
+      { employee_id: "a", is_done: false },
+      { employee_id: "b", is_done: true },
+      { employee_id: "b", is_done: true },
+    ]);
+    expect(map.get("a")?.percent).toBe(50);
+    expect(map.get("b")?.percent).toBe(100);
+    expect(map.has("c")).toBe(false);
   });
 });

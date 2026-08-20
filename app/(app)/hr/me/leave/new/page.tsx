@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { MeLeaveRequestForm } from "@/components/hr/me/MeLeaveRequestForm";
 import { MeMobileSubnav } from "@/components/hr/me/MeMobileSubnav";
@@ -12,6 +11,14 @@ import {
   enabledLeaveTypeKeys,
   loadHrLeaveTypeSettings,
 } from "@/lib/hr/leave-type-settings";
+import {
+  buildLeaveBalanceLines,
+  countApprovedLeaveDaysByType,
+} from "@/lib/hr/leave-balance-display";
+import {
+  loadHrEmployeeLeaveBalanceSummary,
+  loadStaffMeLeaveRecords,
+} from "@/lib/hr/load";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Apply leave" };
@@ -26,6 +33,28 @@ export default async function HrMeLeaveNewPage() {
   const leaveSettings = await loadHrLeaveTypeSettings(supabase, user.businessId);
   const attachmentRequired = attachmentRequiredMap(leaveSettings);
   const enabledLeaveTypes = enabledLeaveTypeKeys(leaveSettings);
+  const entitlement =
+    employee.annual_leave_entitlement_days != null
+      ? employee.annual_leave_entitlement_days
+      : 14;
+
+  const [balance, leave] = await Promise.all([
+    loadHrEmployeeLeaveBalanceSummary(user.businessId, employee.id, entitlement),
+    loadStaffMeLeaveRecords(user.businessId, employee.id),
+  ]);
+
+  const balanceLines = buildLeaveBalanceLines({
+    annual: {
+      entitlement: balance.entitlementDays,
+      taken: balance.takenDays,
+    },
+    caps: {
+      mc: employee.leave_entitlements?.mc,
+      emergency: employee.leave_entitlements?.emergency,
+      hospitalisation: employee.leave_entitlements?.hospitalisation,
+    },
+    usedByType: countApprovedLeaveDaysByType(leave, balance.leaveYear),
+  });
 
   return (
     <HrPageShell
@@ -51,6 +80,7 @@ export default async function HrMeLeaveNewPage() {
             employeeName={employee.full_name}
             attachmentRequired={attachmentRequired}
             enabledLeaveTypes={enabledLeaveTypes}
+            balanceLines={balanceLines}
           />
         </SectionCard>
       </HrPageBody>

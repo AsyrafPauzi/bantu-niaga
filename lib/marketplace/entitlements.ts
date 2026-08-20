@@ -26,6 +26,7 @@ import {
 } from "@/lib/marketplace/agent-types";
 import { hasPillar } from "@/lib/auth/entitlements";
 import type { TierKey } from "@/lib/settings/plans";
+import { staffPortalIncludedForTier } from "@/lib/marketplace/staff-portal-entitlement";
 import { normalizeReasoningMode } from "@/lib/settings/ai-agents-catalog";
 import {
   clampDailyBudgetCredits,
@@ -148,6 +149,11 @@ export async function hasStaffAppraisalAddon(businessId: string): Promise<boolea
 }
 
 export async function hasStaffPortalAddon(businessId: string): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+  const tier = await loadBusinessTier(supabase, businessId);
+  if (staffPortalIncludedForTier(tier)) {
+    return true;
+  }
   return hasActiveAddon(businessId, HR_STAFF_PORTAL_ADDON_SLUG);
 }
 

@@ -140,7 +140,7 @@ The catalog already includes the priority list:
 | Category | Recommended for v1                        |
 | -------- | ----------------------------------------- |
 | AI       | OpenAI (core)                             |
-| Payments | Billplz (core), iPay88 (alt), Stripe (intl) |
+| Payments | Billplz (core), ToyyibPay / CommercePay (alt catalog) |
 | Comms    | WhatsApp Cloud (core), Resend, Twilio     |
 | Social   | Meta (wired), TikTok, YouTube             |
 | E-Invoicing | LHDN MyInvois — mandatory from 2026     |
