@@ -1151,7 +1151,7 @@ export function FinanceInvoiceComposer({
             </div>
           ) : null}
 
-          <div className="overflow-x-auto rounded-lg border border-cream-200 dark:border-hairline-dark">
+          <div className="overflow-x-auto overscroll-contain rounded-lg border border-cream-200 dark:border-hairline-dark">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-cream-200 bg-cream-50/80 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted dark:border-hairline-dark dark:bg-panel-dark/60 dark:text-cream-400">
@@ -1797,7 +1797,7 @@ const tableInputCx =
   "h-8 w-full rounded border-0 bg-transparent px-2 text-sm text-ink placeholder:text-ink-muted/60 focus:bg-cream-50 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:text-cream-100 dark:focus:bg-panel-dark/80";
 
 const tableTextareaCx =
-  "w-full resize-none rounded border-0 bg-transparent px-2 py-1 text-sm leading-snug text-ink placeholder:text-ink-muted/60 focus:bg-cream-50 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:text-cream-100 dark:focus:bg-panel-dark/80";
+  "h-8 md:h-auto md:min-h-[52px] w-full resize-none rounded border-0 bg-transparent px-2 py-1 text-sm leading-snug text-ink placeholder:text-ink-muted/60 focus:bg-cream-50 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:text-cream-100 dark:focus:bg-panel-dark/80";
 
 const summaryInputCx =
   "h-8 w-full rounded border border-cream-300 bg-white px-2 text-right text-sm tabular-nums focus:border-brand-500 focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
