@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { HrLeaveBalanceStrip } from "@/components/hr/HrLeaveBalanceStrip";
+import type { BalanceLine, BalanceLineKey } from "@/lib/hr/leave-balance-display";
 import { LEAVE_TYPES, type LeaveTypeKey } from "@/lib/hr/leave-labels";
 import { filterLeaveTypesByEnabled } from "@/lib/hr/leave-type-policy";
 import {
@@ -14,6 +16,7 @@ interface MeLeaveRequestFormProps {
   employeeName: string;
   attachmentRequired?: Record<string, boolean>;
   enabledLeaveTypes?: LeaveTypeKey[];
+  balanceLines?: BalanceLine[];
 }
 
 const inputClass =
@@ -28,10 +31,23 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function asBalanceKey(type: string): BalanceLineKey | undefined {
+  if (
+    type === "annual" ||
+    type === "mc" ||
+    type === "emergency" ||
+    type === "hospitalisation"
+  ) {
+    return type;
+  }
+  return undefined;
+}
+
 export function MeLeaveRequestForm({
   employeeName,
   attachmentRequired,
   enabledLeaveTypes,
+  balanceLines = [],
 }: MeLeaveRequestFormProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -98,6 +114,12 @@ export function MeLeaveRequestForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      {balanceLines.length > 0 ? (
+        <HrLeaveBalanceStrip
+          lines={balanceLines}
+          highlightKey={asBalanceKey(leaveType)}
+        />
+      ) : null}
       <label className={labelClass}>
         Your name
         <input

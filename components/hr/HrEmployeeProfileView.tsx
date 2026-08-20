@@ -15,6 +15,7 @@ import {
   Phone,
   User,
 } from "lucide-react";
+import { HrLeaveBalanceStrip } from "@/components/hr/HrLeaveBalanceStrip";
 import { HrDocumentCreateForm } from "@/components/hr/HrDocumentCreateForm";
 import { HrEmployeeUpdateForm } from "@/components/hr/HrEmployeeUpdateForm";
 import { HrLeaveLinkActions } from "@/components/hr/HrLeaveLinkActions";
@@ -31,6 +32,10 @@ import type {
   HrOnboardingRow,
 } from "@/lib/hr/load";
 import type { HrWarningLetterRow } from "@/lib/hr/warning-letters-shared";
+import {
+  buildLeaveBalanceLines,
+  countApprovedLeaveDaysByType,
+} from "@/lib/hr/leave-balance-display";
 import {
   documentTypeLabel,
   getEmployeeSetupChecklist,
@@ -124,6 +129,25 @@ export function HrEmployeeProfileView({
   const pendingSetup = checklist.filter((i) => !i.done).length;
   const onboardingOpen = onboarding.filter((i) => !i.is_done).length;
   const onboardingProgress = computeOnboardingProgress(onboarding);
+  const balanceLines = useMemo(
+    () =>
+      buildLeaveBalanceLines({
+        annual: {
+          entitlement: leaveBalance.entitlementDays,
+          taken: leaveBalance.takenDays,
+        },
+        caps: {
+          mc: employee.leave_entitlements?.mc,
+          emergency: employee.leave_entitlements?.emergency,
+          hospitalisation: employee.leave_entitlements?.hospitalisation,
+        },
+        usedByType: countApprovedLeaveDaysByType(
+          leaveRecords,
+          leaveBalance.leaveYear,
+        ),
+      }),
+    [employee.leave_entitlements, leaveBalance, leaveRecords],
+  );
 
   const handleAddNow = useCallback((item: SetupChecklistItem) => {
     if (item.tab) setTab(item.tab);
@@ -287,35 +311,6 @@ export function HrEmployeeProfileView({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
-            <div className="rounded-lg border border-white/60 bg-white/80 px-3 py-2 dark:border-hairline-dark/80 dark:bg-panel-dark/80">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-500">
-                AL · {leaveBalance.leaveYear}
-              </p>
-              <p className="text-base font-bold tabular-nums leading-tight text-[#0D9488] dark:text-teal-400">
-                {leaveBalance.availableDays}
-                <span className="text-xs font-semibold text-ink-muted dark:text-cream-400">
-                  {" "}
-                  / {leaveBalance.entitlementDays}
-                </span>
-              </p>
-              <button
-                type="button"
-                onClick={scrollToEntitlement}
-                className={cn("text-[10px] font-semibold leading-none", hrClasses.link)}
-              >
-                Set entitlement
-              </button>
-              {employee.leave_entitlements?.mc != null ||
-              employee.leave_entitlements?.emergency != null ||
-              employee.leave_entitlements?.hospitalisation != null ? (
-                <p className="mt-1 text-[10px] text-ink-muted dark:text-cream-500">
-                  MC {employee.leave_entitlements?.mc ?? "—"} · EL{" "}
-                  {employee.leave_entitlements?.emergency ?? "—"} · Hosp{" "}
-                  {employee.leave_entitlements?.hospitalisation ?? "—"}
-                </p>
-              ) : null}
-            </div>
-
             <Link
               href={`/hr/leave/record?employee_id=${employee.id}`}
               className={cn(
@@ -344,6 +339,17 @@ export function HrEmployeeProfileView({
               Leave link
             </button>
           </div>
+        </div>
+
+        <div className="relative mt-3">
+          <HrLeaveBalanceStrip lines={balanceLines} />
+          <button
+            type="button"
+            onClick={scrollToEntitlement}
+            className={cn("mt-1.5 text-[10px] font-semibold", hrClasses.link)}
+          >
+            Set entitlements
+          </button>
         </div>
 
         {!setupDone ? (
