@@ -60,9 +60,14 @@ function initials(name: string): string {
 export interface HrEmployeesViewProps {
   employees: HrEmployeeRow[];
   documents: HrDocumentRow[];
+  onboardingPercentByEmployeeId?: Record<string, number>;
 }
 
-export function HrEmployeesView({ employees, documents }: HrEmployeesViewProps) {
+export function HrEmployeesView({
+  employees,
+  documents,
+  onboardingPercentByEmployeeId = {},
+}: HrEmployeesViewProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
@@ -293,6 +298,7 @@ export function HrEmployeesView({ employees, documents }: HrEmployeesViewProps) 
                         <th className="px-3 py-3 text-left">Type</th>
                         <th className="px-3 py-3 text-left">Status</th>
                         <th className="px-3 py-3 text-left">Setup</th>
+                        <th className="px-3 py-3 text-left">Onboarding</th>
                         <th className="px-3 py-3 text-left">Email</th>
                         <th className="px-5 py-3 text-right">Joined</th>
                       </tr>
@@ -303,6 +309,9 @@ export function HrEmployeesView({ employees, documents }: HrEmployeesViewProps) 
                           key={employee.id}
                           employee={employee}
                           documents={documents}
+                          onboardingPercent={
+                            onboardingPercentByEmployeeId[employee.id]
+                          }
                         />
                       ))}
                     </ModuleListTableBody>
@@ -315,6 +324,9 @@ export function HrEmployeesView({ employees, documents }: HrEmployeesViewProps) 
                       key={employee.id}
                       employee={employee}
                       documents={documents}
+                      onboardingPercent={
+                        onboardingPercentByEmployeeId[employee.id]
+                      }
                     />
                   ))}
                 </div>
@@ -363,9 +375,11 @@ function statusLabel(status: string): string {
 function EmployeeTableRow({
   employee,
   documents,
+  onboardingPercent,
 }: {
   employee: HrEmployeeRow;
   documents: HrDocumentRow[];
+  onboardingPercent?: number;
 }) {
   const incomplete = isEmployeeProfileIncomplete(employee, documents);
   const pendingSetup = incomplete
@@ -420,6 +434,23 @@ function EmployeeTableRow({
           <span className="text-ink-subtle dark:text-cream-500">Complete</span>
         )}
       </td>
+      <td className="px-3 py-3 text-xs">
+        {onboardingPercent != null ? (
+          <Link
+            href={`/hr/employees/${employee.id}?tab=onboarding`}
+            className={cn(
+              "inline-flex items-center rounded-full px-2 py-0.5 font-semibold tabular-nums",
+              onboardingPercent >= 100
+                ? "bg-teal-50 text-[#0F766E] dark:bg-teal-950/40 dark:text-teal-200"
+                : "bg-cream-100 text-ink-muted dark:bg-hairline-dark dark:text-cream-300",
+            )}
+          >
+            {onboardingPercent}%
+          </Link>
+        ) : (
+          <span className="text-ink-subtle dark:text-cream-500">—</span>
+        )}
+      </td>
       <td className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
         {employee.email ?? "—"}
       </td>
@@ -433,9 +464,11 @@ function EmployeeTableRow({
 function EmployeeMobileRow({
   employee,
   documents,
+  onboardingPercent,
 }: {
   employee: HrEmployeeRow;
   documents: HrDocumentRow[];
+  onboardingPercent?: number;
 }) {
   const incomplete = isEmployeeProfileIncomplete(employee, documents);
 
@@ -460,6 +493,18 @@ function EmployeeMobileRow({
           <StatusPill tone={statusTone(employee.status)}>
             {statusLabel(employee.status)}
           </StatusPill>
+          {onboardingPercent != null ? (
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+                onboardingPercent >= 100
+                  ? "bg-teal-50 text-[#0F766E] dark:bg-teal-950/40 dark:text-teal-200"
+                  : "bg-cream-100 text-ink-muted dark:bg-hairline-dark dark:text-cream-300",
+              )}
+            >
+              {onboardingPercent}%
+            </span>
+          ) : null}
         </div>
         <p className="truncate text-xs text-ink-muted dark:text-cream-400">
           {employee.employee_number ? (

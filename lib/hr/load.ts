@@ -325,7 +325,7 @@ export async function loadHrOnboardingItems(
     .select("id, employee_id, label, is_done, hr_employees(full_name)")
     .eq("business_id", businessId)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(2000);
 
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as HrOnboardingRow[];

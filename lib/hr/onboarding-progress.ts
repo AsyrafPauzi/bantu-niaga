@@ -34,3 +34,23 @@ export function onboardingProgressFromCounts(
   const percent = total === 0 ? 0 : Math.round((done / total) * 100);
   return { total, done, open, percent };
 }
+
+/** Batch onboarding % per employee from a flat checklist list (no N+1). */
+export function onboardingProgressByEmployeeId(
+  items: ReadonlyArray<{ employee_id: string; is_done: boolean }>,
+): Map<string, OnboardingProgress> {
+  const byEmployee = new Map<string, { is_done: boolean }[]>();
+  for (const item of items) {
+    const list = byEmployee.get(item.employee_id);
+    if (list) {
+      list.push({ is_done: item.is_done });
+    } else {
+      byEmployee.set(item.employee_id, [{ is_done: item.is_done }]);
+    }
+  }
+  const out = new Map<string, OnboardingProgress>();
+  for (const [employeeId, list] of byEmployee) {
+    out.set(employeeId, computeOnboardingProgress(list));
+  }
+  return out;
+}

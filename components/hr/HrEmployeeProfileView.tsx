@@ -37,6 +37,7 @@ import {
   isSetupChecklistComplete,
   type SetupChecklistItem,
 } from "@/lib/hr/profile-completion";
+import { computeOnboardingProgress } from "@/lib/hr/onboarding-progress";
 import { hrClasses } from "@/lib/hr/theme";
 import { cn } from "@/lib/utils/cn";
 
@@ -122,6 +123,7 @@ export function HrEmployeeProfileView({
   const setupDone = isSetupChecklistComplete(checklist);
   const pendingSetup = checklist.filter((i) => !i.done).length;
   const onboardingOpen = onboarding.filter((i) => !i.is_done).length;
+  const onboardingProgress = computeOnboardingProgress(onboarding);
 
   const handleAddNow = useCallback((item: SetupChecklistItem) => {
     if (item.tab) setTab(item.tab);
@@ -237,6 +239,20 @@ export function HrEmployeeProfileView({
                   />
                   {statusLabel(employee.status)}
                 </span>
+                {onboardingProgress.total > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setTab("onboarding")}
+                    className={cn(
+                      "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ring-1 ring-inset",
+                      onboardingProgress.percent >= 100
+                        ? "bg-teal-50 text-[#0F766E] ring-teal-200/80 dark:bg-teal-950/40 dark:text-teal-200 dark:ring-teal-800"
+                        : "bg-cream-100 text-ink-muted ring-cream-200 dark:bg-hairline-dark dark:text-cream-300 dark:ring-hairline-dark",
+                    )}
+                  >
+                    Onboarding {onboardingProgress.percent}%
+                  </button>
+                ) : null}
               </div>
               <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
                 {employee.employee_number ? (
