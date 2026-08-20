@@ -510,7 +510,7 @@
 > **Rule:** Core must feel complete. **Add-ons wait until core is 100%.**  
 > **Gate:** Do not build §8.2 marketplace items until every §8.1 row is ✅ and verified on staging.
 
-### 8.1 Core Marketing (Pro included) — finish these first
+### 8.1 Core Marketing (Solo+ included) — finish these first
 
 | Status | Item |
 |--------|------|
@@ -521,10 +521,14 @@
 | ✅ | Auto-tags (VIP, dormant, at-risk, repeat, new) |
 | ✅ | Dormant / at-risk / VIP one-tap CRM filters |
 | ✅ | WhatsApp + Call from customer profile |
+| ✅ | One-tap WhatsApp sheet (EN/MS) + `last_contacted_at` stamp |
+| ✅ | Follow-up desk on `/marketing` (dormant · no purchase · not messaged 30d) |
+| ✅ | Segment rule `not_contacted_days` |
 | ✅ | Finance invoices on customer Orders tab |
 | ✅ | Broadcasts (compose, WhatsApp CTC, email) |
 | ✅ | BM / EN broadcast message templates |
 | ✅ | Coupons (create, redeem) + WhatsApp / email / copy share |
+| ✅ | Coupon redemption history on customer + POS coupon helper |
 | ✅ | Public coupon page `/c/[code]` |
 | ✅ | Content calendar + media (plan / draft / manual share) |
 | ✅ | Customer analytics views (spend, last purchase) |
@@ -812,9 +816,27 @@ Branch: `feat/hr-strong-core`
 | ✅ | Onboarding % on employee list + profile header |
 | ✅ | AL/MC balance strip (EL/Hosp when configured) |
 | ✅ | Leave approve warn+confirm on overlapping bookings |
-| — | Marketing Strong — deferred to separate spec/PR |
 
 Migration: `20260820130000_hr_staff_portal_included.sql`.
+
+---
+
+## 12d. Marketing Strong (2026-08-20)
+
+Spec: `docs/superpowers/specs/2026-08-20-marketing-strong-design.md`  
+Plan: `docs/superpowers/plans/2026-08-20-marketing-strong.md`  
+Branch: `feat/marketing-strong-core`
+
+| Status | Item |
+|--------|------|
+| ✅ | `customers.last_contacted_at` + Mark sent / one-tap WA stamps |
+| ✅ | Follow-up desk three panels on `/marketing` |
+| ✅ | One-tap WhatsApp EN/MS templates on desk + profile |
+| ✅ | Segment `not_contacted_days` |
+| ✅ | Coupon POS helper + customer redemption history |
+| ✅ | CSV import create/merge/reject summary polish |
+
+Migration: `20260820140000_customers_last_contacted.sql`.
 
 ---
 

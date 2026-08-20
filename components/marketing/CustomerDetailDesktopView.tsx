@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   ChevronRight,
   Edit3,
-  MessageCircle,
   Phone,
   Receipt,
   ShoppingBag,
@@ -13,9 +12,12 @@ import {
 } from "lucide-react";
 import { CustomerForm } from "@/components/marketing/CustomerForm";
 import { CustomerMayaWinBackCard } from "@/components/marketing/CustomerMayaWinBackCard";
+import { CustomerCouponHistory } from "@/components/marketing/CustomerCouponHistory";
 import { CustomerRemoveAction } from "@/components/marketing/CustomerRemoveAction";
+import { CustomerWhatsAppButton } from "@/components/marketing/CustomerWhatsAppButton";
 import { TagBadge } from "@/components/marketing/TagBadge";
 import type { CustomerFullRow } from "@/components/marketing/types";
+import type { CustomerCouponRedemption } from "@/lib/marketing/coupon-redemptions-load";
 import {
   ModuleDashboardHero,
   ModuleHeroStat,
@@ -81,6 +83,8 @@ interface CustomerDetailDesktopViewProps {
   invoices: InvoiceRow[];
   posSales: PosSaleRow[];
   mayaInsight: string;
+  businessName?: string;
+  couponRedemptions?: CustomerCouponRedemption[];
 }
 
 const TONE_BG: Record<string, string> = {
@@ -156,6 +160,8 @@ export function CustomerDetailDesktopView({
   invoices,
   posSales,
   mayaInsight,
+  businessName,
+  couponRedemptions = [],
 }: CustomerDetailDesktopViewProps) {
   const totalSpend =
     typeof c.total_spend_myr === "number"
@@ -180,8 +186,6 @@ export function CustomerDetailDesktopView({
 
   const tabHref = (t: CustomerActivityTab) =>
     `/marketing/customers/${c.id}${t === "activity" ? "" : `?tab=${t}`}`;
-
-  const phoneDigits = c.phone_e164?.replace(/[^\d]/g, "") ?? "";
 
   return (
     <div className="space-y-6 pb-8">
@@ -216,15 +220,12 @@ export function CustomerDetailDesktopView({
             </Link>
             {c.phone_e164 ? (
               <>
-              <a
-                href={`https://wa.me/${phoneDigits}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-              >
-                <MessageCircle className="h-4 w-4" strokeWidth={2} />
-                WhatsApp
-              </a>
+              <CustomerWhatsAppButton
+                customerId={c.id}
+                customerName={c.name}
+                phoneE164={c.phone_e164}
+                businessName={businessName}
+              />
               <a
                 href={`tel:${c.phone_e164}`}
                 className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-ink shadow-sm hover:bg-white dark:border-violet-900/50 dark:bg-panel-dark/80 dark:text-cream-100"
@@ -490,6 +491,8 @@ export function CustomerDetailDesktopView({
             autoTags={c.auto_tags ?? []}
             insight={mayaInsight}
           />
+
+          <CustomerCouponHistory redemptions={couponRedemptions} />
 
           <div className="rounded-2xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">

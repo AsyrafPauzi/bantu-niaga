@@ -19,6 +19,7 @@
  *     "min_spend_myr":    500,
  *     "max_spend_myr":    null,
  *     "inactive_days":    90,
+ *     "not_contacted_days": 30,
  *     "sources":          ["facebook_lead", "manual"],
  *     "manual_tags_any":  ["wholesale"],
  *     "auto_tags_any":    ["vip", "at_risk"]
@@ -82,6 +83,7 @@ export const SegmentRulesSchema = z
     min_spend_myr: z.number().finite().optional(),
     max_spend_myr: z.number().finite().optional(),
     inactive_days: z.number().int().optional(),
+    not_contacted_days: z.number().int().positive().optional(),
     sources: z.array(z.enum(customerSources)).max(6).optional(),
     manual_tags_any: z.array(tagString).max(20).optional(),
     auto_tags_any: z.array(z.enum(AUTO_SEGMENT_KEYS)).max(5).optional(),
@@ -105,6 +107,7 @@ export function isEmptyRules(rules: SegmentRules): boolean {
     rules.min_spend_myr === undefined &&
     rules.max_spend_myr === undefined &&
     rules.inactive_days === undefined &&
+    rules.not_contacted_days === undefined &&
     !rules.sources?.length &&
     !rules.manual_tags_any?.length &&
     !rules.auto_tags_any?.length
@@ -203,6 +206,13 @@ export function compileRulesToSql(
     );
   }
 
+  if (typeof rules.not_contacted_days === "number") {
+    params.not_contacted_days = rules.not_contacted_days;
+    conditions.push(
+      "(last_contacted_at IS NULL OR last_contacted_at < (now() - (:not_contacted_days || ' days')::interval))",
+    );
+  }
+
   if (rules.sources && rules.sources.length > 0) {
     params.sources = rules.sources;
     conditions.push("source = ANY(:sources::text[])");
@@ -287,6 +297,13 @@ export function applyRulesToCustomersQuery<Q extends CustomersQueryLike>(
       now.getTime() - rules.inactive_days * 86_400_000,
     ).toISOString();
     q = q.or(`last_purchase_at.is.null,last_purchase_at.lt.${cutoff}`);
+  }
+
+  if (typeof rules.not_contacted_days === "number") {
+    const cutoff = new Date(
+      now.getTime() - rules.not_contacted_days * 86_400_000,
+    ).toISOString();
+    q = q.or(`last_contacted_at.is.null,last_contacted_at.lt.${cutoff}`);
   }
 
   if (rules.sources && rules.sources.length > 0) {

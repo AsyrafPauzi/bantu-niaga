@@ -12,6 +12,7 @@ import {
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCustomerMayaInsight } from "@/lib/marketing/subpage-hero";
+import { loadCustomerCouponRedemptions } from "@/lib/marketing/coupon-redemptions-load";
 import { CustomerDetailAdaptive } from "../CustomerDetailAdaptive";
 
 export const dynamic = "force-dynamic";
@@ -267,6 +268,15 @@ export default async function CustomerProfilePage({
     orderCount: c.order_count,
   });
 
+  const [couponRedemptions, businessRow] = await Promise.all([
+    loadCustomerCouponRedemptions(supabase, user.businessId, c.id),
+    supabase
+      .from("businesses")
+      .select("name")
+      .eq("id", user.businessId)
+      .maybeSingle(),
+  ]);
+
   const customerFullRow: CustomerFullRow = {
     id: c.id,
     name: c.name,
@@ -297,6 +307,8 @@ export default async function CustomerProfilePage({
           <CustomerDetailMobileView
             customer={customerFullRow}
             mayaInsight={mayaInsight}
+            businessName={businessRow.data?.name ?? undefined}
+            couponRedemptions={couponRedemptions}
           />
         }
         desktop={
@@ -307,6 +319,8 @@ export default async function CustomerProfilePage({
             invoices={invoices}
             posSales={posSales}
             mayaInsight={mayaInsight}
+            businessName={businessRow.data?.name ?? undefined}
+            couponRedemptions={couponRedemptions}
           />
         }
       />
