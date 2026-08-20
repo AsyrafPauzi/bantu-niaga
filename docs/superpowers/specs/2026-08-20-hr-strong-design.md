@@ -96,9 +96,9 @@ Three panels, equal weight:
    - Empty: “Inbox clear.”
 
 3. **Expiring docs**  
-   - HR documents (and contract-related fields if already modelled) with `expires_at` within **30 days**, newest urgency first.  
-   - Also surface critical incomplete required onboarding items if no expiry docs (optional secondary line under same panel — prefer docs-first).  
-   - Empty: “Nothing expiring.”
+   - Primary: HR documents with `expires_at` within **30 days**, soonest first.  
+   - If that list is empty, show up to 5 employees with onboarding completion under 100% as a secondary “Needs file” list in the same panel (not a fourth panel).  
+   - Empty (no expiring docs and no incomplete files): “Nothing expiring.”
 
 ### 6.2 Below the fold
 
