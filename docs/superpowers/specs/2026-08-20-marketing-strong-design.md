@@ -1,8 +1,8 @@
 # Marketing Strong (Solo+) — Design Spec
 
 **Date:** 2026-08-20  
-**Status:** Approved — awaiting implementation plan  
-**Plan:** *(to be written)* `docs/superpowers/plans/2026-08-20-marketing-strong.md`  
+**Status:** Approved  
+**Plan:** `docs/superpowers/plans/2026-08-20-marketing-strong.md`  
 **Branch:** `feat/marketing-strong-core` (off `feat/hr-strong-core`)  
 **Predecessor:** HR Strong — `docs/superpowers/specs/2026-08-20-hr-strong-design.md`  
 **Source:** Product memo — Marketing/HR “Strong” upgrades; shipping choice **B** (HR first, Marketing second); scope **C** (P0 + P1 + P2); birthday **A** (skip DOB); contact stamp **B** (Mark sent + one-tap WA); desk **A** (three panels on `/marketing`); WA content **A** (fixed EN/MS templates); architecture approach **1** (desk + touchpoints)
