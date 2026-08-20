@@ -1,0 +1,42 @@
+{
+  "shell": {
+    "pastDueBanner": "Payment overdue — pay to continue creating invoices and sales.",
+    "pastDueCta": "Pay now"
+  },
+  "activation": {
+    "title": "Get your business running",
+    "subtitle": "Complete these steps in your first week so NiagaX becomes your daily desk.",
+    "addCustomer": "Add a customer",
+    "addProduct": "Add a product",
+    "sendInvoiceOrPos": "Send your first invoice or complete a POS sale",
+    "inviteTeam": "Invite a team member (optional)"
+  },
+  "nav": {
+    "home": "Home",
+    "admin": "Admin",
+    "finance": "Finance",
+    "operations": "Operations",
+    "sales": "Sales",
+    "marketing": "Marketing",
+    "hr": "HR",
+    "marketplace": "Marketplace",
+    "settings": "Settings",
+    "boardroom": "Boardroom",
+    "more": "More"
+  },
+  "finance": {
+    "newInvoice": "New invoice",
+    "sendInvoice": "Send invoice",
+    "invoices": "Invoices"
+  },
+  "sales": {
+    "pos": "Point of sale",
+    "completeSale": "Complete sale"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "email": "Email",
+    "password": "Password"
+  }
+}

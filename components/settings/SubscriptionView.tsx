@@ -88,6 +88,10 @@ export function SubscriptionView({
         setError(json?.message ?? json?.error ?? "Could not change plan");
         return;
       }
+      if (json?.checkout_url && typeof json.checkout_url === "string") {
+        window.location.href = json.checkout_url;
+        return;
+      }
       setConfirmTier(null);
       router.refresh();
     });

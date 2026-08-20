@@ -9,6 +9,11 @@ import {
   ensureBillplzPaymentMethod,
   isBillplzConfigured,
 } from "@/lib/settings/billing";
+import {
+  assertBusinessSubscriptionWritable,
+  SubscriptionPastDueError,
+} from "@/lib/settings/assert-business-writable";
+import { pastDueJsonResponse } from "@/lib/settings/past-due-response";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +42,19 @@ export async function POST(request: Request) {
       { error: "forbidden", reason: "Only the owner can top up." },
       { status: 403 },
     );
+  }
+
+  const supabaseEarly = await createSupabaseServerClient();
+  try {
+    await assertBusinessSubscriptionWritable(
+      supabaseEarly,
+      user.businessId,
+    );
+  } catch (e) {
+    if (e instanceof SubscriptionPastDueError) {
+      return pastDueJsonResponse(e);
+    }
+    throw e;
   }
 
   let body: unknown;
@@ -68,7 +86,7 @@ export async function POST(request: Request) {
       ? CREDIT_TOPUP_BY_SLUG[parsed.addon_slug].amount_myr
       : TOPUP_BUNDLES[parsed.bundle].amount_myr;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = supabaseEarly;
   const billplzLive = isBillplzConfigured();
 
   let paymentMethodId = parsed.payment_method_id ?? null;
@@ -164,6 +182,16 @@ export async function POST(request: Request) {
         { status: 502 },
       );
     }
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      {
+        error: "billplz_not_configured",
+        message: "Payment is not available.",
+      },
+      { status: 503 },
+    );
   }
 
   const { data, error } = await supabase.rpc("settings_topup_credits", {

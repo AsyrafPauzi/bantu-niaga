@@ -130,9 +130,10 @@ export async function createFinanceInvoiceBillplzCheckout(
 
 export type BillplzCompleteResult =
   | { kind: "finance"; businessId: string; invoiceId: string }
-  | { kind: "topup" };
+  | { kind: "topup" }
+  | { kind: "subscription"; businessId: string; tier: string };
 
-/** Webhook dispatcher — finance invoice first, then platform top-up. */
+/** Webhook dispatcher — finance invoice, then top-up, then subscription. */
 export async function completeBillplzPayment(
   billplzId: string,
   admin?: SupabaseClient,
@@ -170,9 +171,35 @@ export async function completeBillplzPayment(
     p_billplz_id: billplzId,
   });
 
-  if (topupRes.error) {
+  if (!topupRes.error) {
+    return { kind: "topup" };
+  }
+
+  if (!topupRes.error.message.includes("not found")) {
     throw new Error(topupRes.error.message);
   }
 
-  return { kind: "topup" };
+  const subRes = await client.rpc("settings_complete_subscription_billplz", {
+    p_billplz_id: billplzId,
+  });
+
+  if (subRes.error) {
+    throw new Error(subRes.error.message);
+  }
+
+  const subRow = Array.isArray(subRes.data) ? subRes.data[0] : subRes.data;
+  if (
+    subRow &&
+    typeof subRow === "object" &&
+    "business_id" in subRow &&
+    "tier" in subRow
+  ) {
+    return {
+      kind: "subscription",
+      businessId: subRow.business_id as string,
+      tier: String(subRow.tier),
+    };
+  }
+
+  throw new Error("settings_complete_subscription_billplz returned no row");
 }

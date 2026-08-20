@@ -62,7 +62,7 @@ describe("business bundles", () => {
     );
   });
 
-  it("includes coming-soon catalog prices in subtotal (not free)", () => {
+  it("excludes coming-soon catalog prices from purchasable subtotal", () => {
     const bundle = bundleForBusinessType("fnb");
     const catalogBySlug = new Map([
       [
@@ -106,7 +106,7 @@ describe("business bundles", () => {
       selectedOptionalSlugs: new Set(),
     });
 
-    expect(pricing.addonSubtotalCents).toBe(900 + 900 + 1400);
+    expect(pricing.addonSubtotalCents).toBe(900);
     expect(pricing.allStackComingSoon).toBe(false);
     expect(pricing.purchasableLineCount).toBe(1);
   });
@@ -192,7 +192,7 @@ describe("business bundles", () => {
 
     expect(pricing.allStackComingSoon).toBe(true);
     expect(pricing.purchasableLineCount).toBe(0);
-    expect(pricing.addonSubtotalCents).toBe(1100 + 1400);
+    expect(pricing.addonSubtotalCents).toBe(0);
   });
 
   it("fnb bundle no longer includes payroll addon (payroll is HR core)", () => {

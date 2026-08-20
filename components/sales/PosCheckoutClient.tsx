@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   Banknote,
   Check,
@@ -115,6 +116,7 @@ export function PosCheckoutClient({
   initialLeadName,
   initialLeadPhone,
 }: PosCheckoutClientProps) {
+  const tSales = useTranslations("sales");
   const [products, setProducts] = useState<PosProduct[]>([]);
   const [services, setServices] = useState<PosService[]>([]);
   const [catalogMode, setCatalogMode] = useState<"products" | "services">(
@@ -1053,7 +1055,7 @@ export function PosCheckoutClient({
                 ) : (
                   <Zap className="h-4 w-4" />
                 )}
-                {payMethod === "cash" ? "Ring it up" : "Confirm paid"}
+                {tSales("completeSale")}
               </button>
               {!canCheckout ? (
                 <p className="mt-2 text-center text-[11px] text-ink-muted">

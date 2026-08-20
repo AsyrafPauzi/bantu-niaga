@@ -3,15 +3,23 @@ import { ZodError } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { tierChangeSchema } from "@/lib/settings/schemas";
+import { isBillplzConfigured } from "@/lib/settings/billing";
+import {
+  BillplzNotConfiguredError,
+  assertBillplzConfiguredForPaidCheckout,
+} from "@/lib/settings/require-billplz-prod";
+import { tierAmountMyr } from "@/lib/settings/subscription-billing";
+import { startSubscriptionCheckout } from "@/lib/settings/subscription-checkout";
+import type { TierKey } from "@/lib/settings/plans";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/settings/subscription/change — owner-only tier switch.
  *
- * For the demo build we apply the change instantly via the
- * settings_change_tier RPC. The RPC writes an audit_log row and updates
- * businesses.tier + subscription_renewal_at in one transaction.
+ * RM0 (Free) applies instantly via settings_change_tier.
+ * Paid tiers create a Billplz checkout; webhook applies the tier.
+ * Non-production without Billplz keeps the instant apply bypass for local demos.
  */
 export async function POST(request: Request) {
   let user;
@@ -54,10 +62,67 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  const tier = parsed.tier as TierKey;
+  const amount = tierAmountMyr(tier);
   const supabase = await createSupabaseServerClient();
+
+  if (amount > 0) {
+    try {
+      assertBillplzConfiguredForPaidCheckout();
+    } catch (e) {
+      if (e instanceof BillplzNotConfiguredError) {
+        return NextResponse.json(
+          {
+            error: e.code,
+            message: "Payment is not available.",
+          },
+          { status: 503 },
+        );
+      }
+      throw e;
+    }
+
+    if (isBillplzConfigured()) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("email, display_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      try {
+        const checkout = await startSubscriptionCheckout({
+          supabase,
+          businessId: user.businessId,
+          userId: user.id,
+          pendingTier: tier,
+          amountMyr: amount,
+          payerEmail: profile?.email ?? "owner@business.local",
+          payerName: profile?.display_name ?? "Business owner",
+        });
+        return NextResponse.json(checkout, { status: 201 });
+      } catch (e) {
+        if (e instanceof BillplzNotConfiguredError) {
+          return NextResponse.json(
+            { error: e.code, message: "Payment is not available." },
+            { status: 503 },
+          );
+        }
+        return NextResponse.json(
+          {
+            error: "billplz_create_failed",
+            message:
+              e instanceof Error ? e.message : "Billplz checkout failed",
+          },
+          { status: 502 },
+        );
+      }
+    }
+    // Non-production without Billplz: fall through to instant apply.
+  }
+
   const { error: rpcError } = await supabase.rpc("settings_change_tier", {
     p_business_id: user.businessId,
-    p_tier: parsed.tier,
+    p_tier: tier,
     p_user_id: user.id,
   });
 
@@ -76,9 +141,10 @@ export async function POST(request: Request) {
 
   return NextResponse.json(
     {
-      tier: business?.tier ?? parsed.tier,
+      tier: business?.tier ?? tier,
       subscription_status: business?.subscription_status ?? "active",
-      subscription_renewal_at: business?.subscription_renewal_at,
+      subscription_renewal_at: business?.subscription_renewal_at ?? null,
+      pending: false,
     },
     { status: 200 },
   );

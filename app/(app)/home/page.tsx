@@ -42,6 +42,8 @@ import {
   minimumTierFor,
   type Pillar,
 } from "@/lib/auth/entitlements";
+import { ActivationChecklist } from "@/components/home/ActivationChecklist";
+import { loadActivationChecklistState } from "@/lib/home/activation-checklist";
 import { tierBy, type TierKey } from "@/lib/settings/plans";
 
 export const metadata = { title: "Home" };
@@ -179,10 +181,15 @@ export default async function HomePage() {
     .eq("id", user.businessId)
     .maybeSingle();
 
+  const tier = (bizRow?.tier as TierKey | undefined) ?? "starter";
+  const activationState = await loadActivationChecklistState(
+    user.businessId,
+    tier,
+  );
+
   if (user.role === "owner" && bizRow && !bizRow.onboarding_completed_at) {
     redirect("/onboarding/recommendation");
   }
-  const tier = (bizRow?.tier ?? "starter") as TierKey;
   const onFreePlan =
     tier === "starter" && (bizRow?.subscription_status ?? "active") === "active";
   const maxBar = Math.max(
@@ -304,6 +311,8 @@ export default async function HomePage() {
           </Link>
         }
       />
+
+      <ActivationChecklist state={activationState} />
 
       {onFreePlan ? (
         <div className="rounded-2xl border border-brand-200 bg-brand-50/80 px-5 py-4 dark:border-brand-800 dark:bg-brand-900/20">

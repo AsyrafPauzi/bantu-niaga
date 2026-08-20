@@ -1,0 +1,42 @@
+{
+  "shell": {
+    "pastDueBanner": "Bayaran tertunggak — bayar untuk terus cipta invois dan jualan.",
+    "pastDueCta": "Bayar sekarang"
+  },
+  "activation": {
+    "title": "Jalankan bisnes anda",
+    "subtitle": "Lengkapkan langkah ini dalam minggu pertama supaya NiagaX jadi meja kerja harian anda.",
+    "addCustomer": "Tambah pelanggan",
+    "addProduct": "Tambah produk",
+    "sendInvoiceOrPos": "Hantar invois pertama atau lengkapkan jualan POS",
+    "inviteTeam": "Jemput ahli pasukan (pilihan)"
+  },
+  "nav": {
+    "home": "Laman utama",
+    "admin": "Admin",
+    "finance": "Kewangan",
+    "operations": "Operasi",
+    "sales": "Jualan",
+    "marketing": "Pemasaran",
+    "hr": "HR",
+    "marketplace": "Pasaran",
+    "settings": "Tetapan",
+    "boardroom": "Bilik mesyuarat",
+    "more": "Lagi"
+  },
+  "finance": {
+    "newInvoice": "Invois baharu",
+    "sendInvoice": "Hantar invois",
+    "invoices": "Invois"
+  },
+  "sales": {
+    "pos": "Kaunter jualan",
+    "completeSale": "Lengkapkan jualan"
+  },
+  "auth": {
+    "signIn": "Log masuk",
+    "signUp": "Daftar",
+    "email": "E-mel",
+    "password": "Kata laluan"
+  }
+}

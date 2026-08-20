@@ -31,6 +31,8 @@ import {
 } from "@/lib/auth/entitlements";
 import { tierBy } from "@/lib/settings/plans";
 import { isAssistantChatRoute } from "@/lib/navigation/assistant-routes";
+import { useTranslations } from "next-intl";
+import { navMessageKey } from "@/lib/i18n/nav-labels";
 
 export function DesktopShell({
   tier,
@@ -46,6 +48,7 @@ export function DesktopShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const tNav = useTranslations("nav");
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar, ready: sidebarReady } =
     useSidebarCollapsed();
   const [expandedSections, setExpandedSections] = useState<
@@ -125,6 +128,8 @@ export function DesktopShell({
                 <ul>
                   {group.items.map(
                     ({ href, label, icon: Icon, pillar, subItems }) => {
+                      const navKey = navMessageKey(href);
+                      const displayLabel = navKey ? tNav(navKey) : label;
                       const isOverviewActive = pathname === href;
                       const isSectionActive = isNavSectionActive(
                         href,
@@ -176,7 +181,7 @@ export function DesktopShell({
                                   className="h-4 w-4 shrink-0"
                                   strokeWidth={2}
                                 />
-                                <span className="truncate">{label}</span>
+                                <span className="truncate">{displayLabel}</span>
                               </span>
                               {locked ? (
                                 <Lock
@@ -196,7 +201,7 @@ export function DesktopShell({
                                   }))
                                 }
                                 aria-expanded={isExpanded}
-                                aria-label={`${isExpanded ? "Collapse" : "Expand"} ${label} submenu`}
+                                aria-label={`${isExpanded ? "Collapse" : "Expand"} ${displayLabel} submenu`}
                                 className={cn(
                                   "flex shrink-0 items-center justify-center rounded-lg px-2 py-2.5 text-ink-muted transition-colors hover:bg-cream-100 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100",
                                   isSectionActive &&

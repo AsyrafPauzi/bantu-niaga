@@ -6,6 +6,10 @@ import type {
   CatalogEntry,
   MarketplaceAddon,
 } from "./types";
+import {
+  filterTenantCatalog,
+  marketplaceShowPlanned,
+} from "@/lib/marketplace/catalog-filter";
 
 /**
  * Returns the full catalog joined with each row's activation state for
@@ -42,8 +46,12 @@ export const loadCatalog = cache(async (): Promise<CatalogEntry[]> => {
   const byAddonId = new Map<string, BusinessAddon>();
   for (const a of activations) byAddonId.set(a.addon_id, a);
 
-  return addons.map((addon) => ({
+  const entries = addons.map((addon) => ({
     addon,
     activation: byAddonId.get(addon.id) ?? null,
   }));
+
+  return filterTenantCatalog(entries, {
+    showPlanned: marketplaceShowPlanned(),
+  });
 });
