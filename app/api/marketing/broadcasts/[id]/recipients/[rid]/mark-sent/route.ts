@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { touchCustomerLastContacted } from "@/lib/marketing/last-contacted";
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -98,7 +99,7 @@ export async function POST(_request: Request, ctx: RouteContext) {
   // the same-business policy on broadcast_recipients.
   const { data: recipient, error: rcptErr } = await supabase
     .from("broadcast_recipients")
-    .select("id, broadcast_id, status")
+    .select("id, broadcast_id, status, customer_id")
     .eq("id", recipientId)
     .eq("broadcast_id", broadcastId)
     .maybeSingle();
@@ -129,6 +130,15 @@ export async function POST(_request: Request, ctx: RouteContext) {
       { error: "update_failed", message: updateErr.message },
       { status: 500 },
     );
+  }
+
+  const customerId = recipient.customer_id as string | null | undefined;
+  if (customerId) {
+    try {
+      await touchCustomerLastContacted(supabase, user.businessId, customerId);
+    } catch {
+      // fail-soft: mark-sent already succeeded
+    }
   }
 
   // Recount aggregate counters. Cheap: 1 row each via count:'exact'.

@@ -98,6 +98,13 @@ describe("compileRulesToSql — each rule key in isolation", () => {
     );
     expect(out.params.inactive_days).toBe(90);
   });
+  it("not_contacted_days emits a null-or-old last_contacted_at clause", () => {
+    const out = compileRulesToSql({ not_contacted_days: 30 }, BIZ);
+    expect(out.whereClause).toContain(
+      "(last_contacted_at IS NULL OR last_contacted_at < (now() - (:not_contacted_days || ' days')::interval))",
+    );
+    expect(out.params.not_contacted_days).toBe(30);
+  });
   it("sources emits an = ANY(...) clause", () => {
     const out = compileRulesToSql(
       { sources: ["manual", "pos"] },
@@ -255,6 +262,17 @@ describe("applyRulesToCustomersQuery", () => {
     const filter = calls[0].args[0] as string;
     expect(filter).toContain("last_purchase_at.is.null");
     expect(filter).toContain("last_purchase_at.lt.2026-05-16T00:00:00.000Z");
+  });
+
+  it("not_contacted_days → .or() on last_contacted_at", () => {
+    const { calls, query } = makeQueryRecorder();
+    const now = new Date("2026-06-15T00:00:00.000Z");
+    applyRulesToCustomersQuery(query, { not_contacted_days: 30 }, now);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("or");
+    const filter = calls[0].args[0] as string;
+    expect(filter).toContain("last_contacted_at.is.null");
+    expect(filter).toContain("last_contacted_at.lt.2026-05-16T00:00:00.000Z");
   });
 
   it("tags_any + manual_tags_any → single .or() across both columns", () => {

@@ -619,7 +619,9 @@ function PreviewStep({
       email: "",
       tags: "",
       status: "reject",
-      reason: r.reason,
+      reason: r.reason.toLowerCase().includes("duplicate")
+        ? `${r.reason} — open the existing customer to merge, or fix the phone and re-import.`
+        : r.reason,
     })),
   ].sort((a, b) => a.rowNumber - b.rowNumber);
 
@@ -645,6 +647,10 @@ function PreviewStep({
         <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
           We found {summary.total} customers in your file. Review duplicates
           and validation issues before importing.
+        </p>
+        <p className="mt-3 rounded-xl border border-cream-200 bg-cream-50 px-3 py-2 text-sm font-semibold tabular-nums text-ink dark:border-hairline-dark dark:bg-panel-dark/60 dark:text-cream-100">
+          Create {summary.created} · Merge {summary.merged} · Reject{" "}
+          {summary.rejected}
         </p>
       </div>
 

@@ -1,7 +1,7 @@
 # Marketing Strong (Solo+) — Design Spec
 
 **Date:** 2026-08-20  
-**Status:** Approved  
+**Status:** Implemented  
 **Plan:** `docs/superpowers/plans/2026-08-20-marketing-strong.md`  
 **Branch:** `feat/marketing-strong-core` (off `feat/hr-strong-core`)  
 **Predecessor:** HR Strong — `docs/superpowers/specs/2026-08-20-hr-strong-design.md`  
