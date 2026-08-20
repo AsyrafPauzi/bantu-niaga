@@ -1,9 +1,7 @@
-"use client";
-
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, Sparkles } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { ModuleNavLabel } from "@/components/dashboard/ModuleNavLabel";
 import type { Pillar } from "@/lib/permissions";
 import {
   getPillarClasses,
@@ -52,30 +50,6 @@ function heroClassFor(
   return cn(classes.heroBorder, classes.heroBg);
 }
 
-function localizeModuleLabel(
-  module: string,
-  tNav: (key: string) => string,
-): string {
-  const parts = module.split(" · ");
-  const head = parts[0]?.trim() ?? module;
-  const map: Record<string, string> = {
-    Finance: "finance",
-    Operations: "operations",
-    Sales: "sales",
-    Marketing: "marketing",
-    HR: "hr",
-    Admin: "admin",
-    Boardroom: "boardroom",
-    Marketplace: "marketplace",
-    Settings: "settings",
-  };
-  const key = map[head];
-  if (!key) return module;
-  const localizedHead = tNav(key);
-  if (parts.length === 1) return localizedHead;
-  return `${localizedHead} · ${parts.slice(1).join(" · ")}`;
-}
-
 interface ModuleDashboardHeroProps {
   module: string;
   headline: string;
@@ -99,11 +73,9 @@ export function ModuleDashboardHero({
   headerExtra,
   children,
 }: ModuleDashboardHeroProps) {
-  const tNav = useTranslations("nav");
   const pillar = pillarProp ?? pillarFromModule(module);
   const classes = getPillarClasses(pillar);
   const resolvedVariant = normalizeVariant(variant);
-  const moduleLabel = localizeModuleLabel(module, tNav);
 
   return (
     <section
@@ -126,7 +98,7 @@ export function ModuleDashboardHero({
               classes.eyebrow,
             )}
           >
-            {moduleLabel}
+            <ModuleNavLabel module={module} />
           </p>
           <h1 className="mt-1 text-xl font-bold tracking-tight text-ink dark:text-cream-100 sm:text-2xl">
             {headline}

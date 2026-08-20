@@ -15,7 +15,11 @@ export function TenantI18nProvider({
   children: ReactNode;
 }) {
   return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
+    <NextIntlClientProvider
+      locale={locale}
+      messages={messages}
+      timeZone="Asia/Kuala_Lumpur"
+    >
       {children}
     </NextIntlClientProvider>
   );
