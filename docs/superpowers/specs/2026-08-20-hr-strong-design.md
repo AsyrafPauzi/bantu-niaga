@@ -1,9 +1,9 @@
 # HR Strong (Solo+) — Design Spec
 
 **Date:** 2026-08-20  
-**Status:** Approved  
+**Status:** Implemented  
 **Plan:** `docs/superpowers/plans/2026-08-20-hr-strong.md`  
-**Branch (planned):** `feat/hr-strong-core` (off latest main / after Phase 1 GTM merge as appropriate)  
+**Branch:** `feat/hr-strong-core`  
 **Follow-on:** Marketing Strong (PR 2) — separate spec  
 **Source:** Product memo — Marketing/HR “Strong” upgrades; shipping choice **B** (HR first); entitlement **A** (self-service always included on Solo+); desk **A** (three-panel morning view); WhatsApp **A** (copy + `wa.me` sheet); scope **C** (P0 + P1 + P2 in this HR PR)
 

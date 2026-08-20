@@ -64,7 +64,7 @@
 | ✅ | `/more` hub and pillar registry |
 | ✅ | User sessions migration (`20260707230000`) |
 | 🟡 | Team invite email + `/accept-invite` password setup — `NEXT_PUBLIC_APP_URL` ✅ in prod; still needs Supabase Auth SMTP / invite email templates |
-| ✅ | Staff login portal (`/hr/me`) — balance, apply leave, history, cancel pending, onboarding view; gated by `hr-staff-portal` add-on + linked `user_id` |
+| ✅ | Staff login portal (`/hr/me`) — balance, apply leave, history, cancel pending, onboarding view; **included on Solo+** (no Marketplace purchase); still requires linked `user_id` |
 | ✅ | Google social login (sign-in via Supabase OAuth) — existing accounts / invites only |
 | 🟡 | Google OAuth production config — enable Google provider in Supabase + Google Cloud OAuth client; redirect `https://<domain>/auth/callback` |
 | ✅ | Organisation multi-company switching — sidebar dropdown, `/add-company`, `user_business_memberships` |
@@ -606,15 +606,19 @@
 | ✅ | Pending leave approve/reject |
 | ✅ | Manager record leave + MC upload |
 | ✅ | Share-link leave form (staff, no login) |
-| ✅ | Staff self-service portal (`/hr/me`) |
+| ✅ | Staff self-service portal (`/hr/me`) — core on Solo+ |
 | ✅ | Leave history + AL balance |
-| ✅ | Onboarding checklist per employee |
+| ✅ | Onboarding checklist per employee + % on list/header |
 | ✅ | IC/bank encryption at rest |
 | ✅ | Audit log on HR mutations |
 | ✅ | First-visit HR guide |
 | ✅ | Notification feed — HR events → `business_notifications` + overview activity panel |
 | ✅ | MC document → Admin Storage vault | `hr_leave_records.admin_file_id` |
 | ✅ | Leave → Operations booking blocks | Sync on approve; API rejects staff on leave when resource has `employee_id` |
+| ✅ | Owner today desk (`/hr`) — off today/week · pending · expiring/needs file |
+| ✅ | Leave approve/reject WhatsApp decision sheet (EN/MS copy + `wa.me`) |
+| ✅ | AL/MC/EL/Hosp balance strip on profile, `/hr/me`, apply form |
+| ✅ | Leave approve warn+confirm when open bookings overlap |
 
 **Core verify:** `npm run smoke:hr` (employee → leave → approve → notifications).
 
@@ -640,7 +644,7 @@
 | Status | Add-on | Slug | Notes |
 |--------|--------|------|-------|
 | 🟡 | HR reminder pack | `hr-reminder-pack` | Coming soon |
-| ✅ | Staff self-service portal | `hr-staff-portal` | `/hr/me` |
+| ✅ | Staff self-service portal | `hr-staff-portal` | Included on Solo+ (`/hr/me`); Marketplace shows Included |
 
 #### AI (shipped · not SCALE/EFFICIENCY/AUTOMATE)
 | Status | Add-on | Slug | Notes |
@@ -790,6 +794,27 @@ Plan: `docs/superpowers/plans/2026-08-20-phase-1-gtm-core.md`
 | ✅ | Auth UI string migration (sign-in/up, forgot/reset, verify, accept-invite) + Settings → Appearance language drives in-app chrome |
 
 Migrations applied to linked DB: `20260820100000_subscription_billplz_checkout.sql`, `20260820110000_subscription_renewal_past_due.sql`, `20260820120000_business_activation.sql`.
+
+---
+
+## 12c. HR Strong (2026-08-20)
+
+Spec: `docs/superpowers/specs/2026-08-20-hr-strong-design.md`  
+Plan: `docs/superpowers/plans/2026-08-20-hr-strong.md`  
+Branch: `feat/hr-strong-core`
+
+| Status | Item |
+|--------|------|
+| ✅ | Staff self-service included on Solo+ (no `hr-staff-portal` purchase) |
+| ✅ | Owner today desk — three panels on `/hr` |
+| ✅ | Leave approve/reject WhatsApp decision sheet |
+| ✅ | Share-leave Create · Copy · WhatsApp strip (existing) |
+| ✅ | Onboarding % on employee list + profile header |
+| ✅ | AL/MC balance strip (EL/Hosp when configured) |
+| ✅ | Leave approve warn+confirm on overlapping bookings |
+| — | Marketing Strong — deferred to separate spec/PR |
+
+Migration: `20260820130000_hr_staff_portal_included.sql`.
 
 ---
 
