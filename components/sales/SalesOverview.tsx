@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
 import {
   Banknote,
   Clock,
@@ -23,6 +22,8 @@ import {
 } from "@/components/dashboard/module-layout";
 import { SalesBackLink } from "@/components/sales/SalesBackLink";
 import { SalesMobileFab } from "@/components/sales/SalesMobileFab";
+import { getSessionLocale } from "@/lib/i18n/session-locale";
+import { createNamespacedTranslator } from "@/lib/i18n/translator";
 import { formatMyr } from "@/lib/marketing/metrics";
 import type { SalesDashboardData } from "@/lib/sales/dashboard";
 import { cn } from "@/lib/utils/cn";
@@ -79,7 +80,7 @@ export async function SalesOverview({
   showLeads,
   showHistory = false,
 }: SalesOverviewProps) {
-  const t = await getTranslations("sales");
+  const t = createNamespacedTranslator(await getSessionLocale(), "sales");
   const { summary, leads, recentSales, todayYmd, week, topProducts, cashiers, notifications } =
     data;
   const hasSalesToday = summary.txnToday > 0;

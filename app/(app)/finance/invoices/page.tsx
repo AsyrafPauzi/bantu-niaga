@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
 import { FinanceBackLink } from "@/components/finance/FinanceBackLink";
 import { FinanceInvoicePanel } from "@/components/finance/FinanceInvoicePanel";
 import { FinanceSubpageShell } from "@/components/finance/FinanceSubpageShell";
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { getSessionLocale } from "@/lib/i18n/session-locale";
+import { createNamespacedTranslator } from "@/lib/i18n/translator";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parsePagination } from "@/lib/pagination";
@@ -26,7 +27,7 @@ export default async function InvoicesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const t = await getTranslations("finance");
+  const t = createNamespacedTranslator(await getSessionLocale(), "finance");
   let user;
   try {
     user = await getCurrentUser();
