@@ -32,7 +32,7 @@ import {
 import { tierBy } from "@/lib/settings/plans";
 import { isAssistantChatRoute } from "@/lib/navigation/assistant-routes";
 import { useTranslations } from "next-intl";
-import { navGroupMessageKey, navLabelFor, navMessageKey } from "@/lib/i18n/nav-labels";
+import { navGroupMessageKey, navLabelFor } from "@/lib/i18n/nav-labels";
 
 export function DesktopShell({
   tier,
