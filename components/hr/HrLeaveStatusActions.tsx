@@ -6,6 +6,13 @@ import { HrLeaveDecisionSheet } from "@/components/hr/HrLeaveDecisionSheet";
 import { leaveTypeLabel } from "@/lib/hr/leave-labels";
 import type { LeaveDecisionStatus } from "@/lib/hr/leave-status-messages";
 
+type BookingConflict = {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+};
+
 export function HrLeaveStatusActions({
   leaveId,
   employeeName,
@@ -30,21 +37,39 @@ export function HrLeaveStatusActions({
     status: LeaveDecisionStatus;
     reason: string | null;
   } | null>(null);
+  const [conflictConfirm, setConflictConfirm] = useState<BookingConflict[] | null>(
+    null,
+  );
 
-  async function update(status: "approved" | "rejected") {
+  async function update(
+    status: "approved" | "rejected",
+    opts?: { force?: boolean },
+  ) {
     setBusy(status);
     setWarning(null);
     try {
       const res = await fetch(`/api/hr/leave/${leaveId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          status,
+          acknowledge_booking_conflicts: opts?.force === true,
+        }),
       });
       const json = await res.json().catch(() => null);
+      if (
+        res.status === 409 &&
+        Array.isArray(json?.booking_conflicts) &&
+        status === "approved"
+      ) {
+        setConflictConfirm(json.booking_conflicts as BookingConflict[]);
+        return;
+      }
       if (res.ok) {
         if (json?.warning?.message) {
           setWarning(json.warning.message);
         }
+        setConflictConfirm(null);
         setSheet({
           status,
           reason:
@@ -65,6 +90,36 @@ export function HrLeaveStatusActions({
         <p className="max-w-xs text-right text-[11px] text-status-warning">
           {warning}
         </p>
+      ) : null}
+      {conflictConfirm ? (
+        <div className="max-w-sm rounded-lg border border-amber-200 bg-amber-50 p-3 text-left text-xs dark:border-amber-900 dark:bg-amber-950/30">
+          <p className="font-semibold text-amber-900 dark:text-amber-100">
+            Overlapping bookings
+          </p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-amber-800 dark:text-amber-200">
+            {conflictConfirm.map((c) => (
+              <li key={c.id}>
+                {c.title} ({c.startsAt.slice(0, 10)}–{c.endsAt.slice(0, 10)})
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-md px-2 py-1 font-semibold text-ink-muted"
+              onClick={() => setConflictConfirm(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-status-success px-2 py-1 font-semibold text-white"
+              onClick={() => void update("approved", { force: true })}
+            >
+              Approve anyway
+            </button>
+          </div>
+        </div>
       ) : null}
       <div className="flex items-center justify-end gap-2">
         <button
