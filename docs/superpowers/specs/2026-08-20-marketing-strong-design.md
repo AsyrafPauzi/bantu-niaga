@@ -233,4 +233,4 @@ Section approvals in chat:
 3. UI surfaces (desk, WA, coupons, import) — **yes**  
 4. Architecture / testing / risks — **yes**
 
-Awaiting implementation plan via writing-plans after user reviews this file.
+Awaiting implementation via `docs/superpowers/plans/2026-08-20-marketing-strong.md`.
