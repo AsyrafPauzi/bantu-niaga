@@ -531,7 +531,7 @@ export function PosCheckoutClient({
   }
 
   return (
-    <div className="space-y-4 pb-20 lg:pb-8">
+    <div className="space-y-4 pb-20 md:pb-8">
       {/* Header */}
       <section
         className={cn(
@@ -589,7 +589,7 @@ export function PosCheckoutClient({
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-4 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_380px]">
         {/* Catalog */}
         <section className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
           <div className="flex flex-col gap-2 border-b border-cream-200 p-3 sm:flex-row sm:flex-wrap sm:items-center dark:border-hairline-dark">
@@ -603,7 +603,7 @@ export function PosCheckoutClient({
                     setCategoryFilter(null);
                   }}
                   className={cn(
-                    "flex-1 rounded-lg px-3 py-2 text-xs font-bold capitalize transition",
+                    "flex-1 rounded-lg px-3 py-2.5 text-xs font-bold capitalize transition",
                     catalogMode === mode
                       ? "bg-white text-blue-800 shadow-sm dark:bg-panel-dark dark:text-blue-200"
                       : "text-ink-muted hover:text-ink",
@@ -619,7 +619,7 @@ export function PosCheckoutClient({
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search…"
-                className="w-full rounded-xl border border-cream-200 bg-cream-50/50 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-300 dark:border-hairline-dark dark:bg-panel-dark"
+                className="w-full rounded-xl border border-cream-200 bg-cream-50/50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-300 dark:border-hairline-dark dark:bg-panel-dark"
               />
             </div>
           </div>
@@ -680,7 +680,7 @@ export function PosCheckoutClient({
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {catalogMode === "products"
                   ? (filtered as PosProduct[]).map((p) => {
                       const low = isLowStock(p);
@@ -694,7 +694,7 @@ export function PosCheckoutClient({
                           type="button"
                           onClick={() => addProduct(p)}
                           className={cn(
-                            "group relative flex flex-col rounded-xl border p-3 text-left transition active:scale-[0.97]",
+                            "group relative flex flex-col rounded-xl border p-3 text-left transition touch-manipulation active:scale-[0.97]",
                             "border-cream-200 hover:border-blue-300 hover:bg-blue-50/50 dark:border-hairline-dark dark:hover:border-blue-800 dark:hover:bg-blue-950/20",
                             addedPulse === key && "ring-2 ring-blue-400",
                             low && "border-amber-300/80",
@@ -746,7 +746,7 @@ export function PosCheckoutClient({
                           type="button"
                           onClick={() => addService(s)}
                           className={cn(
-                            "group relative flex flex-col rounded-xl border border-cream-200 p-3 text-left transition active:scale-[0.97] hover:border-blue-300 hover:bg-blue-50/50 dark:border-hairline-dark dark:hover:border-blue-800 dark:hover:bg-blue-950/20",
+                            "group relative flex flex-col rounded-xl border border-cream-200 p-3 text-left transition touch-manipulation active:scale-[0.97] hover:border-blue-300 hover:bg-blue-50/50 dark:border-hairline-dark dark:hover:border-blue-800 dark:hover:bg-blue-950/20",
                             addedPulse === key && "ring-2 ring-blue-400",
                           )}
                         >
@@ -775,7 +775,7 @@ export function PosCheckoutClient({
         </section>
 
         {/* Cart panel */}
-        <section className="flex flex-col rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark lg:sticky lg:top-4 lg:max-h-[calc(100dvh-8rem)]">
+        <section className="flex flex-col rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark md:sticky md:top-4 md:max-h-[calc(100dvh-6rem)]">
           <div className="border-b border-cream-200 px-4 py-3 dark:border-hairline-dark">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -823,30 +823,30 @@ export function PosCheckoutClient({
                           {money(lineTotal)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-0.5">
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          className="rounded-lg border border-cream-300 p-1.5 hover:bg-white dark:border-hairline-dark"
+                          className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg border border-cream-300 hover:bg-white dark:border-hairline-dark"
                           onClick={() => setQty(lineKey, l.quantity - 1)}
                         >
-                          <Minus className="h-3 w-3" />
+                          <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <span className="w-6 text-center text-sm font-bold tabular-nums">
+                        <span className="w-7 text-center text-sm font-bold tabular-nums">
                           {l.quantity}
                         </span>
                         <button
                           type="button"
-                          className="rounded-lg border border-cream-300 p-1.5 hover:bg-white dark:border-hairline-dark"
+                          className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg border border-cream-300 hover:bg-white dark:border-hairline-dark"
                           onClick={() => setQty(lineKey, l.quantity + 1)}
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
-                          className="rounded-lg p-1.5 text-ink-muted hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                          className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-ink-muted hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
                           onClick={() => setQty(lineKey, 0)}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </li>
@@ -884,26 +884,26 @@ export function PosCheckoutClient({
                   type="button"
                   onClick={() => setPayMethod("cash")}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-xl border-2 py-2.5 text-xs font-bold transition",
+                    "flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-bold transition",
                     payMethod === "cash"
                       ? "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-200"
                       : "border-cream-200 text-ink-muted dark:border-hairline-dark",
                   )}
                 >
-                  <Banknote className="h-4 w-4" />
+                  <Banknote className="h-5 w-5" />
                   Cash
                 </button>
                 <button
                   type="button"
                   onClick={() => setPayMethod("duitnow_qr_static")}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-xl border-2 py-2.5 text-xs font-bold transition",
+                    "flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-bold transition",
                     payMethod === "duitnow_qr_static"
                       ? "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-200"
                       : "border-cream-200 text-ink-muted dark:border-hairline-dark",
                   )}
                 >
-                  <QrCode className="h-4 w-4" />
+                  <QrCode className="h-5 w-5" />
                   DuitNow
                 </button>
               </div>
@@ -1058,7 +1058,7 @@ export function PosCheckoutClient({
                 type="button"
                 disabled={!canCheckout || busy || total <= 0}
                 onClick={() => void completeSale()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3.5 text-sm font-bold text-white transition hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-4 text-base font-bold text-white transition hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-50"
               >
                 {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
