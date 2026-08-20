@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { Card, CardBody } from "@/components/ui/card";
-import { HrStaffPortalGate } from "@/components/hr/HrStaffPortalGate";
 import { HrStaffPortalPanel } from "@/components/hr/HrStaffPortalPanel";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrPageBody } from "@/components/hr/layout/hr-page-body";
@@ -8,7 +7,6 @@ import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
 import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageHrCore } from "@/lib/hr/access";
-import { hasStaffPortalAddon } from "@/lib/marketplace/entitlements";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Staff portal" };
@@ -33,27 +31,6 @@ export default async function HrStaffPortalPage() {
     );
   }
 
-  const addonActive = await hasStaffPortalAddon(user.businessId);
-
-  if (!addonActive) {
-    return (
-      <HrPageShell
-        header={
-          <HrPageHeader
-            title="Staff portal"
-            subtitle="Staff login for leave balance and self-service requests"
-            helpHref="/more"
-          />
-        }
-      >
-        <HrPageBody>
-          <HrMobileSubnav />
-          <HrStaffPortalGate />
-        </HrPageBody>
-      </HrPageShell>
-    );
-  }
-
   const supabase = await createSupabaseServerClient();
   const { data: employeeRows } = await supabase
     .from("hr_employees")
@@ -71,7 +48,7 @@ export default async function HrStaffPortalPage() {
       header={
         <HrPageHeader
           title="Staff portal"
-          subtitle="Link team logins so staff can use /hr/me"
+          subtitle="Link team logins so staff can use /hr/me — included on Solo+"
           helpHref="/more"
         />
       }
