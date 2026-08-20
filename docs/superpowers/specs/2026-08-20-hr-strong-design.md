@@ -4,7 +4,7 @@
 **Status:** Implemented  
 **Plan:** `docs/superpowers/plans/2026-08-20-hr-strong.md`  
 **Branch:** `feat/hr-strong-core`  
-**Follow-on:** Marketing Strong (PR 2) — separate spec  
+**Follow-on:** Marketing Strong — `docs/superpowers/specs/2026-08-20-marketing-strong-design.md`  
 **Source:** Product memo — Marketing/HR “Strong” upgrades; shipping choice **B** (HR first); entitlement **A** (self-service always included on Solo+); desk **A** (three-panel morning view); WhatsApp **A** (copy + `wa.me` sheet); scope **C** (P0 + P1 + P2 in this HR PR)
 
 ---
@@ -219,15 +219,17 @@ Manual smoke: Solo owner `/hr` morning panels; link staff user → `/hr/me` appl
 
 ---
 
-## 15. Marketing Strong (out of scope — PR 2 preview)
+## 15. Marketing Strong (PR 2)
 
-Deferred (do not implement in this PR):
+Spec: `docs/superpowers/specs/2026-08-20-marketing-strong-design.md` (Approved — plan next).
 
-- One-tap WhatsApp from CRM / segment / draft  
-- Follow-up queue (dormant / no purchase / birthday-style)  
-- Coupon redemption obvious at POS + customer page  
-- Import polish + merge duplicates  
-- `last_contacted` + segment “not messaged in 30 days”
+Shipped in Marketing Strong (not this HR PR):
+
+- One-tap WhatsApp from CRM / desk (fixed EN/MS templates)
+- Follow-up queue as three panels on `/marketing` (dormant / no purchase / not messaged 30d; no birthday this PR)
+- Coupon redemption obvious at POS + customer page
+- Import polish + merge path clarity
+- `last_contacted_at` + segment “not messaged in 30 days”
 
 ---
 
