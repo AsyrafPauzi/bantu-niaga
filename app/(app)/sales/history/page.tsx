@@ -92,14 +92,14 @@ export default async function SalesHistoryPage({ searchParams }: PageProps) {
             label="Receipts"
             value={String(history.txnCount)}
             hint="Completed sales"
-            icon={Receipt}
+            icon={<Receipt />}
             iconClassName="text-blue-700 dark:text-blue-300"
           />
           <ModuleHeroStat
             label="Total"
             value={formatMyr(history.salesMyr)}
             hint={periodLabel}
-            icon={Receipt}
+            icon={<Receipt />}
             iconClassName="text-emerald-700 dark:text-emerald-300"
           />
         </div>

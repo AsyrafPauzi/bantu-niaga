@@ -1,4 +1,3 @@
-import type { LucideIcon } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/lib/utils/cn";
 
@@ -18,7 +17,7 @@ interface KpiTileProps {
   delta?: string;
   deltaTone?: DeltaTone;
   helper?: string;
-  icon?: LucideIcon;
+  icon?: React.ReactNode;
   className?: string;
 }
 
@@ -32,7 +31,7 @@ export function KpiTile({
   delta,
   deltaTone = "success",
   helper,
-  icon: Icon,
+  icon,
   className,
 }: KpiTileProps) {
   return (
@@ -42,9 +41,9 @@ export function KpiTile({
           <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
             {label}
           </p>
-          {Icon ? (
+          {icon ? (
             <span className="rounded-md bg-brand-50 p-1.5 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-              <Icon className="h-4 w-4" strokeWidth={2} />
+              <span className="inline-flex [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
             </span>
           ) : null}
         </div>

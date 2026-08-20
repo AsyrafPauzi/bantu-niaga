@@ -46,43 +46,43 @@ const financeTheme = pillarClasses.finance;
 const QUICK_ACTIONS = [
   {
     href: "/finance/invoices/new",
-    icon: Plus,
+    icon: <Plus />,
     title: "New invoice",
     subtitle: "Bill a customer",
   },
   {
     href: "/finance/expenses",
-    icon: Receipt,
+    icon: <Receipt />,
     title: "Log expense",
     subtitle: "Snap a receipt",
   },
   {
     href: "/finance/income",
-    icon: Wallet,
+    icon: <Wallet />,
     title: "Log income",
     subtitle: "Capital, loans & sales",
   },
   {
     href: "/finance/invoices?kind=quote",
-    icon: MessageSquareQuote,
+    icon: <MessageSquareQuote />,
     title: "Quotes",
     subtitle: "Send before billing",
   },
   {
     href: "/finance/reports",
-    icon: BarChart3,
+    icon: <BarChart3 />,
     title: "Reports",
     subtitle: "Ledger, P&L & charts",
   },
   {
     href: "/finance/invoices",
-    icon: FileText,
+    icon: <FileText />,
     title: "Invoices",
     subtitle: "Track & share",
   },
   {
     href: "/finance/customers",
-    icon: Users,
+    icon: <Users />,
     title: "Customers",
     subtitle: "Billing contacts",
   },
@@ -498,7 +498,7 @@ export function FinanceOverview({
             {recentTransactions.length === 0 ? (
               <div className="px-4 py-6 sm:px-5">
                 <AdminCatalogEmpty
-                  icon={Receipt}
+                  icon={<Receipt />}
                   title="No entries yet"
                   hint={
                     expensesAllowed
@@ -583,7 +583,7 @@ export function FinanceOverview({
             {recentInvoices.length === 0 ? (
               <div className="px-4 py-6 sm:px-5">
                 <AdminCatalogEmpty
-                  icon={FileText}
+                  icon={<FileText />}
                   title="No invoices or quotes yet"
                   hint="Send your first bill — customers get a share link with optional DuitNow."
                   className="border-none bg-transparent py-8 dark:bg-transparent"

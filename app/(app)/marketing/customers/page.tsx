@@ -250,7 +250,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                 ? `+${formatCount(snapshot.newThisMonth)} this month`
                 : "all active"
             }
-            icon={Users}
+            icon={<Users />}
             iconClassName="text-violet-700 dark:text-violet-300"
             href="/marketing/customers"
           />
@@ -258,7 +258,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             label="VIP"
             value={formatCount(snapshot.vipCount)}
             hint={snapshot.vipCount > 0 ? "top spenders" : "none yet"}
-            icon={Star}
+            icon={<Star />}
             iconClassName="text-amber-700 dark:text-amber-300"
             href="/marketing/customers?tags=vip"
           />
@@ -266,7 +266,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             label="Dormant"
             value={formatCount(snapshot.dormantCount)}
             hint={snapshot.dormantCount > 0 ? "win-back targets" : "all active"}
-            icon={Users}
+            icon={<Users />}
             iconClassName="text-slate-600 dark:text-slate-300"
             href="/marketing/customers?tags=dormant"
           />
@@ -274,7 +274,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             label="At-risk"
             value={formatCount(snapshot.atRiskCount)}
             hint={snapshot.atRiskCount > 0 ? "needs care" : "all clear"}
-            icon={AlertTriangle}
+            icon={<AlertTriangle />}
             iconClassName="text-rose-700 dark:text-rose-300"
             href="/marketing/customers?tags=at-risk"
           />

@@ -145,7 +145,7 @@ export function AdminOverview({
     canTasks
       ? {
           href: "/admin/tasks",
-          icon: ListChecks,
+          icon: <ListChecks />,
           title: "Tasks",
           subtitle: "To do · Doing · Done",
         }
@@ -153,7 +153,7 @@ export function AdminOverview({
     canCompliance
       ? {
           href: "/admin/compliance",
-          icon: ShieldCheck,
+          icon: <ShieldCheck />,
           title: "Compliance",
           subtitle: "Licences & renewals",
         }
@@ -161,7 +161,7 @@ export function AdminOverview({
     canStorage
       ? {
           href: "/admin/storage",
-          icon: FolderOpen,
+          icon: <FolderOpen />,
           title: "Storage",
           subtitle: "Document vault",
         }
@@ -222,7 +222,7 @@ export function AdminOverview({
                   ? `${formatBytes(data.totalStorageBytes)} of ${data.storageQuotaGb} GB`
                   : `${formatBytes(data.totalStorageBytes)} stored`
               }
-              icon={FolderOpen}
+              icon={<FolderOpen />}
               iconClassName={adminTheme.eyebrow}
             />
           ) : null}
@@ -231,7 +231,7 @@ export function AdminOverview({
               label="Open tasks"
               value={data.openTaskCount}
               hint={`${data.tasksCompletedThisWeek} done this week`}
-              icon={Clock}
+              icon={<Clock />}
               iconClassName={adminTheme.eyebrow}
             />
           ) : null}
@@ -240,7 +240,7 @@ export function AdminOverview({
               label="Renewals"
               value={renewalsKpi.value}
               hint="within 30 days or overdue"
-              icon={AlertTriangle}
+              icon={<AlertTriangle />}
               iconClassName={adminTheme.eyebrow}
             />
           ) : null}
@@ -251,7 +251,7 @@ export function AdminOverview({
               hint={
                 data.storageUsagePct >= 80 ? "Consider extra space" : "Plan quota"
               }
-              icon={FolderOpen}
+              icon={<FolderOpen />}
               iconClassName={adminTheme.eyebrow}
               href="/admin/storage"
             />
@@ -362,7 +362,7 @@ export function AdminOverview({
               {data.openTasks.length === 0 ? (
                 <div className="px-4 py-6 sm:px-5">
                   <AdminCatalogEmpty
-                    icon={ListChecks}
+                    icon={<ListChecks />}
                     title="No open tasks"
                     hint="Capture admin work on the board so renewals and filings stay on track."
                     className="border-none bg-transparent py-8 dark:bg-transparent"
@@ -426,7 +426,7 @@ export function AdminOverview({
               {data.complianceItems.length === 0 ? (
                 <div className="px-4 py-6 sm:px-5">
                   <AdminCatalogEmpty
-                    icon={ShieldCheck}
+                    icon={<ShieldCheck />}
                     title="No renewals tracked"
                     hint="Start with SSM or your most critical permit — Amir can coach you later."
                     className="border-none bg-transparent py-8 dark:bg-transparent"
@@ -520,7 +520,7 @@ export function AdminOverview({
               {data.recentFiles.length === 0 ? (
                 <div className="px-4 py-6 sm:px-5">
                   <AdminCatalogEmpty
-                    icon={FolderOpen}
+                    icon={<FolderOpen />}
                     title="No files yet"
                     hint="Receipts, contracts, and licence PDFs — private to your team."
                     className="border-none bg-transparent py-8 dark:bg-transparent"

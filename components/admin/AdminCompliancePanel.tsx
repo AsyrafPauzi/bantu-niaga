@@ -552,7 +552,7 @@ export function AdminCompliancePanel({
 
       {items.length === 0 ? (
         <AdminCatalogEmpty
-          icon={ShieldCheck}
+          icon={<ShieldCheck />}
           title="No licences tracked yet"
           hint="Start with a common renewal — we'll remind you in-app before it expires."
           action={

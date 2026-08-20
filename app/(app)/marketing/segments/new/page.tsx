@@ -67,20 +67,20 @@ export default async function NewSegmentPage() {
           <ModuleHeroStat
             label="Built-in"
             value={autoCount}
-            icon={Sparkles}
+            icon={<Sparkles />}
             hint="auto groups"
             iconClassName="text-violet-700 dark:text-violet-300"
           />
           <ModuleHeroStat
             label="Custom"
             value={customCount}
-            icon={Target}
+            icon={<Target />}
             iconClassName="text-sky-700 dark:text-sky-300"
           />
           <ModuleHeroStat
             label="Members"
             value={formatCount(totalMembers)}
-            icon={Users}
+            icon={<Users />}
             iconClassName="text-emerald-700 dark:text-emerald-300"
           />
         </div>

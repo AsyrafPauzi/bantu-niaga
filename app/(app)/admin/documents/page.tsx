@@ -61,7 +61,7 @@ export default async function AdminDocumentsPage() {
             label="Templates"
             value={templates.length}
             hint="System layouts"
-            icon={FileText}
+            icon={<FileText />}
             iconClassName={adminTheme.eyebrow}
           />
           {canManageNotes ? (
@@ -73,7 +73,7 @@ export default async function AdminDocumentsPage() {
                   ? `${pinnedCount} pinned`
                   : "Owner & manager only"
               }
-              icon={StickyNote}
+              icon={<StickyNote />}
               iconClassName={adminTheme.eyebrow}
             />
           ) : null}

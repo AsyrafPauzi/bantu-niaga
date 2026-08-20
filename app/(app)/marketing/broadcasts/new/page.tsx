@@ -97,7 +97,7 @@ export default async function NewBroadcastPage({ searchParams }: PageProps) {
           <ModuleHeroStat
             label="Sent"
             value={sentCount}
-            icon={Send}
+            icon={<Send />}
             iconClassName="text-emerald-700 dark:text-emerald-300"
           />
           <ModuleHeroStat

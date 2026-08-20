@@ -83,7 +83,7 @@ export default async function NewContentPage({ searchParams }: PageProps) {
           <ModuleHeroStat
             label="Scheduled"
             value={scheduledCount}
-            icon={Calendar}
+            icon={<Calendar />}
             iconClassName="text-emerald-700 dark:text-emerald-300"
           />
           <ModuleHeroStat

@@ -70,7 +70,7 @@ export default async function NewCustomerPage() {
             <ModuleHeroStat
               label="In CRM"
               value={formatCount(snapshot.totalCustomers)}
-              icon={Users}
+              icon={<Users />}
               iconClassName="text-violet-700 dark:text-violet-300"
             />
             <ModuleHeroStat

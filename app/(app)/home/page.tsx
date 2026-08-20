@@ -358,7 +358,7 @@ export default async function HomePage() {
                 : "warning"
           }
           helper={tHome("home.vsLastMonth")}
-          icon={TrendingUp}
+          icon={<TrendingUp />}
         />
         <KpiTile
           label={tHome("home.kpiOutstanding")}
@@ -366,7 +366,7 @@ export default async function HomePage() {
           delta={tHome("home.invoicesDelta", { count: figures.outstandingInvoices })}
           deltaTone="warning"
           helper={tHome("home.unpaid")}
-          icon={Clock}
+          icon={<Clock />}
         />
         <KpiTile
           label={tHome("home.kpiLowStock")}
@@ -374,7 +374,7 @@ export default async function HomePage() {
           delta={figures.lowStock > 0 ? tHome("home.needsReorder") : tHome("home.allStocked")}
           deltaTone={figures.lowStock > 0 ? "danger" : "success"}
           helper={tHome("home.activeTracked")}
-          icon={AlertTriangle}
+          icon={<AlertTriangle />}
         />
         <KpiTile
           label={tHome("home.kpiNewCustomers")}
@@ -386,7 +386,7 @@ export default async function HomePage() {
           }
           deltaTone={snapshot.newThisMonth > 0 ? "success" : "neutral"}
           helper={tHome("home.thisMonthLive")}
-          icon={UserPlus}
+          icon={<UserPlus />}
         />
       </section>
 
@@ -583,7 +583,7 @@ export default async function HomePage() {
         >
           {recentActivity.length > 0 ? (
             recentActivity.map((row) => {
-              const icon =
+              const Icon =
                 row.kind === "invoice_paid"
                   ? CheckCircle2
                   : row.kind === "pos_sale"
@@ -602,7 +602,7 @@ export default async function HomePage() {
               return (
                 <TxRow
                   key={row.id}
-                  icon={icon}
+                  icon={<Icon />}
                   tone={tone}
                   title={row.title}
                   subtitle={fmtRel(row.createdAt)}

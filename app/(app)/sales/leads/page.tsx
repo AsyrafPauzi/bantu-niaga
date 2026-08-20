@@ -192,21 +192,21 @@ export default async function LeadsPage({ searchParams }: PageProps) {
             label="Open"
             value={String(insights.open)}
             hint="In pipeline"
-            icon={Users}
+            icon={<Users />}
             iconClassName="text-sky-700 dark:text-sky-300"
           />
           <ModuleHeroStat
             label="Overdue"
             value={String(insights.overdue)}
             hint="Need chase"
-            icon={Users}
+            icon={<Users />}
             iconClassName="text-amber-700 dark:text-amber-300"
           />
           <ModuleHeroStat
             label="Due today"
             value={String(insights.dueToday)}
             hint="Follow-ups"
-            icon={Users}
+            icon={<Users />}
             iconClassName="text-blue-700 dark:text-blue-300"
           />
           <ModuleHeroStat
@@ -221,7 +221,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
                 ? `Top: ${insights.topChannel}`
                 : "Est. value"
             }
-            icon={Users}
+            icon={<Users />}
             iconClassName="text-emerald-700 dark:text-emerald-300"
           />
         </div>

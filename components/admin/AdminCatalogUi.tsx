@@ -89,13 +89,13 @@ export function AdminCatalogList({
 }
 
 export function AdminCatalogEmpty({
-  icon: Icon,
+  icon,
   title,
   hint,
   action,
   className,
 }: {
-  icon: LucideIcon;
+  icon: React.ReactNode;
   title: string;
   hint: string;
   action?: React.ReactNode;
@@ -109,7 +109,9 @@ export function AdminCatalogEmpty({
       )}
     >
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-violet-200/80 bg-white shadow-sm dark:border-violet-800 dark:bg-panel-dark">
-        <Icon className="h-5 w-5 text-violet-700 dark:text-violet-300" />
+        <span className="inline-flex text-violet-700 [&>svg]:h-5 [&>svg]:w-5 dark:text-violet-300">
+          {icon}
+        </span>
       </div>
       <p className="mt-3 text-sm font-semibold text-ink dark:text-cream-100">
         {title}

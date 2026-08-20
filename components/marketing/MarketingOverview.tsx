@@ -55,29 +55,29 @@ const marketingTheme = pillarClasses.marketing;
 const QUICK_ACTIONS = [
   {
     href: "/marketing/broadcasts/new",
-    icon: Send,
+    icon: <Send />,
     title: "Send broadcast",
     subtitle: "WhatsApp or email",
   },
   {
     href: "/marketing/customers?bulk=tag",
-    icon: Tag,
+    icon: <Tag />,
     title: "Refresh tags",
     subtitle: "Recompute auto-tags",
   },
   {
     href: "/marketing/coupons/new",
-    icon: Gift,
+    icon: <Gift />,
     title: "Create coupon",
     subtitle: "% or RM off",
   },
   {
     href: "/marketing/content/new",
-    icon: Calendar,
+    icon: <Calendar />,
     title: "Plan content",
     subtitle: "Calendar drafts",
   },
-] as const;
+];
 
 const CHANNEL_META: Record<
   "tiktok" | "instagram" | "facebook",
@@ -324,7 +324,7 @@ export function MarketingOverview({
                 ? `${fmtSignedCount(deltas.totalCustomersDelta)} vs last month`
                 : "active in CRM"
             }
-            icon={Users}
+            icon={<Users />}
             iconClassName={marketingTheme.eyebrow}
             href="/marketing/customers"
           />
@@ -332,7 +332,7 @@ export function MarketingOverview({
             label="New this month"
             value={formatCount(newCount)}
             hint={newHint}
-            icon={UserPlus}
+            icon={<UserPlus />}
             iconClassName={marketingTheme.eyebrow}
             href="/marketing/customers?tags=new"
           />
@@ -340,7 +340,7 @@ export function MarketingOverview({
             label="VIP"
             value={formatCount(vipCount)}
             hint={vipCount > 0 ? "top spenders" : "none yet"}
-            icon={Star}
+            icon={<Star />}
             iconClassName={marketingTheme.eyebrow}
             href="/marketing/customers?tags=vip"
           />
@@ -352,7 +352,7 @@ export function MarketingOverview({
                 ? `${formatMyr(snapshot.avgAovMyr)} avg order`
                 : "from all customers"
             }
-            icon={TrendingUp}
+            icon={<TrendingUp />}
             iconClassName={marketingTheme.eyebrow}
           />
         </div>
@@ -410,7 +410,7 @@ export function MarketingOverview({
             {activity.length === 0 ? (
               <div className="px-4 py-6 sm:px-5">
                 <AdminCatalogEmpty
-                  icon={Users}
+                  icon={<Users />}
                   title="No activity yet"
                   hint="Create or import customers to start tracking events."
                   className="border-none bg-transparent py-6 dark:bg-transparent"
@@ -459,7 +459,7 @@ export function MarketingOverview({
             {topCustomers.length === 0 ? (
               <div className="px-4 py-6 sm:px-5">
                 <AdminCatalogEmpty
-                  icon={Users}
+                  icon={<Users />}
                   title="No customers yet"
                   hint="Add your first customer or import a CSV."
                   className="border-none bg-transparent py-6 dark:bg-transparent"
@@ -526,7 +526,7 @@ export function MarketingOverview({
             {upcoming.length === 0 ? (
               <div className="px-4 py-6 sm:px-5">
                 <AdminCatalogEmpty
-                  icon={Calendar}
+                  icon={<Calendar />}
                   title="Nothing on the calendar"
                   hint="Plan TikTok, Instagram, or Facebook posts for the week ahead."
                   className="border-none bg-transparent py-6 dark:bg-transparent"

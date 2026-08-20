@@ -43,44 +43,44 @@ const QUICK_ACTION_DEFS: Record<
   OperationsSurface,
   {
     href: string;
-    icon: typeof Package;
+    icon: React.ReactNode;
     title: string;
     subtitle: string;
   }
 > = {
   orders: {
     href: "/operations/orders",
-    icon: Package,
+    icon: <Package />,
     title: "Orders",
     subtitle: "To do → Done board",
   },
   bookings: {
     href: "/operations/bookings",
-    icon: Calendar,
+    icon: <Calendar />,
     title: "Bookings",
     subtitle: "Appointments & slots",
   },
   products: {
     href: "/operations/products",
-    icon: ShoppingBag,
+    icon: <ShoppingBag />,
     title: "Products",
     subtitle: "Catalog & stock",
   },
   services: {
     href: "/operations/services",
-    icon: Wrench,
+    icon: <Wrench />,
     title: "Services",
     subtitle: "Catalogue & pricing",
   },
   suppliers: {
     href: "/operations/suppliers",
-    icon: Truck,
+    icon: <Truck />,
     title: "Suppliers",
     subtitle: "Vendor contacts",
   },
   assistant: {
     href: "/operations?aiman=open",
-    icon: Bot,
+    icon: <Bot />,
     title: "Aiman AI",
     subtitle: "Ops copilot",
   },

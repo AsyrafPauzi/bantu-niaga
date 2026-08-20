@@ -134,7 +134,7 @@ export async function SalesOverview({
     showPos
       ? {
           href: "/sales/pos",
-          icon: ShoppingCart,
+          icon: <ShoppingCart />,
           title: t("posCounter"),
           subtitle: t("ringUpSale"),
         }
@@ -142,7 +142,7 @@ export async function SalesOverview({
     showLeads
       ? {
           href: "/sales/leads",
-          icon: Users,
+          icon: <Users />,
           title: t("leads"),
           subtitle: t("leadsSubtitle"),
         }
@@ -150,14 +150,14 @@ export async function SalesOverview({
     showHistory
       ? {
           href: "/sales/history",
-          icon: CreditCard,
+          icon: <CreditCard />,
           title: t("history"),
           subtitle: t("historySubtitle"),
         }
       : null,
   ].filter(Boolean) as Array<{
     href: string;
-    icon: typeof ShoppingCart;
+    icon: React.ReactNode;
     title: string;
     subtitle: string;
   }>;
@@ -191,28 +191,28 @@ export async function SalesOverview({
             label={t("statSalesToday")}
             value={formatMyr(summary.salesTodayMyr)}
             hint={hasSalesToday ? `${summary.txnToday} ticket${summary.txnToday === 1 ? "" : "s"}` : t("noTicketsYet")}
-            icon={ShoppingCart}
+            icon={<ShoppingCart />}
             iconClassName={salesTheme.eyebrow}
           />
           <ModuleHeroStat
             label={t("statAvgTicket")}
             value={hasSalesToday ? formatMyr(summary.avgTicketMyr) : "—"}
             hint={hasSalesToday ? t("perTransaction") : t("opensAfterFirst")}
-            icon={CreditCard}
+            icon={<CreditCard />}
             iconClassName={salesTheme.eyebrow}
           />
           <ModuleHeroStat
             label={t("statCash")}
             value={formatMyr(summary.cashTodayMyr)}
             hint={hasSalesToday ? `${summary.cashPct}% of today` : "—"}
-            icon={Banknote}
+            icon={<Banknote />}
             iconClassName={salesTheme.eyebrow}
           />
           <ModuleHeroStat
             label={t("statDuitnow")}
             value={formatMyr(summary.duitnowTodayMyr)}
             hint={hasSalesToday ? `${summary.duitnowPct}% of today` : "—"}
-            icon={Smartphone}
+            icon={<Smartphone />}
             iconClassName={salesTheme.eyebrow}
           />
         </div>
@@ -322,7 +322,7 @@ export async function SalesOverview({
         {recentSales.length === 0 ? (
           <div className="p-4 sm:p-5">
             <AdminCatalogEmpty
-              icon={ShoppingCart}
+              icon={<ShoppingCart />}
               title={t("noSalesYet")}
               hint={
                 showPos

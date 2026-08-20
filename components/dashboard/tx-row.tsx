@@ -1,4 +1,3 @@
-import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 type RowTone = "success" | "danger" | "warning" | "brand" | "neutral";
@@ -20,7 +19,7 @@ const TONE_AMOUNT: Record<RowTone, string> = {
 };
 
 interface TxRowProps {
-  icon: LucideIcon;
+  icon: React.ReactNode;
   title: string;
   subtitle: string;
   amount: string;
@@ -35,7 +34,7 @@ interface TxRowProps {
  * "Pending approvals" (HR) on each pillar dashboard.
  */
 export function TxRow({
-  icon: Icon,
+  icon,
   title,
   subtitle,
   amount,
@@ -50,7 +49,7 @@ export function TxRow({
           TONE_BG[tone],
         )}
       >
-        <Icon className="h-4 w-4" strokeWidth={2} />
+        <span className="inline-flex [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink dark:text-cream-100">

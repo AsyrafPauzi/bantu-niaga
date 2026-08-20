@@ -118,7 +118,7 @@ export function CouponDetailView({ coupon, redemptions }: CouponDetailViewProps)
           <ModuleHeroStat
             label="Discount"
             value={discountLabel}
-            icon={Gift}
+            icon={<Gift />}
             iconClassName="text-violet-700 dark:text-violet-300"
           />
           <ModuleHeroStat

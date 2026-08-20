@@ -169,7 +169,7 @@ export function LeadsListSelectable({
     const empty = (
       <div className="px-5 py-14 text-center">
         <AdminCatalogEmpty
-          icon={Users}
+          icon={<Users />}
           title={embedded ? "No leads match" : "No leads yet"}
           hint={
             embedded

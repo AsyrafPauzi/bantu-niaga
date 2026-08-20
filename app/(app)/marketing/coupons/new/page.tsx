@@ -65,13 +65,13 @@ export default async function NewCouponPage() {
           <ModuleHeroStat
             label="Active"
             value={activeCount}
-            icon={Ticket}
+            icon={<Ticket />}
             iconClassName="text-emerald-700 dark:text-emerald-300"
           />
           <ModuleHeroStat
             label="Redemptions"
             value={redeemedTotal}
-            icon={Gift}
+            icon={<Gift />}
             iconClassName="text-violet-700 dark:text-violet-300"
           />
           <ModuleHeroStat

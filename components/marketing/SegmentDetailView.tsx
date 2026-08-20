@@ -133,7 +133,7 @@ export function SegmentDetailView({
           <ModuleHeroStat
             label="Members"
             value={formatCount(memberCount)}
-            icon={Users}
+            icon={<Users />}
             iconClassName="text-violet-700 dark:text-violet-300"
           />
           <ModuleHeroStat

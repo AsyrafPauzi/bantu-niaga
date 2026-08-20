@@ -629,7 +629,7 @@ export function AdminStoragePanel({
 
           {rows.length === 0 ? (
             <AdminCatalogEmpty
-              icon={FolderOpen}
+              icon={<FolderOpen />}
               title={
                 query || activeCategory
                   ? "No files in this folder"

@@ -123,7 +123,7 @@ export default async function MarketingSegmentsPage() {
               label="Total members"
               value={formatCount(totalMembers)}
               hint="across all segments"
-              icon={Users}
+              icon={<Users />}
               iconClassName="text-violet-700 dark:text-violet-300"
             />
             <ModuleHeroStat
@@ -144,7 +144,7 @@ export default async function MarketingSegmentsPage() {
               label="Ready to reach"
               value={formatCount(segmentsWithMembers)}
               hint="with members"
-              icon={Target}
+              icon={<Target />}
               iconClassName="text-emerald-700 dark:text-emerald-300"
               href="/marketing/broadcasts/new"
             />
