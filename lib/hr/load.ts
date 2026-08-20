@@ -52,7 +52,11 @@ export interface HrLeaveRow {
   mc_document_path?: string | null;
   mc_document_name?: string | null;
   mc_document_mime?: string | null;
-  hr_employees?: { full_name: string; role_title: string } | null;
+  hr_employees?: {
+    full_name: string;
+    role_title: string;
+    phone_e164?: string | null;
+  } | null;
 }
 
 export interface HrOnboardingRow {
@@ -364,7 +368,7 @@ export async function loadHrPublicHolidays(
 const LEAVE_DASHBOARD_SELECT =
   "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
   "mc_document_path, mc_document_name, mc_document_mime, " +
-  "hr_employees(full_name, role_title)";
+  "hr_employees(full_name, role_title, phone_e164)";
 
 export async function loadHrDashboard(
   businessId: string,

@@ -83,7 +83,14 @@ export function HrPendingLeaveCard({ row }: HrPendingLeaveCardProps) {
       <HrLeaveManageActions row={row} />
 
       <div className="mt-3">
-        <HrLeaveStatusActions leaveId={row.id} />
+        <HrLeaveStatusActions
+          leaveId={row.id}
+          employeeName={row.hr_employees?.full_name ?? "Employee"}
+          leaveType={row.leave_type}
+          startDate={row.start_date}
+          endDate={row.end_date}
+          phoneE164={row.hr_employees?.phone_e164 ?? null}
+        />
       </div>
     </div>
   );
