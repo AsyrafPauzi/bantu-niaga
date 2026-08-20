@@ -1,24 +1,23 @@
-import {
-  Building2,
-  CreditCard,
-  Crown,
-  Image as ImageIcon,
-  Plug,
-  ShieldAlert,
-  ShieldCheck,
-  Sparkles,
-  SunMoon,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
 import type { Role } from "@/lib/permissions";
 import { isStandaloneDeployment } from "@/lib/platform/deployment";
+
+export type SettingsIconName =
+  | "Crown"
+  | "CreditCard"
+  | "ShieldCheck"
+  | "Plug"
+  | "ShieldAlert"
+  | "Building2"
+  | "Users"
+  | "Image"
+  | "SunMoon"
+  | "Sparkles";
 
 export interface SettingsNavItem {
   href: string;
   label: string;
   description: string;
-  icon: LucideIcon;
+  iconName: SettingsIconName;
 }
 
 export interface SettingsNavGroup {
@@ -37,13 +36,13 @@ const PLAN_AND_BILLING_ITEMS: SettingsNavItem[] = [
     href: "/settings/subscription",
     label: "Subscription",
     description: "Your plan and renewal date.",
-    icon: Crown,
+    iconName: "Crown",
   },
   {
     href: "/settings/billing",
     label: "Billing",
     description: "Invoices and payment methods.",
-    icon: CreditCard,
+    iconName: "CreditCard",
   },
 ];
 
@@ -83,19 +82,19 @@ export function buildSettingsNavGroups(
           href: "/settings/security",
           label: "Security",
           description: "Password, 2FA, and active sessions.",
-          icon: ShieldCheck,
+          iconName: "ShieldCheck",
         },
         {
           href: "/settings/integrations",
           label: "API & integrations",
           description: "API keys, webhooks, and connected apps.",
-          icon: Plug,
+          iconName: "Plug",
         },
         {
           href: "/settings/privacy",
           label: "Privacy (PDPA)",
           description: "Export data, consent, and account deletion.",
-          icon: ShieldAlert,
+          iconName: "ShieldAlert",
         },
       ],
     },
@@ -106,25 +105,25 @@ export function buildSettingsNavGroups(
           href: "/settings/business",
           label: "Business profile",
           description: "Company name, state, and contact details.",
-          icon: Building2,
+          iconName: "Building2",
         },
         {
           href: "/settings/team",
           label: "Team",
           description: "Invite staff and assign roles.",
-          icon: Users,
+          iconName: "Users",
         },
         {
           href: "/settings/branding",
           label: "Branding",
           description: "Logo, colours, and DuitNow QR.",
-          icon: ImageIcon,
+          iconName: "Image",
         },
         {
           href: "/settings/appearance",
           label: "Appearance",
           description: "Light or dark mode.",
-          icon: SunMoon,
+          iconName: "SunMoon",
         },
       ],
     },
@@ -135,7 +134,7 @@ export function buildSettingsNavGroups(
           href: "/settings/ai-agents",
           label: "AI agents",
           description: "Turn module assistants on or off.",
-          icon: Sparkles,
+          iconName: "Sparkles",
         },
       ],
     },

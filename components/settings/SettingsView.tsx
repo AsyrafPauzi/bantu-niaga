@@ -1,10 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, MapPin } from "lucide-react";
+import {
+  Building2,
+  ChevronRight,
+  CreditCard,
+  Crown,
+  Image as ImageIcon,
+  MapPin,
+  Plug,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  SunMoon,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { Role } from "@/lib/permissions";
-import type { SettingsNavGroup } from "@/lib/settings/nav";
+import type { SettingsIconName, SettingsNavGroup } from "@/lib/settings/nav";
+
+const SETTINGS_ICON_MAP: Record<SettingsIconName, LucideIcon> = {
+  Crown,
+  CreditCard,
+  ShieldCheck,
+  Plug,
+  ShieldAlert,
+  Building2,
+  Users,
+  Image: ImageIcon,
+  SunMoon,
+  Sparkles,
+};
 import { settingsClasses } from "@/lib/settings/theme";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -158,7 +185,7 @@ export function SettingsView({
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {group.items.map((item) => {
-                const Icon = item.icon;
+                const Icon = SETTINGS_ICON_MAP[item.iconName];
                 const highlight =
                   item.href === "/settings/business" && stateMissing;
                 const keys = settingsNavMessageKeys(item.href);
