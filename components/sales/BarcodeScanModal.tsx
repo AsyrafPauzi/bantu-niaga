@@ -127,10 +127,14 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
     }
   }, [onDetected, stopCamera]);
 
+  // Do NOT auto-start the camera on mount.
+  // Browsers only show the permission prompt when getUserMedia is called from a
+  // direct user gesture (click). Calling it from useEffect is treated as a
+  // background request and the browser silently denies it without showing the
+  // allow/deny popup. We start in "idle" and let the user click to begin.
   useEffect(() => {
-    void startCamera();
     return () => stopCamera();
-  }, [startCamera, stopCamera]);
+  }, [stopCamera]);
 
   function submitManual(e: React.FormEvent) {
     e.preventDefault();
@@ -161,6 +165,23 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
         </div>
 
         <div className="p-4">
+          {/* Idle — prompt user to tap so getUserMedia runs from a real user gesture */}
+          {state === "idle" && (
+            <button
+              type="button"
+              onClick={() => void startCamera()}
+              className="flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed border-blue-200 bg-blue-50 py-8 transition hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/20 dark:hover:bg-blue-950/40"
+            >
+              <ScanBarcode className="h-10 w-10 text-blue-500 dark:text-blue-400" />
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                Tap to start camera
+              </span>
+              <span className="text-xs text-blue-500 dark:text-blue-400">
+                Your browser will ask for camera permission
+              </span>
+            </button>
+          )}
+
           {/* Camera viewfinder */}
           {(state === "requesting" || state === "scanning") && (
             <div className="relative overflow-hidden rounded-xl bg-black">
@@ -204,8 +225,16 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
                 Camera access denied
               </p>
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                Allow camera access in your browser settings, then try again.
+                Click the camera/lock icon in your browser address bar and allow
+                camera access, then tap the button below.
               </p>
+              <button
+                type="button"
+                onClick={() => void startCamera()}
+                className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700"
+              >
+                Try again
+              </button>
             </div>
           )}
 
