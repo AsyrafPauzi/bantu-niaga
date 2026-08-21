@@ -7,6 +7,7 @@ import { HrHolidaysPanel } from "@/components/hr/HrHolidaysPanel";
 import { HolidaysNoState } from "@/components/hr/HolidaysNoState";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import type { HrHolidayOverrideRow } from "@/lib/hr/effective-calendar";
+import { malaysiaTodayIso } from "@/lib/ai/malaysia-today";
 import type { HrHolidayRow } from "@/lib/hr/load";
 import { hrClasses } from "@/lib/hr/theme";
 import { cn } from "@/lib/utils/cn";
@@ -40,7 +41,7 @@ export function HrHolidaysView({
   hasState,
   year,
 }: HrHolidaysViewProps) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = malaysiaTodayIso();
   const upcoming = holidays.filter((h) => h.holiday_date >= today);
   const yearHolidays = holidays.filter((h) =>
     h.holiday_date.startsWith(String(year)),
@@ -161,7 +162,7 @@ export function HrHolidaysView({
         </div>
       </section>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
         <HrHolidaysPanel
           upcoming={upcoming}
           yearHolidays={yearHolidays}

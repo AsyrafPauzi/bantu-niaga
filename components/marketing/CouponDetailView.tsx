@@ -168,7 +168,7 @@ export function CouponDetailView({ coupon, redemptions }: CouponDetailViewProps)
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:items-start">
         <div className="overflow-hidden rounded-2xl border border-cream-200 bg-panel-light shadow-card dark:border-hairline-dark dark:bg-panel-dark">
           <div className="border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
             <h2 className="text-sm font-semibold text-ink dark:text-cream-100">

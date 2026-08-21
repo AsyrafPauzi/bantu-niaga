@@ -20,7 +20,7 @@ export function AdminSubpageShell({
   children,
 }: AdminSubpageShellProps) {
   return (
-    <div className="space-y-4 pb-20 lg:pb-8">
+    <div className="space-y-4 pb-20 md:pb-8">
       <AdminBackLink />
       <ModuleDashboardHero
         module="Admin"

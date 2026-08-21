@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Lock, LogOut, Menu } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/app/sign-in/actions";
 import type { TierKey } from "@/lib/settings/plans";
@@ -50,25 +51,29 @@ export function MobileShell({
     <div className="flex h-dvh flex-col bg-surface-light text-ink dark:bg-surface-dark dark:text-cream-100">
       <header className="sticky top-0 z-30 bg-brand-50/95 backdrop-blur border-b border-brand-100 dark:bg-brand-900/40 dark:border-hairline-dark">
         <div className="flex items-center justify-between gap-2 px-4 py-3">
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open menu"
-            className="rounded-lg p-2 text-brand-700 transition-colors hover:bg-brand-100 dark:text-brand-200 dark:hover:bg-brand-900/40"
-          >
-            <Menu className="h-5 w-5" strokeWidth={2} />
-          </button>
+          <Tooltip content="Open menu" side="bottom">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              className="rounded-lg p-2 text-brand-700 transition-colors hover:bg-brand-100 dark:text-brand-200 dark:hover:bg-brand-900/40"
+            >
+              <Menu className="h-5 w-5" strokeWidth={2} />
+            </button>
+          </Tooltip>
           <Link href="/" className="flex min-w-0 flex-1 items-center" aria-label="NiagaX home">
             <NiagaXLogo className="truncate text-base" />
           </Link>
           <form action={signOutAction}>
-            <button
-              type="submit"
-              aria-label="Sign out"
-              className="rounded-lg p-2 text-brand-700 transition-colors hover:bg-brand-100 dark:text-brand-200 dark:hover:bg-brand-900/40"
-            >
-              <LogOut className="h-5 w-5" strokeWidth={2} />
-            </button>
+            <Tooltip content="Sign out" side="bottom">
+              <button
+                type="submit"
+                aria-label="Sign out"
+                className="rounded-lg p-2 text-brand-700 transition-colors hover:bg-brand-100 dark:text-brand-200 dark:hover:bg-brand-900/40"
+              >
+                <LogOut className="h-5 w-5" strokeWidth={2} />
+              </button>
+            </Tooltip>
           </form>
         </div>
         <div className="border-t border-brand-100 px-4 pb-3 pt-2 dark:border-hairline-dark">

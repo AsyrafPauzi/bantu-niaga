@@ -3,6 +3,7 @@
 import { type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { OperationsCatalogEditShell } from "@/components/operations/OperationsCatalogUi";
+import { InlineFeedback } from "@/components/ui/alert";
 import { type OperationsBookingResourceRow } from "@/lib/operations/schemas";
 
 interface BookingEditFormProps {
@@ -137,7 +138,7 @@ export function BookingEditForm({
           className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
         />
         {formError ? (
-          <p className="text-sm text-status-danger">{formError}</p>
+          <InlineFeedback>{formError}</InlineFeedback>
         ) : null}
         <div className="flex gap-2">
           <button

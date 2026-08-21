@@ -346,6 +346,7 @@ export function LeadsListSelectable({
             total={total}
             basePath="/sales/leads"
             searchParams={searchParamsForPagination}
+            pageSizeOptions={[10, 25, 50, 100]}
             className="w-full border-0"
           />
         </ModuleListPanelFooter>
@@ -356,6 +357,7 @@ export function LeadsListSelectable({
           total={total}
           basePath="/sales/leads"
           searchParams={searchParamsForPagination}
+          pageSizeOptions={[10, 25, 50, 100]}
         />
       )}
     </>

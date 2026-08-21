@@ -6,9 +6,25 @@ import { useRouter } from "next/navigation";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  BookOpen,
   Calendar,
+  Car,
+  FileText,
+  Gift,
+  Home,
+  Landmark,
+  Megaphone,
+  Package,
   Receipt,
+  RotateCcw,
+  ShoppingBag,
+  Sparkles,
+  TrendingUp,
+  Users,
   Wallet,
+  Wrench,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -25,22 +41,22 @@ import {
 
 type LedgerFilter = "all" | "income" | "expense";
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  sales: "🛍️",
-  services: "🛠️",
-  invoice_payment: "📄",
-  capital: "💰",
-  loan: "🏦",
-  grant: "🎁",
-  refund: "↩️",
-  supplies: "🛒",
-  rent: "🏠",
-  utilities: "⚡",
-  salaries: "👥",
-  marketing: "📣",
-  transport: "🚗",
-  equipment: "🔧",
-  other: "✨",
+const CATEGORY_ICON: Record<string, LucideIcon> = {
+  sales: ShoppingBag,
+  services: Wrench,
+  invoice_payment: FileText,
+  capital: TrendingUp,
+  loan: Landmark,
+  grant: Gift,
+  refund: RotateCcw,
+  supplies: Package,
+  rent: Home,
+  utilities: Zap,
+  salaries: Users,
+  marketing: Megaphone,
+  transport: Car,
+  equipment: Wrench,
+  other: Sparkles,
 };
 
 function fmtDate(iso: string): string {
@@ -95,8 +111,8 @@ export function FinanceLedgerPanel({
     <div className="space-y-4">
       {!embedded ? (
       <section className="relative overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-indigo-50 to-violet-50 p-5 shadow-card dark:border-sky-900/40 dark:from-sky-950/40 dark:via-indigo-950/20 dark:to-violet-950/20">
-        <div className="pointer-events-none absolute -right-4 -top-4 text-6xl opacity-20">
-          📒
+        <div className="pointer-events-none absolute -right-4 -top-4 text-sky-200/50 dark:text-sky-800/30">
+          <BookOpen className="h-20 w-20" strokeWidth={1} />
         </div>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -222,9 +238,11 @@ export function FinanceLedgerPanel({
         </ModuleListPanelHeader>
 
         {filteredTxns.length === 0 ? (
-          <div className="px-4 py-12 text-center">
-            <p className="text-3xl">🧾</p>
-            <p className="mt-2 text-sm font-medium text-ink dark:text-cream-100">
+          <div className="flex flex-col items-center px-4 py-12 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl border border-cream-200 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400">
+              <Receipt className="h-6 w-6" />
+            </span>
+            <p className="mt-3 text-sm font-medium text-ink dark:text-cream-100">
               No entries in this period
             </p>
             <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
@@ -235,7 +253,7 @@ export function FinanceLedgerPanel({
           <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
             {filteredTxns.map((row) => {
               const isIncome = row.kind === "income";
-              const emoji = CATEGORY_EMOJI[row.category ?? "other"] ?? "✨";
+              const CategoryIcon = CATEGORY_ICON[row.category ?? "other"] ?? Sparkles;
               const auto =
                 Boolean(row.finance_invoice_id) ||
                 row.description.startsWith("POS ");
@@ -246,13 +264,13 @@ export function FinanceLedgerPanel({
                 >
                   <span
                     className={cn(
-                      "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base",
+                      "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
                       isIncome
-                        ? "border border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40"
-                        : "border border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40",
+                        ? "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        : "border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300",
                     )}
                   >
-                    {emoji}
+                    <CategoryIcon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-ink dark:text-cream-100">

@@ -34,6 +34,10 @@ READ (ground answers in live data):
 - get_operations_overview — headline counts
 - get_today_briefing — today's ops digest (overdue, bookings today, low stock, suppliers)
 - list_orders, list_bookings, list_products, list_services, list_suppliers, list_booking_resources
+- get_order — full details of one order by order number, UUID, or customer name
+- get_booking — full details of one booking by customer name or date
+- get_supplier — full contact details of one supplier by name or UUID
+- get_stock_report — comprehensive stock status across all products with summary stats
 
 WRITE (only when the user clearly wants you to act):
 - create_order, update_order_status

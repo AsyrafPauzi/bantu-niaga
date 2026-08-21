@@ -11,6 +11,7 @@ import { executeMarketingAssistantTool } from "@/lib/ai/marketing-assistant-tool
 import { executeSalesAssistantTool } from "@/lib/ai/sales-assistant-tools";
 import type { BoardroomAgentId } from "@/lib/ai/boardroom-shared";
 import type { BoardroomPriorityAction } from "@/lib/ai/boardroom-output-schema";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type BoardroomPendingAction = {
   id?: string;
@@ -38,6 +39,10 @@ const HR_TOOLS = new Set([
   "complete_onboarding_item",
 ]);
 
+const FINANCE_TOOLS = new Set(["log_expense", "log_income"]);
+
+const OPERATIONS_TOOLS = new Set(["create_order", "adjust_stock"]);
+
 /** Map chair priority_actions to pending actions (navigation + tool drafts). */
 export function mapPriorityActionsToPending(
   actions: BoardroomPriorityAction[],
@@ -61,6 +66,8 @@ export function mapPriorityActionsToPending(
       marketing: "create_coupon",
       sales: "add_lead_note",
       hr: "create_leave_record",
+      finance: "log_expense",
+      operations: "create_order",
     };
 
     return {
@@ -106,10 +113,15 @@ export async function extractBoardroomPendingActions(opts: {
   const canMarketing = opts.invited.includes("marketing");
   const canSales = opts.invited.includes("sales");
   const canHr = opts.invited.includes("hr");
-  if (!canMarketing && !canSales && !canHr) return [];
+  const canFinance = opts.invited.includes("finance");
+  const canOperations = opts.invited.includes("operations");
+
+  if (!canMarketing && !canSales && !canHr && !canFinance && !canOperations) {
+    return [];
+  }
 
   const createHint =
-    /\b(create|draft|buat|cipta|coupon|broadcast|lead|note|content|leave|cuti|approve|lulus|onboarding)\b/i.test(
+    /\b(create|draft|buat|cipta|coupon|broadcast|lead|note|content|leave|cuti|approve|lulus|onboarding|expense|perbelanjaan|income|pendapatan|order|pesanan|stock|stok)\b/i.test(
       `${opts.userMessage}\n${opts.synthContent}`,
     );
   if (!createHint) return [];
@@ -122,7 +134,7 @@ export async function extractBoardroomPendingActions(opts: {
     const completion = await openaiChat<ChatCompletionResponse>({
       model: opts.model,
       temperature: 0,
-      max_tokens: 500,
+      max_tokens: 600,
       includeBriefing: false,
       messages: [
         {
@@ -131,11 +143,13 @@ export async function extractBoardroomPendingActions(opts: {
 Marketing tools: create_coupon, create_broadcast_draft, create_content_draft.
 Sales tools: create_lead, add_lead_note.
 HR tools (Hana): create_leave_record, update_leave_status, complete_onboarding_item — only when dates, employee, and decision are explicit.
+Finance tools (Fayza): log_expense (args: amount_myr, category, description, date YYYY-MM-DD), log_income (args: amount_myr, category, description, date YYYY-MM-DD) — only when amount and category are explicit.
+Operations tools (Aiman): create_order (args: customer_name, notes, due_at ISO), adjust_stock (args: product_id or sku, quantity) — only when all required details are explicit.
 If details are incomplete, return empty actions.
 Return ONLY JSON:
-{"actions":[{"agent":"marketing"|"sales"|"hr","tool":"...","args":{},"summary":"short"}]}
+{"actions":[{"agent":"marketing"|"sales"|"hr"|"finance"|"operations","tool":"...","args":{},"summary":"short"}]}
 
-Allowed: marketing=${canMarketing} sales=${canSales} hr=${canHr}`,
+Allowed: marketing=${canMarketing} sales=${canSales} hr=${canHr} finance=${canFinance} operations=${canOperations}`,
         },
         {
           role: "user",
@@ -161,6 +175,12 @@ Allowed: marketing=${canMarketing} sales=${canSales} hr=${canHr}`,
         }
         if (a.agent === "hr") {
           return canHr && HR_TOOLS.has(a.tool);
+        }
+        if (a.agent === "finance") {
+          return canFinance && FINANCE_TOOLS.has(a.tool);
+        }
+        if (a.agent === "operations") {
+          return canOperations && OPERATIONS_TOOLS.has(a.tool);
         }
         return false;
       })
@@ -266,6 +286,51 @@ export async function executeBoardroomPendingActions(opts: {
             `Hana could not complete (${action.tool}): ${result.message}`,
           );
         }
+        continue;
+      }
+
+      if (action.agent === "finance") {
+        if (!FINANCE_TOOLS.has(action.tool)) {
+          lines.push(`Skipped ${action.tool} (not allowed).`);
+          continue;
+        }
+        const finResult = await executeBoardroomFinanceTool(
+          opts.ctx,
+          action.tool,
+          action.args,
+        );
+        if (finResult.ok) {
+          const href =
+            typeof finResult.href === "string" ? ` → ${finResult.href}` : "";
+          lines.push(`Fayza: ${action.summary}${href}`);
+        } else {
+          lines.push(
+            `Fayza could not complete (${action.tool}): ${finResult.message}`,
+          );
+        }
+        continue;
+      }
+
+      if (action.agent === "operations") {
+        if (!OPERATIONS_TOOLS.has(action.tool)) {
+          lines.push(`Skipped ${action.tool} (not allowed).`);
+          continue;
+        }
+        const opsResult = await executeBoardroomOperationsTool(
+          opts.ctx,
+          action.tool,
+          action.args,
+        );
+        if (opsResult.ok) {
+          const href =
+            typeof opsResult.href === "string" ? ` → ${opsResult.href}` : "";
+          lines.push(`Aiman: ${action.summary}${href}`);
+        } else {
+          lines.push(
+            `Aiman could not complete (${action.tool}): ${opsResult.message}`,
+          );
+        }
+        continue;
       }
     } catch {
       lines.push(`Failed: ${action.summary}`);
@@ -273,4 +338,150 @@ export async function executeBoardroomPendingActions(opts: {
   }
 
   return lines;
+}
+
+// ---------------------------------------------------------------------------
+// Finance boardroom tool executor
+// ---------------------------------------------------------------------------
+
+type BoardroomToolResult =
+  | { ok: true; href?: string }
+  | { ok: false; message: string };
+
+async function executeBoardroomFinanceTool(
+  ctx: AgentContext,
+  tool: string,
+  args: Record<string, unknown>,
+): Promise<BoardroomToolResult> {
+  const amountRaw = args.amount_myr;
+  const amount = typeof amountRaw === "number" ? amountRaw : Number(amountRaw);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, message: "A valid positive amount_myr is required." };
+  }
+
+  const category =
+    typeof args.category === "string" && args.category.trim()
+      ? args.category.trim().slice(0, 80)
+      : null;
+  const description =
+    typeof args.description === "string" && args.description.trim()
+      ? args.description.trim().slice(0, 300)
+      : null;
+
+  const dateRaw = typeof args.date === "string" ? args.date.trim() : null;
+  const txnDate =
+    dateRaw && /^\d{4}-\d{2}-\d{2}$/.test(dateRaw)
+      ? dateRaw
+      : new Date().toISOString().slice(0, 10);
+
+  const kind = tool === "log_income" ? "income" : "expense";
+  const href = kind === "expense" ? "/finance/expenses" : "/finance/income";
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("finance_transactions").insert({
+    business_id: ctx.businessId,
+    kind,
+    amount_myr: amount,
+    category: category ?? undefined,
+    description: description ?? undefined,
+    txn_date: txnDate,
+    created_by: ctx.userId,
+  });
+
+  if (error) {
+    return { ok: false, message: "Could not log transaction. Try from Finance." };
+  }
+
+  return { ok: true, href };
+}
+
+// ---------------------------------------------------------------------------
+// Operations boardroom tool executor
+// ---------------------------------------------------------------------------
+
+async function executeBoardroomOperationsTool(
+  ctx: AgentContext,
+  tool: string,
+  args: Record<string, unknown>,
+): Promise<BoardroomToolResult> {
+  const supabase = await createSupabaseServerClient();
+
+  if (tool === "create_order") {
+    const customerName =
+      typeof args.customer_name === "string" && args.customer_name.trim()
+        ? args.customer_name.trim().slice(0, 200)
+        : null;
+    const notes =
+      typeof args.notes === "string" && args.notes.trim()
+        ? args.notes.trim().slice(0, 1000)
+        : null;
+    const dueAtRaw = typeof args.due_at === "string" ? args.due_at.trim() : null;
+    const dueAt = dueAtRaw ? new Date(dueAtRaw) : null;
+    const dueAtIso =
+      dueAt && !Number.isNaN(dueAt.valueOf()) ? dueAt.toISOString() : null;
+
+    const { error } = await supabase.from("operations_orders").insert({
+      business_id: ctx.businessId,
+      customer_name: customerName ?? undefined,
+      notes: notes ?? undefined,
+      due_at: dueAtIso ?? undefined,
+      status: "todo",
+      created_by: ctx.userId,
+    });
+
+    if (error) {
+      return {
+        ok: false,
+        message: "Could not create order. Try from Operations.",
+      };
+    }
+
+    return { ok: true, href: "/operations/orders" };
+  }
+
+  if (tool === "adjust_stock") {
+    const quantityRaw = args.quantity;
+    const quantity =
+      typeof quantityRaw === "number" ? quantityRaw : Number(quantityRaw);
+    if (!Number.isFinite(quantity)) {
+      return { ok: false, message: "A valid quantity is required." };
+    }
+
+    const productId =
+      typeof args.product_id === "string" && args.product_id.trim()
+        ? args.product_id.trim()
+        : null;
+    const sku =
+      typeof args.sku === "string" && args.sku.trim()
+        ? args.sku.trim()
+        : null;
+
+    if (!productId && !sku) {
+      return { ok: false, message: "Provide product_id or sku to adjust stock." };
+    }
+
+    let updateQuery = supabase
+      .from("operations_products")
+      .update({ stock_quantity: quantity })
+      .eq("business_id", ctx.businessId);
+
+    if (productId) {
+      updateQuery = updateQuery.eq("id", productId);
+    } else {
+      updateQuery = updateQuery.eq("sku", sku!);
+    }
+
+    const { error } = await updateQuery;
+
+    if (error) {
+      return {
+        ok: false,
+        message: "Could not adjust stock. Try from Operations.",
+      };
+    }
+
+    return { ok: true, href: "/operations/products" };
+  }
+
+  return { ok: false, message: "Unknown operations tool." };
 }

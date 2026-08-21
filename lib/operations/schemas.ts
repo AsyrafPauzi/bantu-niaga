@@ -191,6 +191,7 @@ export const operationsProductCreateSchema = z
     notes: z.string().trim().max(2000).optional().nullable(),
     image_file_id: z.string().uuid().optional().nullable(),
     spec_file_id: z.string().uuid().optional().nullable(),
+    barcode: z.string().trim().max(100).optional().nullable(),
   })
   .strict();
 
@@ -207,6 +208,7 @@ export const operationsProductUpdateSchema = z
     notes: z.string().trim().max(2000).optional().nullable(),
     image_file_id: z.string().uuid().optional().nullable(),
     spec_file_id: z.string().uuid().optional().nullable(),
+    barcode: z.string().trim().max(100).optional().nullable(),
   })
   .strict();
 
@@ -222,6 +224,7 @@ export interface OperationsProductRow {
   stock_qty: number | null;
   low_stock_threshold: number;
   notes: string | null;
+  barcode: string | null;
   image_file_id: string | null;
   image_file_name?: string | null;
   spec_file_id: string | null;

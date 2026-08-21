@@ -5,6 +5,7 @@ import { MapPin, Plus, Trash2 } from "lucide-react";
 import {
   type OperationsBookingResourceRow,
 } from "@/lib/operations/schemas";
+import { InlineFeedback } from "@/components/ui/alert";
 
 interface BookingEmployee {
   id: string;
@@ -172,7 +173,9 @@ export function BookingResourcesSection({
             </select>
           ) : null}
           {formError ? (
-            <p className="col-span-full text-sm text-status-danger">{formError}</p>
+            <div className="col-span-full">
+              <InlineFeedback>{formError}</InlineFeedback>
+            </div>
           ) : null}
           <button
             type="submit"

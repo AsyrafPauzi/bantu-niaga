@@ -159,6 +159,93 @@ export const HR_ASSISTANT_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "list_employees",
+      description:
+        "List employees with optional filters. Use when the user asks to see, search, or count employees.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            enum: ["active", "inactive", "all"],
+            description: "Filter by employment status. Defaults to active.",
+          },
+          q: {
+            type: "string",
+            description: "Search by name (partial match, max 80 chars).",
+          },
+          limit: {
+            type: "integer",
+            description: "Number of results to return (1–30). Defaults to 20.",
+            minimum: 1,
+            maximum: 30,
+          },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "list_leave_records",
+      description:
+        "List leave records filtered by employee, status, or date range. Use when the user asks about leave history, upcoming leave, or pending requests.",
+      parameters: {
+        type: "object",
+        properties: {
+          employee_name: {
+            type: "string",
+            description: "Filter by employee name.",
+          },
+          status: {
+            type: "string",
+            enum: ["pending", "approved", "rejected", "all"],
+            description: "Filter by leave status. Defaults to all.",
+          },
+          from_date: {
+            type: "string",
+            description: "Start of date range (YYYY-MM-DD).",
+          },
+          to_date: {
+            type: "string",
+            description: "End of date range (YYYY-MM-DD).",
+          },
+          limit: {
+            type: "integer",
+            description: "Number of results to return (1–30). Defaults to 15.",
+            minimum: 1,
+            maximum: 30,
+          },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_employee_profile",
+      description:
+        "Get full HR profile for one employee including leave balance, onboarding items, and recent leave history. Use when user asks about a specific employee's details.",
+      parameters: {
+        type: "object",
+        properties: {
+          employee_name: {
+            type: "string",
+            description: "Full or partial employee name.",
+          },
+        },
+        required: ["employee_name"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 const getBalanceArgsSchema = z.object({
@@ -199,6 +286,24 @@ const completeAppraisalArgsSchema = z.object({
   appraisal_id: z.string().uuid().optional(),
   rating: z.coerce.number().int().min(1).max(5).optional(),
   notes: z.string().trim().max(1000).optional(),
+});
+
+const listEmployeesArgsSchema = z.object({
+  status: z.enum(["active", "inactive", "all"]).optional().default("active"),
+  q: z.string().trim().max(80).optional(),
+  limit: z.coerce.number().int().min(1).max(30).optional().default(20),
+});
+
+const listLeaveRecordsArgsSchema = z.object({
+  employee_name: z.string().trim().min(1).max(160).optional(),
+  status: z.enum(["pending", "approved", "rejected", "all"]).optional().default("all"),
+  from_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  limit: z.coerce.number().int().min(1).max(30).optional().default(15),
+});
+
+const getEmployeeProfileArgsSchema = z.object({
+  employee_name: z.string().trim().min(1).max(160),
 });
 
 type HrToolSuccess = {
@@ -886,6 +991,224 @@ export async function executeCompleteStaffAppraisal(
   };
 }
 
+export async function executeListEmployees(
+  ctx: AgentContext,
+  rawArgs: unknown,
+): Promise<HrToolResult> {
+  let args: z.infer<typeof listEmployeesArgsSchema>;
+  try {
+    args = listEmployeesArgsSchema.parse(rawArgs);
+  } catch {
+    return { ok: false, action: "list_employees", message: "Invalid request." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from("hr_employees")
+    .select(
+      "id, full_name, status, department, job_title, start_date, phone, annual_leave_entitlement_days",
+      { count: "exact" },
+    )
+    .eq("business_id", ctx.businessId);
+
+  if (args.status !== "all") {
+    query = query.eq("status", args.status);
+  }
+  if (args.q) {
+    query = query.ilike("full_name", `%${args.q}%`);
+  }
+
+  const { data, error, count } = await query
+    .order("full_name", { ascending: true })
+    .limit(args.limit);
+
+  if (error) {
+    return { ok: false, action: "list_employees", message: "Could not load employees." };
+  }
+
+  const employees = (data ?? []).map((e) => ({
+    ...e,
+    href: `/hr/employees/${e.id}`,
+  }));
+
+  return {
+    ok: true,
+    action: "list_employees",
+    employees,
+    total: count ?? employees.length,
+    href: "/hr/employees",
+  };
+}
+
+export async function executeListLeaveRecords(
+  ctx: AgentContext,
+  rawArgs: unknown,
+): Promise<HrToolResult> {
+  let args: z.infer<typeof listLeaveRecordsArgsSchema>;
+  try {
+    args = listLeaveRecordsArgsSchema.parse(rawArgs);
+  } catch {
+    return { ok: false, action: "list_leave_records", message: "Invalid request." };
+  }
+
+  let employeeId: string | null = null;
+  if (args.employee_name) {
+    const employee = await resolveEmployeeByName(ctx.businessId, args.employee_name);
+    if (employee.kind === "none") {
+      return {
+        ok: false,
+        action: "list_leave_records",
+        message: `No active employee matching "${args.employee_name}".`,
+      };
+    }
+    if (employee.kind === "many") {
+      return {
+        ok: false,
+        action: "list_leave_records",
+        message: `Several employees match: ${employee.names.join(", ")}.`,
+      };
+    }
+    employeeId = employee.id;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from("hr_leave_records")
+    .select(
+      "id, leave_type, start_date, end_date, status, reason, decision_note, hr_employees!inner(full_name)",
+    )
+    .eq("business_id", ctx.businessId);
+
+  if (employeeId) {
+    query = query.eq("employee_id", employeeId);
+  }
+  if (args.status !== "all") {
+    query = query.eq("status", args.status);
+  }
+  if (args.from_date) {
+    query = query.gte("start_date", args.from_date);
+  }
+  if (args.to_date) {
+    query = query.lte("end_date", args.to_date);
+  }
+
+  const { data, error } = await query
+    .order("start_date", { ascending: false })
+    .limit(args.limit);
+
+  if (error) {
+    return { ok: false, action: "list_leave_records", message: "Could not load leave records." };
+  }
+
+  const records = (data ?? []).map((r) => {
+    const emp = Array.isArray(r.hr_employees) ? r.hr_employees[0] : r.hr_employees;
+    return {
+      id: r.id,
+      employee_name: emp?.full_name ?? null,
+      leave_type: r.leave_type,
+      start_date: r.start_date,
+      end_date: r.end_date,
+      status: r.status,
+      reason: r.reason,
+      decision_note: r.decision_note,
+    };
+  });
+
+  return {
+    ok: true,
+    action: "list_leave_records",
+    records,
+    href: "/hr/leave/history",
+  };
+}
+
+export async function executeGetEmployeeProfile(
+  ctx: AgentContext,
+  rawArgs: unknown,
+): Promise<HrToolResult> {
+  let args: z.infer<typeof getEmployeeProfileArgsSchema>;
+  try {
+    args = getEmployeeProfileArgsSchema.parse(rawArgs);
+  } catch {
+    return { ok: false, action: "get_employee_profile", message: "Invalid request." };
+  }
+
+  const employee = await resolveEmployeeByName(ctx.businessId, args.employee_name);
+  if (employee.kind === "none") {
+    return {
+      ok: false,
+      action: "get_employee_profile",
+      message: `No active employee matching "${args.employee_name}".`,
+    };
+  }
+  if (employee.kind === "many") {
+    return {
+      ok: false,
+      action: "get_employee_profile",
+      message: `Several employees match: ${employee.names.join(", ")}. Please be more specific.`,
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const [empResult, leaveBalance, recentLeaveResult, onboardingResult] = await Promise.all([
+    supabase
+      .from("hr_employees")
+      .select(
+        "id, full_name, status, department, job_title, start_date, phone, email, bank_name, bank_account_number, annual_leave_entitlement_days",
+      )
+      .eq("id", employee.id)
+      .eq("business_id", ctx.businessId)
+      .single(),
+    loadEmployeeLeaveBalance(supabase, ctx.businessId, employee.id, employee.entitlement),
+    supabase
+      .from("hr_leave_records")
+      .select("id, leave_type, start_date, end_date, status")
+      .eq("business_id", ctx.businessId)
+      .eq("employee_id", employee.id)
+      .order("start_date", { ascending: false })
+      .limit(5),
+    supabase
+      .from("hr_onboarding_items")
+      .select("id", { count: "exact" })
+      .eq("business_id", ctx.businessId)
+      .eq("employee_id", employee.id)
+      .eq("is_done", false),
+  ]);
+
+  if (empResult.error || !empResult.data) {
+    return {
+      ok: false,
+      action: "get_employee_profile",
+      message: "Could not load employee profile.",
+    };
+  }
+
+  const emp = empResult.data;
+  const hasBankDetails = !!(emp.bank_name || emp.bank_account_number);
+
+  return {
+    ok: true,
+    action: "get_employee_profile",
+    employee: {
+      id: emp.id,
+      full_name: emp.full_name,
+      status: emp.status,
+      department: emp.department,
+      job_title: emp.job_title,
+      start_date: emp.start_date,
+      phone: emp.phone,
+      email: emp.email,
+      bank_details: hasBankDetails ? "on file" : null,
+      annual_leave_entitlement_days: emp.annual_leave_entitlement_days,
+    },
+    leave_balance: leaveBalance,
+    recent_leave: recentLeaveResult.data ?? [],
+    open_onboarding_count: onboardingResult.count ?? 0,
+    href: `/hr/employees/${emp.id}`,
+  };
+}
+
 const ALLOWED_TOOLS = new Set([
   "get_leave_balance",
   "create_leave_record",
@@ -893,6 +1216,9 @@ const ALLOWED_TOOLS = new Set([
   "complete_onboarding_item",
   "create_staff_appraisal",
   "complete_staff_appraisal",
+  "list_employees",
+  "list_leave_records",
+  "get_employee_profile",
 ]);
 
 export async function executeHrAssistantTool(
@@ -920,6 +1246,15 @@ export async function executeHrAssistantTool(
   }
   if (name === "complete_staff_appraisal") {
     return executeCompleteStaffAppraisal(ctx, rawArgs);
+  }
+  if (name === "list_employees") {
+    return executeListEmployees(ctx, rawArgs);
+  }
+  if (name === "list_leave_records") {
+    return executeListLeaveRecords(ctx, rawArgs);
+  }
+  if (name === "get_employee_profile") {
+    return executeGetEmployeeProfile(ctx, rawArgs);
   }
   return { ok: false, action: name, message: "Unknown action." };
 }

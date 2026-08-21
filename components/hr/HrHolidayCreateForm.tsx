@@ -5,17 +5,18 @@ import { useRouter } from "next/navigation";
 import { MALAYSIA_STATE_OPTIONS } from "@/lib/settings/state-options";
 import { hrClasses } from "@/lib/hr/theme";
 import { cn } from "@/lib/utils/cn";
+import { FormField, Input, Select } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 export function HrHolidayCreateForm() {
   const router = useRouter();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     setBusy(true);
-    setMessage(null);
     const payload = Object.fromEntries(new FormData(form).entries());
 
     try {
@@ -26,11 +27,11 @@ export function HrHolidayCreateForm() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setMessage(json?.message ?? json?.error ?? "Could not add holiday.");
+        toast.error(json?.message ?? json?.error ?? "Could not add holiday.");
         return;
       }
       form.reset();
-      setMessage("Holiday added.");
+      toast.success("Holiday added.");
       router.refresh();
     } finally {
       setBusy(false);
@@ -39,45 +40,30 @@ export function HrHolidayCreateForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <label className={hrClasses.label}>
-        <span>Name</span>
-        <input
+      <FormField label="Name" htmlFor="holiday-name" required>
+        <Input
+          id="holiday-name"
           name="name"
           required
           maxLength={160}
           placeholder="e.g. Company anniversary"
-          className={hrClasses.input}
         />
-      </label>
+      </FormField>
       <div className="grid grid-cols-2 gap-3">
-        <label className={hrClasses.label}>
-          <span>Date</span>
-          <input name="holiday_date" type="date" required className={hrClasses.input} />
-        </label>
-        <label className={hrClasses.label}>
-          <span>State (optional)</span>
-          <select name="state_code" className={hrClasses.input} defaultValue="">
+        <FormField label="Date" htmlFor="holiday-date" required>
+          <Input id="holiday-date" name="holiday_date" type="date" required />
+        </FormField>
+        <FormField label="State" htmlFor="holiday-state" hint="Optional">
+          <Select id="holiday-state" name="state_code" defaultValue="">
             <option value="">Nationwide</option>
             {MALAYSIA_STATE_OPTIONS.map((state) => (
               <option key={state.code} value={state.code}>
                 {state.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FormField>
       </div>
-      {message ? (
-        <p
-          className={cn(
-            "text-xs font-medium",
-            message === "Holiday added."
-              ? "text-[#0D9488] dark:text-teal-400"
-              : "text-ink-muted dark:text-cream-400",
-          )}
-        >
-          {message}
-        </p>
-      ) : null}
       <button
         type="submit"
         disabled={busy}

@@ -3,9 +3,11 @@
 import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Bell,
   Clock,
   Loader2,
   Pencil,
+  Search,
   Trash2,
   Wrench,
 } from "lucide-react";
@@ -22,6 +24,7 @@ import {
   QuickCreateActions,
   QuickCreatePanel,
 } from "@/components/ui/quick-create";
+import { InlineFeedback } from "@/components/ui/alert";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -305,7 +308,7 @@ export function OperationsServicePanel({
         className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
       {formError ? (
-        <p className="text-sm text-status-danger">{formError}</p>
+        <InlineFeedback>{formError}</InlineFeedback>
       ) : null}
     </>
   );
@@ -381,7 +384,7 @@ export function OperationsServicePanel({
 
       {filtered.length === 0 ? (
         <OperationsCatalogEmpty
-          icon={hasSearch ? "🔍" : "🛎️"}
+          icon={hasSearch ? <Search className="h-6 w-6" /> : <Bell className="h-6 w-6" />}
           title={
             hasSearch ? "No services match your search" : "No services yet"
           }

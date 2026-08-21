@@ -167,25 +167,25 @@ export function FinancePnLPanel({
         </div>
       </div>
       ) : (
-      <div className="flex flex-wrap justify-end gap-2 print:hidden">
+      <div className="flex flex-col gap-2 print:hidden sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={() => window.print()}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-cream-300 px-3 py-2 text-xs font-semibold text-ink-muted hover:bg-cream-50 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-panel-dark"
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-cream-300 px-4 py-2.5 text-sm font-semibold text-ink-muted hover:bg-cream-50 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-panel-dark sm:min-h-[36px] sm:text-xs"
         >
-          <Printer className="h-3.5 w-3.5" />
+          <Printer className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           Print
         </button>
         <button
           type="button"
           onClick={() => void onExport()}
           disabled={exporting}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-slate-700 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60 sm:min-h-[36px] sm:text-xs"
         >
           {exporting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin sm:h-3.5 sm:w-3.5" />
           ) : (
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           )}
           Export CSV
         </button>

@@ -179,7 +179,7 @@ export function tooManyRequests(
 export function serverError(
   requestId?: string,
   /** Optional public hint (avoid leaking internals — never include err.message in prod). */
-  publicMessage = "Something went wrong.",
+  publicMessage = "Something went wrong on our end. Your data is safe — please try again in a few minutes.",
 ): NextResponse {
   return errorJson(
     500,

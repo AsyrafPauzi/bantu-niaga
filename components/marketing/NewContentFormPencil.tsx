@@ -291,7 +291,7 @@ export function NewContentFormPencil({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px] lg:items-start">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_360px] md:items-start">
         {/* LEFT — Channel + Content + Media */}
         <div className="space-y-4">
           {/* CHANNEL */}

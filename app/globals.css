@@ -31,8 +31,183 @@
   }
 }
 
+/* ─── Animation keyframes ────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Mobile nav drawer */
+@keyframes drawer-slide-in {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes drawer-slide-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+@keyframes drawer-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes drawer-backdrop-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes slide-in-from-bottom-4 {
+  from { transform: translateY(1rem); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes slide-in-from-right-5 {
+  from { transform: translateX(1.25rem); opacity: 0; }
+  to   { transform: translateX(0);       opacity: 1; }
+}
+@keyframes zoom-in-95 {
+  from { transform: scale(0.95); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
 @layer utilities {
-  .scrollbar-thin {
-    scrollbar-width: thin;
+  /* Scrollbars */
+  .scrollbar-thin { scrollbar-width: thin; }
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+
+  /* Animation helpers — used by Modal, Dropdown, Toast */
+  .animate-in { animation-duration: 200ms; animation-fill-mode: both; }
+  .fade-in                 { animation-name: fade-in; }
+  .slide-in-from-bottom-4  { animation-name: slide-in-from-bottom-4; }
+  .slide-in-from-right-5   { animation-name: slide-in-from-right-5; }
+  .zoom-in-95              { animation-name: zoom-in-95; }
+  .duration-100            { animation-duration: 100ms; }
+  .duration-200            { animation-duration: 200ms; }
+  .origin-top              { transform-origin: top; }
+
+  /* Spinner */
+  .animate-spin  { animation: spin 0.8s linear infinite; }
+  .animate-pulse { animation: pulse 1.8s ease-in-out infinite; }
+
+  /* Mobile nav drawer */
+  .animate-drawer-slide-in   { animation: drawer-slide-in  250ms cubic-bezier(0.32,0.72,0,1) both; }
+  .animate-drawer-slide-out  { animation: drawer-slide-out 250ms cubic-bezier(0.32,0.72,0,1) both; }
+  .animate-drawer-backdrop-in  { animation: drawer-backdrop-in  200ms ease both; }
+  .animate-drawer-backdrop-out { animation: drawer-backdrop-out 250ms ease both; }
+
+  /* Typography scale — semantic helpers for consistent text across modules */
+  .text-display {
+    @apply font-display text-2xl font-bold tracking-tight text-ink dark:text-cream-100;
   }
+  .text-heading {
+    @apply font-display text-lg font-semibold text-ink dark:text-cream-100;
+  }
+  .text-subheading {
+    @apply text-base font-semibold text-ink dark:text-cream-100;
+  }
+  .text-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400;
+  }
+  .text-body   { @apply text-sm text-ink dark:text-cream-100; }
+  .text-muted  { @apply text-sm text-ink-muted dark:text-cream-400; }
+  .text-caption { @apply text-xs text-ink-muted dark:text-cream-400; }
+
+  /* Number / data display */
+  .text-numeric { @apply tabular-nums slashed-zero; }
+  .text-mono    { @apply font-mono text-sm; }
+
+  /* Layout helpers */
+  .stack       { @apply flex flex-col; }
+  .cluster     { @apply flex flex-wrap items-center gap-2; }
+  .cover       { @apply flex flex-col justify-center min-h-full; }
+
+  /* Surface helpers */
+  .surface-raised {
+    @apply bg-panel-light dark:bg-panel-dark border border-hairline-light dark:border-hairline-dark rounded-xl shadow-card;
+  }
+  .surface-sunken {
+    @apply bg-cream-100 dark:bg-surface-dark border border-hairline-light dark:border-hairline-dark rounded-lg;
+  }
+  .divider {
+    @apply border-t border-hairline-light dark:border-hairline-dark;
+  }
+
+  /* Interaction */
+  .interactive {
+    @apply cursor-pointer select-none transition-colors;
+  }
+  .tap-target  { @apply min-h-[44px] min-w-[44px]; }
+  .rounded-inherit { border-radius: inherit; }
+
+  /* ── Responsive helpers ──────────────────────────────────────── */
+
+  /* Overscroll containment — prevent pull-to-refresh inside scroll areas */
+  .overscroll-contain { overscroll-behavior: contain; }
+  .overscroll-x-contain { overscroll-behavior-x: contain; }
+
+  /* Safe-area padding helpers for notch / home indicator */
+  .pb-safe  { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pt-safe  { padding-top:    env(safe-area-inset-top,    0px); }
+  .pl-safe  { padding-left:   env(safe-area-inset-left,   0px); }
+  .pr-safe  { padding-right:  env(safe-area-inset-right,  0px); }
+
+  /* Responsive page padding: 16px → 24px → 40px */
+  .page-x { @apply px-4 md:px-6 lg:px-10; }
+  .page-y { @apply py-4 md:py-5 lg:py-6; }
+
+  /* Mobile-card stack pattern — use on <ul> wrapping list items */
+  .card-list { @apply flex flex-col divide-y divide-hairline-light dark:divide-hairline-dark; }
+  .card-list-item {
+    @apply flex items-start gap-3 px-4 py-3.5 transition-colors;
+    @apply hover:bg-cream-50 dark:hover:bg-hairline-dark/30;
+  }
+
+  /* Two-column label/value grid for mobile detail rows */
+  .detail-grid {
+    @apply grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm;
+  }
+  .detail-label { @apply text-ink-muted dark:text-cream-400 text-xs font-medium; }
+  .detail-value { @apply text-ink dark:text-cream-100; }
+
+  /* Touch-friendly form control height */
+  .input-touch { @apply min-h-[44px]; }
+
+  /* Fluid two-column grid: 1 col on mobile → 2 col at sm */
+  .cols-2-fluid { @apply grid grid-cols-1 gap-4 sm:grid-cols-2; }
+
+  /* Fluid four-column grid: 2 on mobile → 4 at lg */
+  .cols-4-fluid { @apply grid grid-cols-2 gap-3 lg:grid-cols-4; }
+}
+
+/* ─── Invoice print / PDF styles ─────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm 15mm 20mm;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Remove layout chrome */
+  footer { display: none !important; }
+
+  /* Clean up the invoice document card */
+  #invoice-document {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Prevent table rows splitting across pages */
+  tr { page-break-inside: avoid; }
 }

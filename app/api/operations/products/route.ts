@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 const PRODUCT_SELECT =
   "id, business_id, sku, name, description, category, price_myr, " +
-  "is_active, stock_qty, low_stock_threshold, notes, image_file_id, spec_file_id, created_by, created_at, updated_at";
+  "is_active, stock_qty, low_stock_threshold, notes, barcode, image_file_id, spec_file_id, created_by, created_at, updated_at";
 
 export const GET = withApiHandler(
   { module: "operations.products.list", auth: "none" },
@@ -133,6 +133,7 @@ export async function POST(request: Request) {
       stock_qty: parsed.stock_qty ?? null,
       low_stock_threshold: parsed.low_stock_threshold ?? 5,
       notes: parsed.notes ?? null,
+      barcode: parsed.barcode ?? null,
       image_file_id: imageFileId,
       spec_file_id: specFileId,
       created_by: user.id,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Paperclip, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Paperclip, Pencil, Trash2, type LucideIcon } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import { FinanceTxnExportButton } from "@/components/finance/FinanceTxnExportButton";
 import {
@@ -22,12 +22,13 @@ function fmtDate(iso: string): string {
 export interface FinanceTxnCategoryMeta {
   label: string;
   emoji: string;
+  Icon: LucideIcon;
   chip: string;
 }
 
 interface FinanceTxnCompactListProps {
   title: string;
-  emptyIcon: string;
+  emptyIcon: React.ReactNode;
   emptyTitle: string;
   emptyHint: string;
   transactions: FinanceTransactionRow[];
@@ -101,7 +102,9 @@ export function FinanceTxnCompactList({
 
       {transactions.length === 0 ? (
         <div className="px-3 py-8 text-center">
-          <p className="text-2xl">{emptyIcon}</p>
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-cream-200 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400">
+            {emptyIcon}
+          </span>
           <p className="mt-1.5 text-sm font-medium text-ink dark:text-cream-100">
             {emptyTitle}
           </p>
@@ -131,12 +134,12 @@ export function FinanceTxnCompactList({
                 <div className="flex items-start gap-2">
                   <span
                     className={cn(
-                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm",
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
                       meta.chip,
                     )}
                     title={meta.label}
                   >
-                    {meta.emoji}
+                    <meta.Icon className="h-3.5 w-3.5" />
                   </span>
 
                   <div className="min-w-0 flex-1">

@@ -434,7 +434,9 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: "insufficient_stock",
-          message: err instanceof Error ? err.message : "Stock update failed",
+          message:
+            "One or more items in this sale don't have enough stock. " +
+            "Please adjust the quantities and try again.",
         },
         { status: 400 },
       );

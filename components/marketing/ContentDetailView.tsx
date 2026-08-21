@@ -209,7 +209,7 @@ export function ContentDetailView({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-start">
         <div className="space-y-4 lg:col-span-2">
           <section className="rounded-2xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
             <h2 className="text-sm font-bold text-ink dark:text-cream-100">

@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import type { HrEmployeeRow } from "@/lib/hr/load";
-
-const inputClass =
-  "w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-400/30 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
+import { FormField, Input, Select } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 export function HrOnboardingCreateForm({
   employees = [],
@@ -17,15 +16,14 @@ export function HrOnboardingCreateForm({
   onCreated?: () => void;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
     setBusy(true);
-    setMessage(null);
     const payload = employeeId
       ? { employee_id: employeeId, label: String(formData.get("label") ?? "") }
       : Object.fromEntries(formData.entries());
@@ -38,11 +36,11 @@ export function HrOnboardingCreateForm({
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setMessage(json?.message ?? json?.error ?? "Could not add checklist item.");
+        toast.error(json?.message ?? json?.error ?? "Could not add checklist item.");
         return;
       }
       form.reset();
-      setMessage("Checklist item added.");
+      toast.success("Checklist item added.");
       onCreated?.();
       router.refresh();
     } finally {
@@ -53,23 +51,26 @@ export function HrOnboardingCreateForm({
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       {!employeeId ? (
-        <select name="employee_id" required className={inputClass}>
-          <option value="">Choose employee</option>
-          {employees.map((employee) => (
-            <option key={employee.id} value={employee.id}>
-              {employee.full_name}
-            </option>
-          ))}
-        </select>
+        <FormField label="Employee" htmlFor="onboarding-employee" required>
+          <Select id="onboarding-employee" name="employee_id" required defaultValue="">
+            <option value="">Choose employee</option>
+            {employees.map((employee) => (
+              <option key={employee.id} value={employee.id}>
+                {employee.full_name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
       ) : null}
-      <input
-        name="label"
-        required
-        maxLength={160}
-        placeholder="Checklist item, e.g. Collect signed contract"
-        className={inputClass}
-      />
-      {message ? <p className="text-xs text-ink-muted dark:text-cream-400">{message}</p> : null}
+      <FormField label="Checklist item" htmlFor="onboarding-label" required>
+        <Input
+          id="onboarding-label"
+          name="label"
+          required
+          maxLength={160}
+          placeholder="e.g. Collect signed contract"
+        />
+      </FormField>
       <button
         type="submit"
         disabled={busy || (!employeeId && employees.length === 0)}

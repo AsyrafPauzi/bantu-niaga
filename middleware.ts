@@ -30,6 +30,7 @@ import {
   getSupabasePublicEnv,
   warnSupabaseNotConfiguredOnce,
 } from "@/lib/supabase/env";
+import { csrfCheck } from "@/lib/security/csrf";
 
 // ─── CSP nonce helpers ────────────────────────────────────────────────────────
 
@@ -132,6 +133,16 @@ export async function middleware(request: NextRequest) {
   response.headers.set("x-request-id", requestId);
   // Override the static CSP set in next.config.mjs with the nonce-bearing one.
   response.headers.set("Content-Security-Policy", csp);
+
+  // ── CSRF origin check (state-mutating API routes only) ────────────────────
+  // Validates Origin / Referer header for POST/PUT/PATCH/DELETE requests.
+  // Exemptions (webhooks, external API, cron, staff, auth) are handled
+  // inside csrfCheck() so we don't need to duplicate the allow-list here.
+  const csrfError = csrfCheck(request);
+  if (csrfError) {
+    csrfError.headers.set("x-request-id", requestId);
+    return csrfError;
+  }
 
   const env = getSupabasePublicEnv();
   if (!env) {

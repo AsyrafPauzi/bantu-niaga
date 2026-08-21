@@ -331,6 +331,83 @@ export const MARKETING_ASSISTANT_EXTRA_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_broadcast_result",
+      description:
+        "Get send results for a specific broadcast — how many were sent, delivered, failed, and when it was sent. Use when the user asks how a campaign performed.",
+      parameters: {
+        type: "object",
+        properties: {
+          broadcast_id: {
+            type: "string",
+            description: "UUID of the broadcast if known.",
+          },
+          broadcast_name: {
+            type: "string",
+            description: "Partial title match to find the broadcast.",
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "remove_customer_tag",
+      description:
+        "Remove a manual tag from a CRM customer. Use when the user wants to untag or remove a label from a customer.",
+      parameters: {
+        type: "object",
+        properties: {
+          customer_name: {
+            type: "string",
+            description: "Partial name match.",
+          },
+          customer_id: {
+            type: "string",
+            description: "UUID if known.",
+          },
+          tag: {
+            type: "string",
+            description: "Tag to remove from the customer.",
+          },
+        },
+        required: ["tag"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "deactivate_coupon",
+      description:
+        "Permanently deactivate a coupon so it can no longer be used. Use when the user wants to end a promo permanently (not just pause it).",
+      parameters: {
+        type: "object",
+        properties: {
+          coupon_id: {
+            type: "string",
+            description: "UUID of the coupon if known.",
+          },
+          coupon_code: {
+            type: "string",
+            description: "Coupon code (exact or partial match).",
+          },
+          confirm: {
+            type: "boolean",
+            description:
+              "Must be true — confirms the owner wants permanent deactivation.",
+          },
+        },
+        required: ["confirm"],
+        additionalProperties: false,
+      },
+    },
+  },
 ] as const;
 
 export const EXTRA_READ_TOOLS = new Set([
@@ -340,6 +417,7 @@ export const EXTRA_READ_TOOLS = new Set([
   "list_coupons",
   "list_broadcasts",
   "list_content",
+  "get_broadcast_result",
 ]);
 
 export const EXTRA_ACTION_TOOLS = new Set([
@@ -347,6 +425,8 @@ export const EXTRA_ACTION_TOOLS = new Set([
   "update_coupon_status",
   "schedule_content",
   "mark_content_posted",
+  "remove_customer_tag",
+  "deactivate_coupon",
 ]);
 
 export async function executeMarketingExtraTool(
@@ -851,6 +931,262 @@ export async function executeMarketingExtraTool(
       content_id: data.id,
       hook: data.hook,
       href: `/marketing/content/${data.id}`,
+    };
+  }
+
+  if (name === "get_broadcast_result") {
+    const parsed = z
+      .object({
+        broadcast_id: z.string().uuid().optional(),
+        broadcast_name: z.string().trim().min(1).max(160).optional(),
+      })
+      .refine((v) => Boolean(v.broadcast_id || v.broadcast_name), {
+        message: "Provide broadcast_id or broadcast_name.",
+      })
+      .parse(rawArgs ?? {});
+
+    let query = supabase
+      .from("broadcasts")
+      .select(
+        "id, name, status, channel, segment_id, sent_count, failed_count, sent_at, scheduled_at, created_at",
+      )
+      .eq("business_id", ctx.businessId);
+
+    if (parsed.broadcast_id) {
+      query = query.eq("id", parsed.broadcast_id) as typeof query;
+      const { data, error } = await query.maybeSingle();
+      if (error || !data) {
+        return { ok: false, action: name, message: "Broadcast not found." };
+      }
+      const notSentYet =
+        (!data.sent_count || data.sent_count === 0) && data.status !== "sent";
+      return {
+        ok: true,
+        action: name,
+        broadcast: data,
+        performance_note: notSentYet
+          ? "This broadcast has not been sent yet."
+          : null,
+        href: `/marketing/broadcasts/${data.id}`,
+      };
+    }
+
+    const safe = sanitizeLike(parsed.broadcast_name!);
+    const { data, error } = await query
+      .ilike("name", `%${safe}%`)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) {
+      return { ok: false, action: name, message: "Could not load broadcasts." };
+    }
+
+    if (!data || data.length === 0) {
+      return {
+        ok: false,
+        action: name,
+        message: `No broadcast matching "${parsed.broadcast_name}".`,
+      };
+    }
+
+    if (data.length === 1) {
+      const b = data[0];
+      const notSentYet =
+        (!b.sent_count || b.sent_count === 0) && b.status !== "sent";
+      return {
+        ok: true,
+        action: name,
+        broadcast: b,
+        performance_note: notSentYet
+          ? "This broadcast has not been sent yet."
+          : null,
+        href: `/marketing/broadcasts/${b.id}`,
+      };
+    }
+
+    return {
+      ok: true,
+      action: name,
+      broadcasts: data.map((b) => ({
+        id: b.id,
+        name: b.name,
+        status: b.status,
+        channel: b.channel,
+        sent_count: b.sent_count,
+        failed_count: b.failed_count,
+        sent_at: b.sent_at,
+        href: `/marketing/broadcasts/${b.id}`,
+      })),
+      note: "Multiple matches found — please pick one.",
+    };
+  }
+
+  if (name === "remove_customer_tag") {
+    const parsed = z
+      .object({
+        customer_name: z.string().trim().min(1).max(160).optional(),
+        customer_id: z.string().uuid().optional(),
+        tag: z.string().trim().min(1).max(40),
+      })
+      .refine((v) => Boolean(v.customer_name || v.customer_id), {
+        message: "Provide customer_name or customer_id.",
+      })
+      .parse(rawArgs ?? {});
+
+    let customerId = parsed.customer_id;
+    let customerName: string | null = null;
+
+    if (!customerId && parsed.customer_name) {
+      const match = await resolveCustomerByName(
+        ctx.businessId,
+        parsed.customer_name,
+      );
+      if (match.kind === "none") {
+        return {
+          ok: false,
+          action: name,
+          message: `No customer matching "${parsed.customer_name}".`,
+        };
+      }
+      if (match.kind === "many") {
+        return {
+          ok: false,
+          action: name,
+          message: `Several customers match: ${match.names.join(", ")}. Ask which one.`,
+        };
+      }
+      customerId = match.id;
+      customerName = match.name;
+    }
+
+    const { data: existing, error: fetchErr } = await supabase
+      .from("customers")
+      .select("id, name, manual_tags")
+      .eq("business_id", ctx.businessId)
+      .eq("id", customerId!)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (fetchErr || !existing) {
+      return { ok: false, action: name, message: "Customer not found." };
+    }
+
+    customerName = customerName ?? existing.name;
+    const tagsBefore: string[] = Array.isArray(existing.manual_tags)
+      ? existing.manual_tags
+      : [];
+    const tagToRemove = parsed.tag.trim().toLowerCase();
+    const tagsAfter = tagsBefore.filter(
+      (t) => t.toLowerCase() !== tagToRemove,
+    );
+
+    const { error: updateErr } = await supabase
+      .from("customers")
+      .update({ manual_tags: tagsAfter })
+      .eq("id", existing.id)
+      .eq("business_id", ctx.businessId);
+
+    if (updateErr) {
+      return {
+        ok: false,
+        action: name,
+        message: "Could not update customer tags.",
+      };
+    }
+
+    return {
+      ok: true,
+      action: name,
+      customer_id: existing.id,
+      customer_name: customerName,
+      tags_before: tagsBefore,
+      tags_after: tagsAfter,
+      href: `/marketing/customers/${existing.id}`,
+    };
+  }
+
+  if (name === "deactivate_coupon") {
+    const parsed = z
+      .object({
+        coupon_id: z.string().uuid().optional(),
+        coupon_code: z.string().trim().min(1).max(32).optional(),
+        confirm: z.boolean(),
+      })
+      .refine((v) => Boolean(v.coupon_id || v.coupon_code), {
+        message: "Provide coupon_id or coupon_code.",
+      })
+      .parse(rawArgs ?? {});
+
+    if (!parsed.confirm) {
+      return {
+        ok: false,
+        action: name,
+        message:
+          "Please confirm you want to permanently deactivate this coupon.",
+      };
+    }
+
+    let couponId = parsed.coupon_id;
+    let couponCode: string | null = null;
+
+    if (!couponId && parsed.coupon_code) {
+      const match = await resolveCouponByCode(
+        ctx.businessId,
+        parsed.coupon_code,
+      );
+      if (match.kind === "none") {
+        return {
+          ok: false,
+          action: name,
+          message: `No coupon matching "${parsed.coupon_code}".`,
+        };
+      }
+      if (match.kind === "many") {
+        return {
+          ok: false,
+          action: name,
+          message: `Several coupons match: ${match.codes.join(", ")}. Be more specific.`,
+        };
+      }
+      couponId = match.id;
+      couponCode = match.code;
+    }
+
+    const { data: existing, error: fetchErr } = await supabase
+      .from("coupons")
+      .select("id, code, status")
+      .eq("business_id", ctx.businessId)
+      .eq("id", couponId!)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (fetchErr || !existing) {
+      return { ok: false, action: name, message: "Coupon not found." };
+    }
+
+    couponCode = couponCode ?? existing.code;
+
+    const { error: updateErr } = await supabase
+      .from("coupons")
+      .update({ status: "inactive" })
+      .eq("id", existing.id)
+      .eq("business_id", ctx.businessId);
+
+    if (updateErr) {
+      return {
+        ok: false,
+        action: name,
+        message: "Could not deactivate coupon.",
+      };
+    }
+
+    return {
+      ok: true,
+      action: name,
+      coupon_id: existing.id,
+      coupon_code: couponCode,
+      action_taken: "permanently_deactivated",
+      href: `/marketing/coupons/${existing.id}`,
     };
   }
 

@@ -52,16 +52,19 @@ export function OperationsCatalogEmpty({
   hint,
   action,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   hint: string;
   action?: React.ReactNode;
 }) {
   return (
     <div className="rounded-2xl border border-dashed border-cream-300 bg-cream-50/50 py-14 text-center dark:border-hairline-dark dark:bg-panel-dark/30">
-      <p className="text-4xl" aria-hidden>
+      <span
+        className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-cream-200 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
+        aria-hidden
+      >
         {icon}
-      </p>
+      </span>
       <p className="mt-3 text-sm font-semibold text-ink dark:text-cream-100">
         {title}
       </p>
@@ -103,21 +106,21 @@ export function OperationsCatalogEditShell({
 }
 
 export function OperationsCatalogThumb({
-  emoji,
+  icon,
   className,
 }: {
-  emoji: string;
+  icon: React.ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-cream-200 bg-gradient-to-br from-emerald-50/90 to-sky-50/80 text-2xl dark:border-hairline-dark dark:from-emerald-950/40 dark:to-sky-950/30",
+        "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-cream-200 bg-gradient-to-br from-emerald-50/90 to-sky-50/80 text-ink-muted dark:border-hairline-dark dark:from-emerald-950/40 dark:to-sky-950/30 dark:text-cream-400",
         className,
       )}
       aria-hidden
     >
-      {emoji}
+      {icon}
     </div>
   );
 }

@@ -161,6 +161,54 @@ export const SALES_ASSISTANT_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_lead_analytics",
+      description:
+        "Get pipeline analytics: win rate, conversion rate, average deal value, leads by status, and this month vs last month comparison. Use when the user asks about pipeline performance, conversion, or win rate.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "list_team_members",
+      description:
+        "List team members (business users) who can be assigned to leads. Use when the user asks who is on the team or wants to assign a lead to someone by name.",
+      parameters: {
+        type: "object",
+        properties: {
+          q: {
+            type: "string",
+            description: "Search by name or email",
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "archive_lead",
+      description:
+        "Archive (soft-delete) a lead that is lost, duplicate, or no longer relevant. Only archive lost leads or confirmed duplicates.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_name: { type: "string" },
+          lead_id: { type: "string" },
+          reason: { type: "string", description: "Reason for archiving" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 const ACTION_TOOLS = new Set([
@@ -168,6 +216,7 @@ const ACTION_TOOLS = new Set([
   "update_lead",
   "add_lead_note",
   "convert_lead",
+  "archive_lead",
 ]);
 
 export function isSalesActionTool(name: string): boolean {
@@ -205,6 +254,16 @@ const noteSchema = z.object({
 const convertSchema = z.object({
   lead_name: z.string().trim().min(1).max(200).optional(),
   lead_id: z.string().uuid().optional(),
+});
+
+const listTeamMembersSchema = z.object({
+  q: z.string().trim().max(100).optional(),
+});
+
+const archiveLeadSchema = z.object({
+  lead_name: z.string().trim().min(1).max(200).optional(),
+  lead_id: z.string().uuid().optional(),
+  reason: z.string().trim().max(500).optional(),
 });
 
 const listLeadsSchema = z.object({
@@ -250,6 +309,160 @@ async function findLead(
     return data[0];
   }
   return null;
+}
+
+async function executeGetLeadAnalytics(
+  ctx: AgentContext,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase
+    .from("sales_leads")
+    .select("id, status, estimated_value_myr, created_at")
+    .eq("business_id", ctx.businessId);
+  if (error || !data) {
+    return { ok: false, error: "analytics_unavailable" };
+  }
+
+  const today = malaysiaTodayYmd();
+  const thisMonthStart = today.slice(0, 7) + "-01";
+  const lastMonthDate = new Date(thisMonthStart);
+  lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+  const lastMonthStart = lastMonthDate.toISOString().slice(0, 10);
+
+  const byStatus: Record<string, number> = {};
+  let won = 0, lost = 0;
+  let wonValueSum = 0, wonCount = 0;
+  let pipelineValueSum = 0;
+  let newThisMonth = 0, newLastMonth = 0;
+
+  for (const lead of data) {
+    const s = lead.status as string;
+    byStatus[s] = (byStatus[s] ?? 0) + 1;
+    if (s === "won") {
+      won++;
+      if (lead.estimated_value_myr) {
+        wonValueSum += lead.estimated_value_myr;
+        wonCount++;
+      }
+    }
+    if (s === "lost") lost++;
+    if (s !== "lost" && lead.estimated_value_myr) {
+      pipelineValueSum += lead.estimated_value_myr;
+    }
+    const createdAt = lead.created_at as string;
+    if (createdAt >= thisMonthStart) newThisMonth++;
+    else if (createdAt >= lastMonthStart && createdAt < thisMonthStart) newLastMonth++;
+  }
+
+  const winRate =
+    won + lost > 0
+      ? Math.round((won / (won + lost)) * 1000) / 10
+      : 0;
+
+  const avgDealValue =
+    wonCount > 0
+      ? Math.round((wonValueSum / wonCount) * 100) / 100
+      : data.length > 0
+        ? Math.round(
+            (data.reduce((s, l) => s + (l.estimated_value_myr ?? 0), 0) /
+              data.length) *
+              100,
+          ) / 100
+        : 0;
+
+  return {
+    ok: true,
+    total_leads: data.length,
+    by_status: byStatus,
+    win_rate: winRate,
+    avg_deal_value_myr: avgDealValue,
+    total_pipeline_value_myr: Math.round(pipelineValueSum * 100) / 100,
+    won_value_myr: Math.round(wonValueSum * 100) / 100,
+    new_leads_this_month: newThisMonth,
+    new_leads_last_month: newLastMonth,
+  };
+}
+
+async function executeListTeamMembers(
+  ctx: AgentContext,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  args: unknown,
+): Promise<Record<string, unknown>> {
+  const parsed = listTeamMembersSchema.parse(args ?? {});
+  let query = supabase
+    .from("business_users")
+    .select("user_id, display_name, email, role")
+    .eq("business_id", ctx.businessId)
+    .eq("status", "active");
+  if (parsed.q) {
+    const safeQ = parsed.q.replace(/[%_]/g, "");
+    if (safeQ) {
+      query = query.or(
+        `display_name.ilike.%${safeQ}%,email.ilike.%${safeQ}%`,
+      );
+    }
+  }
+  const { data, error } = await query;
+  if (error) return { ok: false, error: "team_unavailable" };
+  return {
+    ok: true,
+    members: (data ?? []).map((m) => ({
+      user_id: m.user_id,
+      display_name: m.display_name,
+      email: m.email,
+      role: m.role,
+    })),
+    note: "Use user_id as assigned_to_user_id when calling create_lead or update_lead",
+  };
+}
+
+async function executeArchiveLead(
+  ctx: AgentContext,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  args: unknown,
+): Promise<Record<string, unknown>> {
+  const parsed = archiveLeadSchema.parse(args ?? {});
+  if (!parsed.lead_id && !parsed.lead_name) {
+    return { ok: false, error: "lead_name_or_id_required" };
+  }
+  const found = await findLead(ctx.businessId, parsed);
+  if (!found) return { ok: false, error: "lead_not_found" };
+  if ("ambiguous" in found && found.ambiguous) {
+    return { ok: false, error: "ambiguous_lead", matches: found.matches };
+  }
+  const lead = found as { id: string; name: string; status: string };
+  if (!["lost", "won"].includes(lead.status)) {
+    return {
+      ok: false,
+      error:
+        "Only lost or won leads can be archived. Update status to lost first if needed.",
+    };
+  }
+
+  const reason = parsed.reason ?? "No reason provided";
+  const noteBody = `Archived: ${reason}`;
+  await supabase.from("sales_lead_notes").insert({
+    business_id: ctx.businessId,
+    lead_id: lead.id,
+    body: noteBody,
+    created_by: ctx.userId,
+  });
+
+  const { error: updateError } = await supabase
+    .from("sales_leads")
+    .update({ status: "lost", updated_at: new Date().toISOString() })
+    .eq("id", lead.id)
+    .eq("business_id", ctx.businessId);
+
+  if (updateError) return { ok: false, error: "archive_failed" };
+
+  return {
+    ok: true,
+    action: "archived",
+    lead_name: lead.name,
+    reason,
+    href: `/sales/leads/${lead.id}`,
+  };
 }
 
 export async function executeSalesAssistantTool(
@@ -497,6 +710,18 @@ export async function executeSalesAssistantTool(
         href: `/marketing/customers/${result.customerId}`,
         lead_href: `/sales/leads/${lead.id}`,
       };
+    }
+
+    if (name === "get_lead_analytics") {
+      return executeGetLeadAnalytics(ctx, supabase);
+    }
+
+    if (name === "list_team_members") {
+      return executeListTeamMembers(ctx, supabase, args);
+    }
+
+    if (name === "archive_lead") {
+      return executeArchiveLead(ctx, supabase, args);
     }
 
     return { ok: false, error: "unknown_tool" };

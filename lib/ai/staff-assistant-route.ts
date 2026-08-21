@@ -32,6 +32,7 @@ import {
 import { enforceRateLimit } from "@/lib/api/enforce-rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAiUsage } from "@/lib/ai/usage";
+import { estimateCostMyr } from "@/lib/ai/model-costs";
 
 const messageSchema = z.object({
   message: z.string().trim().min(1).max(2000),
@@ -88,7 +89,15 @@ export interface StaffAssistantRouteConfig {
   ) => Promise<unknown>;
   runChat: (
     args: StaffAssistantChatArgs,
-  ) => Promise<{ reply: string; usedActionTool: boolean }>;
+  ) => Promise<{
+    reply: string;
+    usedActionTool: boolean;
+    /** Real token counts from the LLM provider (optional — best-effort). */
+    tokensIn?: number;
+    tokensOut?: number;
+    /** Model used for the final completion (for cost estimation). */
+    model?: string;
+  }>;
   /** Sales smart clarifier — overrides template when free clarifier triggers. */
   resolveClarifierReply?: (
     args: StaffAssistantPostContext,
@@ -103,6 +112,19 @@ export function createStaffAssistantRouteHandlers(
   config: StaffAssistantRouteConfig,
 ) {
   const chargeActionTopUp = config.chargeActionTopUp ?? true;
+
+  function insufficientCreditsResponse(balance: number): NextResponse {
+    return NextResponse.json(
+      {
+        error: "insufficient_credits",
+        message:
+          "No credits left in your shared pool. Top up in Billing or wait for your monthly refill.",
+        credit_balance: balance,
+        billing_href: "/settings/billing",
+      },
+      { status: 402 },
+    );
+  }
 
   async function finishEarlyReply(
     post: StaffAssistantPostContext,
@@ -347,22 +369,19 @@ export function createStaffAssistantRouteHandlers(
     }
 
     if (creditBalance < chatCost) {
-      return NextResponse.json(
-        {
-          error: "insufficient_credits",
-          message:
-            "No credits left in your shared pool. Top up in Billing or wait for your monthly refill.",
-          credit_balance: creditBalance,
-          billing_href: "/settings/billing",
-        },
-        { status: 402 },
-      );
+      return insufficientCreditsResponse(creditBalance);
     }
 
     let totalCharged = 0;
 
     try {
-      const { reply, usedActionTool } = await config.runChat({
+      const {
+        reply,
+        usedActionTool,
+        tokensIn = 0,
+        tokensOut = 0,
+        model: usedModel,
+      } = await config.runChat({
         ctx,
         message: parsed.message,
         history: historyForModel,
@@ -423,18 +442,26 @@ export function createStaffAssistantRouteHandlers(
 
       const balance = await getCreditBalance(ctx.businessId);
 
+      const costMyrEstimated =
+        tokensIn || tokensOut
+          ? estimateCostMyr(usedModel ?? "", tokensIn, tokensOut)
+          : creditsToMyr(totalCharged);
+
       await recordAiUsage({
         businessId: ctx.businessId,
         actorUserId: ctx.userId,
         triggerType: usedActionTool ? "ACTION" : "CHAT",
         creditsCharged: totalCharged,
         mode: "fast",
-        costMyrEstimated: creditsToMyr(totalCharged),
+        tokensIn,
+        tokensOut,
+        costMyrEstimated,
         agentSlug: config.agentSlug,
         metadata: {
           used_action_tool: usedActionTool,
           free_clarifier: !billable,
           reasoning_mode: settings.reasoningMode,
+          model: usedModel,
         },
       });
 
@@ -453,16 +480,7 @@ export function createStaffAssistantRouteHandlers(
     } catch (error) {
       if (isInsufficientCreditsError(error)) {
         const balance = await getCreditBalance(ctx.businessId);
-        return NextResponse.json(
-          {
-            error: "insufficient_credits",
-            message:
-              "No credits left in your shared pool. Top up in Billing or wait for your monthly refill.",
-            credit_balance: balance,
-            billing_href: "/settings/billing",
-          },
-          { status: 402 },
-        );
+        return insufficientCreditsResponse(balance);
       }
 
       const detail = error instanceof Error ? error.message : String(error);

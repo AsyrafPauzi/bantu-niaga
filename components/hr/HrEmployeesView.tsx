@@ -17,6 +17,7 @@ import {
   ModuleListTableHead,
   MODULE_LIST_TABLE_ROW_CLASS,
 } from "@/components/dashboard/module-list-panel";
+import { ThHide, TableColHide } from "@/components/ui";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import type { HrDocumentRow, HrEmployeeRow } from "@/lib/hr/load";
@@ -289,18 +290,18 @@ export function HrEmployeesView({
               </div>
             ) : (
               <>
-                <div className="hidden lg:block">
+                <div className="hidden md:block">
                   <ModuleListTable>
                     <ModuleListTableHead>
                       <tr>
                         <th className="px-5 py-3 text-left">Employee</th>
                         <th className="px-3 py-3 text-left">Role</th>
-                        <th className="px-3 py-3 text-left">Type</th>
+                        <ThHide at="lg">Type</ThHide>
                         <th className="px-3 py-3 text-left">Status</th>
-                        <th className="px-3 py-3 text-left">Setup</th>
-                        <th className="px-3 py-3 text-left">Onboarding</th>
-                        <th className="px-3 py-3 text-left">Email</th>
-                        <th className="px-5 py-3 text-right">Joined</th>
+                        <ThHide at="lg">Setup</ThHide>
+                        <ThHide at="lg">Onboarding</ThHide>
+                        <ThHide at="lg">Email</ThHide>
+                        <ThHide at="lg" className="px-5 py-3 text-right">Joined</ThHide>
                       </tr>
                     </ModuleListTableHead>
                     <ModuleListTableBody>
@@ -318,7 +319,7 @@ export function HrEmployeesView({
                   </ModuleListTable>
                 </div>
 
-                <div className="divide-y divide-cream-200 lg:hidden dark:divide-hairline-dark">
+                <div className="divide-y divide-cream-200 md:hidden dark:divide-hairline-dark">
                   {pageItems.map((employee) => (
                     <EmployeeMobileRow
                       key={employee.id}
@@ -417,15 +418,15 @@ function EmployeeTableRow({
       <td className="px-3 py-3 text-sm text-ink-muted dark:text-cream-400">
         {employee.role_title}
       </td>
-      <td className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
+      <TableColHide at="lg" className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
         {employmentLabel(employee.employment_type)}
-      </td>
+      </TableColHide>
       <td className="px-3 py-3">
         <StatusPill tone={statusTone(employee.status)}>
           {statusLabel(employee.status)}
         </StatusPill>
       </td>
-      <td className="px-3 py-3 text-xs">
+      <TableColHide at="lg" className="px-3 py-3 text-xs">
         {incomplete ? (
           <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
             {pendingSetup} pending
@@ -433,8 +434,8 @@ function EmployeeTableRow({
         ) : (
           <span className="text-ink-subtle dark:text-cream-500">Complete</span>
         )}
-      </td>
-      <td className="px-3 py-3 text-xs">
+      </TableColHide>
+      <TableColHide at="lg" className="px-3 py-3 text-xs">
         {onboardingPercent != null ? (
           <Link
             href={`/hr/employees/${employee.id}?tab=onboarding`}
@@ -450,13 +451,13 @@ function EmployeeTableRow({
         ) : (
           <span className="text-ink-subtle dark:text-cream-500">—</span>
         )}
-      </td>
-      <td className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
+      </TableColHide>
+      <TableColHide at="lg" className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
         {employee.email ?? "—"}
-      </td>
-      <td className="px-5 py-3 text-right text-xs text-ink-muted dark:text-cream-400">
+      </TableColHide>
+      <TableColHide at="lg" className="px-5 py-3 text-right text-xs text-ink-muted dark:text-cream-400">
         {fmtJoined(employee.start_date)}
-      </td>
+      </TableColHide>
     </tr>
   );
 }

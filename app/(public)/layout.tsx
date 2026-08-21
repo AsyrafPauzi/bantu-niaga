@@ -11,9 +11,9 @@ import type { ReactNode } from "react";
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <div className="h-dvh overflow-y-auto overscroll-y-contain bg-cream-100 text-ink dark:bg-surface-dark dark:text-cream-100">
-      <div className="mx-auto max-w-xl px-4 py-6 sm:py-10">
+      <div className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
         {children}
-        <footer className="mt-12 pt-6 border-t border-cream-300 text-xs text-ink-subtle text-center">
+        <footer className="mt-12 pt-6 border-t border-cream-300 text-xs text-ink-subtle text-center print:hidden">
           Powered by{" "}
           <span className="font-medium text-ink-muted">NiagaX</span>
         </footer>

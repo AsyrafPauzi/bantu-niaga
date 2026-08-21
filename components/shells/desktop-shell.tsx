@@ -12,6 +12,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { Tooltip } from "@/components/ui/tooltip";
 import { NiagaXLogo } from "@/components/brand/NiagaXLogo";
 import { useSidebarCollapsed } from "@/lib/navigation/use-sidebar-collapsed";
 import {
@@ -74,7 +75,7 @@ export function DesktopShell({
   const isAssistantRoute = isAssistantChatRoute(pathname);
 
   const pageContentClass = cn(
-    "mx-auto h-full min-h-0 overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-6",
+    "mx-auto h-full min-h-0 overflow-y-auto px-4 py-4 md:px-6 md:py-5 lg:px-10 lg:py-6",
     sidebarCollapsed ? "max-w-none" : "max-w-6xl",
     sidebarCollapsed && "pt-14",
   );
@@ -84,7 +85,7 @@ export function DesktopShell({
       <div className="flex h-dvh min-h-0 overflow-hidden">
         <aside
           className={cn(
-            "sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-hairline-light bg-white transition-[width,border-color] duration-300 ease-in-out dark:border-hairline-dark dark:bg-panel-dark lg:flex",
+            "sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-hairline-light bg-white transition-[width,border-color] duration-300 ease-in-out dark:border-hairline-dark dark:bg-panel-dark md:flex",
             sidebarCollapsed ? "w-0 border-r-0" : "w-[272px]",
             !sidebarReady && "w-[272px]",
           )}
@@ -101,15 +102,17 @@ export function DesktopShell({
                 </p>
               </div>
             </Link>
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-white/80 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100"
-                aria-label="Collapse sidebar"
-                title="Collapse sidebar"
-              >
-                <PanelLeftClose className="h-4 w-4" strokeWidth={2} />
-              </button>
+              <Tooltip content="Collapse sidebar" side="bottom">
+                <button
+                  type="button"
+                  onClick={toggleSidebar}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-white/80 hover:text-ink dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100"
+                  aria-label="Collapse sidebar"
+                  title="Collapse sidebar"
+                >
+                  <PanelLeftClose className="h-4 w-4" strokeWidth={2} />
+                </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -293,15 +296,17 @@ export function DesktopShell({
           )}
         >
           {sidebarCollapsed ? (
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              className="absolute left-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-hairline-light bg-white text-ink-muted shadow-sm transition-colors hover:bg-cream-100 hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100 lg:flex"
-              aria-label={tShell("expandSidebar")}
-              title={tShell("expandSidebar")}
-            >
-              <PanelLeftOpen className="h-4 w-4" strokeWidth={2} />
-            </button>
+            <Tooltip content="Expand sidebar" side="bottom">
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="absolute left-3 top-3 z-20 hidden h-9 w-9 items-center justify-center rounded-lg border border-hairline-light bg-white text-ink-muted shadow-sm transition-colors hover:bg-cream-100 hover:text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100 md:flex"
+                aria-label={tShell("expandSidebar")}
+                title={tShell("expandSidebar")}
+              >
+                <PanelLeftOpen className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </Tooltip>
           ) : null}
           <div
             className={cn(

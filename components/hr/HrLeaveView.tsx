@@ -24,6 +24,7 @@ import {
 } from "@/lib/hr/leave-labels";
 import { hrClasses } from "@/lib/hr/theme";
 import { cn } from "@/lib/utils/cn";
+import { malaysiaTodayIso } from "@/lib/ai/malaysia-today";
 
 function fmtShortDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("en-MY", {
@@ -42,7 +43,7 @@ export interface HrLeaveViewProps {
 }
 
 export function HrLeaveView({ leave }: HrLeaveViewProps) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = malaysiaTodayIso();
   const monthPrefix = today.slice(0, 7);
 
   const pending = leave.filter((row) => row.status === "pending");

@@ -266,7 +266,7 @@ export function CustomerDetailDesktopView({
         </div>
       </ModuleDashboardHero>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:items-start">
         <div className="space-y-4 lg:col-span-2">
           <section className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cream-200 px-4 py-3 dark:border-hairline-dark sm:px-5">

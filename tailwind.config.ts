@@ -106,6 +106,33 @@ const config: Config = {
       spacing: {
         "tap-min": "44px",
       },
+      fontSize: {
+        "2xs": ["0.625rem", { lineHeight: "0.875rem" }],
+      },
+      boxShadow: {
+        "xl": "0 20px 25px -5px rgba(11,18,32,0.08), 0 8px 10px -6px rgba(11,18,32,0.04)",
+      },
+      transitionTimingFunction: {
+        spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+      },
+      transitionDuration: {
+        "150": "150ms",
+      },
+      zIndex: {
+        "dropdown": "40",
+        "modal": "50",
+        "toast": "100",
+      },
+      keyframes: {
+        "scan-line": {
+          "0%": { top: "8px", opacity: "1" },
+          "50%": { opacity: "0.6" },
+          "100%": { top: "calc(100% - 8px)", opacity: "1" },
+        },
+      },
+      animation: {
+        "scan-line": "scan-line 1.4s ease-in-out infinite alternate",
+      },
     },
   },
   plugins: [],

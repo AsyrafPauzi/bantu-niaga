@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { FinanceInvoiceComposer } from "@/components/finance/FinanceInvoiceComposer";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
+import { malaysiaTodayIso } from "@/lib/ai/malaysia-today";
 import { can } from "@/lib/permissions";
 import { nextFinanceInvoiceNumber } from "@/lib/finance/helpers";
 import {
@@ -91,7 +92,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
     "http://localhost:3000";
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = malaysiaTodayIso();
 
   return (
     <div className="space-y-6">
