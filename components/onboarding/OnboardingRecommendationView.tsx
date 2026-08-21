@@ -68,6 +68,7 @@ export function OnboardingRecommendationView({
   const [optionalSelected, setOptionalSelected] = useState<Set<string>>(
     () => new Set(),
   );
+  const [activationProgress, setActivationProgress] = useState<{ done: number; total: number } | null>(null);
 
   const quizAnswers = useMemo(() => {
     const sessionQuiz = readQuizFromSession();
@@ -192,9 +193,17 @@ export function OnboardingRecommendationView({
     const purchasable = pricing.lines.filter(
       (line) => !line.comingSoon && !line.active && !line.includedInTier,
     );
-    for (const line of purchasable) {
-      const ok = await activateAddon(line.slug);
-      if (!ok) return;
+    if (purchasable.length === 0) { setStep("done"); return; }
+    setActivationProgress({ done: 0, total: purchasable.length });
+    setError(null);
+    const results = await Promise.allSettled(
+      purchasable.map((line) => activateAddon(line.slug)),
+    );
+    const failed = results.filter((r) => r.status === "rejected" || (r.status === "fulfilled" && r.value === false));
+    setActivationProgress(null);
+    if (failed.length > 0) {
+      setError(`${failed.length} add-on(s) could not be activated. Please try again.`);
+      return;
     }
     setStep("done");
   }
@@ -442,11 +451,13 @@ export function OnboardingRecommendationView({
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
-              disabled={pending || currentTier === "starter"}
+              disabled={pending || !!activationProgress}
               onClick={() => void activateAllAddons()}
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Activate all available
+              {activationProgress
+                ? `Activating ${activationProgress.done}/${activationProgress.total}…`
+                : "Activate all in one go"}
             </button>
             <button
               type="button"

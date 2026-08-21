@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   Sparkles,
   Trash2,
+  X,
   Zap,
 } from "lucide-react";
 import { SalesBackLink } from "@/components/sales/SalesBackLink";
@@ -152,6 +153,22 @@ export function PosCheckoutClient({
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [addedPulse, setAddedPulse] = useState<string | null>(null);
+  const [showTour, setShowTour] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("bn-pos-tour-v1")) setShowTour(true);
+    } catch {
+      setShowTour(true);
+    }
+  }, []);
+
+  function dismissTour() {
+    try {
+      localStorage.setItem("bn-pos-tour-v1", "done");
+    } catch { /* ignore */ }
+    setShowTour(false);
+  }
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -532,6 +549,46 @@ export function PosCheckoutClient({
 
   return (
     <div className="space-y-4 pb-20 md:pb-8">
+      {showTour ? (
+        <div className="relative rounded-xl border border-violet-200/80 bg-violet-50/80 p-4 dark:border-violet-900/40 dark:bg-violet-950/20">
+          <button
+            type="button"
+            onClick={dismissTour}
+            className="absolute right-3 top-3 rounded-lg p-1 text-ink-muted hover:bg-white/60 dark:text-cream-400"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+            <Sparkles className="h-3.5 w-3.5" />
+            How POS works — 3 steps
+          </p>
+          <ol className="mt-2 grid gap-2 pr-6 sm:grid-cols-3">
+            {[
+              { n: 1, title: "Find & add items", body: "Search or browse your product/service catalogue. Tap any item to add it to the cart on the right." },
+              { n: 2, title: "Review the cart", body: "Adjust quantities with + / −. Add a coupon or discount if needed. The total updates live." },
+              { n: 3, title: "Choose payment & complete", body: "Select Cash or DuitNow QR, tap Complete Sale, and a receipt is printed or shared." },
+            ].map((step) => (
+              <li key={step.n} className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-200 text-[11px] font-bold text-violet-800 dark:bg-violet-800/40 dark:text-violet-200">
+                  {step.n}
+                </span>
+                <div>
+                  <p className="text-xs font-semibold text-ink dark:text-cream-100">{step.title}</p>
+                  <p className="text-xs text-ink-muted dark:text-cream-400">{step.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <button
+            type="button"
+            onClick={dismissTour}
+            className="mt-3 text-xs font-medium text-violet-700 hover:underline dark:text-violet-300"
+          >
+            Got it, don&apos;t show again
+          </button>
+        </div>
+      ) : null}
       {/* Header */}
       <section
         className={cn(

@@ -230,6 +230,39 @@ export function HrOverview({
         </div>
       </section>
 
+      {counts.totalEmployees === 0 ? (
+        <section className="rounded-xl border border-teal-200/70 bg-teal-50/60 p-4 dark:border-teal-900/40 dark:bg-teal-950/20">
+          <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+            Getting started — follow these 4 steps
+          </p>
+          <ol className="mt-3 grid gap-2 sm:grid-cols-2">
+            {[
+              { n: 1, label: "Add your employees", sub: "Just name, title & start date — payroll details can come later.", href: "/hr/employees/new", cta: "Add employee" },
+              { n: 2, label: "Set leave types & days", sub: "Configure annual leave, MC, and emergency leave quotas.", href: "/hr/settings/leave-types", cta: "Set leave types" },
+              { n: 3, label: "Import public holidays", sub: "Set the Malaysian public holiday calendar so leave is accurate.", href: "/hr/holidays", cta: "Set holidays" },
+              { n: 4, label: "Configure payroll", sub: "Add bank account and salary details from each employee's profile.", href: "/hr/employees", cta: "Go to employees" },
+            ].map((step) => (
+              <li key={step.n} className="flex items-start gap-3 rounded-lg border border-teal-200/50 bg-white/80 p-3 dark:border-teal-900/30 dark:bg-panel-dark/60">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-bold text-teal-700 dark:bg-teal-900/50 dark:text-teal-300">
+                  {step.n}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-ink dark:text-cream-100">{step.label}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">{step.sub}</p>
+                  <Link
+                    href={step.href}
+                    className={cn("mt-1.5 inline-flex items-center gap-1 text-xs font-semibold", hrClasses.link)}
+                  >
+                    {step.cta}
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
       <HrTodayDeskPanels
         leaveOnToday={leaveOnToday}
         leaveThisWeek={leaveThisWeek}

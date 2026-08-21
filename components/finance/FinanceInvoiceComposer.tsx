@@ -237,6 +237,7 @@ export function FinanceInvoiceComposer({
   const [adminFileName, setAdminFileName] = useState<string | null>(
     invoice?.admin_file_name ?? null,
   );
+  const [quickMode, setQuickMode] = useState(!invoice);
 
   const initialSnapshot = useRef(
     JSON.stringify({
@@ -1138,7 +1139,7 @@ export function FinanceInvoiceComposer({
               <p className="text-xs text-amber-900 dark:text-amber-100">
                 SST is enabled at{" "}
                 <span className="font-semibold tabular-nums">{sstRatePct}%</span>
-                {" — "}tick <span className="font-medium">Tax</span> on taxable
+                {" — "}tick <span className="font-medium">SST</span> on taxable
                 lines and set the rate below.
               </p>
               <button
@@ -1159,7 +1160,7 @@ export function FinanceInvoiceComposer({
                   <th className="w-16 px-2 py-2">Qty</th>
                   <th className="w-20 px-2 py-2">Unit</th>
                   <th className="w-24 px-2 py-2 text-right">Price</th>
-                  <th className="w-10 px-2 py-2 text-center">Tax</th>
+                  <th className="w-10 px-2 py-2 text-center">{sstEnabled ? "SST" : "Tax"}</th>
                   <th className="w-24 px-2 py-2 text-right">Amount</th>
                   <th className="w-16 px-2 py-2" />
                 </tr>
@@ -1316,74 +1317,95 @@ export function FinanceInvoiceComposer({
 
         {/* Notes + totals */}
         <div className="grid border-b border-cream-200 lg:grid-cols-[1fr_minmax(200px,240px)] lg:divide-x lg:divide-cream-200 dark:border-hairline-dark dark:lg:divide-hairline-dark">
-          <div className="px-4 py-3 sm:px-4">
-            <Field label={isQuote ? "Terms & notes" : "Notes (optional)"} compact>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder={
-                  isQuote
-                    ? "Prices valid 14 days, payment terms…"
-                    : "Payment terms, thank-you note…"
-                }
-                rows={3}
-                className={textareaFieldCx}
-              />
-            </Field>
-          </div>
+          {!quickMode ? (
+            <div className="px-4 py-3 sm:px-4">
+              <Field label={isQuote ? "Terms & notes" : "Notes (optional)"} compact>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={
+                    isQuote
+                      ? "Prices valid 14 days, payment terms…"
+                      : "Payment terms, thank-you note…"
+                  }
+                  rows={3}
+                  className={textareaFieldCx}
+                />
+              </Field>
+            </div>
+          ) : null}
 
-          <div className="divide-y divide-cream-200 border-t border-cream-200 lg:border-t-0 dark:divide-hairline-dark dark:border-hairline-dark">
+          <div className={cn(
+            "divide-y divide-cream-200 border-t border-cream-200 lg:border-t-0 dark:divide-hairline-dark dark:border-hairline-dark",
+            quickMode && "lg:col-span-2",
+          )}>
             <SummaryRow label="Subtotal" value={fmtAmount(totals.amount_myr)} />
-            <SummaryRow
-              label="Discount (RM)"
-              input={
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={discountMyr}
-                  onChange={(e) => setDiscountMyr(e.target.value)}
-                  className={summaryInputCx}
+            {!quickMode ? (
+              <>
+                <SummaryRow
+                  label="Discount (RM)"
+                  input={
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={discountMyr}
+                      onChange={(e) => setDiscountMyr(e.target.value)}
+                      className={summaryInputCx}
+                    />
+                  }
                 />
-              }
-            />
-            <SummaryRow label="Tax (RM)" value={fmtAmount(totals.tax_myr)} />
-            <SummaryRow
-              label={sstEnabled ? "SST / tax (%)" : "Tax (%)"}
-              input={
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={taxPct}
-                  onChange={(e) => setTaxPct(e.target.value)}
-                  className={summaryInputCx}
+                <SummaryRow label={sstEnabled ? "SST (RM)" : "Tax (RM)"} value={fmtAmount(totals.tax_myr)} />
+                <SummaryRow
+                  label={sstEnabled ? "SST / tax (%)" : "Tax (%)"}
+                  input={
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={taxPct}
+                      onChange={(e) => setTaxPct(e.target.value)}
+                      className={summaryInputCx}
+                    />
+                  }
                 />
-              }
-            />
-            <SummaryRow
-              label="Shipping"
-              input={
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={shippingMyr}
-                  onChange={(e) => setShippingMyr(e.target.value)}
-                  className={summaryInputCx}
+                <SummaryRow
+                  label="Shipping"
+                  input={
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={shippingMyr}
+                      onChange={(e) => setShippingMyr(e.target.value)}
+                      className={summaryInputCx}
+                    />
+                  }
                 />
-              }
-            />
+              </>
+            ) : null}
             <SummaryRow
               label="Final total"
               value={fmtAmount(totals.total_myr)}
               strong
             />
+            <div className="px-3 py-2">
+              <button
+                type="button"
+                onClick={() => setQuickMode((v) => !v)}
+                className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300"
+              >
+                {quickMode
+                  ? "+ Add notes, discounts, tax & shipping"
+                  : "− Hide advanced options"}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Payment + attachment */}
+        {!quickMode ? (
         <div
           className={cn(
             "divide-y divide-cream-200 dark:divide-hairline-dark",
@@ -1518,6 +1540,7 @@ export function FinanceInvoiceComposer({
             />
           </div>
         </div>
+        ) : null}
       </div>
 
       {formError ? (

@@ -524,12 +524,12 @@ export function FinanceExpensesPanel({
           <button
             type="button"
             onClick={() => setShowMore((v) => !v)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 dark:text-brand-200"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-800/50 dark:bg-brand-900/20 dark:text-brand-200 dark:hover:bg-brand-900/40"
           >
             <ChevronDown
               className={cn("h-3.5 w-3.5 transition-transform", showMore && "rotate-180")}
             />
-            {showMore ? "Less options" : "Vendor, date & payment"}
+            {showMore ? "Hide extra details" : "Add vendor, date & payment method"}
           </button>
 
           {showMore ? (

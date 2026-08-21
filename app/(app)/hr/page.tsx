@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Card, CardBody } from "@/components/ui/card";
+import { HrGuideJourney } from "@/components/hr/HrGuideJourney";
 import { HrOverview } from "@/components/hr/HrOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canAccessStaffMe, canManageHrCore } from "@/lib/hr/access";
@@ -50,11 +51,14 @@ export default async function HrPage() {
   ]);
 
   return (
-    <HrOverview
-      dashboard={dashboard}
-      appraisalAddonActive={appraisalAddonActive}
-      appraisals={appraisals}
-      contractExpiring={contractExpiring}
-    />
+    <>
+      <HrGuideJourney businessId={user.businessId} />
+      <HrOverview
+        dashboard={dashboard}
+        appraisalAddonActive={appraisalAddonActive}
+        appraisals={appraisals}
+        contractExpiring={contractExpiring}
+      />
+    </>
   );
 }

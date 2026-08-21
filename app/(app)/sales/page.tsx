@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { SalesGuideJourney } from "@/components/sales/SalesGuideJourney";
 import { SalesOverview } from "@/components/sales/SalesOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageSalesCore, canUseLeads, canUsePos } from "@/lib/sales/access";
@@ -21,11 +22,14 @@ export default async function SalesPage() {
   const data = await loadSalesDashboard(supabase, user.businessId);
 
   return (
-    <SalesOverview
-      data={data}
-      showPos={canUsePos(user.role)}
-      showLeads={canUseLeads(user.role)}
-      showHistory={canManageSalesCore(user.role)}
-    />
+    <>
+      <SalesGuideJourney businessId={user.businessId} />
+      <SalesOverview
+        data={data}
+        showPos={canUsePos(user.role)}
+        showLeads={canUseLeads(user.role)}
+        showHistory={canManageSalesCore(user.role)}
+      />
+    </>
   );
 }
