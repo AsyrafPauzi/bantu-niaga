@@ -42,7 +42,7 @@ export function KpiTile({
             {label}
           </p>
           {icon ? (
-            <span className="rounded-md bg-brand-50 p-1.5 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+            <span className="rounded-none bg-brand-50 p-1.5 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
               <span className="inline-flex [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
             </span>
           ) : null}

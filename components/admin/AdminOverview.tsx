@@ -539,7 +539,7 @@ export function AdminOverview({
                 data.recentFiles.map((file) => (
                   <AdminOverviewRow
                     key={file.id}
-                    href="/admin/storage"
+                    href={`/admin/storage?highlight=${file.id}`}
                     title={file.file_name}
                     subtitle={fileCategoryLabel(file.category)}
                     trailing={
