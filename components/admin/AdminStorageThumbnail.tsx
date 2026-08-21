@@ -70,7 +70,7 @@ export function AdminStorageThumbnail({
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
-          "flex h-full w-full flex-col items-center justify-center gap-1 bg-red-50/80 text-red-800 hover:bg-red-100/80 dark:bg-red-950/30 dark:text-red-200",
+          "flex h-full w-full flex-col items-center justify-center gap-1 bg-red-50/80 p-2 text-red-800 hover:bg-red-100/80 dark:bg-red-950/30 dark:text-red-200",
           className,
         )}
         title="Open PDF preview"
