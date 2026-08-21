@@ -13,7 +13,6 @@ type ScanState =
   | "idle"
   | "requesting"
   | "scanning"
-  | "unsupported"
   | "denied";
 
 declare class BarcodeDetector {
@@ -24,14 +23,21 @@ declare class BarcodeDetector {
 
 /**
  * Camera-based barcode scanner modal.
- * Uses the native BarcodeDetector Web API (Chrome/Edge/Android).
- * Falls back to a manual text-entry input on unsupported browsers (Safari/iOS).
+ *
+ * Detection strategy (most-capable first):
+ *  1. Native BarcodeDetector API  — Chrome Android, Edge, Samsung Browser
+ *  2. @zxing/browser              — iOS Chrome, Safari, Firefox, all others
+ *
+ * Both paths share the same <video> element and getUserMedia stream so the
+ * camera permission prompt only fires once.
  */
 export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
-  const detectorRef = useRef<BarcodeDetector | null>(null);
+  const nativeDetectorRef = useRef<BarcodeDetector | null>(null);
+  const zxingStopRef = useRef<(() => void) | null>(null);
+
   const [state, setState] = useState<ScanState>("idle");
   const [manualCode, setManualCode] = useState("");
   const [lastScanned, setLastScanned] = useState<string | null>(null);
@@ -40,6 +46,10 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
     if (rafRef.current != null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
+    }
+    if (zxingStopRef.current) {
+      zxingStopRef.current();
+      zxingStopRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
@@ -56,51 +66,51 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
   }, [onClose, stopCamera]);
 
   const startCamera = useCallback(async () => {
-    // Check BarcodeDetector support
-    if (typeof window === "undefined" || !("BarcodeDetector" in window)) {
-      setState("unsupported");
-      return;
-    }
-
     setState("requesting");
 
+    let stream: MediaStream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
         audio: false,
       });
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+    } catch (err) {
+      const name = (err as Error)?.name;
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        setState("denied");
+      } else {
+        // Camera hardware unavailable — fall back to manual entry only
+        setState("idle");
       }
+      return;
+    }
 
-      detectorRef.current = new BarcodeDetector({
+    streamRef.current = stream;
+    const video = videoRef.current;
+    if (video) {
+      video.srcObject = stream;
+      await video.play();
+    }
+
+    setState("scanning");
+
+    /* ── Path 1: native BarcodeDetector (Chrome Android, Edge) ── */
+    if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+      nativeDetectorRef.current = new BarcodeDetector({
         formats: [
-          "ean_13",
-          "ean_8",
-          "code_128",
-          "code_39",
-          "qr_code",
-          "upc_a",
-          "upc_e",
-          "data_matrix",
-          "itf",
+          "ean_13", "ean_8", "code_128", "code_39",
+          "qr_code", "upc_a", "upc_e", "data_matrix", "itf",
         ],
       });
 
-      setState("scanning");
-
       function tick() {
-        const video = videoRef.current;
-        const detector = detectorRef.current;
-        if (!video || !detector || video.readyState < 2) {
+        const vid = videoRef.current;
+        const det = nativeDetectorRef.current;
+        if (!vid || !det || vid.readyState < 2) {
           rafRef.current = requestAnimationFrame(tick);
           return;
         }
-        detector
-          .detect(video)
+        det.detect(vid)
           .then((results) => {
             if (results.length > 0) {
               const code = results[0].rawValue;
@@ -115,22 +125,43 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
             rafRef.current = requestAnimationFrame(tick);
           });
       }
-
       rafRef.current = requestAnimationFrame(tick);
-    } catch (err) {
-      const name = (err as Error)?.name;
-      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-        setState("denied");
-      } else {
-        setState("unsupported");
-      }
+      return;
+    }
+
+    /* ── Path 2: @zxing/browser (iOS Chrome, Safari, Firefox) ── */
+    try {
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const reader = new BrowserMultiFormatReader();
+      const vid = videoRef.current;
+      if (!vid) return;
+
+      // Attach stream we already opened — ZXing will read from it
+      vid.srcObject = stream;
+
+      const controls = await reader.decodeFromStream(stream, vid, (result, err) => {
+        if (result) {
+          const code = result.getText();
+          setLastScanned(code);
+          controls.stop();
+          zxingStopRef.current = null;
+          stopCamera();
+          onDetected(code);
+        }
+        // err is normal when no barcode found in frame — ignore
+        void err;
+      });
+
+      zxingStopRef.current = () => controls.stop();
+    } catch {
+      // ZXing failed to load or decode — camera still open for manual use
     }
   }, [onDetected, stopCamera]);
 
-  // On mount: query the Permissions API to decide the initial state.
-  //  - "granted"  → auto-start immediately (permission already given, no popup needed)
-  //  - "denied"   → skip getUserMedia entirely and show blocked instructions
-  //  - "prompt"   → wait for user tap so the popup is triggered by a real gesture
+  // On mount: query Permissions API to decide initial state.
+  //  - "granted" → auto-start (no popup needed)
+  //  - "denied"  → show blocked instructions without calling getUserMedia
+  //  - "prompt"  → stay idle so user tap triggers the popup via user gesture
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.permissions) {
       return () => stopCamera();
@@ -138,18 +169,14 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
     navigator.permissions
       .query({ name: "camera" as PermissionName })
       .then((result) => {
-        if (result.state === "granted") {
-          void startCamera();
-        } else if (result.state === "denied") {
-          setState("denied");
-        }
-        // "prompt" → stay on "idle", let the user click the button
+        if (result.state === "granted") void startCamera();
+        else if (result.state === "denied") setState("denied");
       })
       .catch(() => {
-        // Permissions API not supported for camera on this browser — stay idle
+        // Permissions API unavailable for camera — stay idle
       });
     return () => stopCamera();
-  }, []);
+  }, []); // intentionally omit deps — runs once on mount
 
   function submitManual(e: React.FormEvent) {
     e.preventDefault();
@@ -180,7 +207,7 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
         </div>
 
         <div className="p-4">
-          {/* Idle — prompt user to tap so getUserMedia runs from a real user gesture */}
+          {/* Idle — tap to trigger camera permission popup via user gesture */}
           {state === "idle" && (
             <button
               type="button"
@@ -192,7 +219,7 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
                 Tap to start camera
               </span>
               <span className="text-xs text-blue-500 dark:text-blue-400">
-                Your browser will ask for camera permission
+                Works on all browsers · iOS, Android, desktop
               </span>
             </button>
           )}
@@ -213,15 +240,12 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
               )}
               {state === "scanning" && (
                 <>
-                  {/* Targeting overlay */}
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <div className="relative h-40 w-48">
-                      {/* Corner brackets */}
                       <span className="absolute left-0 top-0 h-6 w-6 rounded-tl-lg border-l-2 border-t-2 border-blue-400" />
                       <span className="absolute right-0 top-0 h-6 w-6 rounded-tr-lg border-r-2 border-t-2 border-blue-400" />
                       <span className="absolute bottom-0 left-0 h-6 w-6 rounded-bl-lg border-b-2 border-l-2 border-blue-400" />
                       <span className="absolute bottom-0 right-0 h-6 w-6 rounded-br-lg border-b-2 border-r-2 border-blue-400" />
-                      {/* Scan line animation */}
                       <span className="animate-scan-line absolute left-1 right-1 h-px bg-blue-400/70" />
                     </div>
                   </div>
@@ -239,9 +263,9 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
               <p className="text-sm font-semibold text-red-700 dark:text-red-300">
                 Camera access blocked
               </p>
-              <ol className="mt-2 space-y-1 text-xs text-red-600 dark:text-red-400 list-decimal list-inside">
-                <li>Click the <strong>lock 🔒</strong> or <strong>camera 📷</strong> icon in your browser address bar</li>
-                <li>Find <strong>Camera</strong> and change it to <strong>Allow</strong></li>
+              <ol className="mt-2 list-decimal list-inside space-y-1 text-xs text-red-600 dark:text-red-400">
+                <li>Tap the <strong>lock 🔒</strong> or <strong>camera 📷</strong> icon in the address bar</li>
+                <li>Set <strong>Camera</strong> to <strong>Allow</strong></li>
                 <li>Reload the page, then open the scanner again</li>
               </ol>
               <div className="mt-3 flex gap-2">
@@ -263,19 +287,7 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
             </div>
           )}
 
-          {/* Unsupported state */}
-          {state === "unsupported" && (
-            <div className="rounded-xl bg-amber-50 p-3 text-center dark:bg-amber-950/20">
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                Camera scanning not supported
-              </p>
-              <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
-                Use Chrome or Edge for camera scanning.
-              </p>
-            </div>
-          )}
-
-          {/* Manual entry fallback — always shown below camera */}
+          {/* Manual entry fallback — always shown */}
           <div className="mt-4">
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-500">
               Or enter barcode manually
