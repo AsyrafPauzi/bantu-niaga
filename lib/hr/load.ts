@@ -6,6 +6,7 @@ import { isEmployeeProfileIncomplete } from "@/lib/hr/profile-completion";
 import { dedupeHolidayRows } from "@/lib/hr/holiday-dedupe";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadPillarNotifications, type PillarNotificationItem } from "@/lib/notifications/load-pillar";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface HrEmployeeLeaveBalance {
   leaveYear: number;
@@ -174,8 +175,9 @@ export async function loadHrEmployeeLeaveBalanceSummary(
 
 export async function loadHrEmployees(
   businessId: string,
+  clientOverride?: SupabaseClient,
 ): Promise<HrEmployeeRow[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = clientOverride ?? await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("hr_employees")
     .select(EMPLOYEE_LIST_SELECT)
@@ -299,8 +301,9 @@ export async function loadStaffMeOnboardingItems(
 
 export async function loadHrDocuments(
   businessId: string,
+  clientOverride?: SupabaseClient,
 ): Promise<HrDocumentRow[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = clientOverride ?? await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("hr_employee_documents")
     .select(
@@ -351,8 +354,9 @@ export async function loadHrStaffAppraisals(
 
 export async function loadHrPublicHolidays(
   businessId: string,
+  clientOverride?: SupabaseClient,
 ): Promise<HrHolidayRow[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = clientOverride ?? await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("hr_public_holidays")
     .select("id, state_code, holiday_date, name")
@@ -372,8 +376,9 @@ const LEAVE_DASHBOARD_SELECT =
 
 export async function loadHrDashboard(
   businessId: string,
+  clientOverride?: SupabaseClient,
 ): Promise<HrDashboardData> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = clientOverride ?? await createSupabaseServerClient();
   const today = todayIso();
   const weekEnd = addDaysYmd(today, 6);
   const monthPrefix = today.slice(0, 7);
@@ -390,7 +395,7 @@ export async function loadHrDashboard(
     holidays,
     notifications,
   ] = await Promise.all([
-    loadHrEmployees(businessId),
+    loadHrEmployees(businessId, supabase),
     supabase
       .from("hr_leave_records")
       .select(LEAVE_DASHBOARD_SELECT)
@@ -435,8 +440,8 @@ export async function loadHrDashboard(
       .eq("business_id", businessId)
       .order("created_at", { ascending: false })
       .limit(100),
-    loadHrDocuments(businessId),
-    loadHrPublicHolidays(businessId),
+    loadHrDocuments(businessId, supabase),
+    loadHrPublicHolidays(businessId, supabase),
     loadPillarNotifications(supabase, businessId, "hr", 12),
   ]);
 

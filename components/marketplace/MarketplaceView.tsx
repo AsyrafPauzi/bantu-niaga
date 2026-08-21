@@ -6,21 +6,10 @@ import {
   CheckCircle2,
   Clock3,
   Loader2,
-  Plus,
   Search,
-  Settings2,
-  ShoppingCart,
-  Sparkles,
-  Star,
   X,
 } from "lucide-react";
-import {
-  CADENCE_LABEL,
-  PILLAR_LABEL,
-  formatMyr,
-  type AddonPillar,
-  type CatalogEntry,
-} from "@/lib/marketplace/types";
+import { type CatalogEntry } from "@/lib/marketplace/types";
 import {
   addonIcon,
   addonStatusLine,
@@ -28,7 +17,6 @@ import {
   isAddonActive,
   isAddonFeatureEnabled,
   isSubscribedMarketplaceAddon,
-  isTierBundledAddon,
   filterMarketplaceCatalog,
   resolveNextChargeDate,
   sortActiveEntries,
@@ -41,18 +29,22 @@ import {
   type AddonMarketCategory,
 } from "@/lib/marketplace/addon-market-categories";
 import {
-  isCreditTopupAddon,
   isCreditTopupSlug,
 } from "@/lib/marketplace/credit-topup-purchase";
 import { buildMarketplaceBundles } from "@/lib/marketplace/bundle-display";
 import { BUSINESS_BUNDLES } from "@/lib/onboarding/business-bundles";
 import { BundleCard } from "@/components/marketplace/BundleCard";
-import { tierBy, type TierKey } from "@/lib/settings/plans";
 import { cn } from "@/lib/utils/cn";
+import { AddonCard } from "./AddonCard";
+import { FeaturedBanner } from "./FeaturedBanner";
+import { MarketplaceModal } from "./MarketplaceModal";
 import {
-  planIncludesAgentSlug,
-  TIER_PILLARS_MAP,
-} from "@/lib/settings/tier-agents";
+  addonEligibility,
+  isTierKey,
+  labelFor,
+  tierLabel,
+  type FilterKey,
+} from "./marketplace-utils";
 
 interface Props {
   initial: CatalogEntry[];
@@ -61,35 +53,10 @@ interface Props {
   subscriptionRenewalAt: string | null;
 }
 
-type FilterKey =
-  | "all"
-  | "active"
-  | "bundles"
-  | AddonPillar
-  | AddonMarketCategory;
-type ModuleAddonPillar = Exclude<AddonPillar, "ai" | "cross">;
-
 const MARKET_CATEGORY_FILTERS: { key: AddonMarketCategory; label: string }[] = [
   { key: "automation", label: ADDON_MARKET_CATEGORY_LABEL.automation },
   { key: "scale", label: ADDON_MARKET_CATEGORY_LABEL.scale },
   { key: "other", label: ADDON_MARKET_CATEGORY_LABEL.other },
-];
-
-const TIER_LABEL: Record<TierKey, string> = {
-  starter: "Free",
-  basic: "Basic",
-  micro: "Solo",
-  sme: "Micro",
-  enterprise: "Small",
-};
-
-const MODULE_ADDON_PILLARS: readonly ModuleAddonPillar[] = [
-  "admin",
-  "finance",
-  "operations",
-  "sales",
-  "marketing",
-  "hr",
 ];
 
 /**
@@ -113,51 +80,6 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All add-ons" },
   { key: "active", label: "Active" },
 ];
-
-function isTierKey(value: string): value is TierKey {
-  return (
-    value === "starter" ||
-    value === "basic" ||
-    value === "micro" ||
-    value === "sme" ||
-    value === "enterprise"
-  );
-}
-
-function isModuleAddonPillar(value: AddonPillar): value is ModuleAddonPillar {
-  return (MODULE_ADDON_PILLARS as readonly string[]).includes(value);
-}
-
-function addonEligibility(addon: CatalogEntry["addon"], tier: string) {
-  if (!isTierKey(tier)) return { canActivate: false, reason: "Unknown plan." };
-  if (planIncludesAgentSlug(tier, addon.slug)) {
-    return {
-      canActivate: false,
-      reason: "Included in your plan — configure in Settings → AI agents.",
-    };
-  }
-  if (tier === "starter") {
-    return {
-      canActivate: false,
-      reason: "Free plan cannot activate add-ons. Upgrade to Basic or higher.",
-    };
-  }
-  const tierPillars = TIER_PILLARS_MAP[tier];
-  if (
-    isModuleAddonPillar(addon.pillar) &&
-    !tierPillars.includes(addon.pillar)
-  ) {
-    const minTier = Object.entries(TIER_PILLARS_MAP).find(([, pillars]) =>
-      pillars.includes(addon.pillar as ModuleAddonPillar),
-    )?.[0];
-    const label = minTier ? tierBy(minTier as TierKey)?.label : "a higher plan";
-    return {
-      canActivate: false,
-      reason: `${PILLAR_LABEL[addon.pillar]} add-ons require ${label} or higher.`,
-    };
-  }
-  return { canActivate: true, reason: null };
-}
 
 export function MarketplaceView({
   initial,
@@ -470,10 +392,6 @@ export function MarketplaceView({
     } finally {
       setBusySlug(null);
     }
-  }
-
-  async function deactivate(slug: string) {
-    return cancelAddon(slug);
   }
 
   return (
@@ -791,9 +709,9 @@ export function MarketplaceView({
         </section>
       ) : null}
 
-      {/* Deactivate confirm modal */}
+      {/* Confirm modal */}
       {confirm ? (
-        <Modal onClose={() => setConfirm(null)}>
+        <MarketplaceModal onClose={() => setConfirm(null)}>
           <h3 className="text-lg font-semibold text-ink dark:text-cream-100">
             {confirm.kind === "cancel"
               ? `Cancel ${confirm.name}?`
@@ -833,342 +751,8 @@ export function MarketplaceView({
               {confirm.kind === "cancel" ? "Cancel subscription" : "Disable"}
             </button>
           </div>
-        </Modal>
+        </MarketplaceModal>
       ) : null}
     </div>
   );
-}
-
-function AddonCard({
-  entry,
-  canEdit,
-  busy,
-  tier,
-  onActivate,
-  onBuyCreditTopup,
-  onDeactivate,
-  onDisable,
-  onEnable,
-}: {
-  entry: CatalogEntry;
-  canEdit: boolean;
-  busy: boolean;
-  tier: string;
-  onActivate: () => void;
-  onBuyCreditTopup: () => void;
-  onDeactivate: () => void;
-  onDisable: () => void;
-  onEnable: () => void;
-}) {
-  const { addon, activation } = entry;
-  const Icon = addonIcon(addon.icon);
-  const isCreditTopup = isCreditTopupAddon(addon);
-  const isActive = isAddonActive(entry, tier);
-  const isCancelling = !!activation?.cancel_at;
-  const featureDisabled = isAddonFeatureDisabled(activation);
-  const featureEnabled = isAddonFeatureEnabled(entry);
-  const isTierBundled = isTierBundledAddon(entry, tier);
-  const isIncluded =
-    isTierBundled || addon.included_in_tier.includes(tier);
-  const isComingSoon = addon.is_coming_soon;
-  const eligibility = addonEligibility(addon, tier);
-  const priceLabel = isIncluded ? "Included" : formatMyr(addon.price_cents);
-  const cadenceLabel = isIncluded
-    ? `in your ${tierLabel(tier)} plan`
-    : isCreditTopup
-      ? "one-time top-up"
-      : addon.cadence === "monthly"
-        ? "/month"
-        : addon.cadence === "yearly"
-          ? "/year"
-          : "one-time";
-
-  return (
-    <article
-      className={`flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-card transition-colors dark:bg-panel-dark ${
-        isActive
-          ? "border-2 border-status-success"
-          : "border border-cream-300 dark:border-hairline-dark"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <span
-          className={`grid h-11 w-11 place-items-center rounded-xl ${
-            isActive
-              ? "bg-status-success/10 text-status-success"
-              : "bg-brand-50 text-brand-700 dark:bg-brand-700/15 dark:text-brand-200"
-          }`}
-        >
-          <Icon className="h-5 w-5" strokeWidth={2} />
-        </span>
-        {isActive ? (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
-              featureDisabled
-                ? "bg-cream-200 text-ink-muted dark:bg-hairline-dark dark:text-cream-400"
-                : "bg-status-success/15 text-status-success",
-            )}
-          >
-            <span
-              className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                featureDisabled ? "bg-ink-subtle" : "bg-status-success",
-              )}
-            />
-            {isCancelling ? "Cancels soon" : featureDisabled ? "Disabled" : "Active"}
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-full bg-accent-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-700">
-            {isCreditTopup ? "Top-up" : PILLAR_LABEL[addon.pillar]}
-          </span>
-        )}
-      </div>
-
-      <div>
-        <h3 className="text-base font-semibold text-ink dark:text-cream-100">
-          {addon.name}
-        </h3>
-        <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
-          {addon.short_desc}
-        </p>
-      </div>
-
-      <div className="mt-auto flex items-end justify-between pt-2">
-        <div>
-          <p
-            className={`text-lg font-bold ${
-              isIncluded
-                ? "text-status-success"
-                : "text-ink dark:text-cream-100"
-            }`}
-          >
-            {priceLabel}
-          </p>
-          <p className="text-[11px] text-ink-muted dark:text-cream-400">
-            {cadenceLabel}
-          </p>
-        </div>
-        {isCreditTopup ? (
-          <button
-            onClick={onBuyCreditTopup}
-            disabled={!canEdit || busy || !eligibility.canActivate}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busy ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <ShoppingCart className="h-3.5 w-3.5" />
-            )}
-            {eligibility.canActivate ? "Buy" : "Upgrade"}
-          </button>
-        ) : isActive ? (
-          isTierBundled ? (
-            <span className="rounded-lg bg-status-success/10 px-3 py-1.5 text-xs font-semibold text-status-success">
-              Included in plan
-            </span>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {featureEnabled ? (
-                <button
-                  onClick={onDisable}
-                  disabled={!canEdit || busy}
-                  className="rounded-lg border border-cream-300 bg-cream-100 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-                >
-                  Disable
-                </button>
-              ) : (
-                <button
-                  onClick={onEnable}
-                  disabled={!canEdit || busy}
-                  className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Enable
-                </button>
-              )}
-              {!isCancelling ? (
-                <button
-                  onClick={onDeactivate}
-                  disabled={!canEdit || busy}
-                  className="rounded-lg border border-cream-300 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:text-cream-400 dark:hover:text-cream-100"
-                >
-                  Cancel
-                </button>
-              ) : null}
-            </div>
-          )
-        ) : isComingSoon ? (
-          <span className="rounded-lg bg-cream-100 px-3 py-1.5 text-xs font-semibold text-ink-muted dark:bg-panel-dark dark:text-cream-400">
-            Coming soon
-          </span>
-        ) : isIncluded ? (
-          <button
-            onClick={onActivate}
-            disabled={!canEdit || busy || !eligibility.canActivate}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-            Configure
-          </button>
-        ) : (
-          <button
-            onClick={onActivate}
-            disabled={!canEdit || busy || !eligibility.canActivate}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busy ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Plus className="h-3.5 w-3.5" />
-            )}
-            {eligibility.canActivate ? "Activate" : "Upgrade"}
-          </button>
-        )}
-      </div>
-      {!isCreditTopup && !isActive && !eligibility.canActivate ? (
-        <p className="rounded-lg bg-status-warning/10 px-3 py-2 text-xs text-ink-muted dark:text-cream-400">
-          {eligibility.reason}
-        </p>
-      ) : null}
-    </article>
-  );
-}
-
-function FeaturedBanner({
-  entry,
-  busy,
-  canEdit,
-  tier,
-  onActivate,
-  onDeactivate,
-}: {
-  entry: CatalogEntry;
-  busy: boolean;
-  canEdit: boolean;
-  tier: string;
-  onActivate: () => void;
-  onDeactivate: () => void;
-}) {
-  const Icon = addonIcon(entry.addon.icon);
-  const isActive = isAddonActive(entry, tier);
-  const isTierBundled = isTierBundledAddon(entry, tier);
-  const isComingSoon = entry.addon.is_coming_soon;
-  const eligibility = addonEligibility(entry.addon, tier);
-
-  return (
-    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500 px-6 py-6 text-white shadow-card sm:px-8 sm:py-8">
-      <div className="relative grid items-center gap-5 sm:grid-cols-[1fr_auto]">
-        <div className="space-y-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-accent-100 backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent-300" />
-            Featured
-          </span>
-          <h2 className="max-w-xl text-2xl font-bold leading-tight sm:text-[26px]">
-            {entry.addon.name}
-          </h2>
-          <p className="max-w-lg text-sm text-brand-100">
-            {entry.addon.short_desc}
-          </p>
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            {isActive ? (
-              isTierBundled ? (
-                <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Included in plan
-                </span>
-              ) : (
-                <button
-                  onClick={onDeactivate}
-                  disabled={!canEdit}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/20"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Active · Manage
-                </button>
-              )
-            ) : isComingSoon ? (
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white">
-                Coming soon
-              </span>
-            ) : (
-              <button
-                onClick={onActivate}
-                disabled={!canEdit || busy || !eligibility.canActivate}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 px-3.5 py-2 text-sm font-bold text-white hover:bg-accent-600 disabled:opacity-50"
-              >
-                {busy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-                {eligibility.canActivate
-                  ? `Activate · ${formatMyr(entry.addon.price_cents)}${CADENCE_LABEL[entry.addon.cadence]}`
-                  : "Upgrade required"}
-              </button>
-            )}
-            <a
-              href="https://supabase.com/docs"
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm font-semibold text-brand-100 hover:text-white"
-            >
-              Read setup guide →
-            </a>
-          </div>
-          {!isActive && !isComingSoon && !eligibility.canActivate ? (
-            <p className="text-xs text-brand-100">{eligibility.reason}</p>
-          ) : isComingSoon && !isActive ? (
-            <p className="text-xs text-brand-100">
-              Catalog placeholder — activation opens when this module ships.
-            </p>
-          ) : null}
-        </div>
-        <div className="hidden flex-col items-end gap-3 sm:flex">
-          <div className="grid h-24 w-24 place-items-center rounded-3xl bg-white/10 backdrop-blur">
-            <Icon className="h-12 w-12 text-white" strokeWidth={1.5} />
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-            <Star className="h-3 w-3" />
-            {isComingSoon ? "Coming soon" : "Most installed"}
-          </span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Modal({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      role="dialog"
-      aria-modal
-      className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-panel-dark"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function labelFor(key: FilterKey): string {
-  if (key === "all" || key === "active") return key === "all" ? "All" : "Active";
-  if (key === "bundles") return "Bundles";
-  if (isAddonMarketCategory(key)) return ADDON_MARKET_CATEGORY_LABEL[key];
-  if (key === "ai") return "AI extras";
-  return PILLAR_LABEL[key];
-}
-
-function tierLabel(t: string): string {
-  return isTierKey(t) ? TIER_LABEL[t] : t.slice(0, 1).toUpperCase() + t.slice(1);
 }

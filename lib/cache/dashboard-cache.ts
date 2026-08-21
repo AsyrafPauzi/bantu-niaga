@@ -23,6 +23,8 @@ import { unstable_cache, revalidateTag } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { loadSalesDashboard } from "@/lib/sales/dashboard";
 import { loadFinanceDashboard } from "@/lib/finance/dashboard";
+import { loadHrDashboard } from "@/lib/hr/load";
+import { loadOperationsDashboard } from "@/lib/operations/dashboard";
 
 // ─── Sales dashboard ─────────────────────────────────────────────────────────
 
@@ -71,4 +73,44 @@ export const loadFinanceDashboardCached = unstable_cache(
 /** Call this from invoice / expense / transaction mutation routes. */
 export function revalidateFinanceDashboard(businessId: string) {
   revalidateTag(financeCacheTag(businessId));
+}
+
+// ─── HR dashboard ─────────────────────────────────────────────────────────────
+
+function hrCacheTag(businessId: string) {
+  return `hr-dashboard:${businessId}`;
+}
+
+export const loadHrDashboardCached = unstable_cache(
+  async (businessId: string) => {
+    const supabase = createServiceRoleClient();
+    return loadHrDashboard(businessId, supabase);
+  },
+  ["hr-dashboard"],
+  { revalidate: 60, tags: ["hr-dashboard"] },
+);
+
+/** Call this from leave approval / employee mutation routes to bust the cache. */
+export function revalidateHrDashboard(businessId: string) {
+  revalidateTag(hrCacheTag(businessId));
+}
+
+// ─── Operations dashboard ──────────────────────────────────────────────────────
+
+function operationsCacheTag(businessId: string) {
+  return `operations-dashboard:${businessId}`;
+}
+
+export const loadOperationsDashboardCached = unstable_cache(
+  async (businessId: string) => {
+    const supabase = createServiceRoleClient();
+    return loadOperationsDashboard(supabase, businessId);
+  },
+  ["operations-dashboard"],
+  { revalidate: 60, tags: ["operations-dashboard"] },
+);
+
+/** Call this from order / booking mutation routes to bust the cache. */
+export function revalidateOperationsDashboard(businessId: string) {
+  revalidateTag(operationsCacheTag(businessId));
 }

@@ -4,7 +4,7 @@ import { OperationsMobileFab } from "@/components/operations/OperationsMobileFab
 import { OperationsOverview } from "@/components/operations/OperationsOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
-import { loadOperationsDashboard } from "@/lib/operations/dashboard";
+import { loadOperationsDashboardCached } from "@/lib/cache/dashboard-cache";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   getOperationsVerticalProfile,
@@ -34,7 +34,7 @@ export default async function OperationsPage() {
       .select("business_type")
       .eq("id", user.businessId)
       .maybeSingle(),
-    loadOperationsDashboard(admin, user.businessId),
+    loadOperationsDashboardCached(user.businessId),
   ]);
 
   const profile = getOperationsVerticalProfile(

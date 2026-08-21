@@ -5,7 +5,8 @@ import { HrOverview } from "@/components/hr/HrOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canAccessStaffMe, canManageHrCore } from "@/lib/hr/access";
 import { loadContractExpiringForOverview } from "@/lib/hr/contract-reminders";
-import { loadHrDashboard, loadHrStaffAppraisals } from "@/lib/hr/load";
+import { loadHrStaffAppraisals } from "@/lib/hr/load";
+import { loadHrDashboardCached } from "@/lib/cache/dashboard-cache";
 import {
   hasHrReminderPackAddon,
   hasStaffAppraisalAddon,
@@ -41,7 +42,7 @@ export default async function HrPage() {
     hasHrReminderPackAddon(user.businessId),
   ]);
   const [dashboard, appraisals, contractExpiring] = await Promise.all([
-    loadHrDashboard(user.businessId),
+    loadHrDashboardCached(user.businessId),
     appraisalAddonActive
       ? loadHrStaffAppraisals(user.businessId)
       : Promise.resolve([]),

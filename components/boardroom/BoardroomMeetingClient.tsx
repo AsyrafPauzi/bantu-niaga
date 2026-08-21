@@ -1,22 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
-  ChevronDown,
   Download,
   History,
   Loader2,
   Mic,
-  Pause,
-  Play,
-  Plus,
   Send,
-  Sparkles,
-  Square,
   Trash2,
 } from "lucide-react";
-import { StatusPill } from "@/components/dashboard/status-pill";
 import {
   BoardroomMessage,
   type BoardroomMsgMeta,
@@ -24,6 +16,10 @@ import {
 import { BoardroomTypingIndicator } from "@/components/boardroom/BoardroomTypingIndicator";
 import { DepthCheckpointCard } from "@/components/boardroom/DepthCheckpointCard";
 import { DepthConfidenceBar } from "@/components/boardroom/DepthConfidenceBar";
+import { AgentChip, AgentSeat } from "@/components/boardroom/BoardroomAgentSeats";
+import { BoardroomSessionHeader } from "@/components/boardroom/BoardroomSessionHeader";
+import { BoardroomInputBar } from "@/components/boardroom/BoardroomInputBar";
+import { BoardroomConfirmModal } from "@/components/boardroom/BoardroomConfirmModal";
 import type { BoardroomPendingAction } from "@/lib/ai/boardroom-actions";
 import type { DepthState } from "@/lib/ai/boardroom-output-schema";
 import { DEPTH_CHECKPOINT_CREDITS } from "@/lib/ai/boardroom-output-schema";
@@ -31,12 +27,9 @@ import type { DepthAction } from "@/lib/ai/boardroom-orchestrator";
 import type { BoardroomAgentState } from "@/lib/ai/boardroom-shared";
 import { BOARDROOM_MAX_INVITEES } from "@/lib/ai/boardroom-shared";
 import {
-  BOARDROOM_AGENT_ACCENT,
-  BOARDROOM_AGENT_ICON,
   boardroomAgentLabel,
   resolveBoardroomDisplayName,
   fmtMeetingWhen,
-  isBoardroomAgentId,
 } from "@/lib/ai/boardroom-ui";
 import { cn } from "@/lib/utils/cn";
 
@@ -88,78 +81,6 @@ function meetingStatusLabel(status: string): string {
   return status;
 }
 
-function AgentChip({
-  agentId,
-  label,
-  selected,
-  disabled,
-  onClick,
-}: {
-  agentId: string;
-  label: string;
-  selected: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  const Icon = isBoardroomAgentId(agentId)
-    ? BOARDROOM_AGENT_ICON[agentId]
-    : Sparkles;
-
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition",
-        disabled && "cursor-not-allowed opacity-40",
-        selected
-          ? "bg-white text-slate-900 shadow-sm"
-          : "bg-white/10 text-white/85 hover:bg-white/15",
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-      {label}
-    </button>
-  );
-}
-
-function AgentSeat({
-  agentId,
-  label,
-  active,
-}: {
-  agentId: string;
-  label: string;
-  active?: boolean;
-}) {
-  const Icon = isBoardroomAgentId(agentId)
-    ? BOARDROOM_AGENT_ICON[agentId]
-    : Sparkles;
-  const accent = isBoardroomAgentId(agentId)
-    ? BOARDROOM_AGENT_ACCENT[agentId]
-    : null;
-
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <span
-        className={cn(
-          "relative grid h-10 w-10 place-items-center rounded-xl",
-          accent ? cn(accent.bg, accent.text, active && accent.ring) : "bg-white/10 text-white/70",
-          !active && "opacity-70",
-        )}
-      >
-        <Icon className="h-4 w-4" strokeWidth={2} />
-        {active ? (
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-400" />
-        ) : null}
-      </span>
-      <span className="max-w-[4rem] truncate text-[10px] font-medium text-white/70">
-        {label}
-      </span>
-    </div>
-  );
-}
 
 export function BoardroomMeetingClient({
   agents: _agents,
@@ -611,7 +532,6 @@ export function BoardroomMeetingClient({
       meeting.status === "paused" ||
       meeting.status === "ended");
   const showSetup = !inSession;
-  const pausedOnly = meeting?.status === "paused";
 
   const selectedLabels = selected
     .map((id) => invitable.find((a) => a.id === id)?.label ?? boardroomAgentLabel(id))
@@ -744,135 +664,27 @@ export function BoardroomMeetingClient({
       <div className="overflow-hidden rounded-2xl border border-cream-200 bg-gradient-to-b from-slate-900 to-slate-950 text-white shadow-card dark:border-hairline-dark">
         {inSession ? (
           <>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusPill tone={meetingStatusTone(meeting.status)}>
-                {meetingStatusLabel(meeting.status)}
-              </StatusPill>
-              {meeting.credits_spent > 0 ? (
-                <span className="text-xs text-white/45">
-                  {meeting.credits_spent} credit
-                  {meeting.credits_spent === 1 ? "" : "s"}
-                </span>
-              ) : null}
-              {meeting.meeting_mode === "depth" ? (
-                <span className="rounded-md border border-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/60">
-                  Depth
-                </span>
-              ) : null}
-              {meeting.depth_state?.round ? (
-                <span className="text-xs text-white/45">
-                  Round {meeting.depth_state.round}
-                </span>
-              ) : null}
-              {creditBalance != null ? (
-                <span className="text-xs text-white/45">
-                  · {creditBalance} pool
-                </span>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {history.length > 0 ? (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setHistoryOpen((o) => !o)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-white/15 px-2.5 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10"
-                  >
-                    <History className="h-3.5 w-3.5" />
-                    History
-                    <ChevronDown
-                      className={cn(
-                        "h-3 w-3 transition",
-                        historyOpen && "rotate-180",
-                      )}
-                    />
-                  </button>
-                  {historyOpen ? (
-                    <div className="absolute right-0 z-10 mt-1 w-64 rounded-xl border border-cream-200 bg-white py-1 shadow-lg dark:border-hairline-dark dark:bg-panel-dark">
-                      {history.map((h) => (
-                        <div
-                          key={h.id}
-                          className="flex items-center gap-1 px-2 py-1"
-                        >
-                          <button
-                            type="button"
-                            className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left text-xs text-ink hover:bg-cream-50 dark:text-cream-100 dark:hover:bg-hairline-dark/60"
-                            onClick={() => void loadMeeting(h.id)}
-                          >
-                            {fmtMeetingWhen(h.ended_at || h.created_at)}
-                          </button>
-                          <a
-                            href={`/api/boardroom/meetings/${h.id}/pdf`}
-                            className="rounded-md p-1.5 text-brand-700 hover:bg-brand-50 dark:text-brand-200 dark:hover:bg-hairline-dark/60"
-                            title="Download PDF"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                          </a>
-                          <button
-                            type="button"
-                            disabled={deletingHistoryId === h.id}
-                            onClick={() => void deleteHistoryMeeting(h.id)}
-                            className="rounded-md p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-40 dark:text-red-400 dark:hover:bg-red-950/40"
-                            title="Delete from history"
-                          >
-                            {deletingHistoryId === h.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {meeting.status === "active" ? (
-                <>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => void patchMeeting("pause")}
-                    className="inline-flex items-center gap-1 rounded-lg border border-white/15 px-2.5 py-1.5 text-xs font-semibold hover:bg-white/10"
-                  >
-                    <Pause className="h-3.5 w-3.5" />
-                    Pause
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => void patchMeeting("end")}
-                    className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-900"
-                  >
-                    <Square className="h-3.5 w-3.5" />
-                    End
-                  </button>
-                </>
-              ) : meeting.status === "paused" ? (
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void patchMeeting("resume")}
-                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1.5 text-xs font-semibold text-white"
-                >
-                  <Play className="h-3.5 w-3.5" />
-                  Resume
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={startNewMeeting}
-                  className="inline-flex items-center gap-1 rounded-lg border border-white/15 px-2.5 py-1.5 text-xs font-semibold hover:bg-white/10"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  New meeting
-                </button>
-              )}
-            </div>
-          </div>
+          <BoardroomSessionHeader
+            meetingId={meeting.id}
+            meetingStatus={meeting.status}
+            meetingMode={meeting.meeting_mode}
+            creditsSpent={meeting.credits_spent}
+            depthRound={meeting.depth_state?.round}
+            creditBalance={creditBalance}
+            history={history}
+            historyOpen={historyOpen}
+            deletingHistoryId={deletingHistoryId}
+            loading={loading}
+            statusTone={meetingStatusTone(meeting.status)}
+            statusLabel={meetingStatusLabel(meeting.status)}
+            onToggleHistory={() => setHistoryOpen((o) => !o)}
+            onLoadMeeting={(id) => void loadMeeting(id)}
+            onDeleteHistory={(id) => void deleteHistoryMeeting(id)}
+            onPause={() => void patchMeeting("pause")}
+            onResume={() => void patchMeeting("resume")}
+            onEnd={() => void patchMeeting("end")}
+            onNewMeeting={startNewMeeting}
+          />
 
           {meeting.meeting_mode === "depth" &&
           meeting.depth_state?.confidence != null ? (
@@ -960,67 +772,15 @@ export function BoardroomMeetingClient({
             ) : null}
           </div>
 
-          {meeting.status === "active" ? (
-            <form
-              onSubmit={sendMessage}
-              className="border-t border-white/10 bg-black/20 p-4 sm:px-5"
-            >
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Mic className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    disabled={loading}
-                    placeholder={
-                      meeting.awaiting_clarifiers
-                        ? "Answer the room's questions…"
-                        : "Ask one business question…"
-                    }
-                    className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/35 focus:border-white/25 focus:outline-none focus:ring-2 focus:ring-white/10"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading || !input.trim()}
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-slate-900 disabled:opacity-40"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              <p className="mt-2 text-center text-[11px] text-white/35">
-                Clarifiers free · 1 credit per reply ·{" "}
-                <Link href="/settings/billing" className="text-white/55 hover:underline">
-                  Billing
-                </Link>
-              </p>
-            </form>
-          ) : meeting.status === "ended" ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-4 py-3 sm:px-5">
-              <a
-                href={`/api/boardroom/meetings/${meeting.id}/pdf`}
-                className="inline-flex items-center gap-2 text-xs font-semibold text-white/70 hover:text-white"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download PDF
-              </a>
-              <p className="text-[11px] text-white/35">
-                1 credit per reply ·{" "}
-                <Link href="/settings/billing" className="text-white/55 hover:underline">
-                  Billing
-                </Link>
-              </p>
-            </div>
-          ) : pausedOnly ? (
-            <p className="border-t border-white/10 px-4 py-3 text-center text-xs text-white/45">
-              Paused — resume to continue.
-            </p>
-          ) : null}
+          <BoardroomInputBar
+            meetingId={meeting.id}
+            meetingStatus={meeting.status}
+            awaitingClarifiers={meeting.awaiting_clarifiers}
+            input={input}
+            loading={loading}
+            onInputChange={setInput}
+            onSubmit={sendMessage}
+          />
           </>
         ) : (
           <>
@@ -1080,33 +840,11 @@ export function BoardroomMeetingClient({
       </div>
 
       {confirmNew ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-panel-dark">
-            <h3 className="text-lg font-bold text-ink dark:text-cream-100">
-              Replace paused meeting?
-            </h3>
-            <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
-              Starting fresh will end your paused session. It stays in history.
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmNew(false)}
-                className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold dark:border-hairline-dark"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => void startMeeting(true)}
-                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white"
-              >
-                Start new
-              </button>
-            </div>
-          </div>
-        </div>
+        <BoardroomConfirmModal
+          loading={loading}
+          onCancel={() => setConfirmNew(false)}
+          onConfirm={() => void startMeeting(true)}
+        />
       ) : null}
     </div>
   );
