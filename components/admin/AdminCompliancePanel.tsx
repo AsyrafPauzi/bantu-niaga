@@ -325,7 +325,7 @@ export function AdminCompliancePanel({
           {alerts.map((alert) => (
             <div
               key={alert.id}
-              className="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50/80 px-4 py-3 text-sm shadow-card dark:border-brand-800 dark:bg-brand-950/30"
+              className="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50/80 px-4 py-3 text-sm shadow-card dark:border-brand-700 dark:bg-brand-700/20"
             >
               <Bell className="mt-0.5 h-4 w-4 shrink-0 text-brand-700 dark:text-brand-200" />
               <p className="flex-1 font-medium text-ink dark:text-cream-100">
@@ -387,7 +387,7 @@ export function AdminCompliancePanel({
         </div>
       )}
 
-      <div className="rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-white p-4 dark:border-brand-800 dark:from-brand-950/40 dark:to-panel-dark">
+      <div className="rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-white p-4 dark:border-brand-700 dark:from-brand-700/20 dark:to-panel-dark">
         <div>
           <p className="flex items-center gap-1.5 text-sm font-semibold text-ink dark:text-cream-100">
             <Sparkles className="h-4 w-4 text-brand-600 dark:text-brand-300" />
@@ -614,7 +614,7 @@ export function AdminCompliancePanel({
                   className={cn(
                     "inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold",
                     viewMode === "list"
-                      ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
+                      ? "bg-brand-50 text-brand-800 dark:bg-brand-700/30 dark:text-brand-100"
                       : "text-ink-muted dark:text-cream-400",
                   )}
                 >
@@ -627,7 +627,7 @@ export function AdminCompliancePanel({
                   className={cn(
                     "inline-flex items-center gap-1 border-l border-cream-300 px-3 py-2 text-sm font-semibold dark:border-hairline-dark",
                     viewMode === "calendar"
-                      ? "bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
+                      ? "bg-brand-50 text-brand-800 dark:bg-brand-700/30 dark:text-brand-100"
                       : "text-ink-muted dark:text-cream-400",
                   )}
                 >
@@ -653,7 +653,7 @@ export function AdminCompliancePanel({
               </a>
               <Link
                 href={amirHref}
-                className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-800 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-100"
+                className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-800 dark:border-brand-600 dark:bg-brand-700/30 dark:text-brand-100"
               >
                 <Sparkles className="h-4 w-4" />
                 Ask Amir
