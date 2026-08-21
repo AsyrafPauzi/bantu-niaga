@@ -398,7 +398,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-2xl border border-cream-200 bg-white shadow-card dark:border-hairline-dark dark:bg-panel-dark">
           <div className="flex items-center justify-between border-b border-cream-200 px-4 py-3 dark:border-hairline-dark sm:px-5">
             <div>

@@ -45,7 +45,18 @@ const SURFACE_META: Record<
 
 const CATEGORY_PRESETS: Record<BusinessType, readonly string[]> = {
   fnb: ["Food", "Drinks", "Snacks", "Catering"],
-  retail: ["Apparel", "Footwear", "Accessories", "Grocery", "Electronics"],
+  retail: [
+    "Apparel",
+    "Footwear",
+    "Accessories",
+    "Grocery",
+    "Electronics",
+    "Cables",
+    "Chargers",
+    "Earphones",
+    "Phone Cases",
+    "Screen Protectors",
+  ],
   services: [
     "Hair & Beauty",
     "Wellness",

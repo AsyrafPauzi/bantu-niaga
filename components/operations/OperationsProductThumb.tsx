@@ -2,38 +2,64 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import {
+  Briefcase,
+  Home,
+  Laptop,
+  Package,
+  Palette,
+  ShoppingBag,
+  ShoppingCart,
+  Smartphone,
+  Sparkles,
+  Tag,
+  Utensils,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  food: "🍜",
-  drinks: "🥤",
-  snacks: "🍿",
-  catering: "🍱",
-  beverages: "🧃",
-  dessert: "🍰",
-  desserts: "🍰",
-  grocery: "🛒",
-  retail: "🛍️",
-  apparel: "👕",
-  footwear: "👟",
-  accessories: "👜",
-  electronics: "📱",
-  fashion: "👗",
-  home: "🏠",
-  beauty: "💄",
-  digital: "💾",
-  general: "📦",
-  services: "🛎️",
-  "hair & beauty": "💇",
-  wellness: "🧘",
-  consulting: "💼",
-  repair: "🔧",
-  homestay: "🏠",
+const CATEGORY_ICON: Record<string, LucideIcon> = {
+  food: Utensils,
+  drinks: Sparkles,
+  snacks: ShoppingBag,
+  catering: Utensils,
+  beverages: Sparkles,
+  dessert: Sparkles,
+  desserts: Sparkles,
+  grocery: ShoppingCart,
+  retail: ShoppingBag,
+  apparel: ShoppingBag,
+  footwear: ShoppingBag,
+  accessories: Tag,
+  electronics: Smartphone,
+  fashion: Palette,
+  home: Home,
+  beauty: Sparkles,
+  digital: Laptop,
+  general: Package,
+  services: Briefcase,
+  "hair & beauty": Sparkles,
+  wellness: Sparkles,
+  consulting: Briefcase,
+  repair: Wrench,
+  homestay: Home,
 };
 
-export function categoryEmoji(category: string | null | undefined): string {
-  if (!category?.trim()) return "📦";
-  return CATEGORY_EMOJI[category.trim().toLowerCase()] ?? "🏷️";
+export function categoryEmoji(_category: string | null | undefined): string {
+  return "";
+}
+
+export function CategoryIcon({
+  category,
+  className,
+}: {
+  category: string | null | undefined;
+  className?: string;
+}) {
+  const key = category?.trim().toLowerCase() ?? "";
+  const Icon = CATEGORY_ICON[key] ?? (key ? Tag : Package);
+  return <Icon className={className} />;
 }
 
 interface OperationsProductThumbProps {
@@ -76,7 +102,7 @@ export function OperationsProductThumb({
     };
   }, [imageFileId]);
 
-  const emoji = categoryEmoji(category);
+  const iconSize = size === "sm" ? "h-4 w-4" : "h-6 w-6";
   const sizeClass = size === "sm" ? "h-11 w-11 rounded-lg" : "h-14 w-14 rounded-xl";
 
   return (
@@ -92,10 +118,10 @@ export function OperationsProductThumb({
         <Image src={src} alt="" fill className="object-cover" sizes="96px" />
       ) : (
         <div
-          className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-50/90 to-sky-50/80 dark:from-emerald-950/40 dark:to-sky-950/30"
+          className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-50/90 to-sky-50/80 text-ink-muted dark:from-emerald-950/40 dark:to-sky-950/30 dark:text-cream-400"
           title={name}
         >
-          <span className={size === "sm" ? "text-lg" : "text-2xl"}>{emoji}</span>
+          <CategoryIcon category={category} className={iconSize} />
         </div>
       )}
     </div>

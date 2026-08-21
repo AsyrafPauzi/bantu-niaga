@@ -77,7 +77,7 @@ export function TenantAgentRoutingEditor({
         return (
           <div
             key={agent.slug}
-            className="rounded-xl border border-cream-300 bg-white p-4 shadow-card"
+            className="rounded-xl border border-cream-300 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -110,7 +110,7 @@ export function TenantAgentRoutingEditor({
                       reasoning_mode: e.target.value as ReasoningMode,
                     })
                   }
-                  className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
                 >
                   <option value="fast">Fast ({REASONING_MODE_MODELS.fast})</option>
                   <option value="deep">Deep ({REASONING_MODE_MODELS.deep})</option>
@@ -129,7 +129,7 @@ export function TenantAgentRoutingEditor({
                       model_override: e.target.value || null,
                     })
                   }
-                  className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
                 >
                   <option value="">None (use mode default)</option>
                   {ALLOWED_MODEL_OVERRIDES.map((m) => (

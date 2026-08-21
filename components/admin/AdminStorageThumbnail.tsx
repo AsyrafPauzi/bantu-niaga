@@ -51,7 +51,7 @@ export function AdminStorageThumbnail({
 
   if (isImage && url && !failed) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
+       
       <img
         src={url}
         alt={fileName}

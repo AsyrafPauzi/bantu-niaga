@@ -123,7 +123,9 @@ export function SummaryRow({
       >
         {label}
       </span>
-      {input ?? (
+      {input ? (
+        <div className="flex justify-end">{input}</div>
+      ) : (
         <span
           className={cn(
             "text-right text-sm tabular-nums",

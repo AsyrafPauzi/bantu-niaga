@@ -184,10 +184,14 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     return NextResponse.json({ settings: data }, { status: 200 });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not save settings.";
+    console.error("[ai-agents.settings.save]", err);
     return NextResponse.json(
-      { error: "server_error", message },
+      {
+        error: "server_error",
+        message:
+          "We couldn't save the agent settings right now. " +
+          "Your changes have not been applied. Please try again in a moment.",
+      },
       { status: 500 },
     );
   }

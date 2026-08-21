@@ -2,6 +2,11 @@ import "server-only";
 
 import { buildAdminAssistantRules } from "@/lib/ai/admin-assistant-prompt";
 import {
+  ADMIN_ASSISTANT_TOOLS,
+  executeAdminAssistantTool,
+  isAdminActionTool,
+} from "@/lib/ai/admin-assistant-tools";
+import {
   composeStaffAgentSystemPrompt,
   loadPublishedAgentScope,
 } from "@/lib/ai/agent-scope-runtime";
@@ -82,11 +87,9 @@ export async function runAdminAssistantChat(
       ? [userLanguageInstruction(lang)].filter(Boolean)
       : undefined,
   });
-  const messages: AgentChatMessage[] = [
-    {
-      role: "system",
-      content: systemContent,
-    },
+
+  const baseMessages: AgentChatMessage[] = [
+    { role: "system", content: systemContent },
     ...history.map((turn) => ({
       role: turn.role,
       content: turn.content,
@@ -94,18 +97,73 @@ export async function runAdminAssistantChat(
     { role: "user", content: userMessage },
   ];
 
-  const completion = await openaiChat<ChatCompletionResponse>({
+  let completion = await openaiChat<ChatCompletionResponse>({
     model,
     briefingFor: "admin",
     context: ctx,
     temperature: 0.2,
     max_tokens: STAFF_ASSISTANT_MAX_TOKENS,
-    messages,
+    messages: baseMessages,
+    tools: ADMIN_ASSISTANT_TOOLS,
+    tool_choice: "auto",
+  });
+
+  const assistantMessage = completion.choices?.[0]?.message;
+  const toolCalls = assistantMessage?.tool_calls ?? [];
+
+  if (toolCalls.length === 0) {
+    return {
+      reply: extractChatAssistantText(completion),
+      usedActionTool: false,
+    };
+  }
+
+  const followUpMessages: AgentChatMessage[] = [
+    ...baseMessages,
+    {
+      role: "assistant",
+      content: assistantMessage?.content ?? null,
+      tool_calls: toolCalls,
+    },
+  ];
+
+  let usedActionTool = false;
+  for (const toolCall of toolCalls) {
+    let parsedArgs: unknown = {};
+    try {
+      parsedArgs = JSON.parse(toolCall.function.arguments || "{}");
+    } catch {
+      parsedArgs = {};
+    }
+
+    if (isAdminActionTool(toolCall.function.name)) {
+      usedActionTool = true;
+    }
+
+    const result = await executeAdminAssistantTool(
+      ctx,
+      toolCall.function.name,
+      parsedArgs,
+    );
+
+    followUpMessages.push({
+      role: "tool",
+      tool_call_id: toolCall.id,
+      content: JSON.stringify(result),
+    });
+  }
+
+  completion = await openaiChat<ChatCompletionResponse>({
+    model,
+    context: ctx,
+    temperature: 0.2,
+    messages: followUpMessages,
+    includeBriefing: false,
     tool_choice: "none",
   });
 
   return {
     reply: extractChatAssistantText(completion),
-    usedActionTool: false,
+    usedActionTool,
   };
 }

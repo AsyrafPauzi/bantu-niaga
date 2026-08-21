@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { malaysiaTodayIso } from "@/lib/ai/malaysia-today";
 import { getRequestId, requireCronAuth } from "@/lib/api/require-cron";
-import { ok } from "@/lib/api/response";
+import { logger } from "@/lib/logger";
+import { ok, serverError } from "@/lib/api/response";
 import {
   loadContractExpiringEmployees,
   loadBusinessesWithReminderPack,
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
 
     return ok({ notified, notice_date: todayIso }, { requestId });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    logger.error("hr.reminders.cron.failed", {}, err);
+    return serverError(requestId);
   }
 }

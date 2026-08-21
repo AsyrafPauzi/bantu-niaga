@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Loader2, MessageSquarePlus, PauseCircle, Send, Sparkles } from "lucide-react";
+import { Loader2, MessageSquarePlus, PauseCircle, Send, Sparkles, Zap } from "lucide-react";
 import { OPERATIONS_ASSISTANT_SUGGESTIONS } from "@/lib/ai/operations-assistant-prompt";
 import type {
   PillarAssistantChatHandle,
@@ -332,7 +332,7 @@ export const AimanAssistantChat = forwardRef<
                     Paused · 0 credits
                   </>
                 ) : (
-                  <>⚡ {creditBalance} shared credits left</>
+                  <><Zap className="mr-0.5 inline h-3 w-3" />{creditBalance} shared credits left</>
                 )}
               </span>
             ) : null}

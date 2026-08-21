@@ -135,7 +135,7 @@ export function BusinessProfileView({ business, canEdit }: BusinessProfileViewPr
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_280px]">
         <BusinessProfileForm
           canEdit={canEdit}
           initial={{

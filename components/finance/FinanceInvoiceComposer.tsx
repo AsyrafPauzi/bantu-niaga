@@ -27,7 +27,10 @@ import {
 import type { OperationsProductPickerRow } from "@/lib/finance/invoice-composer-shared";
 import { addDaysToYmd } from "@/lib/finance/invoice-composer-shared";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils/cn";
+import { todayMytYmd } from "@/lib/utils/today-ymd";
+import { useMode } from "@/lib/use-mode";
 import {
   Field,
   PaymentPreviewRow,
@@ -167,6 +170,8 @@ export function FinanceInvoiceComposer({
   mergedHeader = false,
 }: FinanceInvoiceComposerProps) {
   const router = useRouter();
+  const mode = useMode();
+  const isMobile = mode === "mobile";
   const formId = useId();
   const nextLineKey = useRef(1);
   const dueDateTouched = useRef(Boolean(invoice?.due_date));
@@ -249,6 +254,18 @@ export function FinanceInvoiceComposer({
     invoice?.admin_file_name ?? null,
   );
   const [quickMode, setQuickMode] = useState(!invoice);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!moreOpen) return;
+    function close(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [moreOpen]);
 
   const initialSnapshot = useRef(
     JSON.stringify({
@@ -699,10 +716,7 @@ export function FinanceInvoiceComposer({
     setConverting(true);
     setFormError(null);
     try {
-      const due = addDaysToYmd(
-        new Date().toISOString().slice(0, 10),
-        30,
-      );
+      const due = addDaysToYmd(todayMytYmd(), 30);
       const res = await fetch(
         `/api/finance/invoices/${savedRecord.id}/convert-to-invoice`,
         {
@@ -820,7 +834,7 @@ export function FinanceInvoiceComposer({
       : "New invoice";
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="space-y-3 pb-20">
+    <form onSubmit={(e) => void onSubmit(e)} className="space-y-3 pb-24 md:pb-20">
       {toast ? (
         <div
           role="status"
@@ -1298,23 +1312,27 @@ export function FinanceInvoiceComposer({
                       </td>
                       <td className="px-1 py-1.5 text-center">
                         <div className="flex items-center justify-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => duplicateLine(line)}
-                            className="rounded p-1 text-ink-muted opacity-60 hover:bg-cream-100 hover:text-brand-700 group-hover:opacity-100 dark:hover:bg-panel-dark/80 dark:hover:text-brand-200"
-                            aria-label="Duplicate line"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </button>
-                          {lines.length > 1 ? (
+                          <Tooltip content="Duplicate line" side="top">
                             <button
                               type="button"
-                              onClick={() => removeLine(line.key)}
-                              className="rounded p-1 text-ink-muted opacity-60 hover:bg-status-danger/10 hover:text-status-danger group-hover:opacity-100"
-                              aria-label="Remove line"
+                              onClick={() => duplicateLine(line)}
+                              className="rounded p-1 text-ink-muted opacity-60 hover:bg-cream-100 hover:text-brand-700 group-hover:opacity-100 dark:hover:bg-panel-dark/80 dark:hover:text-brand-200"
+                              aria-label="Duplicate line"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <Copy className="h-3.5 w-3.5" />
                             </button>
+                          </Tooltip>
+                          {lines.length > 1 ? (
+                            <Tooltip content="Remove line" side="top">
+                              <button
+                                type="button"
+                                onClick={() => removeLine(line.key)}
+                                className="rounded p-1 text-ink-muted opacity-60 hover:bg-status-danger/10 hover:text-status-danger group-hover:opacity-100"
+                                aria-label="Remove line"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </Tooltip>
                           ) : null}
                         </div>
                       </td>
@@ -1504,19 +1522,18 @@ export function FinanceInvoiceComposer({
 
           <div
             className={cn(
-              "flex min-w-0 items-center gap-2 px-4 py-2.5 sm:px-4",
+              "min-w-0 space-y-1.5 px-4 py-2.5 sm:px-4",
               !isQuote && "sm:pl-4",
             )}
           >
-            <span className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
               Attachment
-            </span>
+            </p>
             <AdminStorageFileAttach
               fileId={adminFileId}
               fileName={adminFileName}
               category="finance"
               compact
-              className="min-w-0 flex-1"
               onAttach={async (fileId) => {
                 if (isEdit && invoice?.id) {
                   const res = await fetch(`/api/finance/invoices/${invoice.id}`, {
@@ -1560,78 +1577,167 @@ export function FinanceInvoiceComposer({
         </p>
       ) : null}
 
-      {/* Fixed footer */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-cream-300 bg-white/95 px-4 py-3 backdrop-blur dark:border-hairline-dark dark:bg-panel-dark/95">
-        <div className="mx-auto max-w-5xl space-y-2">
+      {/* Fixed footer — clears the mobile bottom nav by sitting above it */}
+      <div
+        className={cn(
+          "fixed inset-x-0 z-40 border-t border-cream-300 bg-white/95 backdrop-blur dark:border-hairline-dark dark:bg-panel-dark/95",
+          isMobile
+            ? "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] px-3 py-2"
+            : "bottom-0 px-4 py-3",
+        )}
+      >
+        <div className="mx-auto max-w-5xl space-y-1.5">
           {showEmailWarning ? (
             <p className="text-center text-xs text-amber-800 dark:text-amber-200 sm:text-left">
               No email on file — &ldquo;{isQuote ? "Save & send quote" : "Save & email"}&rdquo; will open WhatsApp instead.
             </p>
           ) : null}
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Link
-              href="/finance/invoices"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-cream-400 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            >
-              Cancel
-            </Link>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void onPreview()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-cream-400 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-50 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Preview
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void onCopyPayLink()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-cream-400 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-50 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            >
-              <Copy className="h-4 w-4" />
-              Copy link
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void onSaveAndShare()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60 dark:border-brand-400 dark:bg-panel-dark dark:text-brand-200 dark:hover:bg-brand-950/30"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <MessageCircle className="h-4 w-4" />
-              )}
-              Save &amp; share
-            </button>
-            <button
-              type="button"
-              disabled={saving || emailSending}
-              onClick={() => void onSaveAndEmail()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60 dark:border-brand-400 dark:bg-panel-dark dark:text-brand-200 dark:hover:bg-brand-950/30"
-            >
-              {saving || emailSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Mail className="h-4 w-4" />
-              )}
-              {isQuote ? "Save & send quote" : "Save & email"}
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" strokeWidth={2.5} />
-              )}
-              Save
-            </button>
-          </div>
+
+          {/* ── Mobile compact action bar ── */}
+          {isMobile ? (
+            <div ref={moreRef} className="relative flex items-center gap-2">
+              {/* Cancel */}
+              <Link
+                href="/finance/invoices"
+                className="inline-flex h-10 items-center rounded-lg border border-cream-400 bg-white px-3 text-sm font-semibold text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              >
+                Cancel
+              </Link>
+
+              {/* More actions toggle */}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setMoreOpen((o) => !o)}
+                aria-expanded={moreOpen}
+                aria-label="More actions"
+                className="inline-flex h-10 items-center gap-1 rounded-lg border border-cream-400 bg-white px-3 text-sm font-semibold text-ink disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              >
+                More
+                <ChevronDown className={cn("h-4 w-4 transition-transform", moreOpen && "rotate-180")} />
+              </button>
+
+              {/* Primary: Save & share */}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void onSaveAndShare()}
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-brand-600 bg-white text-sm font-semibold text-brand-700 disabled:opacity-60 dark:border-brand-400 dark:bg-panel-dark dark:text-brand-200"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
+                Share
+              </button>
+
+              {/* Primary: Save */}
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-600 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" strokeWidth={2.5} />}
+                Save
+              </button>
+
+              {/* Secondary actions flyup */}
+              {moreOpen ? (
+                <div className="absolute bottom-full left-0 z-50 mb-2 min-w-[200px] rounded-xl border border-hairline-light bg-white py-1 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => { void onPreview(); setMoreOpen(false); }}
+                    className="flex w-full min-h-[44px] items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-cream-50 disabled:opacity-60 dark:text-cream-100 dark:hover:bg-hairline-dark"
+                  >
+                    <ExternalLink className="h-4 w-4 text-ink-muted dark:text-cream-400" />
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => { void onCopyPayLink(); setMoreOpen(false); }}
+                    className="flex w-full min-h-[44px] items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-cream-50 disabled:opacity-60 dark:text-cream-100 dark:hover:bg-hairline-dark"
+                  >
+                    <Copy className="h-4 w-4 text-ink-muted dark:text-cream-400" />
+                    Copy link
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving || emailSending}
+                    onClick={() => { void onSaveAndEmail(); setMoreOpen(false); }}
+                    className="flex w-full min-h-[44px] items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-cream-50 disabled:opacity-60 dark:text-cream-100 dark:hover:bg-hairline-dark"
+                  >
+                    <Mail className="h-4 w-4 text-ink-muted dark:text-cream-400" />
+                    {isQuote ? "Save & send quote" : "Save & email"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            /* ── Desktop full action bar ── */
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Link
+                href="/finance/invoices"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cream-400 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              >
+                Cancel
+              </Link>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void onPreview()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cream-400 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-50 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Preview
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void onCopyPayLink()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cream-400 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-50 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              >
+                <Copy className="h-4 w-4" />
+                Copy link
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void onSaveAndShare()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60 dark:border-brand-400 dark:bg-panel-dark dark:text-brand-200 dark:hover:bg-brand-950/30"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MessageCircle className="h-4 w-4" />
+                )}
+                Save &amp; share
+              </button>
+              <button
+                type="button"
+                disabled={saving || emailSending}
+                onClick={() => void onSaveAndEmail()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60 dark:border-brand-400 dark:bg-panel-dark dark:text-brand-200 dark:hover:bg-brand-950/30"
+              >
+                {saving || emailSending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="h-4 w-4" />
+                )}
+                {isQuote ? "Save & send quote" : "Save & email"}
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" strokeWidth={2.5} />
+                )}
+                Save
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

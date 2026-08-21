@@ -216,7 +216,7 @@ export function UserRowMenu({
           <div
             ref={menuRef}
             role="menu"
-            className="fixed z-50 max-h-[min(280px,calc(100vh-16px))] w-56 overflow-y-auto overscroll-contain rounded-xl border border-cream-300 bg-white p-1.5 shadow-elevated"
+            className="fixed z-50 max-h-[min(280px,calc(100vh-16px))] w-56 overflow-y-auto overscroll-contain rounded-xl border border-cream-300 bg-white p-1.5 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark"
             style={{ top: coords.top, left: coords.left }}
           >
             <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-ink-subtle">

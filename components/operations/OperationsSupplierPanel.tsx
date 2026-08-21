@@ -8,6 +8,7 @@ import {
   Mail,
   Pencil,
   Phone,
+  Search,
   Trash2,
   Truck,
   User,
@@ -25,6 +26,7 @@ import {
   QuickCreateActions,
   QuickCreatePanel,
 } from "@/components/ui/quick-create";
+import { InlineFeedback } from "@/components/ui/alert";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
 import type { OperationsSupplierRow } from "@/lib/operations/schemas";
@@ -344,7 +346,7 @@ export function OperationsSupplierPanel({
         className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
       {formError ? (
-        <p className="text-sm text-status-danger">{formError}</p>
+        <InlineFeedback>{formError}</InlineFeedback>
       ) : null}
     </>
   );
@@ -420,7 +422,7 @@ export function OperationsSupplierPanel({
 
       {filtered.length === 0 ? (
         <OperationsCatalogEmpty
-          icon={hasSearch ? "🔍" : "🚚"}
+          icon={hasSearch ? <Search className="h-6 w-6" /> : <Truck className="h-6 w-6" />}
           title={
             hasSearch ? "No suppliers match your search" : "No suppliers yet"
           }
@@ -459,7 +461,7 @@ export function OperationsSupplierPanel({
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    <OperationsCatalogThumb emoji="🚚" />
+                    <OperationsCatalogThumb icon={<Truck className="h-6 w-6" />} />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-sm font-semibold text-ink dark:text-cream-100">

@@ -157,7 +157,7 @@ export function SegmentDetailView({
         </div>
       </ModuleDashboardHero>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:items-start">
         <aside className="space-y-4 lg:order-2">
           <div className="rounded-2xl border border-cream-200 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">

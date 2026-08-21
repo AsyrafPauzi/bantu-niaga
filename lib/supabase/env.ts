@@ -32,7 +32,7 @@ export function warnSupabaseNotConfiguredOnce(context: string) {
   if (warned) return;
   if (process.env.NODE_ENV === "production") return;
   warned = true;
-  // eslint-disable-next-line no-console
+   
   console.warn(
     `[supabase] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY ` +
       `not set — ${context} is running in unauthenticated mode. ` +

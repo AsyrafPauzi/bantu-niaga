@@ -939,6 +939,177 @@ export async function executeOperationsAssistantTool(
       };
     }
 
+    case "get_order": {
+      const parsed = z
+        .object({
+          order_id: z.string().uuid().optional(),
+          order_number: z.string().trim().optional(),
+          customer_name: z.string().trim().optional(),
+        })
+        .parse(toolArgs);
+
+      if (!parsed.order_id && !parsed.order_number && !parsed.customer_name) {
+        return { ok: false, error: "order_id_or_order_number_or_customer_name_required" };
+      }
+
+      if (parsed.order_id || parsed.order_number) {
+        const found = await findOrder(admin, businessId, {
+          order_id: parsed.order_id,
+          order_number: parsed.order_number,
+        });
+        if (!found) return { ok: false, error: "order_not_found" };
+        if ("ambiguous" in found && found.ambiguous) {
+          return { ok: false, error: "ambiguous", matches: found.matches };
+        }
+        const { data } = await admin
+          .from("operations_orders")
+          .select(
+            "id, number, customer_name, customer_phone, title, status, due_date, amount_myr, notes, created_at",
+          )
+          .eq("business_id", businessId)
+          .eq("id", (found as { id: string }).id)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (!data) return { ok: false, error: "order_not_found" };
+        return { ok: true, order: data, href: `/operations/orders` };
+      }
+
+      // customer_name search
+      const safe = sanitizeLike(parsed.customer_name!);
+      const { data, error } = await admin
+        .from("operations_orders")
+        .select(
+          "id, number, customer_name, customer_phone, title, status, due_date, amount_myr, notes, created_at",
+        )
+        .eq("business_id", businessId)
+        .is("deleted_at", null)
+        .ilike("customer_name", `%${safe}%`)
+        .order("updated_at", { ascending: false })
+        .limit(5);
+      if (error) return { ok: false, error: "query_failed" };
+      if (!data?.length) return { ok: false, error: "order_not_found" };
+      if (data.length === 1) return { ok: true, order: data[0], href: `/operations/orders` };
+      return { ok: true, orders: data, count: data.length, href: `/operations/orders` };
+    }
+
+    case "get_booking": {
+      const parsed = z
+        .object({
+          booking_id: z.string().uuid().optional(),
+          customer_name: z.string().trim().optional(),
+          booking_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        })
+        .parse(toolArgs);
+
+      if (!parsed.booking_id && !parsed.customer_name && !parsed.booking_date) {
+        return { ok: false, error: "booking_id_or_customer_name_or_date_required" };
+      }
+
+      let query = admin
+        .from("operations_bookings")
+        .select(
+          "id, number, customer_name, customer_phone, service_title, resource_id, starts_at, ends_at, status, notes",
+        )
+        .eq("business_id", businessId)
+        .is("deleted_at", null);
+
+      if (parsed.booking_id) {
+        query = query.eq("id", parsed.booking_id);
+      } else {
+        if (parsed.customer_name) {
+          const safe = sanitizeLike(parsed.customer_name);
+          query = query.ilike("customer_name", `%${safe}%`);
+        }
+        if (parsed.booking_date) {
+          const dateStart = `${parsed.booking_date}T00:00:00+00:00`;
+          const dateEnd = `${parsed.booking_date}T23:59:59+00:00`;
+          query = query.gte("starts_at", dateStart).lte("starts_at", dateEnd);
+        }
+        query = query.order("starts_at", { ascending: true }).limit(5);
+      }
+
+      const { data, error } = await query;
+      if (error) return { ok: false, error: "query_failed" };
+      if (!data?.length) return { ok: false, error: "booking_not_found" };
+      if (data.length === 1) return { ok: true, booking: data[0], href: `/operations/bookings` };
+      return { ok: true, bookings: data, count: data.length, href: `/operations/bookings` };
+    }
+
+    case "get_supplier": {
+      const parsed = z
+        .object({
+          supplier_id: z.string().uuid().optional(),
+          supplier_name: z.string().trim().optional(),
+        })
+        .parse(toolArgs);
+
+      if (!parsed.supplier_id && !parsed.supplier_name) {
+        return { ok: false, error: "supplier_id_or_supplier_name_required" };
+      }
+
+      let query = admin
+        .from("operations_suppliers")
+        .select("id, name, contact_name, phone, email, address, payment_terms, notes")
+        .eq("business_id", businessId)
+        .is("deleted_at", null);
+
+      if (parsed.supplier_id) {
+        query = query.eq("id", parsed.supplier_id);
+      } else {
+        const safe = sanitizeLike(parsed.supplier_name!);
+        query = query.ilike("name", `%${safe}%`).limit(5);
+      }
+
+      const { data, error } = await query;
+      if (error) return { ok: false, error: "query_failed" };
+      if (!data?.length) return { ok: false, error: "supplier_not_found" };
+      if (data.length === 1) return { ok: true, supplier: data[0], href: `/operations/suppliers` };
+      return { ok: true, suppliers: data, count: data.length, href: `/operations/suppliers` };
+    }
+
+    case "get_stock_report": {
+      const parsed = z
+        .object({
+          low_stock_only: z.boolean().optional().default(false),
+          limit: z.number().int().min(1).max(50).optional().default(30),
+        })
+        .parse(toolArgs);
+
+      const { data, error } = await admin
+        .from("operations_products")
+        .select("id, sku, name, category, price_myr, stock_qty, low_stock_threshold, is_active")
+        .eq("business_id", businessId)
+        .is("deleted_at", null)
+        .order("stock_qty", { ascending: true })
+        .limit(parsed.limit);
+
+      if (error) return { ok: false, error: "query_failed" };
+
+      const rows = data ?? [];
+      const filtered = parsed.low_stock_only
+        ? rows.filter((r) => {
+            if (r.stock_qty == null) return false;
+            const threshold = (r.low_stock_threshold as number) ?? 5;
+            return (r.stock_qty as number) <= threshold;
+          })
+        : rows;
+
+      const total_products = rows.length;
+      const low_stock_count = rows.filter((r) => {
+        if (r.stock_qty == null) return false;
+        const threshold = (r.low_stock_threshold as number) ?? 5;
+        return (r.stock_qty as number) <= threshold && (r.stock_qty as number) > 0;
+      }).length;
+      const out_of_stock_count = rows.filter((r) => (r.stock_qty as number) === 0).length;
+
+      return {
+        ok: true,
+        summary: { total_products, low_stock_count, out_of_stock_count },
+        products: filtered,
+        href: `/operations/products`,
+      };
+    }
+
     default:
       return { ok: false, error: "unknown_tool" };
   }

@@ -164,7 +164,7 @@ export async function SalesOverview({
   }>;
 
   return (
-    <ModuleDashboardShell className="pb-20 lg:pb-8">
+    <ModuleDashboardShell className="pb-20 md:pb-8">
       <SalesBackLink href="/home" label="Home" />
 
       <ModuleDashboardHero

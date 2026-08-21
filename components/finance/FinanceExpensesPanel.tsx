@@ -8,8 +8,10 @@ import {
   ChevronDown,
   Megaphone,
   Receipt,
+  Search,
   ShoppingBag,
   Sparkles,
+  TrendingDown,
   Users,
   Wrench,
   Zap,
@@ -25,6 +27,7 @@ import {
   QuickCreatePanel,
 } from "@/components/ui/quick-create";
 import { cn } from "@/lib/utils/cn";
+import { todayMytYmd } from "@/lib/utils/today-ymd";
 import type { ExpenseCategoryInsight } from "@/lib/finance/helpers";
 import {
   FINANCE_EXPENSE_CATEGORIES,
@@ -41,49 +44,49 @@ const CATEGORY_META: Record<
 > = {
   supplies: {
     label: "Supplies",
-    emoji: "🛒",
+    emoji: "",
     Icon: ShoppingBag,
     chip: "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100",
   },
   rent: {
     label: "Rent",
-    emoji: "🏠",
+    emoji: "",
     Icon: Receipt,
     chip: "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100",
   },
   utilities: {
     label: "Utilities",
-    emoji: "⚡",
+    emoji: "",
     Icon: Zap,
     chip: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
   },
   salaries: {
     label: "Salaries",
-    emoji: "👥",
+    emoji: "",
     Icon: Users,
     chip: "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-100",
   },
   marketing: {
     label: "Marketing",
-    emoji: "📣",
+    emoji: "",
     Icon: Megaphone,
     chip: "border-pink-200 bg-pink-50 text-pink-800 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-100",
   },
   transport: {
     label: "Transport",
-    emoji: "🚗",
+    emoji: "",
     Icon: Car,
     chip: "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-100",
   },
   equipment: {
     label: "Equipment",
-    emoji: "🔧",
+    emoji: "",
     Icon: Wrench,
     chip: "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-100",
   },
   other: {
     label: "Other",
-    emoji: "✨",
+    emoji: "",
     Icon: Sparkles,
     chip: "border-cream-300 bg-cream-50 text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100",
   },
@@ -138,7 +141,7 @@ export function FinanceExpensesPanel({
   const [category, setCategory] = useState("supplies");
   const [counterparty, setCounterparty] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [txnDate, setTxnDate] = useState(new Date().toISOString().slice(0, 10));
+  const [txnDate, setTxnDate] = useState(todayMytYmd());
   const [showMore, setShowMore] = useState(false);
   const {
     adminFileId,
@@ -193,7 +196,7 @@ export function FinanceExpensesPanel({
     setCategory("supplies");
     setCounterparty("");
     setPaymentMethod("");
-    setTxnDate(new Date().toISOString().slice(0, 10));
+    setTxnDate(todayMytYmd());
     clearReceipt();
     setEditingId(null);
     setShowMore(false);
@@ -334,6 +337,10 @@ export function FinanceExpensesPanel({
         setMonthTotal((m) => m - amt);
         setLoggedCount((c) => Math.max(0, c - 1));
         refresh();
+      } catch (err) {
+        setFormError(
+          err instanceof Error ? err.message : "Could not delete expense. Please try again.",
+        );
       } finally {
         setBusyId(null);
       }
@@ -368,8 +375,8 @@ export function FinanceExpensesPanel({
     <div className="space-y-4">
       {!shellMode ? (
       <section className="relative overflow-hidden rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50 p-5 shadow-card dark:border-rose-900/40 dark:from-rose-950/40 dark:via-orange-950/20 dark:to-amber-950/20">
-        <div className="pointer-events-none absolute -right-6 -top-6 text-6xl opacity-20">
-          💸
+        <div className="pointer-events-none absolute right-4 top-4 text-rose-600/40 dark:text-rose-300/20">
+          <TrendingDown className="h-16 w-16" strokeWidth={1} />
         </div>
         <p className="text-xs font-semibold uppercase tracking-wide text-rose-700/80 dark:text-rose-200/80">
           {fmtMonthLabel(monthLabel)}
@@ -404,8 +411,9 @@ export function FinanceExpensesPanel({
               return (
                 <li key={cat.category}>
                   <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-                    <span className="font-medium text-ink dark:text-cream-100">
-                      {meta.emoji} {meta.label}
+                    <span className="inline-flex items-center gap-1.5 font-medium text-ink dark:text-cream-100">
+                      <meta.Icon className="h-3.5 w-3.5 shrink-0" />
+                      {meta.label}
                       <span className="ml-1 text-xs font-normal text-ink-muted dark:text-cream-400">
                         ({cat.count})
                       </span>
@@ -514,7 +522,10 @@ export function FinanceExpensesPanel({
                       : meta.chip,
                   )}
                 >
-                  {meta.emoji} {meta.label}
+                  <span className="inline-flex items-center gap-1">
+                    <meta.Icon className="h-3 w-3 shrink-0" />
+                    {meta.label}
+                  </span>
                 </button>
               );
             })}
@@ -602,7 +613,7 @@ export function FinanceExpensesPanel({
 
       <FinanceTxnCompactList
         title="Recent expenses"
-        emptyIcon="🕵️"
+        emptyIcon={<Search className="h-6 w-6" />}
         emptyTitle="Nothing logged yet"
         emptyHint="Your first expense goes above — future you will thank you at tax time."
         transactions={filteredTransactions}

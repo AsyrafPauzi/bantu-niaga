@@ -64,7 +64,7 @@ function visiblePageNumbers(current: number, pages: number): number[] {
     return Array.from({ length: pages }, (_, i) => i + 1);
   }
   let start = Math.max(1, current - 2);
-  let end = Math.min(pages, start + maxButtons - 1);
+  const end = Math.min(pages, start + maxButtons - 1);
   start = Math.max(1, end - maxButtons + 1);
   return Array.from({ length: end - start + 1 }, (_, i) => start + i);
 }
@@ -159,7 +159,7 @@ export function ListPagination({
             <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
               Per page
             </span>
-            <div className="inline-flex overflow-hidden rounded-lg border border-cream-300 bg-white">
+            <div className="inline-flex overflow-hidden rounded-lg border border-cream-300 bg-white dark:border-hairline-dark dark:bg-panel-dark">
               {pageSizeOptions.map((size) => {
                 const active = size === pageSize;
                 return (

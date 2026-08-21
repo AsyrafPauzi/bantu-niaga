@@ -162,7 +162,7 @@ function emit(
   }
 
   // Pretty in dev. Keep it terse — devs want signal, not a wall of JSON.
-  // eslint-disable-next-line no-console
+   
   const fn = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
   const tag = ctx.module ? `[${ctx.module}]` : "[app]";
   fn(`${tag} ${level.toUpperCase()} ${msg}`, {

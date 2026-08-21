@@ -53,7 +53,7 @@ export function PosReceiptView({
   onWhatsApp,
 }: PosReceiptViewProps) {
   return (
-    <div className="space-y-4 pb-20 lg:pb-8">
+    <div className="space-y-4 pb-20 md:pb-8">
       <SalesBackLink />
       <div className="mx-auto max-w-md">
         <div className="overflow-hidden rounded-2xl border border-blue-200/80 bg-gradient-to-br from-blue-50 via-white to-cream-100 shadow-card dark:border-blue-900/40 dark:from-blue-950/30 dark:via-panel-dark dark:to-cream-100/20">

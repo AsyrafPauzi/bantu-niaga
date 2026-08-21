@@ -9,6 +9,8 @@ import {
 } from "@/lib/hr/leave-labels";
 import { hrClasses } from "@/lib/hr/theme";
 import { cn } from "@/lib/utils/cn";
+import { todayMytYmd } from "@/lib/utils/today-ymd";
+import { Tooltip } from "@/components/ui/tooltip";
 
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -84,29 +86,33 @@ export function HrLeaveCalendar({ leave, employees }: HrLeaveCalendarProps) {
     [dayCount],
   );
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = todayMytYmd();
 
   return (
     <div className="space-y-3">
       <div className="overflow-hidden rounded-xl border border-cream-200 bg-white shadow-sm dark:border-hairline-dark dark:bg-panel-dark">
         <div className="flex items-center justify-between border-b border-cream-200 px-3 py-2.5 dark:border-hairline-dark sm:px-4">
-          <button
-            type="button"
-            onClick={() => setCursor((c) => addMonths(c, -1))}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-teal-50 dark:hover:bg-teal-950/30"
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
+          <Tooltip content="Previous month" side="bottom">
+            <button
+              type="button"
+              onClick={() => setCursor((c) => addMonths(c, -1))}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-teal-50 dark:hover:bg-teal-950/30"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </Tooltip>
           <p className="text-sm font-bold text-ink dark:text-cream-100">{monthLabel}</p>
-          <button
-            type="button"
-            onClick={() => setCursor((c) => addMonths(c, 1))}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-teal-50 dark:hover:bg-teal-950/30"
-            aria-label="Next month"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+          <Tooltip content="Next month" side="bottom">
+            <button
+              type="button"
+              onClick={() => setCursor((c) => addMonths(c, 1))}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-teal-50 dark:hover:bg-teal-950/30"
+              aria-label="Next month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="overflow-x-auto">

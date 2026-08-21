@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   Loader2,
   Minus,
   Package,
@@ -20,7 +21,7 @@ import {
 } from "@/components/operations/OperationsCatalogUi";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import {
-  categoryEmoji,
+  CategoryIcon,
   OperationsProductThumb,
 } from "@/components/operations/OperationsProductThumb";
 import { mergeCategoryPresets } from "@/lib/operations/vertical";
@@ -30,6 +31,7 @@ import {
   QuickCreateActions,
   QuickCreatePanel,
 } from "@/components/ui/quick-create";
+import { InlineFeedback } from "@/components/ui/alert";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -85,6 +87,7 @@ export function OperationsProductPanel({
   const [imageFileName, setImageFileName] = useState<string | null>(null);
   const [specFileId, setSpecFileId] = useState<string | null>(null);
   const [specFileName, setSpecFileName] = useState<string | null>(null);
+  const [barcode, setBarcode] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -137,6 +140,7 @@ export function OperationsProductPanel({
     setImageFileName(null);
     setSpecFileId(null);
     setSpecFileName(null);
+    setBarcode("");
     setEditingId(null);
     setFormError(null);
   }, []);
@@ -157,6 +161,7 @@ export function OperationsProductPanel({
     setImageFileName(product.image_file_name ?? null);
     setSpecFileId(product.spec_file_id);
     setSpecFileName(product.spec_file_name ?? null);
+    setBarcode(product.barcode ?? "");
     closeForm();
     setFormError(null);
   }, [closeForm]);
@@ -199,6 +204,7 @@ export function OperationsProductPanel({
                 ? 5
                 : Number.parseInt(lowStockThreshold, 10),
             notes: notes || null,
+            barcode: barcode.trim() || null,
             image_file_id: imageFileId,
             spec_file_id: specFileId,
           }),
@@ -224,6 +230,7 @@ export function OperationsProductPanel({
       }
     },
     [
+      barcode,
       category,
       closeForm,
       description,
@@ -262,6 +269,7 @@ export function OperationsProductPanel({
                 ? 5
                 : Number.parseInt(lowStockThreshold, 10),
             notes: notes || null,
+            barcode: barcode.trim() || null,
             image_file_id: imageFileId,
             spec_file_id: specFileId,
           }),
@@ -288,6 +296,7 @@ export function OperationsProductPanel({
       }
     },
     [
+      barcode,
       category,
       description,
       editingId,
@@ -400,7 +409,7 @@ export function OperationsProductPanel({
                   : "border-cream-300 bg-white text-ink-muted hover:border-brand-200 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400",
               )}
             >
-              {categoryEmoji(cat)} {cat}
+              <CategoryIcon category={cat} className="h-3 w-3 shrink-0 inline" /> {cat}
             </button>
           );
         })}
@@ -508,8 +517,20 @@ export function OperationsProductPanel({
         rows={2}
         className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
+      <div>
+        <input
+          type="text"
+          value={barcode}
+          onChange={(e) => setBarcode(e.target.value)}
+          placeholder="Barcode (optional) — scan at POS checkout"
+          className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+        />
+        <p className="mt-1 text-[11px] text-ink-muted dark:text-cream-500">
+          EAN, UPC, or QR code value. Scanning at POS will auto-add this product to the cart.
+        </p>
+      </div>
       {formError ? (
-        <p className="text-sm text-status-danger">{formError}</p>
+        <InlineFeedback>{formError}</InlineFeedback>
       ) : null}
     </>
   );
@@ -610,14 +631,14 @@ export function OperationsProductPanel({
                     href={buildListUrl({ category: cat, lowStock: false })}
                     active={categoryFilter === cat && !lowStockOnly}
                     accent="sky"
-                    label={`${categoryEmoji(cat)} ${cat}`}
+                    label={cat}
                   />
                 ))}
                 <ModuleListFilterChipLink
                   href={buildListUrl({ lowStock: !lowStockOnly })}
                   active={lowStockOnly}
                   accent="amber"
-                  label="⚠️ Low stock"
+                  label="Low stock"
                 />
               </nav>
             ) : null}
@@ -660,9 +681,9 @@ export function OperationsProductPanel({
       >
         {products.length === 0 ? (
           <div className="px-5 py-14 text-center">
-            <p className="text-4xl" aria-hidden>
-              {hasFilters ? "🔍" : "📦"}
-            </p>
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-cream-200 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400" aria-hidden>
+              {hasFilters ? <Search className="h-6 w-6" /> : <Package className="h-6 w-6" />}
+            </span>
             <p className="mt-3 text-sm font-semibold text-ink dark:text-cream-100">
               {hasFilters
                 ? "No products match your filters"
@@ -723,7 +744,7 @@ export function OperationsProductPanel({
                         {p.sku}
                         {p.category ? (
                           <span className="ml-2 font-sans">
-                            · {categoryEmoji(p.category)} {p.category}
+                            · <CategoryIcon category={p.category} className="h-3 w-3 inline shrink-0" /> {p.category}
                           </span>
                         ) : null}
                       </p>
@@ -849,6 +870,7 @@ export function OperationsProductPanel({
           ...(categoryFilter !== "all" ? { category: categoryFilter } : {}),
           ...(lowStockOnly ? { low_stock: "1" } : {}),
         }}
+        pageSizeOptions={[10, 25, 50, 100]}
       />
     </div>
   );

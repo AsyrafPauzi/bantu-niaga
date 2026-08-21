@@ -291,7 +291,7 @@ export function NadiaPanel({
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex h-[min(520px,80vh)] w-[min(400px,92vw)] flex-col overflow-hidden rounded-2xl border border-cream-300 bg-white shadow-2xl">
+    <div className="fixed bottom-6 right-6 z-40 flex h-[min(520px,80vh)] w-[min(400px,92vw)] flex-col overflow-hidden rounded-2xl border border-cream-300 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark">
       <header className="flex items-center justify-between border-b border-cream-300 bg-cream-50 px-4 py-3">
         <div>
           <p className="text-sm font-bold text-ink">Nadia</p>

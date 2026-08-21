@@ -8,17 +8,21 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  FileText,
   GripVertical,
   LayoutGrid,
   List,
   Loader2,
   MessageCircle,
   Package,
+  PartyPopper,
   Plus,
+  Receipt,
   Search,
   Trash2,
-  Receipt,
   UserPlus,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import {
@@ -31,6 +35,7 @@ import {
   QuickCreateActions,
   QuickCreatePanel,
 } from "@/components/ui/quick-create";
+import { InlineFeedback } from "@/components/ui/alert";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import { customerHintsFromOrders } from "@/lib/operations/customer-hints";
 import { cn } from "@/lib/utils/cn";
@@ -69,7 +74,7 @@ const COLUMN_META: Record<
   OperationsOrderStatus,
   {
     label: string;
-    emoji: string;
+    Icon: LucideIcon;
     empty: string;
     header: string;
     ring: string;
@@ -78,7 +83,7 @@ const COLUMN_META: Record<
 > = {
   todo: {
     label: "To do",
-    emoji: "📝",
+    Icon: FileText,
     empty: "Nothing queued — add an order when a customer bites.",
     header:
       "border-slate-200 bg-gradient-to-b from-slate-50 to-white dark:border-hairline-dark dark:from-slate-950/40 dark:to-panel-dark",
@@ -88,7 +93,7 @@ const COLUMN_META: Record<
   },
   in_progress: {
     label: "In progress",
-    emoji: "🔧",
+    Icon: Wrench,
     empty: "No jobs in the works. Drag a card here when you start.",
     header:
       "border-amber-200 bg-gradient-to-b from-amber-50 to-white dark:border-amber-900/40 dark:from-amber-950/30 dark:to-panel-dark",
@@ -98,7 +103,7 @@ const COLUMN_META: Record<
   },
   ready: {
     label: "Ready",
-    emoji: "📦",
+    Icon: Package,
     empty: "Nothing waiting for pickup or delivery yet.",
     header:
       "border-sky-200 bg-gradient-to-b from-sky-50 to-white dark:border-sky-900/40 dark:from-sky-950/30 dark:to-panel-dark",
@@ -107,7 +112,7 @@ const COLUMN_META: Record<
   },
   done: {
     label: "Done",
-    emoji: "🎉",
+    Icon: PartyPopper,
     empty: "Completed jobs show up here — ship one to celebrate.",
     header:
       "border-emerald-200 bg-gradient-to-b from-emerald-50 to-white dark:border-emerald-900/40 dark:from-emerald-950/30 dark:to-panel-dark",
@@ -526,7 +531,7 @@ export function OperationsOrderBoard({
               className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
             <div className="space-y-1">
               <label
                 htmlFor="order-due-date"
@@ -610,7 +615,7 @@ export function OperationsOrderBoard({
             ) : null}
           </div>
           {formError ? (
-            <p className="text-sm text-status-danger">{formError}</p>
+            <InlineFeedback>{formError}</InlineFeedback>
           ) : null}
           <QuickCreateActions
             submitLabel="Add to board"
@@ -849,9 +854,7 @@ export function OperationsOrderBoard({
           >
             <header className="flex items-center justify-between gap-2 border-b border-black/5 px-4 py-3 dark:border-white/5">
               <div className="flex items-center gap-2">
-                <span className="text-lg" aria-hidden>
-                  {col.emoji}
-                </span>
+                <col.Icon className="h-4 w-4 shrink-0 text-ink-muted dark:text-cream-400" aria-hidden />
                 <h2 className="text-sm font-bold text-ink dark:text-cream-100">
                   {col.label}
                 </h2>
@@ -869,7 +872,9 @@ export function OperationsOrderBoard({
             <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3 [scrollbar-width:thin]">
               {byStatus[col.status].length === 0 ? (
                 <li className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-cream-300/80 px-4 py-8 text-center dark:border-hairline-dark">
-                  <span className="text-3xl">{col.emoji}</span>
+                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-cream-200 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400">
+                    <col.Icon className="h-6 w-6" />
+                  </span>
                   <p className="mt-2 text-xs leading-relaxed text-ink-muted dark:text-cream-400">
                     {col.empty}
                   </p>

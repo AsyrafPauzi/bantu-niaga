@@ -276,7 +276,7 @@ export function MarketingOverview({
   }>;
 
   return (
-    <ModuleDashboardShell className="pb-20 lg:pb-8">
+    <ModuleDashboardShell className="pb-20 md:pb-8">
       <Link
         href="/home"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted transition-colors hover:text-brand-700 dark:text-cream-400 dark:hover:text-brand-200"
@@ -360,7 +360,7 @@ export function MarketingOverview({
 
       <ModuleAttentionPills items={attentionItems} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5 lg:grid-cols-12 lg:gap-6">
         <AdminOverviewPanel
           title="Who is in each segment?"
           subtitle="Auto-tags from your real purchase history"
@@ -643,7 +643,7 @@ export function MarketingOverview({
             </Link>
           }
         >
-          <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 sm:p-5">
+          <div className="grid gap-3 p-4 grid-cols-2 md:grid-cols-4 sm:p-5">
             {topContent.map((post) => {
               const meta = CHANNEL_META[post.channel];
               const Icon = meta.icon;

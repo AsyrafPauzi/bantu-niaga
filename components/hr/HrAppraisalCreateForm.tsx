@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { HrEmployeeRow } from "@/lib/hr/load";
-
-const inputClass =
-  "w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-400/30 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
+import { FormField, Input, Textarea, Select, FieldError } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 export function HrAppraisalCreateForm({
   employees,
@@ -13,8 +12,9 @@ export function HrAppraisalCreateForm({
   employees: HrEmployeeRow[];
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const activeEmployees = employees.filter((e) => e.status === "active");
   const defaultDue = new Date();
   defaultDue.setMonth(defaultDue.getMonth() + 1);
@@ -26,7 +26,7 @@ export function HrAppraisalCreateForm({
     const form = event.currentTarget;
     const fd = new FormData(form);
     setBusy(true);
-    setMessage(null);
+    setError(null);
 
     try {
       const res = await fetch("/api/hr/appraisals", {
@@ -41,10 +41,11 @@ export function HrAppraisalCreateForm({
       });
       const json = (await res.json()) as { message?: string; error?: string };
       if (!res.ok) {
-        setMessage(json.message ?? json.error ?? "Could not schedule appraisal.");
+        setError(json.message ?? json.error ?? "Could not schedule appraisal.");
         return;
       }
       form.reset();
+      toast.success("Appraisal scheduled.");
       router.refresh();
     } finally {
       setBusy(false);
@@ -61,14 +62,11 @@ export function HrAppraisalCreateForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <div>
-        <label className="text-xs font-semibold text-ink-muted dark:text-cream-400">
-          Employee
-        </label>
-        <select
+      <FormField label="Employee" htmlFor="appraisal-employee" required>
+        <Select
+          id="appraisal-employee"
           name="employee_id"
           required
-          className={`${inputClass} mt-1`}
           defaultValue=""
         >
           <option value="" disabled>
@@ -79,48 +77,37 @@ export function HrAppraisalCreateForm({
               {employee.full_name} · {employee.role_title}
             </option>
           ))}
-        </select>
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-ink-muted dark:text-cream-400">
-          Review period
-        </label>
-        <input
+        </Select>
+      </FormField>
+      <FormField label="Review period" htmlFor="appraisal-period" required>
+        <Input
+          id="appraisal-period"
           name="period_label"
           required
           maxLength={80}
           placeholder={`${currentYear} Annual review`}
           defaultValue={`${currentYear} Annual review`}
-          className={`${inputClass} mt-1`}
         />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-ink-muted dark:text-cream-400">
-          Due date
-        </label>
-        <input
+      </FormField>
+      <FormField label="Due date" htmlFor="appraisal-due" required>
+        <Input
+          id="appraisal-due"
           type="date"
           name="due_date"
           required
           defaultValue={defaultDueIso}
-          className={`${inputClass} mt-1`}
         />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-ink-muted dark:text-cream-400">
-          Notes (optional)
-        </label>
-        <textarea
+      </FormField>
+      <FormField label="Notes" htmlFor="appraisal-notes" hint="Optional">
+        <Textarea
+          id="appraisal-notes"
           name="notes"
           rows={2}
           maxLength={1000}
           placeholder="Goals, probation review, etc."
-          className={`${inputClass} mt-1 resize-y`}
         />
-      </div>
-      {message ? (
-        <p className="text-xs text-status-danger">{message}</p>
-      ) : null}
+      </FormField>
+      {error ? <FieldError>{error}</FieldError> : null}
       <button
         type="submit"
         disabled={busy}

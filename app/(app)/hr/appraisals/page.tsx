@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { malaysiaTodayIso } from "@/lib/ai/malaysia-today";
 import { Card, CardBody } from "@/components/ui/card";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { HrAppraisalCreateForm } from "@/components/hr/HrAppraisalCreateForm";
@@ -17,9 +18,6 @@ import { hasStaffAppraisalAddon } from "@/lib/marketplace/entitlements";
 export const metadata = { title: "Staff appraisals" };
 export const dynamic = "force-dynamic";
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default async function HrAppraisalsPage() {
   let user;
@@ -65,7 +63,7 @@ export default async function HrAppraisalsPage() {
     );
   }
 
-  const today = todayIso();
+  const today = malaysiaTodayIso();
   const pending = appraisals.filter((row) => row.status !== "completed");
   const overdue = pending.filter(
     (row) => appraisalDisplayStatus(row, today) === "overdue",

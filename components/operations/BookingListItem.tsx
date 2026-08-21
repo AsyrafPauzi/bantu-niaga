@@ -55,7 +55,7 @@ export function BookingListItem({
   return (
     <li className="group px-3 py-2.5 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60">
       <div className="flex items-start gap-3">
-        <OperationsCatalogThumb emoji="📅" />
+        <OperationsCatalogThumb icon={<Calendar className="h-6 w-6" />} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-[11px] text-ink-muted dark:text-cream-400">

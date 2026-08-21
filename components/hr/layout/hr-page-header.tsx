@@ -21,7 +21,7 @@ export function HrPageHeader({
   return (
     <header
       className={cn(
-        "flex shrink-0 flex-col gap-4 border-b border-hairline-light bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-8",
+        "flex shrink-0 flex-col gap-4 border-b border-hairline-light bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-8 dark:bg-panel-dark dark:border-hairline-dark",
         className,
       )}
     >

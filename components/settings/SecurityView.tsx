@@ -622,8 +622,8 @@ export function SecurityView({
             </div>
 
             <div className="mt-4 flex flex-col items-center gap-3">
-              <div className="rounded-xl border border-cream-200 bg-white p-3 dark:border-hairline-dark">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+              <div className="rounded-xl border border-cream-200 bg-white p-3 dark:border-hairline-dark dark:bg-panel-dark">
+                { }
                 <img
                   src={enrolModal.qr}
                   alt="2FA QR code"

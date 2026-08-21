@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Banknote,
   ChevronDown,
+  Download,
   HandCoins,
   Landmark,
   PiggyBank,
@@ -25,6 +26,7 @@ import {
   QuickCreatePanel,
 } from "@/components/ui/quick-create";
 import { cn } from "@/lib/utils/cn";
+import { todayMytYmd } from "@/lib/utils/today-ymd";
 import type { CategoryInsight } from "@/lib/finance/helpers";
 import {
   FINANCE_PAYMENT_METHODS,
@@ -43,53 +45,53 @@ const CATEGORY_META: Record<
 > = {
   sales: {
     label: "Sales",
-    emoji: "🛍️",
+    emoji: "",
     Icon: ShoppingBag,
     chip: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100",
   },
   services: {
     label: "Services",
-    emoji: "🛠️",
+    emoji: "",
     Icon: Wrench,
     chip: "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-100",
   },
   invoice_payment: {
     label: "Invoice paid",
-    emoji: "📄",
+    emoji: "",
     Icon: TrendingUp,
     chip: "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100",
   },
   capital: {
     label: "Capital",
-    emoji: "💰",
+    emoji: "",
     Icon: PiggyBank,
     chip: "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100",
     hint: "Owner injection — cash in the not sales profit. Good for tracking startup funds.",
   },
   loan: {
     label: "Loan",
-    emoji: "🏦",
+    emoji: "",
     Icon: Landmark,
     chip: "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-100",
     hint: "Borrowed money — remember to log repayments as expenses later.",
   },
   grant: {
     label: "Grant",
-    emoji: "🎁",
+    emoji: "",
     Icon: HandCoins,
     chip: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
     hint: "Government grant, subsidy, or programme funding.",
   },
   refund: {
     label: "Refund",
-    emoji: "↩️",
+    emoji: "",
     Icon: RotateCcw,
     chip: "border-cyan-200 bg-cyan-50 text-cyan-800 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-100",
     hint: "Money returned from a supplier or cancelled purchase.",
   },
   other: {
     label: "Other",
-    emoji: "✨",
+    emoji: "",
     Icon: Sparkles,
     chip: "border-cream-300 bg-cream-50 text-ink dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100",
   },
@@ -140,7 +142,7 @@ export function FinanceIncomePanel({
   const [category, setCategory] = useState("sales");
   const [counterparty, setCounterparty] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [txnDate, setTxnDate] = useState(new Date().toISOString().slice(0, 10));
+  const [txnDate, setTxnDate] = useState(todayMytYmd());
   const [showMore, setShowMore] = useState(false);
   const {
     adminFileId,
@@ -190,7 +192,7 @@ export function FinanceIncomePanel({
     setCategory("sales");
     setCounterparty("");
     setPaymentMethod("");
-    setTxnDate(new Date().toISOString().slice(0, 10));
+    setTxnDate(todayMytYmd());
     clearReceipt();
     setEditingId(null);
     setShowMore(false);
@@ -374,7 +376,10 @@ export function FinanceIncomePanel({
           active ? "border-emerald-500 bg-emerald-500 text-white" : meta.chip,
         )}
       >
-        {meta.emoji} {meta.label}
+        <span className="inline-flex items-center gap-1">
+          <meta.Icon className="h-3 w-3 shrink-0" />
+          {meta.label}
+        </span>
       </button>
     );
   };
@@ -383,8 +388,8 @@ export function FinanceIncomePanel({
     <div className="space-y-4">
       {!shellMode ? (
       <section className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-5 shadow-card dark:border-emerald-900/40 dark:from-emerald-950/40 dark:via-teal-950/20 dark:to-cyan-950/20">
-        <div className="pointer-events-none absolute -right-6 -top-6 text-6xl opacity-20">
-          💵
+        <div className="pointer-events-none absolute right-4 top-4 text-emerald-600/40 dark:text-emerald-300/20">
+          <Banknote className="h-16 w-16" strokeWidth={1} />
         </div>
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700/80 dark:text-emerald-200/80">
           {fmtMonthLabel(monthLabel)}
@@ -418,8 +423,9 @@ export function FinanceIncomePanel({
               return (
                 <li key={cat.category}>
                   <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-                    <span className="font-medium text-ink dark:text-cream-100">
-                      {meta.emoji} {meta.label}
+                    <span className="inline-flex items-center gap-1.5 font-medium text-ink dark:text-cream-100">
+                      <meta.Icon className="h-3.5 w-3.5 shrink-0" />
+                      {meta.label}
                       <span className="ml-1 text-xs font-normal text-ink-muted dark:text-cream-400">
                         ({cat.count})
                       </span>
@@ -596,7 +602,7 @@ export function FinanceIncomePanel({
 
       <FinanceTxnCompactList
         title="Recent income"
-        emptyIcon="📥"
+        emptyIcon={<Download className="h-6 w-6" />}
         emptyTitle="Nothing logged yet"
         emptyHint="Invoice payments appear here automatically when customers pay."
         transactions={filteredTransactions}

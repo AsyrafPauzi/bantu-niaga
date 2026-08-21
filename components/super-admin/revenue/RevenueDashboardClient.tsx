@@ -54,7 +54,7 @@ function KpiSparkCard({
         : "text-ink-muted";
 
   return (
-    <div className="rounded-xl border border-cream-300 bg-white p-4 shadow-card">
+    <div className="rounded-xl border border-cream-300 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
       <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
         {label}
       </p>
@@ -252,7 +252,7 @@ export function RevenueDashboardClient({
         )}
       </Section>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Section title="MRR composition" description="Recurring plans vs active add-ons.">
           {mounted && mrrDonut.length > 0 ? (
             <div className="flex flex-col items-center gap-4 sm:flex-row">
@@ -316,7 +316,7 @@ export function RevenueDashboardClient({
         </Section>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Section title="Add-on MRR" description="Marketplace add-ons contributing to MRR.">
           {revenue.addonMrrBySlug.length === 0 ? (
             <p className="text-sm text-ink-muted">No active add-ons.</p>
@@ -360,7 +360,7 @@ export function RevenueDashboardClient({
                     <li key={t.businessId}>
                       <Link
                         href={`/super-admin/businesses/${t.businessId}`}
-                        className="flex items-center justify-between rounded-lg border border-cream-300 bg-white px-3 py-2 hover:bg-cream-50"
+                        className="flex items-center justify-between rounded-lg border border-cream-300 bg-white px-3 py-2 hover:bg-cream-50 dark:border-hairline-dark dark:bg-panel-dark dark:hover:bg-hairline-dark/30"
                       >
                         <span className="text-sm font-medium text-ink">
                           {t.name}
@@ -390,7 +390,7 @@ export function RevenueDashboardClient({
             revenue.byKind.map((row) => (
               <li
                 key={row.kind}
-                className="flex items-center justify-between rounded-lg border border-cream-300 bg-white px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-cream-300 bg-white px-3 py-2 dark:border-hairline-dark dark:bg-panel-dark"
               >
                 <span className="text-sm font-medium text-ink">{row.label}</span>
                 <span className="text-sm font-bold text-ink">

@@ -47,6 +47,15 @@ export function normalizeOperationsToolArgs(
     case "update_booking_status":
       coerceNonUuid("booking_id", "booking_number");
       break;
+    case "get_order":
+      coerceNonUuid("order_id", "order_number");
+      break;
+    case "get_booking":
+      coerceNonUuid("booking_id", "customer_name");
+      break;
+    case "get_supplier":
+      coerceNonUuid("supplier_id", "supplier_name");
+      break;
     case "create_booking":
       if (
         typeof record.service_id === "string" &&
@@ -401,6 +410,72 @@ export const OPERATIONS_ASSISTANT_TOOLS = [
           },
         },
         required: ["status"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_order",
+      description:
+        "Get full details of one order by order number or customer name. Use when the user asks about a specific order's status, items, or due date.",
+      parameters: {
+        type: "object",
+        properties: {
+          order_id: { type: "string", description: "UUID from list_orders" },
+          order_number: { type: "string", description: "e.g. ORD-001" },
+          customer_name: { type: "string", description: "Partial match" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_booking",
+      description:
+        "Get details of one booking by customer name or date. Use when the user asks about a specific booking.",
+      parameters: {
+        type: "object",
+        properties: {
+          booking_id: { type: "string", description: "UUID from list_bookings" },
+          customer_name: { type: "string" },
+          booking_date: { type: "string", description: "YYYY-MM-DD" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_supplier",
+      description:
+        "Get full details of one supplier by name or ID. Use when the user asks about a supplier's contact info, products, or notes.",
+      parameters: {
+        type: "object",
+        properties: {
+          supplier_id: { type: "string", description: "UUID from list_suppliers" },
+          supplier_name: { type: "string" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_stock_report",
+      description:
+        "Get a full stock status report showing all products, their stock levels, and which are below threshold. Use when the user wants a comprehensive stock overview.",
+      parameters: {
+        type: "object",
+        properties: {
+          low_stock_only: { type: "boolean" },
+          limit: { type: "number" },
+        },
         additionalProperties: false,
       },
     },

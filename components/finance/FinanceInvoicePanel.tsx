@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  Ban,
   CheckCircle2,
   ExternalLink,
   FileText,
@@ -12,12 +13,14 @@ import {
   Mail,
   MessageCircle,
   MessageSquareQuote,
+  PartyPopper,
   Pencil,
   Plus,
+  Receipt,
   Search,
   Send,
-  Ban,
   Sparkles,
+  TrendingDown,
 } from "lucide-react";
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
@@ -383,12 +386,12 @@ export function FinanceInvoicePanel({
     },
   ];
 
-  const heroEmoji =
+  const HeroIcon =
     summary.outstanding_myr > 0
-      ? "💸"
+      ? TrendingDown
       : summary.invoice_count === 0
-        ? "✨"
-        : "🎉";
+        ? Sparkles
+        : PartyPopper;
 
   const nudges = [
     summary.overdue_count > 0
@@ -457,8 +460,8 @@ export function FinanceInvoicePanel({
               : "border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 dark:border-emerald-900/40 dark:from-emerald-950/40 dark:via-teal-950/20 dark:to-sky-950/20",
         )}
       >
-        <div className="pointer-events-none absolute -right-2 -top-2 text-6xl opacity-25">
-          {heroEmoji}
+        <div className="pointer-events-none absolute right-4 top-4 text-current opacity-20">
+          <HeroIcon className="h-16 w-16" strokeWidth={1} />
         </div>
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
@@ -637,9 +640,13 @@ export function FinanceInvoicePanel({
 
         {filteredInvoices.length === 0 ? (
           <div className="px-5 py-14 text-center">
-            <div className="text-4xl">
-              {documentKind === "quote" ? "📝" : "🧾"}
-            </div>
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-cream-200 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400">
+              {documentKind === "quote" ? (
+                <FileText className="h-6 w-6" />
+              ) : (
+                <Receipt className="h-6 w-6" />
+              )}
+            </span>
             <p className="mt-3 text-sm font-medium text-ink dark:text-cream-100">
               {query.trim()
                 ? "No invoices match your search"
@@ -882,6 +889,8 @@ export function FinanceInvoicePanel({
               ...(statusFilter !== "all" ? { status: statusFilter } : {}),
               ...(customerIdFilter ? { customer_id: customerIdFilter } : {}),
             }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            defaultPageSize={10}
           />
           </>
         )}

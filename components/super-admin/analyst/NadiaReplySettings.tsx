@@ -47,9 +47,9 @@ export function NadiaReplySettings({
   }
 
   return (
-    <div className="rounded-xl border border-cream-300 bg-white p-4 shadow-card">
-      <p className="text-sm font-semibold text-ink">Reply channels</p>
-      <p className="mt-1 text-xs text-ink-muted">
+    <div className="rounded-xl border border-cream-300 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+      <p className="text-sm font-semibold text-ink dark:text-cream-100">Reply channels</p>
+      <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
         Control how Nadia responds on the Revenue dashboard. Enforced
         server-side.
       </p>

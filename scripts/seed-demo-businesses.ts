@@ -603,7 +603,7 @@ async function main(): Promise<void> {
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
-  let serviceRoleKey = resolveServiceRoleKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const serviceRoleKey = resolveServiceRoleKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   console.log(`[seed:demo] Target URL: ${url}`);
 

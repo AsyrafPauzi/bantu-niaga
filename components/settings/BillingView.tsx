@@ -10,6 +10,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip } from "@/components/ui/tooltip";
 import { BillingUsageReport } from "@/components/settings/BillingUsageReport";
 import { PaymentMethodsCard } from "@/components/settings/PaymentMethodsCard";
 import { TOPUP_BUNDLES } from "@/lib/settings/schemas";
@@ -337,6 +338,7 @@ export function BillingView({
                           </Badge>
                         </td>
                         <td className="px-5 py-3 text-right">
+                          <Tooltip content="Download invoice" side="top">
                           <button
                             type="button"
                             onClick={() => downloadInvoice(inv.id)}
@@ -357,6 +359,7 @@ export function BillingView({
                               />
                             )}
                           </button>
+                          </Tooltip>
                         </td>
                       </tr>
                     ))}

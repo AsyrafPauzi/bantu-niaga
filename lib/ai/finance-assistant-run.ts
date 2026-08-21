@@ -13,10 +13,8 @@ import {
   malaysiaTodayIso,
 } from "@/lib/ai/finance-assistant-tools";
 import {
-  extractChatAssistantText,
-  openaiChat,
+  openaiChatFull,
   type AgentChatMessage,
-  type ChatCompletionResponse,
 } from "@/lib/ai/openai";
 import type { StaffAssistantChatArgs } from "@/lib/ai/staff-assistant-route";
 import { STAFF_ASSISTANT_MAX_TOKENS } from "@/lib/ai/staff-assistant-shared";
@@ -47,7 +45,7 @@ export function formatFinanceSnapshotPacket(snapshot: PillarSnapshot): string {
 
 export async function runFinanceAssistantChat(
   args: StaffAssistantChatArgs,
-): Promise<{ reply: string; usedActionTool: boolean }> {
+): Promise<{ reply: string; usedActionTool: boolean; tokensIn: number; tokensOut: number; model: string }> {
   const {
     ctx,
     message: userMessage,
@@ -99,7 +97,8 @@ export async function runFinanceAssistantChat(
     { role: "user", content: userMessage },
   ];
 
-  let completion = await openaiChat<ChatCompletionResponse>({
+  // Use openaiChatFull to capture real token counts for cost tracking.
+  let result = await openaiChatFull({
     model,
     briefingFor: "finance",
     context: ctx,
@@ -110,13 +109,19 @@ export async function runFinanceAssistantChat(
     tool_choice: "auto",
   });
 
-  const assistantMessage = completion.choices?.[0]?.message;
-  const toolCalls = assistantMessage?.tool_calls ?? [];
+  let tokensIn = result.response.usage.promptTokens;
+  let tokensOut = result.response.usage.completionTokens;
+
+  const assistantMessage = result.response.choices[0]?.message;
+  const toolCalls = result.toolCalls;
 
   if (toolCalls.length === 0) {
     return {
-      reply: extractChatAssistantText(completion),
+      reply: result.replyText,
       usedActionTool: false,
+      tokensIn,
+      tokensOut,
+      model,
     };
   }
 
@@ -142,7 +147,7 @@ export async function runFinanceAssistantChat(
       usedActionTool = true;
     }
 
-    const result = await executeFinanceAssistantTool(
+    const toolResult = await executeFinanceAssistantTool(
       ctx,
       toolCall.function.name,
       parsedArgs,
@@ -151,11 +156,11 @@ export async function runFinanceAssistantChat(
     followUpMessages.push({
       role: "tool",
       tool_call_id: toolCall.id,
-      content: JSON.stringify(result),
+      content: JSON.stringify(toolResult),
     });
   }
 
-  completion = await openaiChat<ChatCompletionResponse>({
+  result = await openaiChatFull({
     model,
     context: ctx,
     temperature: 0.2,
@@ -165,8 +170,15 @@ export async function runFinanceAssistantChat(
     tool_choice: "none",
   });
 
+  // Accumulate tokens across both LLM calls.
+  tokensIn += result.response.usage.promptTokens;
+  tokensOut += result.response.usage.completionTokens;
+
   return {
-    reply: extractChatAssistantText(completion),
+    reply: result.replyText,
     usedActionTool,
+    tokensIn,
+    tokensOut,
+    model,
   };
 }

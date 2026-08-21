@@ -1,6 +1,10 @@
 import Link from "next/link";
 import {
+  AlertCircle,
+  ArrowRight,
   BarChart3,
+  Check,
+  CircleDot,
   Clock,
   FileText,
   MessageSquare,
@@ -22,7 +26,6 @@ import {
 } from "@/components/admin/AdminOverviewPanel";
 import {
   ModuleAttentionPills,
-  ModuleDashboardHero,
   ModuleDashboardShell,
   ModuleQuickActions,
 } from "@/components/dashboard/module-layout";
@@ -38,6 +41,7 @@ import {
   whatsAppShareUrl,
 } from "@/lib/finance/schemas";
 import { cn } from "@/lib/utils/cn";
+import { Tooltip } from "@/components/ui/tooltip";
 import { fmtRelTime } from "@/lib/utils/relative-time";
 import { pillarClasses } from "@/lib/pillars/theme";
 
@@ -88,6 +92,15 @@ const QUICK_ACTIONS = [
   },
 ] as const;
 
+/* ── Shortcut row shown right below the hero on mobile ───────── */
+const MOBILE_SHORTCUTS = [
+  { href: "/finance/invoices/new",  Icon: Plus,          label: "Invoice",  color: "bg-brand-500" },
+  { href: "/finance/expenses",      Icon: Receipt,       label: "Expense",  color: "bg-rose-500" },
+  { href: "/finance/income",        Icon: Wallet,        label: "Income",   color: "bg-emerald-500" },
+  { href: "/finance/invoices",      Icon: FileText,      label: "Invoices", color: "bg-violet-500" },
+  { href: "/finance/reports",       Icon: BarChart3,     label: "Reports",  color: "bg-amber-500" },
+] as const;
+
 function fmtShortDate(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString("en-MY", {
     day: "numeric",
@@ -122,7 +135,7 @@ function invoiceStatusLabel(
     return status === "draft" ? "Quote draft" : "Quote sent";
   }
   if (status === "sent" && dueDate) {
-    return dueDate < malaysiaTodayYmd() ? "Overdue" : "Awaiting pay";
+    return dueDate < malaysiaTodayYmd() ? "Overdue" : "Awaiting";
   }
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
@@ -180,18 +193,6 @@ export function FinanceOverview({
 
   const netChange = formatPctChange(comparison.net_pct, comparison.prev_month_label);
 
-  const heroHeadline = !hasActivity
-    ? "Let's get your first ringgit tracked"
-    : makingMoney
-      ? `You're up ${formatMyr(summary.net_myr)}`
-      : `You're down ${formatMyr(Math.abs(summary.net_myr))}`;
-
-  const heroSub = !hasActivity
-    ? "Log an expense or send an invoice — Fayza can help you stay on top of cash flow."
-    : makingMoney
-      ? "More money in than out — nice work keeping the books tidy."
-      : "Spending beat income — check expenses or chase unpaid invoices.";
-
   const incomeBarPct =
     summary.income_myr + summary.expense_myr > 0
       ? Math.round(
@@ -203,21 +204,21 @@ export function FinanceOverview({
   const attentionItems = [
     counts.overdueInvoices > 0
       ? {
-          label: `${counts.overdueInvoices} overdue invoice${counts.overdueInvoices === 1 ? "" : "s"}`,
+          label: `${counts.overdueInvoices} overdue`,
           href: "/finance/invoices?status=sent",
           tone: "danger" as const,
         }
       : null,
     counts.sentInvoices > 0
       ? {
-          label: `${formatMyr(summary.invoice_outstanding_myr)} awaiting payment`,
+          label: `${formatMyr(summary.invoice_outstanding_myr)} awaiting`,
           href: "/finance/invoices?status=sent",
           tone: "warning" as const,
         }
       : null,
     counts.draftInvoices > 0
       ? {
-          label: `${counts.draftInvoices} draft invoice${counts.draftInvoices === 1 ? "" : "s"} to send`,
+          label: `${counts.draftInvoices} draft${counts.draftInvoices === 1 ? "" : "s"}`,
           href: "/finance/invoices?status=draft",
           tone: "neutral" as const,
         }
@@ -239,15 +240,26 @@ export function FinanceOverview({
     ? QUICK_ACTIONS
     : QUICK_ACTIONS.filter((a) => a.href !== "/finance/expenses");
 
+  const mobileShortcuts = expensesAllowed
+    ? MOBILE_SHORTCUTS
+    : MOBILE_SHORTCUTS.filter((s) => s.href !== "/finance/expenses");
+
   return (
-    <ModuleDashboardShell className="pb-20 lg:pb-8">
-      <ModuleDashboardHero
-        module="Finance"
-        pillar="finance"
-        headline={heroHeadline}
-        subcopy={heroSub}
-        headerExtra={
-          <div className="mb-2 flex flex-wrap items-center gap-3">
+    <ModuleDashboardShell className="pb-20 md:pb-8">
+
+      {/* ═══════════════════════════════════════════════════════
+          HERO CARD — Net balance + 4 KPIs
+      ══════════════════════════════════════════════════════════ */}
+      <section className={cn(
+        "relative overflow-hidden rounded-2xl border p-4 shadow-sm md:p-5",
+        financeTheme.heroBorder, financeTheme.heroBg,
+      )}>
+        {/* Decorative blob */}
+        <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
+
+        {/* Month picker row */}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <FinanceMonthPicker value={month} />
             {netChange ? (
               <span className={cn("text-xs font-semibold", pctTone(comparison.net_pct))}>
@@ -255,257 +267,273 @@ export function FinanceOverview({
               </span>
             ) : null}
           </div>
-        }
-        cta={<FinanceNewInvoiceButton />}
-      >
-        <p className="mt-1 text-xs font-medium text-ink-muted dark:text-cream-400">
-          {monthLabel}
-        </p>
+          <FinanceNewInvoiceButton />
+        </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-white/60 bg-white/70 p-4 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-status-success">
-              <TrendingUp className="h-3.5 w-3.5" />
-              Money in
+        {/* Net headline */}
+        <div className="mb-4">
+          <p className={cn(
+            "text-[10px] font-semibold uppercase tracking-widest",
+            financeTheme.eyebrow,
+          )}>
+            Finance · {monthLabel}
+          </p>
+          <p className={cn(
+            "mt-1 text-3xl font-bold tracking-tight tabular-nums md:text-4xl",
+            makingMoney ? "text-status-success" : "text-status-danger",
+          )}>
+            {formatMyr(summary.net_myr)}
+          </p>
+          <p className="mt-0.5 text-sm text-ink-muted dark:text-cream-400">
+            {!hasActivity
+              ? "Start by logging a transaction or sending an invoice"
+              : makingMoney
+                ? "More money in than out — great work"
+                : "Expenses exceeded income this period"}
+          </p>
+        </div>
+
+        {/* 4 KPI tiles — 2×2 on mobile, 4×1 on md+ */}
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {/* Money In */}
+          <div className="rounded-xl border border-white/60 bg-white/70 px-3 py-2.5 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-status-success">
+              <TrendingUp className="h-3 w-3" />
+              In
             </p>
-            <p className="mt-1 text-xl font-bold text-ink dark:text-cream-100">
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink dark:text-cream-100">
               {formatMyr(summary.income_myr)}
             </p>
-            {formatPctChange(comparison.income_pct, comparison.prev_month_label) ? (
-              <p className={cn("mt-1 text-[11px] font-medium", pctTone(comparison.income_pct))}>
+            {comparison.income_pct !== null ? (
+              <p className={cn("mt-0.5 text-[10px] font-medium", pctTone(comparison.income_pct))}>
                 {formatPctChange(comparison.income_pct, comparison.prev_month_label)}
               </p>
             ) : null}
           </div>
-          <div className="rounded-xl border border-white/60 bg-white/70 p-4 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-status-danger">
-              <TrendingDown className="h-3.5 w-3.5" />
-              Money out
+
+          {/* Money Out */}
+          <div className="rounded-xl border border-white/60 bg-white/70 px-3 py-2.5 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-status-danger">
+              <TrendingDown className="h-3 w-3" />
+              Out
             </p>
-            <p className="mt-1 text-xl font-bold text-ink dark:text-cream-100">
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink dark:text-cream-100">
               {formatMyr(summary.expense_myr)}
             </p>
-            {formatPctChange(comparison.expense_pct, comparison.prev_month_label) ? (
-              <p
-                className={cn(
-                  "mt-1 text-[11px] font-medium",
-                  pctTone(comparison.expense_pct, true),
-                )}
-              >
+            {comparison.expense_pct !== null ? (
+              <p className={cn("mt-0.5 text-[10px] font-medium", pctTone(comparison.expense_pct, true))}>
                 {formatPctChange(comparison.expense_pct, comparison.prev_month_label)}
               </p>
             ) : null}
           </div>
-          <div className="rounded-xl border border-white/60 bg-white/70 p-4 backdrop-blur-sm dark:border-hairline-dark dark:bg-panel-dark/80">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-200">
-              <Wallet className="h-3.5 w-3.5" />
-              You keep
-            </p>
-            <p
-              className={cn(
-                "mt-1 text-xl font-bold",
-                makingMoney ? "text-status-success" : "text-status-danger",
-              )}
-            >
-              {formatMyr(summary.net_myr)}
-            </p>
-          </div>
+
+          {/* POS Today */}
           <Link
             href="/sales"
-            className="rounded-xl border border-white/60 bg-white/70 p-4 backdrop-blur-sm transition-colors hover:border-brand-200 dark:border-hairline-dark dark:bg-panel-dark/80 dark:hover:border-brand-700"
+            className="rounded-xl border border-white/60 bg-white/70 px-3 py-2.5 backdrop-blur-sm transition-colors hover:border-brand-200 dark:border-hairline-dark dark:bg-panel-dark/80 dark:hover:border-brand-700"
           >
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-200">
-              <ShoppingCart className="h-3.5 w-3.5" />
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-200">
+              <ShoppingCart className="h-3 w-3" />
               POS today
             </p>
-            <p className="mt-1 text-xl font-bold text-ink dark:text-cream-100">
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink dark:text-cream-100">
               {formatMyr(posToday.sales_total_myr)}
             </p>
-            <p className="mt-1 text-[11px] text-ink-muted dark:text-cream-400">
+            <p className="mt-0.5 text-[10px] text-ink-muted dark:text-cream-400">
               {posToday.sales_count === 0
-                ? "No counter sales yet"
-                : `${posToday.sales_count} sale${posToday.sales_count === 1 ? "" : "s"} · posts to ledger`}
+                ? "No sales yet"
+                : `${posToday.sales_count} sale${posToday.sales_count === 1 ? "" : "s"}`}
+            </p>
+          </Link>
+
+          {/* Invoices outstanding */}
+          <Link
+            href="/finance/invoices?status=sent"
+            className="rounded-xl border border-white/60 bg-white/70 px-3 py-2.5 backdrop-blur-sm transition-colors hover:border-brand-200 dark:border-hairline-dark dark:bg-panel-dark/80 dark:hover:border-brand-700"
+          >
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              <Wallet className="h-3 w-3" />
+              Unpaid
+            </p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink dark:text-cream-100">
+              {formatMyr(summary.invoice_outstanding_myr)}
+            </p>
+            <p className="mt-0.5 text-[10px] text-ink-muted dark:text-cream-400">
+              {counts.sentInvoices === 0
+                ? "All cleared"
+                : `${counts.sentInvoices} invoice${counts.sentInvoices === 1 ? "" : "s"}`}
             </p>
           </Link>
         </div>
 
+        {/* Income vs Expense bar */}
         {hasActivity ? (
-          <div className="mt-4">
-            <div className="flex justify-between text-[11px] font-medium text-ink-muted dark:text-cream-400">
-              <span>Income</span>
-              <span>Expenses</span>
+          <div className="mt-3">
+            <div className="flex justify-between text-[10px] font-medium text-ink-muted dark:text-cream-400">
+              <span>Income {incomeBarPct}%</span>
+              <span>Expenses {100 - incomeBarPct}%</span>
             </div>
-            <div className="mt-1.5 flex h-2.5 overflow-hidden rounded-full bg-cream-200 dark:bg-hairline-dark">
-              <div
-                className="bg-status-success transition-all"
-                style={{ width: `${incomeBarPct}%` }}
-              />
-              <div
-                className="bg-status-danger transition-all"
-                style={{ width: `${100 - incomeBarPct}%` }}
-              />
+            <div className="mt-1 flex h-2 overflow-hidden rounded-full bg-white/40 dark:bg-hairline-dark">
+              <div className="bg-status-success/80 transition-all" style={{ width: `${incomeBarPct}%` }} />
+              <div className="bg-status-danger/80 transition-all" style={{ width: `${100 - incomeBarPct}%` }} />
             </div>
           </div>
         ) : null}
-      </ModuleDashboardHero>
+      </section>
 
+      {/* ═══════════════════════════════════════════════════════
+          ATTENTION PILLS
+      ══════════════════════════════════════════════════════════ */}
       <ModuleAttentionPills items={attentionItems} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-        {chaseList.length > 0 ? (
-          <AdminOverviewPanel
-            title="Who owes you"
-            subtitle={`${formatMyr(summary.invoice_outstanding_myr)} outstanding`}
-            className="lg:col-span-2"
-            action={
-              <Link
-                href="/finance/invoices?status=sent"
-                className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-              >
-                All unpaid
-              </Link>
-            }
+      {/* ═══════════════════════════════════════════════════════
+          QUICK-ACTION SHORTCUT ROW (mobile-first icon rail)
+      ══════════════════════════════════════════════════════════ */}
+      <div className="-mx-1 flex gap-3 overflow-x-auto overscroll-x-contain pb-1 scrollbar-none">
+        {mobileShortcuts.map(({ href, Icon, label, color }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex min-w-[60px] flex-none flex-col items-center gap-1.5"
           >
-            <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
-              {chaseList.map((inv) => {
-                const shareUrl =
-                  idcompany && appUrl
-                    ? invoiceShareUrl(appUrl, idcompany, inv.share_hash)
-                    : "";
-                const waMessage = shareUrl
-                  ? buildInvoiceShareMessage(
-                      businessName,
-                      inv.number,
-                      inv.total_myr,
-                      shareUrl,
-                    )
-                  : `Hi ${inv.customer_name}, friendly reminder for invoice ${inv.number} (${formatMyr(inv.total_myr)}).`;
-                const waHref = inv.customer_phone
-                  ? `https://wa.me/${inv.customer_phone.replace(/\D/g, "")}?text=${encodeURIComponent(waMessage)}`
-                  : whatsAppShareUrl(waMessage);
-
-                return (
-                  <div
-                    key={inv.id}
-                    className={cn(
-                      "flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5",
-                      inv.is_overdue && "bg-rose-50/30 dark:bg-rose-950/10",
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium text-ink dark:text-cream-100">
-                        {inv.customer_name}
-                      </p>
-                      <p className="text-xs text-ink-muted dark:text-cream-400">
-                        {inv.number}
-                        {inv.due_date
-                          ? ` · due ${fmtShortDate(inv.due_date)}`
-                          : " · no due date"}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold tabular-nums text-ink dark:text-cream-100">
-                        {formatMyr(inv.total_myr)}
-                      </p>
-                      {inv.is_overdue ? (
-                        <StatusPill tone="danger">Overdue</StatusPill>
-                      ) : (
-                        <StatusPill tone="warning">Sent</StatusPill>
-                      )}
-                      <a
-                        href={waHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        WhatsApp
-                      </a>
-                      <Link
-                        href={`/finance/invoices/${inv.id}/edit`}
-                        className="text-xs font-semibold text-brand-700 hover:underline dark:text-brand-200"
-                      >
-                        Open
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </AdminOverviewPanel>
-        ) : null}
-
-        {expenseCategories.length > 0 ? (
-          <AdminOverviewPanel
-            title="Expense breakdown"
-            subtitle={`Top categories · ${monthLabel}`}
-            action={
-              expensesAllowed ? (
-                <Link
-                  href="/finance/expenses"
-                  className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-                >
-                  Log expense
-                </Link>
-              ) : (
-                <Link
-                  href="/settings/subscription"
-                  className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-                >
-                  Upgrade for expenses
-                </Link>
-              )
-            }
-          >
-            <div className="space-y-3 px-4 py-3 sm:px-5">
-              {expenseCategories.map((cat) => (
-                <div key={cat.category}>
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="capitalize text-ink dark:text-cream-100">
-                      {cat.category}
-                    </span>
-                    <span className="font-semibold tabular-nums text-ink dark:text-cream-100">
-                      {formatMyr(cat.amount_myr)}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-cream-200 dark:bg-hairline-dark">
-                    <div
-                      className="h-full rounded-full bg-status-danger/80"
-                      style={{ width: `${cat.pct}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </AdminOverviewPanel>
-        ) : null}
+            <span className={cn(
+              "flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-sm transition-transform active:scale-95",
+              color,
+            )}>
+              <Icon className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <span className="text-center text-[11px] font-medium leading-tight text-ink-muted dark:text-cream-400">
+              {label}
+            </span>
+          </Link>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+      {/* ═══════════════════════════════════════════════════════
+          WHO OWES YOU — chase list (highest priority on mobile)
+      ══════════════════════════════════════════════════════════ */}
+      {chaseList.length > 0 ? (
+        <section className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-sm dark:border-hairline-dark dark:bg-panel-dark">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-cream-200 px-4 py-3 dark:border-hairline-dark">
+            <div>
+              <h2 className="text-sm font-semibold text-ink dark:text-cream-100">Who owes you</h2>
+              <p className="text-xs text-ink-muted dark:text-cream-400">
+                {formatMyr(summary.invoice_outstanding_myr)} outstanding
+              </p>
+            </div>
+            <Link
+              href="/finance/invoices?status=sent"
+              className="flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+            >
+              All unpaid <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          {/* Chase rows — touch-friendly */}
+          <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
+            {chaseList.map((inv) => {
+              const shareUrl =
+                idcompany && appUrl
+                  ? invoiceShareUrl(appUrl, idcompany, inv.share_hash)
+                  : "";
+              const waMessage = shareUrl
+                ? buildInvoiceShareMessage(businessName, inv.number, inv.total_myr, shareUrl)
+                : `Hi ${inv.customer_name}, friendly reminder for invoice ${inv.number} (${formatMyr(inv.total_myr)}).`;
+              const waHref = inv.customer_phone
+                ? `https://wa.me/${inv.customer_phone.replace(/\D/g, "")}?text=${encodeURIComponent(waMessage)}`
+                : whatsAppShareUrl(waMessage);
+
+              return (
+                <li
+                  key={inv.id}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3",
+                    inv.is_overdue && "bg-rose-50/40 dark:bg-rose-950/10",
+                  )}
+                >
+                  {/* Status icon */}
+                  {inv.is_overdue ? (
+                    <AlertCircle className="h-4 w-4 shrink-0 text-status-danger" />
+                  ) : (
+                    <CircleDot className="h-4 w-4 shrink-0 text-status-warning" />
+                  )}
+
+                  {/* Name + meta */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink dark:text-cream-100">
+                      {inv.customer_name}
+                    </p>
+                    <p className="text-xs text-ink-muted dark:text-cream-400">
+                      {inv.number}
+                      {inv.due_date ? ` · due ${fmtShortDate(inv.due_date)}` : ""}
+                    </p>
+                  </div>
+
+                  {/* Amount */}
+                  <p className="shrink-0 text-sm font-bold tabular-nums text-ink dark:text-cream-100">
+                    {formatMyr(inv.total_myr)}
+                  </p>
+
+                  {/* WhatsApp CTA */}
+                  <Tooltip content="Chase on WhatsApp" side="top">
+                    <a
+                      href={waHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Chase ${inv.customer_name} on WhatsApp`}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 active:scale-95 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                    </a>
+                  </Tooltip>
+
+                  {/* Open invoice */}
+                  <Tooltip content="Open invoice" side="top">
+                    <Link
+                      href={`/finance/invoices/${inv.id}/edit`}
+                      aria-label="Open invoice"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cream-300 bg-white text-ink-muted transition-colors hover:bg-cream-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Tooltip>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* ═══════════════════════════════════════════════════════
+          RECENT CASH FLOW + INVOICES — side by side on tablet+
+      ══════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+        {/* Recent cash flow */}
         <AdminOverviewPanel
           title="Recent cash flow"
           subtitle="Latest money in & out"
           action={
             <Link
               href="/finance/reports"
-              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+              className="flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              View reports
+              Reports <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           }
         >
-          <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
+          <div className="divide-y divide-cream-100 dark:divide-hairline-dark">
             {recentTransactions.length === 0 ? (
-              <div className="px-4 py-6 sm:px-5">
+              <div className="px-4 py-6">
                 <AdminCatalogEmpty
                   icon={<Receipt />}
                   title="No entries yet"
                   hint={
                     expensesAllowed
                       ? "Log expenses and income to build your cash-flow picture."
-                      : "Upgrade to Basic (RM39) to track expenses."
+                      : "Upgrade to Basic to track expenses."
                   }
-                  className="border-none bg-transparent py-8 dark:bg-transparent"
+                  className="border-none bg-transparent py-6 dark:bg-transparent"
                   action={
                     expensesAllowed ? (
                       <Link
@@ -530,11 +558,7 @@ export function FinanceOverview({
               recentTransactions.map((row) => (
                 <AdminOverviewRow
                   key={row.id}
-                  href={
-                    row.kind === "income"
-                      ? "/finance/income"
-                      : "/finance/expenses"
-                  }
+                  href={row.kind === "income" ? "/finance/income" : "/finance/expenses"}
                   title={row.description}
                   subtitle={
                     row.counterparty
@@ -542,23 +566,16 @@ export function FinanceOverview({
                       : fmtShortDate(row.txn_date)
                   }
                   badge={
-                    <StatusPill
-                      tone={row.kind === "income" ? "success" : "danger"}
-                    >
+                    <StatusPill tone={row.kind === "income" ? "success" : "danger"}>
                       {row.kind === "income" ? "In" : "Out"}
                     </StatusPill>
                   }
                   trailing={
-                    <span
-                      className={cn(
-                        "text-sm font-semibold tabular-nums",
-                        row.kind === "income"
-                          ? "text-status-success"
-                          : "text-status-danger",
-                      )}
-                    >
-                      {(row.kind === "income" ? "+" : "−") +
-                        formatMyr(row.amount_myr)}
+                    <span className={cn(
+                      "text-sm font-bold tabular-nums",
+                      row.kind === "income" ? "text-status-success" : "text-status-danger",
+                    )}>
+                      {(row.kind === "income" ? "+" : "−") + formatMyr(row.amount_myr)}
                     </span>
                   }
                 />
@@ -567,26 +584,27 @@ export function FinanceOverview({
           </div>
         </AdminOverviewPanel>
 
+        {/* Invoices & quotes */}
         <AdminOverviewPanel
           title="Invoices & quotes"
           subtitle={`${counts.customers} billing customer${counts.customers === 1 ? "" : "s"}`}
           action={
             <Link
               href="/finance/invoices"
-              className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
+              className="flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
             >
-              View all
+              All <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           }
         >
-          <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
+          <div className="divide-y divide-cream-100 dark:divide-hairline-dark">
             {recentInvoices.length === 0 ? (
-              <div className="px-4 py-6 sm:px-5">
+              <div className="px-4 py-6">
                 <AdminCatalogEmpty
                   icon={<FileText />}
-                  title="No invoices or quotes yet"
+                  title="No invoices yet"
                   hint="Send your first bill — customers get a share link with optional DuitNow."
-                  className="border-none bg-transparent py-8 dark:bg-transparent"
+                  className="border-none bg-transparent py-6 dark:bg-transparent"
                   action={
                     <Link
                       href="/finance/invoices/new"
@@ -606,18 +624,12 @@ export function FinanceOverview({
                   title={inv.customer_name}
                   subtitle={`${inv.number} · ${fmtShortDate(inv.invoice_date)}`}
                   badge={
-                    <StatusPill
-                      tone={invoiceStatusTone(inv.status, inv.due_date)}
-                    >
-                      {invoiceStatusLabel(
-                        inv.status,
-                        inv.document_kind,
-                        inv.due_date,
-                      )}
+                    <StatusPill tone={invoiceStatusTone(inv.status, inv.due_date)}>
+                      {invoiceStatusLabel(inv.status, inv.document_kind, inv.due_date)}
                     </StatusPill>
                   }
                   trailing={
-                    <span className="text-sm font-semibold tabular-nums text-ink dark:text-cream-100">
+                    <span className="text-sm font-bold tabular-nums text-ink dark:text-cream-100">
                       {formatMyr(inv.total_myr)}
                     </span>
                   }
@@ -633,43 +645,88 @@ export function FinanceOverview({
         </AdminOverviewPanel>
       </div>
 
-      <AdminOverviewPanel
-        title="Activity feed"
-        subtitle="Recent finance events for your team"
-      >
-        <div className="divide-y divide-cream-200 dark:divide-hairline-dark">
-          {notifications.length === 0 ? (
-            <div className="px-4 py-6 text-sm text-ink-muted sm:px-5 dark:text-cream-400">
-              Expenses, invoices, exports, and payments will appear here.
-            </div>
-          ) : (
-            notifications.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-start gap-3 px-4 py-3 sm:px-5"
+      {/* ═══════════════════════════════════════════════════════
+          EXPENSE BREAKDOWN — only if data exists
+      ══════════════════════════════════════════════════════════ */}
+      {expenseCategories.length > 0 ? (
+        <AdminOverviewPanel
+          title="Expense breakdown"
+          subtitle={`Top categories · ${monthLabel}`}
+          action={
+            expensesAllowed ? (
+              <Link
+                href="/finance/expenses"
+                className="flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
               >
-                <span
-                  className={cn(
-                    "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg",
-                    financeTheme.iconBox,
-                  )}
-                >
-                  <Clock className="h-4 w-4" />
+                Log expense <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            ) : (
+              <Link
+                href="/settings/subscription"
+                className="text-xs font-semibold text-brand-700 dark:text-brand-200"
+              >
+                Upgrade
+              </Link>
+            )
+          }
+        >
+          <div className="space-y-3 px-4 py-3 md:px-5">
+            {expenseCategories.map((cat, i) => (
+              <div key={cat.category}>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-1.5 capitalize text-ink dark:text-cream-100">
+                    {i === 0 && <TrendingDown className="h-3.5 w-3.5 shrink-0 text-status-danger" />}
+                    {cat.category}
+                  </span>
+                  <span className="font-semibold tabular-nums text-ink dark:text-cream-100">
+                    {formatMyr(cat.amount_myr)}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-cream-200 dark:bg-hairline-dark">
+                  <div
+                    className="h-full rounded-full bg-status-danger/80 transition-all"
+                    style={{ width: `${cat.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </AdminOverviewPanel>
+      ) : null}
+
+      {/* ═══════════════════════════════════════════════════════
+          ACTIVITY FEED — compact, max 5 items
+      ══════════════════════════════════════════════════════════ */}
+      {notifications.length > 0 ? (
+        <AdminOverviewPanel
+          title="Activity"
+          subtitle="Recent finance events"
+        >
+          <div className="divide-y divide-cream-100 dark:divide-hairline-dark">
+            {notifications.slice(0, 5).map((item) => (
+              <div key={item.id} className="flex items-start gap-3 px-4 py-2.5 md:px-5">
+                <span className={cn(
+                  "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg",
+                  financeTheme.iconBox,
+                )}>
+                  <Clock className="h-3.5 w-3.5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-ink dark:text-cream-100">
-                    {item.message}
-                  </p>
+                  <p className="text-sm text-ink dark:text-cream-100">{item.message}</p>
                   <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
                     {fmtRelTime(item.created_at)}
                   </p>
                 </div>
+                <Check className="mt-1 h-3.5 w-3.5 shrink-0 text-status-success" />
               </div>
-            ))
-          )}
-        </div>
-      </AdminOverviewPanel>
+            ))}
+          </div>
+        </AdminOverviewPanel>
+      ) : null}
 
+      {/* ═══════════════════════════════════════════════════════
+          EVERYTHING IN FINANCE — quick-action grid
+      ══════════════════════════════════════════════════════════ */}
       <ModuleQuickActions
         module="Finance"
         pillar="finance"

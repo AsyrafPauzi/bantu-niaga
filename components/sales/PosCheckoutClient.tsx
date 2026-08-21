@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -14,6 +14,7 @@ import {
   Plus,
   QrCode,
   Receipt,
+  ScanBarcode,
   Search,
   Share2,
   ShoppingBag,
@@ -22,7 +23,9 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useBarcodeScanner } from "@/hooks/use-barcode-scanner";
 import { SalesBackLink } from "@/components/sales/SalesBackLink";
+import { BarcodeScanModal } from "@/components/sales/BarcodeScanModal";
 import { PosReceiptView, type PosReceiptData } from "@/components/sales/PosReceiptView";
 import { formatMyr } from "@/lib/marketing/metrics";
 import { salesClasses } from "@/lib/sales/theme";
@@ -134,6 +137,12 @@ export function PosCheckoutClient({
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [addedPulse, setAddedPulse] = useState<string | null>(null);
   const [showTour, setShowTour] = useState(false);
+  const [barcodeToast, setBarcodeToast] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const barcodeToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     try {
@@ -305,7 +314,7 @@ export function PosCheckoutClient({
   const changeDue =
     payMethod === "cash" && Number.isFinite(cashIn) ? Math.max(0, cashIn - total) : 0;
 
-  function addProduct(p: PosProduct) {
+  const addProduct = useCallback((p: PosProduct) => {
     pulseAdd(`product:${p.id}`);
     setCart((prev) => {
       const i = prev.findIndex((l) => l.kind === "product" && l.id === p.id);
@@ -325,7 +334,7 @@ export function PosCheckoutClient({
         },
       ];
     });
-  }
+  }, []);
 
   function addService(s: PosService) {
     pulseAdd(`service:${s.id}`);
@@ -348,6 +357,48 @@ export function PosCheckoutClient({
       ];
     });
   }
+
+  function showBarcodeToast(type: "success" | "error", message: string) {
+    if (barcodeToastTimerRef.current) clearTimeout(barcodeToastTimerRef.current);
+    setBarcodeToast({ type, message });
+    barcodeToastTimerRef.current = setTimeout(() => setBarcodeToast(null), 3000);
+  }
+
+  const handleBarcodeScan = useCallback(
+    async (code: string) => {
+      try {
+        const res = await fetch(
+          `/api/sales/pos/barcode?code=${encodeURIComponent(code)}`,
+        );
+        if (res.status === 404) {
+          showBarcodeToast(
+            "error",
+            `Barcode not found: ${code}. Add it in Operations → Products.`,
+          );
+          return;
+        }
+        if (!res.ok) {
+          showBarcodeToast("error", "Barcode lookup failed. Please try again.");
+          return;
+        }
+        const json = (await res.json()) as { data?: PosProduct };
+        if (!json.data) {
+          showBarcodeToast("error", `Barcode not found: ${code}.`);
+          return;
+        }
+        addProduct(json.data);
+        showBarcodeToast("success", `Added: ${json.data.name}`);
+      } catch {
+        showBarcodeToast("error", "Barcode lookup failed. Please try again.");
+      }
+    },
+    [addProduct],
+  );
+
+  useBarcodeScanner({
+    onScan: handleBarcodeScan,
+    disabled: Boolean(receipt) || showScanModal,
+  });
 
   function setQty(lineKey: string, quantity: number) {
     setCart((prev) =>
@@ -436,6 +487,30 @@ export function PosCheckoutClient({
 
   return (
     <div className="space-y-4 pb-20 md:pb-8">
+      {/* Camera scan modal */}
+      {showScanModal ? (
+        <BarcodeScanModal
+          onDetected={(code) => {
+            setShowScanModal(false);
+            void handleBarcodeScan(code);
+          }}
+          onClose={() => setShowScanModal(false)}
+        />
+      ) : null}
+
+      {/* Barcode scan toast */}
+      {barcodeToast ? (
+        <div
+          className={cn(
+            "fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-lg transition md:bottom-8",
+            barcodeToast.type === "success"
+              ? "bg-emerald-600 text-white"
+              : "bg-red-600 text-white",
+          )}
+        >
+          {barcodeToast.message}
+        </div>
+      ) : null}
       {showTour ? (
         <div className="relative rounded-xl border border-violet-200/80 bg-violet-50/80 p-4 dark:border-violet-900/40 dark:bg-violet-950/20">
           <button
@@ -557,14 +632,25 @@ export function PosCheckoutClient({
                 </button>
               ))}
             </div>
-            <div className="relative min-w-0 w-full sm:flex-[2]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search…"
-                className="w-full rounded-xl border border-cream-200 bg-cream-50/50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-300 dark:border-hairline-dark dark:bg-panel-dark"
-              />
+            <div className="flex min-w-0 w-full flex-1 gap-2 sm:flex-[2]">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Search…"
+                  className="w-full rounded-xl border border-cream-200 bg-cream-50/50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-300 dark:border-hairline-dark dark:bg-panel-dark"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowScanModal(true)}
+                title="Scan barcode with camera"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50"
+              >
+                <ScanBarcode className="h-4 w-4" />
+                Scan
+              </button>
             </div>
           </div>
 
@@ -735,9 +821,18 @@ export function PosCheckoutClient({
                   </p>
                 </div>
               </div>
-              <p className="text-xl font-bold tabular-nums text-blue-600 dark:text-blue-400">
-                {money(total)}
-              </p>
+              <div className="flex items-center gap-2">
+                <span
+                  title="Barcode scanner ready — scan any product to add it"
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+                >
+                  <ScanBarcode className="h-3 w-3" />
+                  Scanner ready
+                </span>
+                <p className="text-xl font-bold tabular-nums text-blue-600 dark:text-blue-400">
+                  {money(total)}
+                </p>
+              </div>
             </div>
           </div>
 

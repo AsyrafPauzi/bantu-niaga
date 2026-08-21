@@ -175,7 +175,7 @@ export async function POST(request: Request) {
   const admin = createServiceRoleClient();
   const documentKind = parsed.document_kind ?? "invoice";
   const prefix = documentKind === "quote" ? "QUO" : "INV";
-  let number =
+  const number =
     parsed.number ??
     (await nextFinanceInvoiceNumber(admin, user.businessId, prefix));
 

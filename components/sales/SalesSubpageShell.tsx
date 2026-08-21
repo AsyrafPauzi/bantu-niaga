@@ -22,7 +22,7 @@ export function SalesSubpageShell({
   children,
 }: SalesSubpageShellProps) {
   return (
-    <div className="space-y-4 pb-20 lg:pb-8">
+    <div className="space-y-4 pb-20 md:pb-8">
       <SalesBackLink />
       <ModuleDashboardHero
         module="Sales"

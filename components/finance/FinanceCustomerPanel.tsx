@@ -10,8 +10,10 @@ import {
   Mail,
   MessageCircle,
   Plus,
+  Receipt,
   Trash2,
   User,
+  Users,
   Wallet,
 } from "lucide-react";
 import { ListPagination } from "@/components/ui/list-pagination";
@@ -185,8 +187,8 @@ export function FinanceCustomerPanel({
     <div className="space-y-4">
       {!shellMode ? (
       <section className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 p-5 shadow-card dark:border-amber-900/40 dark:from-amber-950/40 dark:via-orange-950/20 dark:to-rose-950/20">
-        <div className="pointer-events-none absolute -right-4 -top-4 text-6xl opacity-20">
-          👥
+        <div className="pointer-events-none absolute right-4 top-4 text-amber-600/40 dark:text-amber-300/20">
+          <Users className="h-16 w-16" strokeWidth={1} />
         </div>
         <h2 className="text-2xl font-bold tracking-tight text-ink dark:text-cream-100">
           Your customers
@@ -285,7 +287,9 @@ export function FinanceCustomerPanel({
 
       {customers.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-cream-300 bg-white/50 py-14 text-center dark:border-hairline-dark dark:bg-panel-dark/40">
-          <div className="text-4xl">🧾</div>
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-cream-200 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400">
+            <Receipt className="h-6 w-6" />
+          </span>
           <p className="mt-3 text-sm font-medium text-ink dark:text-cream-100">
             {searchQuery
               ? "No customers match your search."
@@ -455,6 +459,7 @@ export function FinanceCustomerPanel({
             total={total}
             basePath="/finance/customers"
             searchParams={{ q: searchQuery || undefined }}
+            pageSizeOptions={[10, 25, 50, 100]}
             className="border-t border-cream-200 dark:border-hairline-dark"
           />
         </ModuleListPanel>

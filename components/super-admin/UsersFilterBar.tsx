@@ -54,7 +54,7 @@ export function UsersFilterBar({
 
   return (
     <form
-      className="flex flex-col gap-2.5 rounded-xl border border-cream-300 bg-white p-3 shadow-card sm:flex-row sm:flex-wrap sm:items-end"
+      className="flex flex-col gap-2.5 rounded-xl border border-cream-300 bg-white p-3 shadow-card dark:border-hairline-dark dark:bg-panel-dark sm:flex-row sm:flex-wrap sm:items-end"
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
@@ -96,7 +96,7 @@ export function UsersFilterBar({
           id="users-role"
           name="role"
           defaultValue={initialRole}
-          className="mt-1.5 w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand-200"
+          className="mt-1.5 w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm font-medium text-ink dark:bg-panel-dark dark:text-cream-100 dark:border-hairline-dark focus:outline-none focus:ring-2 focus:ring-brand-200"
         >
           {ROLES.map((r) => (
             <option key={r.value} value={r.value}>
@@ -117,7 +117,7 @@ export function UsersFilterBar({
           id="users-status"
           name="status"
           defaultValue={initialStatus}
-          className="mt-1.5 w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand-200"
+          className="mt-1.5 w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm font-medium text-ink dark:bg-panel-dark dark:text-cream-100 dark:border-hairline-dark focus:outline-none focus:ring-2 focus:ring-brand-200"
         >
           {STATUSES.map((s) => (
             <option key={s.value} value={s.value}>
@@ -140,7 +140,7 @@ export function UsersFilterBar({
             type="button"
             disabled={pending}
             onClick={() => router.push("/super-admin/users")}
-            className="rounded-lg border border-cream-300 bg-white px-4 py-2 text-xs font-semibold text-ink hover:bg-cream-100 disabled:opacity-60"
+            className="rounded-lg border border-cream-300 bg-white px-4 py-2 text-xs font-semibold text-ink hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60 disabled:opacity-60"
           >
             Clear
           </button>

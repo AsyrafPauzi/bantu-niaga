@@ -14,9 +14,6 @@
  *     to `/sign-in` for app routes, so API handlers can rely on this
  *     throw to short-circuit with a 401.
  *
- * `STUB_USER` is still exported for tests that need a synthetic owner
- * identity without a real session — but production paths never see it.
- *
  * Wrapped in `react.cache()` so the dozens of components that call
  * `getCurrentUser()` during a single Server-Component render tree share
  * one Supabase round-trip instead of N.
@@ -45,29 +42,6 @@ export class UnauthorizedError extends Error {
     this.code = code;
   }
 }
-
-const STUB_BUSINESS_ID = "00000000-0000-0000-0000-000000000000";
-const STUB_USER_ID = "00000000-0000-0000-0000-000000000001";
-
-/**
- * Test-only stub owner. NOT used by any production code path — production
- * resolves real sessions or throws `UnauthorizedError`.
- *
- * Throws in production to catch accidental imports in non-test code.
- */
-export const STUB_USER: CurrentUser = (() => {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "STUB_USER must not be used in production. Use getCurrentUser() instead.",
-    );
-  }
-  return {
-    id: STUB_USER_ID,
-    role: "owner" as const,
-    businessId: STUB_BUSINESS_ID,
-    isStub: true,
-  };
-})();
 
 function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value);

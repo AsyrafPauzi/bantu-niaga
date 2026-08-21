@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowDownRight, ArrowUpRight, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, BarChart3, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useChartMount } from "@/components/marketing/dashboard/use-chart-mount";
 import {
@@ -115,8 +115,8 @@ export function FinanceAnalyticsPanel({ data, embedded = false }: FinanceAnalyti
     <div className="space-y-4">
       {!embedded ? (
       <section className="relative overflow-hidden rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50 via-violet-50 to-fuchsia-50 p-5 shadow-card dark:border-indigo-900/40 dark:from-indigo-950/40 dark:via-violet-950/20 dark:to-fuchsia-950/20">
-        <div className="pointer-events-none absolute -right-4 -top-4 text-6xl opacity-20">
-          📈
+        <div className="pointer-events-none absolute -right-4 -top-4 text-indigo-200/50 dark:text-indigo-800/30">
+          <BarChart3 className="h-20 w-20" strokeWidth={1} />
         </div>
         <h2 className="text-2xl font-bold tracking-tight text-ink dark:text-cream-100">
           Financial analytics
@@ -205,8 +205,10 @@ export function FinanceAnalyticsPanel({ data, embedded = false }: FinanceAnalyti
           Daily cash flow
         </p>
         {!hasActivity ? (
-          <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-cream-300 dark:border-hairline-dark">
-            <p className="text-2xl">📭</p>
+          <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-cream-300 dark:border-hairline-dark">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl border border-cream-200 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400">
+              <TrendingUp className="h-6 w-6" />
+            </span>
             <p className="text-sm text-ink-muted dark:text-cream-400">
               No transactions in this period.
             </p>
@@ -251,7 +253,7 @@ export function FinanceAnalyticsPanel({ data, embedded = false }: FinanceAnalyti
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-cream-200 bg-white p-4 dark:border-hairline-dark dark:bg-panel-dark">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
             Income by category

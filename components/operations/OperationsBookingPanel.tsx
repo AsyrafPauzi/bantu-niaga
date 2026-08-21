@@ -15,6 +15,7 @@ import {
   QuickCreateActions,
   QuickCreatePanel,
 } from "@/components/ui/quick-create";
+import { InlineFeedback } from "@/components/ui/alert";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import {
   type OperationsBookingResourceRow,
@@ -583,7 +584,7 @@ export function OperationsBookingPanel({
           className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
         />
         {formError ? (
-          <p className="text-sm text-status-danger">{formError}</p>
+          <InlineFeedback>{formError}</InlineFeedback>
         ) : null}
         <QuickCreateActions
           submitLabel="Save booking"
@@ -628,9 +629,9 @@ export function OperationsBookingPanel({
           filters={bookingListFilters}
         >
           <div className="px-5 py-14 text-center">
-            <p className="text-4xl" aria-hidden>
-              📅
-            </p>
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-cream-200 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400" aria-hidden>
+              <Calendar className="h-6 w-6" />
+            </span>
             <p className="mt-3 text-sm font-semibold text-ink dark:text-cream-100">
               {viewMode === "week"
                 ? "No bookings on this day"

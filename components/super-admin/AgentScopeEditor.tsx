@@ -77,11 +77,11 @@ export function AgentScopeEditor({ slug, version }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-cream-300 bg-white p-5 shadow-card">
+      <div className="rounded-xl border border-cream-300 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
         <div className="flex flex-col gap-3">
           <div>
-            <h2 className="text-base font-bold text-ink">System prompt</h2>
-            <p className="mt-1 text-xs text-ink-muted">
+            <h2 className="text-base font-bold text-ink dark:text-cream-100">System prompt</h2>
+            <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
               Role rules and module behavior. Do not hardcode agent names (Maya,
               Fayza, …) — each tenant&apos;s display name from Settings is
               injected automatically at the top of every chat.
@@ -94,7 +94,7 @@ export function AgentScopeEditor({ slug, version }: Props) {
               onChange={(e) =>
                 setDraft({ ...draft, version_label: e.target.value })
               }
-              className="w-28 rounded-md border border-cream-300 bg-cream-100 px-2 py-1 text-xs font-bold text-ink focus:bg-white focus:outline-none"
+              className="w-28 rounded-md border border-cream-300 bg-cream-100 px-2 py-1 text-xs font-bold text-ink focus:bg-white focus:outline-none dark:border-hairline-dark dark:bg-hairline-dark/40 dark:text-cream-100 dark:focus:bg-panel-dark"
               aria-label="Version label"
             />
             <input
@@ -103,7 +103,7 @@ export function AgentScopeEditor({ slug, version }: Props) {
               onChange={(e) =>
                 setDraft({ ...draft, default_tone: e.target.value })
               }
-              className="w-40 rounded-md border border-cream-300 bg-cream-100 px-2 py-1 text-xs text-ink focus:bg-white focus:outline-none"
+              className="w-40 rounded-md border border-cream-300 bg-cream-100 px-2 py-1 text-xs text-ink focus:bg-white focus:outline-none dark:border-hairline-dark dark:bg-hairline-dark/40 dark:text-cream-100 dark:focus:bg-panel-dark"
               aria-label="Default tone"
             />
           </div>
@@ -114,7 +114,7 @@ export function AgentScopeEditor({ slug, version }: Props) {
           onChange={(e) =>
             setDraft({ ...draft, system_prompt: e.target.value })
           }
-          className="mt-3 w-full rounded-lg border border-cream-300 bg-cream-100 p-3 font-mono text-[12px] leading-relaxed text-ink focus:bg-white focus:outline-none"
+          className="mt-3 w-full rounded-lg border border-cream-300 bg-cream-100 p-3 font-mono text-[12px] leading-relaxed text-ink focus:bg-white focus:outline-none dark:border-hairline-dark dark:bg-hairline-dark/40 dark:text-cream-100 dark:focus:bg-panel-dark"
           placeholder="You are the Marketing staff member for Malaysian SMEs… (do not hardcode a name — tenant display name is injected at runtime)"
         />
       </div>
@@ -201,7 +201,7 @@ export function AgentScopeEditor({ slug, version }: Props) {
         />
       </div>
 
-      <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-xl border border-cream-300 bg-white px-4 py-3 shadow-elevated sm:flex-row sm:items-center sm:justify-between">
+      <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-xl border border-cream-300 bg-white px-4 py-3 shadow-elevated sm:flex-row sm:items-center sm:justify-between dark:border-hairline-dark dark:bg-panel-dark">
         <div className="flex items-center gap-2 text-xs text-ink-muted">
           {saved && (
             <span className="inline-flex items-center gap-1.5 rounded-md bg-status-success/10 px-2 py-0.5 font-semibold text-status-success">
@@ -219,7 +219,7 @@ export function AgentScopeEditor({ slug, version }: Props) {
             type="button"
             onClick={() => save(false)}
             disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark"
           >
             {pending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -279,16 +279,16 @@ function ListEditor<T>({
   }
 
   return (
-    <section className="rounded-xl border border-cream-300 bg-white p-5 shadow-card">
+    <section className="rounded-xl border border-cream-300 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-base font-bold text-ink">{title}</h2>
-          <p className="mt-1 text-xs text-ink-muted">{description}</p>
+          <h2 className="text-base font-bold text-ink dark:text-cream-100">{title}</h2>
+          <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">{description}</p>
         </div>
         <button
           type="button"
           onClick={() => onChange([...items, newItem()])}
-          className="inline-flex items-center gap-1 rounded-md border border-cream-300 bg-white px-2 py-1 text-[11px] font-semibold text-ink hover:bg-cream-100"
+          className="inline-flex items-center gap-1 rounded-md border border-cream-300 bg-white px-2 py-1 text-[11px] font-semibold text-ink hover:bg-cream-100 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark"
         >
           + Add
         </button>
@@ -336,7 +336,7 @@ function ActionRow({
           type="text"
           value={action.label}
           onChange={(e) => onPatch({ label: e.target.value })}
-          className="flex-1 rounded-md border border-cream-300 bg-white px-2 py-1 text-sm font-semibold text-ink focus:outline-none"
+          className="flex-1 rounded-md border border-cream-300 bg-white px-2 py-1 text-sm font-semibold text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
         />
         <label className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-ink">
           <input
@@ -353,7 +353,7 @@ function ActionRow({
         value={action.note ?? ""}
         onChange={(e) => onPatch({ note: e.target.value })}
         placeholder="Optional note shown in audit + tenant UI"
-        className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none"
+        className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
     </div>
   );
@@ -372,19 +372,19 @@ function GuardrailRow({
         type="text"
         value={rail.label}
         onChange={(e) => onPatch({ label: e.target.value })}
-        className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-sm font-semibold text-ink focus:outline-none"
+        className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-sm font-semibold text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
       <input
         type="text"
         value={rail.detail}
         onChange={(e) => onPatch({ detail: e.target.value })}
         placeholder="How is this enforced?"
-        className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none"
+        className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
       <select
         value={rail.severity}
         onChange={(e) => onPatch({ severity: e.target.value })}
-        className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-xs font-semibold text-ink focus:outline-none"
+        className="w-full rounded-md border border-cream-300 bg-white px-2 py-1 text-xs font-semibold text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       >
         <option value="always">Always blocked</option>
         <option value="enforced">Enforced at tool layer</option>
@@ -408,14 +408,14 @@ function EscalationRow({
         value={rule.trigger}
         onChange={(e) => onPatch({ trigger: e.target.value })}
         placeholder="When…"
-        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none"
+        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
       <input
         type="text"
         value={rule.target}
         onChange={(e) => onPatch({ target: e.target.value })}
         placeholder="…do this"
-        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none"
+        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
     </div>
   );
@@ -434,21 +434,21 @@ function KnowledgeRow({
         type="text"
         value={src.label}
         onChange={(e) => onPatch({ label: e.target.value })}
-        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-sm text-ink focus:outline-none"
+        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-sm text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
       <input
         type="text"
         value={src.kind}
         onChange={(e) => onPatch({ kind: e.target.value })}
         placeholder="Kind"
-        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none"
+        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
       <input
         type="text"
         value={src.size}
         onChange={(e) => onPatch({ size: e.target.value })}
         placeholder="Size"
-        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none"
+        className="rounded-md border border-cream-300 bg-white px-2 py-1 text-xs text-ink focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
     </div>
   );

@@ -109,6 +109,41 @@ const noStoreHeaders = [
   { key: "Cache-Control", value: "private, no-store, max-age=0" },
 ];
 
+/**
+ * Next.js content-hashes every chunk name under /_next/static/ so these
+ * assets are safe to cache for a full year (immutable). This dramatically
+ * improves repeat-visit LCP / TTFB by letting the browser and CDN serve
+ * JS/CSS without a round-trip.
+ *
+ * The `Vary: Accept-Encoding` header is required so Vercel's edge cache
+ * stores separate gzip / br variants and serves the right one.
+ */
+const immutableStaticHeaders = [
+  {
+    key: "Cache-Control",
+    value: "public, max-age=31536000, immutable",
+  },
+  { key: "Vary", value: "Accept-Encoding" },
+];
+
+/**
+ * Public images uploaded by users (avatars, product thumbnails) live in
+ * Supabase Storage and are proxied through Next Image. A 24-hour TTL is
+ * a reasonable balance between freshness and CDN offload.
+ */
+const publicImageHeaders = [
+  { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=3600" },
+  { key: "Vary", value: "Accept" },
+];
+
+/**
+ * Prevent search engines from indexing internal admin / super-admin pages
+ * even if they somehow obtain the URL.
+ */
+const noIndexHeaders = [
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -124,13 +159,28 @@ const nextConfig = {
       { protocol: "https", hostname: "*.cdninstagram.com" },
     ],
     formats: ["image/avif", "image/webp"],
-    minimumCacheTTL: 60,
+    // 24 h TTL. Next Image content-addresses its output so stale-on-update
+    // is not a risk — old URLs simply stop being requested naturally.
+    minimumCacheTTL: 86400,
+    // Limit the set of sizes generated to avoid combinatorial cache bloat.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 64, 96, 128, 256],
   },
+  // Reduce bundle size by tree-shaking server-only packages from the client
+  // bundle. Next.js 15 does this automatically but this makes the intent explicit.
+  serverExternalPackages: [],
   async headers() {
     return [
+      // Global security headers on every response.
       { source: "/:path*", headers: securityHeaders },
+      // Authenticated routes — never cache.
       { source: "/api/:path*", headers: noStoreHeaders },
-      { source: "/super-admin/:path*", headers: noStoreHeaders },
+      { source: "/super-admin/:path*", headers: [...noStoreHeaders, ...noIndexHeaders] },
+      { source: "/admin/:path*", headers: noIndexHeaders },
+      // Static chunks are content-hashed — cache forever.
+      { source: "/_next/static/:path*", headers: immutableStaticHeaders },
+      // Next Image optimised output.
+      { source: "/_next/image", headers: publicImageHeaders },
     ];
   },
 };

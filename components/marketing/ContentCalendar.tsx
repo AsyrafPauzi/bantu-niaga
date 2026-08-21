@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { ContentPlatformBadge } from "./ContentPlatformBadge";
 import { ContentStatusBadge } from "./ContentStatusBadge";
@@ -256,8 +257,8 @@ export function ContentCalendar({
                     <div className="mt-1 flex items-center justify-between gap-1">
                       <ContentStatusBadge status={e.status} />
                       {e.media && e.media.length > 0 && (
-                        <span className="text-[10px] text-ink-muted dark:text-cream-400">
-                          📎 {e.media.length}
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-ink-muted dark:text-cream-400">
+                          <Paperclip className="h-2.5 w-2.5" />{e.media.length}
                         </span>
                       )}
                     </div>

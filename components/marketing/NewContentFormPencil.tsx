@@ -291,7 +291,7 @@ export function NewContentFormPencil({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px] lg:items-start">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_360px] md:items-start">
         {/* LEFT — Channel + Content + Media */}
         <div className="space-y-4">
           {/* CHANNEL */}
@@ -537,7 +537,7 @@ export function NewContentFormPencil({
             </div>
             <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-accent-100 dark:bg-accent-700/20">
               {mediaState.firstImagePreviewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img
                   src={mediaState.firstImagePreviewUrl}
                   alt="Post preview"

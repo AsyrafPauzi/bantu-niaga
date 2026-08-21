@@ -131,7 +131,7 @@ export default async function FinanceReportsPage({
       subcopy={hero.subcopy}
       variant={hero.variant}
       stats={
-        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
           <ModuleHeroStat
             label="Money in"
             value={formatMyr(analytics.total_income_myr)}

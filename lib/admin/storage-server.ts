@@ -76,7 +76,7 @@ export async function listAdminFiles(
   const sort = options.sort ?? "newest";
   const limit = options.limit ?? 50;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let q: any = supabase
     .from("admin_files")
     .select(SELECT_COLS)

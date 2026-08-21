@@ -16,6 +16,7 @@ import { HrStaffAppraisalGate } from "@/components/hr/HrStaffAppraisalGate";
 import { HrTodayDeskPanels } from "@/components/hr/HrTodayDeskPanels";
 import { OnboardingProgressBar } from "@/components/hr/HrOnboardingProgress";
 import type { HrDashboardData, HrStaffAppraisalRow } from "@/lib/hr/load";
+import { malaysiaTodayIso } from "@/lib/ai/malaysia-today";
 import type { ContractExpiringEmployee } from "@/lib/hr/contract-reminders";
 import { appraisalDisplayStatus } from "@/lib/hr/appraisal";
 import {
@@ -106,7 +107,7 @@ export function HrOverview({
     counts,
   } = dashboard;
 
-  const todayYmd = new Date().toISOString().slice(0, 10);
+  const todayYmd = malaysiaTodayIso();
   const recentEmployees = employees.slice(0, 5);
   const nextHolidays = holidays
     .filter((h) => h.holiday_date >= todayYmd)

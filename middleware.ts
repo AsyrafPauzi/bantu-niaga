@@ -30,6 +30,7 @@ import {
   getSupabasePublicEnv,
   warnSupabaseNotConfiguredOnce,
 } from "@/lib/supabase/env";
+import { csrfCheck } from "@/lib/security/csrf";
 
 // ─── CSP nonce helpers ────────────────────────────────────────────────────────
 
@@ -133,6 +134,16 @@ export async function middleware(request: NextRequest) {
   // Override the static CSP set in next.config.mjs with the nonce-bearing one.
   response.headers.set("Content-Security-Policy", csp);
 
+  // ── CSRF origin check (state-mutating API routes only) ────────────────────
+  // Validates Origin / Referer header for POST/PUT/PATCH/DELETE requests.
+  // Exemptions (webhooks, external API, cron, staff, auth) are handled
+  // inside csrfCheck() so we don't need to duplicate the allow-list here.
+  const csrfError = csrfCheck(request);
+  if (csrfError) {
+    csrfError.headers.set("x-request-id", requestId);
+    return csrfError;
+  }
+
   const env = getSupabasePublicEnv();
   if (!env) {
     warnSupabaseNotConfiguredOnce("middleware");
@@ -184,7 +195,7 @@ export async function middleware(request: NextRequest) {
     // than crashing the edge middleware (which surfaces as MIDDLEWARE_
     // INVOCATION_FAILED 500 in Vercel). Falling through lets the redirect /
     // 401 logic below take over so the user sees /sign-in instead of a 500.
-    // eslint-disable-next-line no-console
+     
     console.error(
       "[middleware] supabase.auth.getUser() failed; treating request as unauthenticated:",
       err instanceof Error ? err.message : err,

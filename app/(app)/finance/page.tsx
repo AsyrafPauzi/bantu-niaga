@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { FinanceGuideJourney } from "@/components/finance/FinanceGuideJourney";
-import { FinanceMobileExpenseFab } from "@/components/finance/FinanceMobileExpenseFab";
 import { FinanceOverview } from "@/components/finance/FinanceOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
@@ -52,7 +51,6 @@ export default async function FinancePage({
         businessName={business?.name ?? "us"}
         expensesAllowed={expensesAllowed}
       />
-      <FinanceMobileExpenseFab expensesAllowed={expensesAllowed} />
     </div>
   );
 }
