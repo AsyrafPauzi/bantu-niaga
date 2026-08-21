@@ -84,7 +84,7 @@ export function MobileNavDrawer({
     return () => {
       if (closeTimer.current) clearTimeout(closeTimer.current);
     };
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);  
 
   useEffect(() => {
     if (!open) return;

@@ -85,7 +85,7 @@ const toneConfig: Record<
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
   const cfg = toneConfig[toast.tone];
   const Icon = cfg.Icon;
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     const duration = toast.duration ?? 4500;

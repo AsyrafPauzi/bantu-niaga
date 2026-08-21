@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowDownRight, ArrowUpRight, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, BarChart3, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useChartMount } from "@/components/marketing/dashboard/use-chart-mount";
 import {

@@ -287,7 +287,7 @@ export function BrandingForm({ initial, canEdit }: BrandingFormProps) {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-cream-200 bg-cream-50 dark:border-hairline-dark dark:bg-hairline-dark/20">
             {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img
                 src={logoUrl}
                 alt="Your logo"
@@ -469,7 +469,7 @@ export function BrandingForm({ initial, canEdit }: BrandingFormProps) {
               <div className="flex items-center gap-2 sm:flex-col sm:items-center">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-cream-200 bg-cream-50 dark:border-hairline-dark dark:bg-hairline-dark/20">
                   {duitnowQrUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img
                       src={duitnowQrUrl}
                       alt="DuitNow QR"
@@ -966,7 +966,7 @@ function LogoMark({
   const dim = size === "sm" ? "h-8 w-8" : size === "md" ? "h-12 w-12" : "h-16 w-16";
   if (logoUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
+       
       <img
         src={logoUrl}
         alt=""

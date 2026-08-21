@@ -174,7 +174,7 @@ export const ContentMediaUploader = forwardRef(function ContentMediaUploader(
       xhrPool.current.clear();
     };
     // intentional: we only want this on unmount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // Notify the parent on every row-list change.
@@ -512,7 +512,7 @@ export const ContentMediaUploader = forwardRef(function ContentMediaUploader(
                 {row.previewUrl && isImageMime(row.mime) ? (
                   // Local blob preview — fine to use a plain <img>; not
                   // a next/image candidate (URL is per-session).
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img
                     src={row.previewUrl}
                     alt={row.name}

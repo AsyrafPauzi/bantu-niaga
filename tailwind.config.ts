@@ -102,15 +102,13 @@ const config: Config = {
         card: "0 1px 2px 0 rgba(11, 18, 32, 0.04), 0 1px 3px 0 rgba(11, 18, 32, 0.06)",
         elevated:
           "0 4px 6px -1px rgba(11, 18, 32, 0.06), 0 2px 4px -2px rgba(11, 18, 32, 0.04)",
+        "xl": "0 20px 25px -5px rgba(11,18,32,0.08), 0 8px 10px -6px rgba(11,18,32,0.04)",
       },
       spacing: {
         "tap-min": "44px",
       },
       fontSize: {
         "2xs": ["0.625rem", { lineHeight: "0.875rem" }],
-      },
-      boxShadow: {
-        "xl": "0 20px 25px -5px rgba(11,18,32,0.08), 0 8px 10px -6px rgba(11,18,32,0.04)",
       },
       transitionTimingFunction: {
         spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",

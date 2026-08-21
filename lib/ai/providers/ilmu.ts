@@ -114,7 +114,7 @@ class IlmuProvider implements AIProvider {
           throw err;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const json: any = await res.json();
 
         return {
@@ -122,7 +122,7 @@ class IlmuProvider implements AIProvider {
           model: json.model ?? model,
           provider: "ilmu",
           choices: (json.choices ?? []).map(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             (c: any) => ({
               message: {
                 role: "assistant" as const,

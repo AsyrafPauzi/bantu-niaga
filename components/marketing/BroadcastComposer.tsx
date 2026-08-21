@@ -303,7 +303,7 @@ export function BroadcastComposer({
       setBusy(false);
     }
     // we use a refs-free closure deliberately so the latest form values flow in
-  }, [busy, channel, couponId, name, router, segmentId, subject, template]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [busy, channel, couponId, name, router, segmentId, subject, template]);  
 
   const onSendNow = useCallback(async () => {
     if (busy) return;
@@ -327,7 +327,7 @@ export function BroadcastComposer({
     } finally {
       setBusy(false);
     }
-  }, [busy, channel, couponId, name, router, segmentId, subject, template]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [busy, channel, couponId, name, router, segmentId, subject, template]);  
 
   const previewRendered = useMemo(() => {
     if (sampleMembers.length === 0) return [] as { name: string; text: string; email: string | null }[];

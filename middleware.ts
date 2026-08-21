@@ -195,7 +195,7 @@ export async function middleware(request: NextRequest) {
     // than crashing the edge middleware (which surfaces as MIDDLEWARE_
     // INVOCATION_FAILED 500 in Vercel). Falling through lets the redirect /
     // 401 logic below take over so the user sees /sign-in instead of a 500.
-    // eslint-disable-next-line no-console
+     
     console.error(
       "[middleware] supabase.auth.getUser() failed; treating request as unauthenticated:",
       err instanceof Error ? err.message : err,

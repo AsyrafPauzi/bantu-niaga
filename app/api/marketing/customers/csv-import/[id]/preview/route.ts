@@ -192,7 +192,7 @@ export async function GET(
     new Set(normalized.filter((p): p is string => p !== null)),
   );
 
-  let lookup = new Map<string, DedupCheck>();
+  const lookup = new Map<string, DedupCheck>();
   if (uniquePhones.length > 0) {
     // Service-role lookup so the dedup sees merged/deleted rows too —
     // we filter them out client-side. The SSR client would do the same

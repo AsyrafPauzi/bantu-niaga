@@ -11,7 +11,7 @@ export { EMPLOYEE_DETAIL_SELECT, EMPLOYEE_LIST_SELECT };
 
 function mapEmployeeCommonFields(row: Record<string, unknown>) {
   const rawEnt = row.leave_entitlements;
-  let leave_entitlements: Record<string, number> = {};
+  const leave_entitlements: Record<string, number> = {};
   if (rawEnt && typeof rawEnt === "object" && !Array.isArray(rawEnt)) {
     for (const [k, v] of Object.entries(rawEnt as Record<string, unknown>)) {
       if (typeof v === "number" && Number.isFinite(v)) {

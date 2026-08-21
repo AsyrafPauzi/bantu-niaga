@@ -85,7 +85,7 @@ export function csrfCheck(request: NextRequest): NextResponse | null {
       );
     }
     // In dev, allow but log.
-    // eslint-disable-next-line no-console
+     
     console.warn("[csrf] NEXT_PUBLIC_APP_URL not set — CSRF check skipped in dev.");
     return null;
   }

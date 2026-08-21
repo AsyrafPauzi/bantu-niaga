@@ -194,7 +194,7 @@ function redirectToSettings(status: "connected" | "error", detail: string) {
     .replace(/[\r\n\0]/g, "")
     // strip anything but printable ASCII so we don't pass unicode through
     // URL params and confuse logs
-    // eslint-disable-next-line no-control-regex
+     
     .replace(/[^\x20-\x7E]/g, "")
     .slice(0, 100);
   const safeStatus = status === "connected" ? "connected" : "error";

@@ -18,7 +18,7 @@ interface AlertProps extends HTMLAttributes<HTMLDivElement> {
 
 const toneConfig: Record<
   AlertTone,
-  { wrapper: string; icon: string; titleColor: string; bodyColor: string; dismissColor: string; Icon: React.FC<{ size?: number }> }
+  { wrapper: string; icon: string; titleColor: string; bodyColor: string; dismissColor: string; Icon: React.FC<{ size?: number; className?: string }> }
 > = {
   info: {
     wrapper: "bg-[#DCE9F0] border-[#2D6A8A]/20 dark:bg-[#13303D] dark:border-[#2D6A8A]/30",

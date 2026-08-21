@@ -119,10 +119,10 @@ export function securityLog(
   // Human-readable in dev.
   const label = `[security:${eventType}]`;
   if (severity === "error") {
-    // eslint-disable-next-line no-console
+     
     console.error(label, meta ?? {});
   } else {
-    // eslint-disable-next-line no-console
+     
     console.warn(label, meta ?? {});
   }
 }

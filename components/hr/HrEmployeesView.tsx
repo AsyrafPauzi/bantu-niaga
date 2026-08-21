@@ -551,7 +551,7 @@ function RosterPagination({
   const pageNums: number[] = [];
   const maxButtons = 5;
   let rangeStart = Math.max(1, page - 2);
-  let rangeEnd = Math.min(pages, rangeStart + maxButtons - 1);
+  const rangeEnd = Math.min(pages, rangeStart + maxButtons - 1);
   rangeStart = Math.max(1, rangeEnd - maxButtons + 1);
   for (let n = rangeStart; n <= rangeEnd; n += 1) pageNums.push(n);
 
