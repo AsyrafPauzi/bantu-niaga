@@ -149,7 +149,6 @@ export function BarcodeScanModal({ onDetected, onClose }: BarcodeScanModalProps)
         // Permissions API not supported for camera on this browser — stay idle
       });
     return () => stopCamera();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function submitManual(e: React.FormEvent) {
