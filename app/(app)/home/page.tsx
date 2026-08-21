@@ -523,16 +523,24 @@ export default async function HomePage() {
                 className="flex h-full flex-1 flex-col items-center gap-2"
               >
                 <div className="flex w-full flex-1 items-end justify-center gap-1 min-h-0">
-                  <div
-                    className="w-3 rounded-t-md bg-brand-500 sm:w-4"
-                    style={{ height: `${(d.inflow / maxBar) * 100}%` }}
-                    title={`Inflow RM ${formatMyrAmount(d.inflow)}`}
-                  />
-                  <div
-                    className="w-3 rounded-t-md bg-accent-500 sm:w-4"
-                    style={{ height: `${(d.outflow / maxBar) * 100}%` }}
-                    title={`Outflow RM ${formatMyrAmount(d.outflow)}`}
-                  />
+                  <div className="group/bar relative flex items-end">
+                    <div
+                      className="w-3 rounded-t-md bg-brand-500 sm:w-4"
+                      style={{ height: `${(d.inflow / maxBar) * 100}%` }}
+                    />
+                    <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover/bar:opacity-100 dark:bg-cream-100 dark:text-ink">
+                      Inflow RM {formatMyrAmount(d.inflow)}
+                    </div>
+                  </div>
+                  <div className="group/bar relative flex items-end">
+                    <div
+                      className="w-3 rounded-t-md bg-accent-500 sm:w-4"
+                      style={{ height: `${(d.outflow / maxBar) * 100}%` }}
+                    />
+                    <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover/bar:opacity-100 dark:bg-cream-100 dark:text-ink">
+                      Outflow RM {formatMyrAmount(d.outflow)}
+                    </div>
+                  </div>
                 </div>
                 <span className="text-[11px] font-medium text-ink-muted dark:text-cream-400">
                   {d.day}
