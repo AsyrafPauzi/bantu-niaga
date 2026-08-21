@@ -578,7 +578,7 @@ export function AdminComplianceDetailModal({
           </div>
 
           {renewOpen ? (
-            <div className="space-y-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3 dark:border-brand-800 dark:bg-brand-950/30">
+            <div className="space-y-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3 dark:border-brand-800 dark:bg-brand-700/20">
               <label className="text-xs font-semibold text-ink dark:text-cream-100">
                 Next expiry date
               </label>

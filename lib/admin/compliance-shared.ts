@@ -78,7 +78,7 @@ export const CATEGORY_STYLE: Record<
 > = {
   ssm: {
     icon: Building2,
-    chip: "border-brand-300/70 bg-brand-50 text-brand-800 hover:bg-brand-100 dark:border-brand-700 dark:bg-brand-950/50 dark:text-brand-100",
+    chip: "border-brand-300/70 bg-brand-50 text-brand-800 hover:bg-brand-100 dark:border-brand-700 dark:bg-brand-700/30 dark:text-brand-100",
     accent: "border-l-brand-500",
   },
   dbkl: {

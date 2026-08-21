@@ -84,7 +84,7 @@ export function AdminGuideJourney({ businessId }: { businessId: string }) {
   const Icon = current.icon;
 
   return (
-    <div className="rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-brand-50 p-4 shadow-card dark:border-violet-900/40 dark:from-violet-950/30 dark:via-panel-dark dark:to-brand-950/20 sm:p-5">
+    <div className="rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-brand-50 p-4 shadow-card dark:border-violet-900/40 dark:from-violet-950/30 dark:via-panel-dark dark:to-brand-700/10 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-brand-600 dark:text-brand-300" />

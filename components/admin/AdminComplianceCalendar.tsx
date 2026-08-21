@@ -135,7 +135,7 @@ export function AdminComplianceCalendar({
                   key={cell.key}
                   className={cn(
                     "min-h-[88px] p-1.5",
-                    isToday && "bg-brand-50/60 dark:bg-brand-950/20",
+                    isToday && "bg-brand-50/60 dark:bg-brand-700/10",
                   )}
                 >
                   <p

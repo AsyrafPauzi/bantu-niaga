@@ -17,7 +17,7 @@ const PANEL_ACCENT: Record<
   brand: {
     border: "border-brand-200/80 dark:border-brand-900/40",
     gradient:
-      "bg-gradient-to-br from-brand-50/80 via-white to-white dark:from-brand-950/20 dark:via-panel-dark dark:to-panel-dark",
+      "bg-gradient-to-br from-brand-50/80 via-white to-white dark:from-brand-700/10 dark:via-panel-dark dark:to-panel-dark",
     iconBg: "bg-brand-500",
   },
   emerald: {

@@ -155,7 +155,7 @@ export function BusinessProfileView({ business, canEdit }: BusinessProfileViewPr
               <li>
                 <Link
                   href="/settings/branding"
-                  className="group flex items-center gap-2.5 rounded-lg border border-cream-200 px-3 py-2.5 transition hover:border-brand-200 hover:bg-brand-50/50 dark:border-hairline-dark dark:hover:border-brand-800 dark:hover:bg-brand-950/20"
+                  className="group flex items-center gap-2.5 rounded-lg border border-cream-200 px-3 py-2.5 transition hover:border-brand-200 hover:bg-brand-50/50 dark:border-hairline-dark dark:hover:border-brand-800 dark:hover:bg-brand-700/10"
                 >
                   <span
                     className={cn(
@@ -178,7 +178,7 @@ export function BusinessProfileView({ business, canEdit }: BusinessProfileViewPr
               <li>
                 <Link
                   href="/hr/holidays"
-                  className="group flex items-center gap-2.5 rounded-lg border border-cream-200 px-3 py-2.5 transition hover:border-brand-200 hover:bg-brand-50/50 dark:border-hairline-dark dark:hover:border-brand-800 dark:hover:bg-brand-950/20"
+                  className="group flex items-center gap-2.5 rounded-lg border border-cream-200 px-3 py-2.5 transition hover:border-brand-200 hover:bg-brand-50/50 dark:border-hairline-dark dark:hover:border-brand-800 dark:hover:bg-brand-700/10"
                 >
                   <span
                     className={cn(
@@ -207,7 +207,7 @@ export function BusinessProfileView({ business, canEdit }: BusinessProfileViewPr
             className={cn(
               "flex items-start gap-3 rounded-xl border p-4",
               settingsClasses.heroBorder,
-              "bg-brand-50/40 dark:bg-brand-950/20",
+              "bg-brand-50/40 dark:bg-brand-700/10",
             )}
           >
             <span

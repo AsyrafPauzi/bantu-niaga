@@ -849,7 +849,7 @@ export function FinanceInvoiceComposer({
         </div>
       ) : null}
 
-      <section className="overflow-hidden rounded-xl border border-cream-200 bg-gradient-to-br from-brand-50 via-white to-cream-50 p-4 shadow-card dark:border-hairline-dark dark:from-brand-950/30 dark:via-panel-dark dark:to-panel-dark">
+      <section className="overflow-hidden rounded-xl border border-cream-200 bg-gradient-to-br from-brand-50 via-white to-cream-50 p-4 shadow-card dark:border-hairline-dark dark:from-brand-700/20 dark:via-panel-dark dark:to-panel-dark">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             {mergedHeader ? (
@@ -958,7 +958,7 @@ export function FinanceInvoiceComposer({
       </section>
 
       {isQuote && savedRecord?.id ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 dark:border-brand-800 dark:bg-brand-950/30">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 dark:border-brand-800 dark:bg-brand-700/20">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-brand-900 dark:text-brand-100">
               Quote saved
@@ -1080,7 +1080,7 @@ export function FinanceInvoiceComposer({
                     className={cn(
                       "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-colors",
                       customerId === c.id
-                        ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-100"
+                        ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-700/30 dark:text-brand-100"
                         : "border-cream-300 text-ink-muted hover:border-brand-200 dark:border-hairline-dark dark:text-cream-400",
                     )}
                   >
@@ -1702,7 +1702,7 @@ export function FinanceInvoiceComposer({
                 type="button"
                 disabled={saving}
                 onClick={() => void onSaveAndShare()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60 dark:border-brand-400 dark:bg-panel-dark dark:text-brand-200 dark:hover:bg-brand-950/30"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60 dark:border-brand-400 dark:bg-panel-dark dark:text-brand-200 dark:hover:bg-brand-700/20"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1715,7 +1715,7 @@ export function FinanceInvoiceComposer({
                 type="button"
                 disabled={saving || emailSending}
                 onClick={() => void onSaveAndEmail()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60 dark:border-brand-400 dark:bg-panel-dark dark:text-brand-200 dark:hover:bg-brand-950/30"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60 dark:border-brand-400 dark:bg-panel-dark dark:text-brand-200 dark:hover:bg-brand-700/20"
               >
                 {saving || emailSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

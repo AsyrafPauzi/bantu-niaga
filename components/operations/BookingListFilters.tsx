@@ -68,7 +68,7 @@ export function BookingListFilters({
                 className={cn(
                   "flex min-w-[4.5rem] flex-col items-center rounded-xl border px-2 py-2 text-center transition-colors",
                   selected
-                    ? "border-brand-400 bg-brand-50 dark:border-brand-700 dark:bg-brand-950/30"
+                    ? "border-brand-400 bg-brand-50 dark:border-brand-700 dark:bg-brand-700/20"
                     : "border-cream-200 bg-white dark:border-hairline-dark dark:bg-panel-dark",
                 )}
               >

@@ -796,7 +796,7 @@ export function OperationsProductPanel({
                         type="button"
                         disabled={busy}
                         onClick={() => startEdit(p)}
-                        className="rounded-md p-1.5 text-brand-700 hover:bg-brand-50 disabled:opacity-50 dark:text-brand-300 dark:hover:bg-brand-950/30"
+                        className="rounded-md p-1.5 text-brand-700 hover:bg-brand-50 disabled:opacity-50 dark:text-brand-300 dark:hover:bg-brand-700/20"
                         aria-label={`Edit ${p.name}`}
                       >
                         <Pencil className="h-3.5 w-3.5" />

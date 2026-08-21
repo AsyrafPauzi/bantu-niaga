@@ -88,7 +88,7 @@ export function OperationsCatalogEditShell({
       ? "border-violet-200 from-violet-50/80 to-purple-50/50 dark:border-violet-900/40 dark:from-violet-950/20 dark:to-purple-950/10"
       : accent === "emerald"
         ? "border-emerald-200 from-emerald-50/80 to-teal-50/50 dark:border-emerald-900/40 dark:from-emerald-950/20 dark:to-teal-950/10"
-        : "border-brand-200 from-brand-50/80 to-emerald-50/50 dark:border-brand-900/40 dark:from-brand-950/20 dark:to-emerald-950/10";
+        : "border-brand-200 from-brand-50/80 to-emerald-50/50 dark:border-brand-900/40 dark:from-brand-700/10 dark:to-emerald-950/10";
 
   return (
     <div

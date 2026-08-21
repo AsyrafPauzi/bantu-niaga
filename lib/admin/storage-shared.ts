@@ -48,9 +48,9 @@ export const CATEGORY_STYLE: Record<
   },
   compliance: {
     icon: ShieldCheck,
-    chip: "border-brand-300/70 bg-brand-50 text-brand-800 hover:bg-brand-100 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-100",
+    chip: "border-brand-300/70 bg-brand-50 text-brand-800 hover:bg-brand-100 dark:border-brand-700 dark:bg-brand-700/30 dark:text-brand-100",
     accent: "border-l-brand-500",
-    card: "from-brand-50/80 to-white dark:from-brand-950/30 dark:to-panel-dark",
+    card: "from-brand-50/80 to-white dark:from-brand-700/20 dark:to-panel-dark",
   },
   finance: {
     icon: FileSpreadsheet,
