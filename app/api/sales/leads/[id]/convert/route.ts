@@ -39,7 +39,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
   if (error) {
     return NextResponse.json(
-      { error: "load_failed", message: error.message },
+      { error: "load_failed" },
       { status: 500 },
     );
   }

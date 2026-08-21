@@ -83,7 +83,7 @@ export async function POST(request: Request) {
   const { count, error } = await q;
   if (error) {
     return NextResponse.json(
-      { error: "preview_failed", message: error.message },
+      { error: "preview_failed" },
       { status: 500 },
     );
   }

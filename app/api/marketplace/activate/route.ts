@@ -223,12 +223,12 @@ export async function POST(request: Request) {
     }
     if (msg.includes("not found")) {
       return NextResponse.json(
-        { error: "not_found", message: error.message },
+        { error: "not_found" },
         { status: 404 },
       );
     }
     return NextResponse.json(
-      { error: "activate_failed", message: error.message },
+      { error: "activate_failed" },
       { status: 500 },
     );
   }

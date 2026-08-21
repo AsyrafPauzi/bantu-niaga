@@ -33,7 +33,7 @@ export async function POST() {
 
   if (error) {
     return NextResponse.json(
-      { error: "complete_failed", message: error.message },
+      { error: "complete_failed" },
       { status: 500 },
     );
   }

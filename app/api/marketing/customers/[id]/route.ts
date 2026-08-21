@@ -62,7 +62,7 @@ export async function GET(
 
   if (error) {
     return NextResponse.json(
-      { error: "load_failed", message: error.message },
+      { error: "load_failed" },
       { status: 500 },
     );
   }
@@ -324,7 +324,7 @@ export async function DELETE(
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
     return NextResponse.json(
-      { error: "delete_failed", message: error.message },
+      { error: "delete_failed" },
       { status: 500 },
     );
   }

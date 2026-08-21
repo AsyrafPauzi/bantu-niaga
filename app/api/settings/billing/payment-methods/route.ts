@@ -34,7 +34,7 @@ export async function GET() {
 
   if (error) {
     return NextResponse.json(
-      { error: "list_failed", message: error.message },
+      { error: "list_failed" },
       { status: 500 },
     );
   }

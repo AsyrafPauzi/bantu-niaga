@@ -119,7 +119,7 @@ export async function POST(
         case "winner_not_found":
         case "loser_not_found":
           return NextResponse.json(
-            { error: "not_found", message: error.message },
+            { error: "not_found" },
             { status: 404 },
           );
         case "cross_business":
@@ -135,18 +135,18 @@ export async function POST(
         case "winner_already_merged":
         case "same_customer":
           return NextResponse.json(
-            { error: error.message, message: error.message },
+            { error: error.message },
             { status: 400 },
           );
         default:
           return NextResponse.json(
-            { error: "merge_failed", message: error.message },
+            { error: "merge_failed" },
             { status: 500 },
           );
       }
     }
     return NextResponse.json(
-      { error: "merge_failed", message: error.message },
+      { error: "merge_failed" },
       { status: 500 },
     );
   }

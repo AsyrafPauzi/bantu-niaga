@@ -62,7 +62,7 @@ export async function PATCH(
     .eq("id", id);
   if (error) {
     return NextResponse.json(
-      { error: "update_failed", message: error.message },
+      { error: "update_failed" },
       { status: 500 },
     );
   }

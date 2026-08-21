@@ -94,7 +94,7 @@ export async function PUT(
 
   if (error) {
     return NextResponse.json(
-      { error: "save_failed", message: error.message },
+      { error: "save_failed" },
       { status: 500 },
     );
   }

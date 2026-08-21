@@ -75,7 +75,7 @@ export async function GET(_request: Request, ctx: RouteContext) {
     .maybeSingle();
   if (error) {
     return NextResponse.json(
-      { error: "detail_failed", message: error.message },
+      { error: "detail_failed" },
       { status: 500 },
     );
   }
@@ -159,7 +159,7 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
 
   if (error) {
     return NextResponse.json(
-      { error: "delete_failed", message: error.message },
+      { error: "delete_failed" },
       { status: 500 },
     );
   }

@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: { code: "list_failed", message: error.message },
+        error: { code: "list_failed" },
       },
       { status: 500 },
     );
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: { code: "create_failed", message: error.message },
+        error: { code: "create_failed" },
       },
       { status: 500 },
     );

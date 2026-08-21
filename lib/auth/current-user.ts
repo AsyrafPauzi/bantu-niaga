@@ -52,13 +52,22 @@ const STUB_USER_ID = "00000000-0000-0000-0000-000000000001";
 /**
  * Test-only stub owner. NOT used by any production code path — production
  * resolves real sessions or throws `UnauthorizedError`.
+ *
+ * Throws in production to catch accidental imports in non-test code.
  */
-export const STUB_USER: CurrentUser = {
-  id: STUB_USER_ID,
-  role: "owner",
-  businessId: STUB_BUSINESS_ID,
-  isStub: true,
-};
+export const STUB_USER: CurrentUser = (() => {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "STUB_USER must not be used in production. Use getCurrentUser() instead.",
+    );
+  }
+  return {
+    id: STUB_USER_ID,
+    role: "owner" as const,
+    businessId: STUB_BUSINESS_ID,
+    isStub: true,
+  };
+})();
 
 function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value);

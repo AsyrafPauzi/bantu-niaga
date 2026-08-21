@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "enable_failed", message: error.message },
+      { error: "enable_failed" },
       { status: 500 },
     );
   }

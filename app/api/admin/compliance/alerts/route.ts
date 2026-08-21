@@ -53,7 +53,7 @@ export async function GET() {
 
   if (error) {
     return NextResponse.json(
-      { ok: false, error: { code: "list_failed", message: error.message } },
+      { ok: false, error: { code: "list_failed" } },
       { status: 500 },
     );
   }
@@ -95,7 +95,7 @@ export async function PATCH(request: Request) {
 
   if (error) {
     return NextResponse.json(
-      { ok: false, error: { code: "dismiss_failed", message: error.message } },
+      { ok: false, error: { code: "dismiss_failed" } },
       { status: 500 },
     );
   }

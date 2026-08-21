@@ -76,7 +76,7 @@ export async function GET(request: Request) {
   const { data, error } = await query;
   if (error) {
     return NextResponse.json(
-      { ok: false, error: { code: "list_failed", message: error.message } },
+      { ok: false, error: { code: "list_failed" } },
       { status: 500 },
     );
   }

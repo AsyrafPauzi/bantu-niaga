@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   });
   if (error) {
     return NextResponse.json(
-      { error: "update_failed", message: error.message },
+      { error: "update_failed" },
       { status: 400 },
     );
   }

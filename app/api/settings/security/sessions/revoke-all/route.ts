@@ -54,7 +54,7 @@ export async function POST() {
 
   if (error) {
     return NextResponse.json(
-      { error: "revoke_failed", message: error.message },
+      { error: "revoke_failed" },
       { status: 500 },
     );
   }

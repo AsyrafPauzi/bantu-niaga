@@ -168,7 +168,7 @@ export async function POST(
 
   if (error) {
     return NextResponse.json(
-      { ok: false, error: { code: "create_failed", message: error.message } },
+      { ok: false, error: { code: "create_failed" } },
       { status: 500 },
     );
   }

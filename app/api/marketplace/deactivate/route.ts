@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "deactivate_failed", message: error.message },
+      { error: "deactivate_failed" },
       { status: 500 },
     );
   }

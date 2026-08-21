@@ -103,7 +103,7 @@ export async function GET(request: Request) {
   const { data, error } = await q;
   if (error) {
     return NextResponse.json(
-      { error: "list_failed", message: error.message },
+      { error: "list_failed" },
       { status: 500 },
     );
   }
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json(
-      { error: "insert_failed", message: error.message },
+      { error: "insert_failed" },
       { status: 500 },
     );
   }

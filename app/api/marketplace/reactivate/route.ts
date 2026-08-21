@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "reactivate_failed", message: error.message },
+      { error: "reactivate_failed" },
       { status: 500 },
     );
   }

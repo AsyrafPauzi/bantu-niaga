@@ -145,7 +145,7 @@ export async function PATCH(
 
   if (error) {
     return NextResponse.json(
-      { ok: false, error: { code: "update_failed", message: error.message } },
+      { ok: false, error: { code: "update_failed" } },
       { status: 500 },
     );
   }
@@ -204,7 +204,7 @@ export async function DELETE(
 
   if (error) {
     return NextResponse.json(
-      { ok: false, error: { code: "delete_failed", message: error.message } },
+      { ok: false, error: { code: "delete_failed" } },
       { status: 500 },
     );
   }

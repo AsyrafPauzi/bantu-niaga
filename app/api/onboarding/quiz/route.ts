@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json(
-      { error: "save_failed", message: error.message },
+      { error: "save_failed" },
       { status: 500 },
     );
   }

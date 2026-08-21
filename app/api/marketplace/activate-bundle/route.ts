@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     });
     if (tierErr) {
       return NextResponse.json(
-        { error: "tier_change_failed", message: tierErr.message },
+        { error: "tier_change_failed" },
         { status: 500 },
       );
     }
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
 
   const activated: string[] = [];
   const skipped: Array<{ slug: string; reason: string }> = [];
-  const errors: Array<{ slug: string; message: string }> = [];
+  const errors: Array<{ slug: string; reason: string }> = [];
 
   for (const line of pricing.lines) {
     if (line.comingSoon) {
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
       p_qty: 1,
     });
 
-    if (error) errors.push({ slug: line.slug, message: error.message });
+    if (error) errors.push({ slug: line.slug, reason: "activate_failed" });
     else activated.push(line.slug);
   }
 

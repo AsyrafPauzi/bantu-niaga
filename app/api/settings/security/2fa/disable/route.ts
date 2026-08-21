@@ -55,7 +55,7 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json(
-      { error: "disable_failed", message: error.message },
+      { error: "disable_failed" },
       { status: 500 },
     );
   }

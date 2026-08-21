@@ -101,7 +101,7 @@ export async function POST(
 
   if (error) {
     return NextResponse.json(
-      { error: "attach_failed", message: error.message },
+      { error: "attach_failed" },
       { status: 500 },
     );
   }
@@ -144,7 +144,7 @@ export async function DELETE(
 
   if (error) {
     return NextResponse.json(
-      { error: "detach_failed", message: error.message },
+      { error: "detach_failed" },
       { status: 500 },
     );
   }

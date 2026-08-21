@@ -188,7 +188,7 @@ export async function PATCH(request: Request, ctx: RouteContext) {
 
   if (error) {
     return NextResponse.json(
-      { error: "update_failed", message: error.message },
+      { error: "update_failed" },
       { status: 500 },
     );
   }
@@ -253,7 +253,7 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
 
   if (error) {
     return NextResponse.json(
-      { error: "delete_failed", message: error.message },
+      { error: "delete_failed" },
       { status: 500 },
     );
   }

@@ -44,7 +44,7 @@ export async function GET(request: Request) {
 
   if (error) {
     return NextResponse.json(
-      { error: "export_failed", message: error.message },
+      { error: "export_failed" },
       { status: 500 },
     );
   }

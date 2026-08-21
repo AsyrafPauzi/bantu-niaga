@@ -36,7 +36,7 @@ export async function GET() {
 
   if (error) {
     return NextResponse.json(
-      { error: "load_failed", message: error.message },
+      { error: "load_failed" },
       { status: 500 },
     );
   }

@@ -204,7 +204,7 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json(
-      { error: "topup_failed", message: error.message },
+      { error: "topup_failed" },
       { status: 500 },
     );
   }

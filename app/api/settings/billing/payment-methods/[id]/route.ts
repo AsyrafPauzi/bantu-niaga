@@ -154,7 +154,7 @@ export async function DELETE(
 
   if (error) {
     return NextResponse.json(
-      { error: "delete_failed", message: error.message },
+      { error: "delete_failed" },
       { status: 500 },
     );
   }
