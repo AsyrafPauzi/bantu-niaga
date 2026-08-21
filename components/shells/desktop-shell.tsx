@@ -262,13 +262,13 @@ export function DesktopShell({
           </nav>
 
           <div className="space-y-1.5 border-t border-hairline-light p-3 dark:border-hairline-dark">
-            <p className="flex items-center gap-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-2.5 py-2 text-[11px] leading-snug text-[#C2410C]/90 dark:border-accent-900/40 dark:bg-accent-900/20 dark:text-accent-200/80">
+            <p className="flex items-center gap-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-2.5 py-2 text-[11px] leading-snug text-[#C2410C]/90 dark:border-orange-800/50 dark:bg-orange-950/30 dark:text-orange-200">
               <CircleHelp
-                className="h-3.5 w-3.5 shrink-0 text-[#C2410C] dark:text-accent-300"
+                className="h-3.5 w-3.5 shrink-0 text-[#C2410C] dark:text-orange-300"
                 strokeWidth={2}
               />
               <span>
-                <span className="font-semibold text-[#C2410C] dark:text-accent-300">
+                <span className="font-semibold text-[#C2410C] dark:text-orange-300">
                   {tShell("needHelp")}
                 </span>{" "}
                 {tShell("needHelpBody")}
