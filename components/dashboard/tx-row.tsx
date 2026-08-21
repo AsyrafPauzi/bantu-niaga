@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
 
 type RowTone = "success" | "danger" | "warning" | "brand" | "neutral";
@@ -24,6 +25,7 @@ interface TxRowProps {
   subtitle: string;
   amount: string;
   tone?: RowTone;
+  href?: string;
   className?: string;
 }
 
@@ -39,10 +41,11 @@ export function TxRow({
   subtitle,
   amount,
   tone = "brand",
+  href,
   className,
 }: TxRowProps) {
-  return (
-    <div className={cn("flex items-center gap-3 py-2.5", className)}>
+  const inner = (
+    <div className={cn("flex items-center gap-3 py-2.5", href && "cursor-pointer hover:bg-cream-50 dark:hover:bg-hairline-dark/30 rounded-lg px-2 -mx-2 transition-colors", className)}>
       <span
         className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
@@ -69,4 +72,9 @@ export function TxRow({
       </p>
     </div>
   );
+
+  if (href) {
+    return <Link href={href}>{inner}</Link>;
+  }
+  return inner;
 }

@@ -607,6 +607,14 @@ export default async function HomePage() {
                     : row.kind === "customer"
                       ? "brand"
                       : "warning";
+              const href =
+                row.kind === "invoice_paid"
+                  ? `/finance/invoices/${row.id}`
+                  : row.kind === "pos_sale"
+                    ? `/sales/pos`
+                    : row.kind === "customer"
+                      ? `/marketing/customers`
+                      : `/operations/products`;
               return (
                 <TxRow
                   key={row.id}
@@ -615,6 +623,7 @@ export default async function HomePage() {
                   title={row.title}
                   subtitle={fmtRel(row.createdAt)}
                   amount={row.amount}
+                  href={href}
                 />
               );
             })
