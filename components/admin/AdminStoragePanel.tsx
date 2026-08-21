@@ -429,17 +429,11 @@ export function AdminStoragePanel({
               onClick={() => setUploadOpen((o) => !o)}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
-                uploadOpen
-                  ? "bg-brand-500 text-white"
-                  : "border border-brand-300 bg-brand-50 text-brand-800 hover:bg-brand-100 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-100",
+                "border border-brand-300 bg-brand-50 text-brand-800 hover:bg-brand-100 dark:border-brand-600 dark:bg-brand-700/30 dark:text-brand-100",
               )}
             >
-              {uploadOpen ? (
-                <X className="h-3.5 w-3.5" />
-              ) : (
-                <CloudUpload className="h-3.5 w-3.5" />
-              )}
-              {uploadOpen ? "Close upload" : "Upload"}
+              <CloudUpload className="h-3.5 w-3.5" />
+              Upload
             </button>
             <Link
               href="/admin/compliance"
@@ -529,16 +523,38 @@ export function AdminStoragePanel({
         </p>
       </div>
 
+      {/* Upload modal */}
       {uploadOpen ? (
-        <div className="border-b border-cream-200 bg-cream-50/50 p-4 dark:border-hairline-dark dark:bg-hairline-dark/10">
-          <AdminFileUploader
-            hrDocsOnly={hrDocsOnly}
-            defaultCategory={defaultUploadCategory}
-            variant="default"
-            multiple
-            employees={employees}
-            employeeDocumentTypesByEmployeeId={employeeDocumentTypesByEmployeeId}
-          />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setUploadOpen(false); }}
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-cream-200 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-center justify-between border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
+              <div className="flex items-center gap-2">
+                <CloudUpload className="h-4 w-4 text-brand-600 dark:text-brand-300" />
+                <p className="text-sm font-bold text-ink dark:text-cream-100">Upload files</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUploadOpen(false)}
+                className="rounded-lg p-1.5 text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/40"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5">
+              <AdminFileUploader
+                hrDocsOnly={hrDocsOnly}
+                defaultCategory={defaultUploadCategory}
+                variant="default"
+                multiple
+                employees={employees}
+                employeeDocumentTypesByEmployeeId={employeeDocumentTypesByEmployeeId}
+              />
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -687,7 +703,7 @@ export function AdminStoragePanel({
                 type="button"
                 onClick={() => void handleLoadMore()}
                 disabled={loadingMore}
-                className="inline-flex items-center gap-2 rounded-lg border border-brand-300 bg-brand-50 px-5 py-2 text-sm font-semibold text-brand-800 hover:bg-brand-100 disabled:opacity-60 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-100"
+                className="inline-flex items-center gap-2 rounded-lg border border-brand-300 bg-brand-50 px-5 py-2 text-sm font-semibold text-brand-800 hover:bg-brand-100 disabled:opacity-60 dark:border-brand-700 dark:bg-brand-700/30 dark:text-brand-100"
               >
                 {loadingMore ? (
                   <>
