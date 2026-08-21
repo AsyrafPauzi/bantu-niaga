@@ -261,6 +261,15 @@ export async function DELETE(
   const owned = await loadOwnedFile(supabase, id, user);
   if (owned.response) return owned.response;
 
+  // Load storage_path before deleting the row
+  const { data: fileRow } = await supabase
+    .from("admin_files")
+    .select("storage_path")
+    .eq("id", id)
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
   const { error: updErr } = await supabase
     .from("admin_files")
     .update({ deleted_at: new Date().toISOString() })
@@ -279,10 +288,17 @@ export async function DELETE(
     );
   }
 
-  // TODO: hard-delete the Storage object after a grace period (e.g. a
-  // nightly background job that scans admin_files where deleted_at <
-  // now() - interval '30 days' and calls storage.remove() + a row
-  // delete).
+  // Hard-delete the object from Supabase Storage so storage quota is freed.
+  if (fileRow?.storage_path) {
+    const { error: storageErr } = await supabase.storage
+      .from("admin-files")
+      .remove([fileRow.storage_path]);
+    if (storageErr) {
+      // Log but don't fail the request — the DB row is already soft-deleted
+      // so the file is invisible to users. A cleanup job can mop up orphans.
+      log.warn("storage_hard_delete_failed", { id, path: fileRow.storage_path }, storageErr);
+    }
+  }
 
   return NextResponse.json({ ok: true, data: { id } }, { status: 200 });
 }
