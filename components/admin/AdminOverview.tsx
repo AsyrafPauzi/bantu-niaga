@@ -448,7 +448,7 @@ export function AdminOverview({
                   return (
                     <AdminOverviewRow
                       key={item.id}
-                      href="/admin/compliance"
+                      href={`/admin/compliance?highlight=${item.id}`}
                       title={item.title}
                       subtitle={`${complianceCategoryLabel(item.category as AdminComplianceCategory)} · expires ${item.expires_on}`}
                       overdue={urgency === "overdue"}
