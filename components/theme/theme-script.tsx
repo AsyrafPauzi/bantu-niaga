@@ -8,7 +8,7 @@
  * Keep the inline body tiny and dependency-free — it must work even if
  * `localStorage` is locked down or `matchMedia` is unavailable.
  */
-export function ThemeScript() {
+export function ThemeScript({ nonce }: { nonce?: string }) {
   const code = `(function(){try{var k='bantuniaga.theme';var p=localStorage.getItem(k)||'system';var d=(p==='dark')||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.classList.add('dark')}}catch(e){}})();`;
-  return <script dangerouslySetInnerHTML={{ __html: code }} />;
+  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: code }} />;
 }

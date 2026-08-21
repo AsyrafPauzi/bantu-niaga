@@ -31,6 +31,66 @@ import {
   warnSupabaseNotConfiguredOnce,
 } from "@/lib/supabase/env";
 
+// ─── CSP nonce helpers ────────────────────────────────────────────────────────
+
+function generateNonce(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  const raw = c?.randomUUID ? c.randomUUID() : `${Math.random()}-${Date.now()}`;
+  // base64-encode so it's safe inside a CSP header value
+  return Buffer.from(raw).toString("base64");
+}
+
+function buildCsp(nonce: string): string {
+  const isProd = process.env.NODE_ENV === "production";
+  const supabaseHost = (() => {
+    try {
+      return process.env.NEXT_PUBLIC_SUPABASE_URL
+        ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
+        : "*.supabase.co";
+    } catch {
+      return "*.supabase.co";
+    }
+  })();
+
+  const directives = [
+    "default-src 'self'",
+    // nonce-based: only scripts carrying this nonce are allowed.
+    // 'strict-dynamic' lets nonce-approved scripts load further scripts (Next lazy chunks).
+    isProd
+      ? `script-src 'nonce-${nonce}' 'strict-dynamic' https://www.facebook.com https://connect.facebook.net`
+      : `script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' https://www.facebook.com https://connect.facebook.net`,
+    // Tailwind arbitrary values require unsafe-inline for styles — known trade-off.
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com",
+    `img-src 'self' data: blob: https://${supabaseHost} https://*.fbcdn.net https://platform-lookaside.fbsbx.com https://scontent.cdninstagram.com https://*.cdninstagram.com`,
+    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://graph.facebook.com https://api.openai.com https://api.ilmu.ai${
+      isProd
+        ? ""
+        : " http://127.0.0.1:54321 ws://127.0.0.1:54321 https://127.0.0.1:54321 wss://127.0.0.1:54321"
+    }`,
+    "frame-src 'self' https://www.facebook.com",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self' https://www.facebook.com",
+    "manifest-src 'self'",
+    "media-src 'self' blob: data:",
+    "worker-src 'self' blob:",
+    isProd ? "upgrade-insecure-requests" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  return directives;
+}
+
+// ─── Idle timeout ─────────────────────────────────────────────────────────────
+// 4-hour idle timeout on HTML page routes (not API). Cookie is renewed on every
+// page navigation so active users are never interrupted.
+
+const IDLE_COOKIE = "bn-last-active";
+const IDLE_MAX_MS = 4 * 60 * 60 * 1000; // 4 hours
+
 /**
  * Generate a short, opaque request id. We avoid `crypto.randomUUID()`
  * here because middleware runs on the Edge runtime in some deployments
@@ -55,13 +115,23 @@ export async function middleware(request: NextRequest) {
   // correlated end-to-end. Re-use the caller's value when present (used
   // by tracing systems, load-test harnesses, internal probes).
   const requestId = request.headers.get("x-request-id") ?? newRequestId();
+
+  // Generate a fresh per-request nonce for the Content-Security-Policy.
+  const nonce = generateNonce();
+  const csp = buildCsp(nonce);
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);
+  // Pass nonce to server components via request header so layout.tsx can
+  // apply it to <Script> tags without a client round-trip.
+  requestHeaders.set("x-nonce", nonce);
 
   let response = NextResponse.next({
     request: { headers: requestHeaders },
   });
   response.headers.set("x-request-id", requestId);
+  // Override the static CSP set in next.config.mjs with the nonce-bearing one.
+  response.headers.set("Content-Security-Policy", csp);
 
   const env = getSupabasePublicEnv();
   if (!env) {
@@ -196,6 +266,33 @@ export async function middleware(request: NextRequest) {
       const redirect = NextResponse.redirect(completeUrl);
       redirect.headers.set("x-request-id", requestId);
       return redirect;
+    }
+
+    // ── Idle timeout (HTML page routes only, not API / static) ────────────────
+    // API routes are excluded to avoid breaking background polling / webhooks.
+    if (!pathname.startsWith("/api/")) {
+      const lastActive = request.cookies.get(IDLE_COOKIE)?.value;
+      const now = Date.now();
+      if (lastActive && now - parseInt(lastActive, 10) > IDLE_MAX_MS) {
+        // Session idle too long — redirect to sign-in.
+        const signInUrl = request.nextUrl.clone();
+        signInUrl.pathname = "/sign-in";
+        signInUrl.search = "";
+        const redirect = NextResponse.redirect(signInUrl);
+        redirect.headers.set("x-request-id", requestId);
+        redirect.headers.set("Content-Security-Policy", csp);
+        // Clear the stale cookie.
+        redirect.cookies.delete(IDLE_COOKIE);
+        return redirect;
+      }
+      // Renew the last-active timestamp on every page navigation.
+      response.cookies.set(IDLE_COOKIE, String(now), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 24, // survive a browser restart; idle logic handles expiry
+      });
     }
 
     return response;

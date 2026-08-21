@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import Image from "next/image";
 import { FileText, ImageIcon, Loader2, Paperclip, Upload, X } from "lucide-react";
 import type { AdminFileCategory } from "@/lib/admin/schemas";
 import { STORAGE_CATEGORY_LABELS } from "@/lib/admin/storage-shared";
@@ -80,8 +81,7 @@ function StorageImageThumb({
       )}
     >
       {src && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element -- signed Supabase URL from our API
-        <img src={src} alt="" className="h-full w-full object-cover" />
+        <Image src={src} alt="" fill className="object-cover" sizes="64px" />
       ) : (
         <span className="flex h-full w-full items-center justify-center text-ink-muted dark:text-cream-400">
           <ImageIcon className="h-6 w-6" />

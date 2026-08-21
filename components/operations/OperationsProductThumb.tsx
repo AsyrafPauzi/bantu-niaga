@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils/cn";
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -88,8 +89,7 @@ export function OperationsProductThumb({
       aria-hidden={!imageFileId || failed}
     >
       {src && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element -- signed Supabase URL from our API
-        <img src={src} alt="" className="h-full w-full object-cover" />
+        <Image src={src} alt="" fill className="object-cover" sizes="96px" />
       ) : (
         <div
           className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-50/90 to-sky-50/80 dark:from-emerald-950/40 dark:to-sky-950/30"

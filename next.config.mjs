@@ -78,6 +78,10 @@ const csp = [
   .filter(Boolean)
   .join("; ");
 
+// Content-Security-Policy is now injected dynamically by middleware.ts with a
+// per-request nonce. The static header below is kept as a fallback only for
+// routes not matched by the middleware (e.g. /_next/static assets — which
+// don't execute scripts so the CSP there is less critical).
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
   {

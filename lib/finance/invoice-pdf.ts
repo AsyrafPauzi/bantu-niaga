@@ -1,5 +1,10 @@
 import "server-only";
 
+// TODO(tech-debt): pdf-lib v1.17.1 has been unmaintained since 2021.
+// No active CVEs as of 2026-08. Monitor https://github.com/Hopding/pdf-lib for
+// activity. Replacement candidates: @pdf-lib/fontkit + pdfmake (for text-heavy
+// documents), or a Puppeteer-based HTML→PDF approach for design-rich invoices.
+// Track in: https://linear.app (or your issue tracker) before go-live v2.
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { BusinessRow } from "@/lib/settings/business";
 import type { FinanceInvoiceRow } from "@/lib/finance/schemas";

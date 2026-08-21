@@ -41,7 +41,9 @@
     "backfill:mc-admin-files": "tsx scripts/backfill-mc-admin-files.ts",
     "backfill:marketing-events": "tsx scripts/backfill-marketing-events.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -59,6 +61,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

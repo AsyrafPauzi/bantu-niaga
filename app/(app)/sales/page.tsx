@@ -3,8 +3,7 @@ import { SalesGuideJourney } from "@/components/sales/SalesGuideJourney";
 import { SalesOverview } from "@/components/sales/SalesOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { canManageSalesCore, canUseLeads, canUsePos } from "@/lib/sales/access";
-import { loadSalesDashboard } from "@/lib/sales/dashboard";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadSalesDashboardCached } from "@/lib/cache/dashboard-cache";
 
 export const metadata = { title: "Sales" };
 export const dynamic = "force-dynamic";
@@ -18,8 +17,7 @@ export default async function SalesPage() {
     throw e;
   }
 
-  const supabase = await createSupabaseServerClient();
-  const data = await loadSalesDashboard(supabase, user.businessId);
+  const data = await loadSalesDashboardCached(user.businessId);
 
   return (
     <>

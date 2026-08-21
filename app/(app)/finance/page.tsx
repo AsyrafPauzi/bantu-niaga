@@ -4,9 +4,8 @@ import { FinanceMobileExpenseFab } from "@/components/finance/FinanceMobileExpen
 import { FinanceOverview } from "@/components/finance/FinanceOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
-import { loadFinanceDashboard } from "@/lib/finance/dashboard";
 import { loadBusiness } from "@/lib/settings/business";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadFinanceDashboardCached } from "@/lib/cache/dashboard-cache";
 
 export const metadata = { title: "Finance" };
 export const dynamic = "force-dynamic";
@@ -34,16 +33,10 @@ export default async function FinancePage({
       ? params.month
       : undefined;
 
-  const [business, supabase] = await Promise.all([
-    loadBusiness(user.businessId),
-    createSupabaseServerClient(),
-  ]);
-
+  const business = await loadBusiness(user.businessId);
   const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
-    "http://localhost:3000";
-
-  const data = await loadFinanceDashboard(supabase, user.businessId, {
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+  const data = await loadFinanceDashboardCached(user.businessId, {
     month,
     idcompany: business?.idcompany ?? "",
     appUrl,
