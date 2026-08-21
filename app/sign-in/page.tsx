@@ -35,6 +35,12 @@ function SignInInner() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // MFA step
+  const [mfaStep, setMfaStep] = useState<{ factorId: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const [mfaSubmitting, setMfaSubmitting] = useState(false);
+
   useEffect(() => {
     setLocale(readPreferredLocaleCookie());
   }, []);
@@ -85,6 +91,15 @@ function SignInInner() {
         return;
       }
 
+      // Check if user has a verified TOTP factor — challenge it regardless of AAL policy
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const verifiedTotp = factors?.totp?.find((f) => f.status === "verified");
+      if (verifiedTotp) {
+        setMfaStep({ factorId: verifiedTotp.id });
+        setSubmitting(false);
+        return;
+      }
+
       await fetch("/api/settings/security/sessions/register", {
         method: "POST",
         credentials: "same-origin",
@@ -97,6 +112,42 @@ function SignInInner() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-in failed.");
       setSubmitting(false);
+    }
+  }
+
+  async function handleMfa(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!mfaStep) return;
+    setMfaError(null);
+    setMfaSubmitting(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data: ch, error: chErr } = await supabase.auth.mfa.challenge({
+        factorId: mfaStep.factorId,
+      });
+      if (chErr || !ch) {
+        setMfaError(chErr?.message ?? "Could not start MFA challenge.");
+        return;
+      }
+      const { error: verErr } = await supabase.auth.mfa.verify({
+        factorId: mfaStep.factorId,
+        challengeId: ch.id,
+        code: mfaCode,
+      });
+      if (verErr) {
+        setMfaError("Invalid code. Check your authenticator app and try again.");
+        return;
+      }
+      await fetch("/api/settings/security/sessions/register", {
+        method: "POST",
+        credentials: "same-origin",
+      }).catch(() => {});
+      router.replace(params.get("next") || "/home");
+      router.refresh();
+    } catch (err) {
+      setMfaError(err instanceof Error ? err.message : "MFA failed.");
+    } finally {
+      setMfaSubmitting(false);
     }
   }
 
@@ -114,28 +165,113 @@ function SignInInner() {
           : "Finance, sales, inventory, HR, marketing — unified with Boardroom for Malaysian SMEs."
       }
     >
-      <SignInForm
-        locale={locale}
-        onLocaleChange={(next) => {
-          writePreferredLocaleCookie(next);
-          setLocale(next);
-        }}
-        email={email}
-        setEmail={setEmail}
-        password={password}
-        setPassword={setPassword}
-        showPassword={showPassword}
-        setShowPassword={setShowPassword}
-        remember={remember}
-        setRemember={setRemember}
-        error={error}
-        submitting={submitting}
-        onSubmit={handleSubmit}
-        switchAccount={params.get("reason") === "switch_account"}
-        nextPath={params.get("next") || "/home"}
-        onError={setError}
-      />
+      {mfaStep ? (
+        <MfaForm
+          code={mfaCode}
+          setCode={setMfaCode}
+          error={mfaError}
+          submitting={mfaSubmitting}
+          onSubmit={handleMfa}
+          onBack={() => { setMfaStep(null); setMfaCode(""); setMfaError(null); }}
+        />
+      ) : (
+        <SignInForm
+          locale={locale}
+          onLocaleChange={(next) => {
+            writePreferredLocaleCookie(next);
+            setLocale(next);
+          }}
+          email={email}
+          setEmail={setEmail}
+          password={password}
+          setPassword={setPassword}
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+          remember={remember}
+          setRemember={setRemember}
+          error={error}
+          submitting={submitting}
+          onSubmit={handleSubmit}
+          switchAccount={params.get("reason") === "switch_account"}
+          nextPath={params.get("next") || "/home"}
+          onError={setError}
+        />
+      )}
     </AuthShell>
+  );
+}
+
+function MfaForm({
+  code,
+  setCode,
+  error,
+  submitting,
+  onSubmit,
+  onBack,
+}: {
+  code: string;
+  setCode: (v: string) => void;
+  error: string | null;
+  submitting: boolean;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight text-ink dark:text-cream-100">
+          Two-factor check
+        </h2>
+        <p className="mt-2 text-sm text-ink-muted dark:text-cream-400">
+          Open your authenticator app and enter the 6-digit code.
+        </p>
+      </div>
+
+      <form onSubmit={onSubmit} className="space-y-4">
+        <label className="block text-sm">
+          <span className="font-medium text-ink dark:text-cream-100">
+            Authenticator code
+          </span>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            autoFocus
+            required
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="123456"
+            className="mt-1.5 block w-full rounded-lg border border-cream-300 bg-white px-3.5 py-2.5 text-center font-mono text-2xl tracking-[0.5em] text-ink shadow-card placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+          />
+        </label>
+
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-md border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-sm text-status-danger dark:bg-status-danger/20"
+          >
+            {error}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={submitting || code.length !== 6}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-500 text-base font-semibold text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:bg-cream-300 disabled:text-ink-subtle dark:disabled:bg-hairline-dark dark:disabled:text-cream-400"
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : null}
+          {submitting ? "Verifying…" : "Verify & sign in"}
+        </button>
+      </form>
+
+      <button
+        type="button"
+        onClick={onBack}
+        className="block text-center text-sm text-ink-muted hover:text-ink dark:text-cream-400 dark:hover:text-cream-100"
+      >
+        ← Back to sign in
+      </button>
+    </div>
   );
 }
 

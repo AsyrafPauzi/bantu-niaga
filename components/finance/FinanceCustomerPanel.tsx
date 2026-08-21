@@ -22,12 +22,7 @@ import {
   ModuleListPanelFilters,
 } from "@/components/dashboard/module-list-panel";
 import { ModuleListSearchBar } from "@/components/dashboard/module-list-search";
-import {
-  QuickActionBar,
-  QuickCreateActions,
-  QuickCreatePanel,
-} from "@/components/ui/quick-create";
-import { useQuickCreate } from "@/hooks/use-quick-create";
+import { X } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import type {
   FinanceCustomerWithStats,
@@ -94,8 +89,7 @@ export function FinanceCustomerPanel({
   const router = useRouter();
   const [customers, setCustomers] = useState(initialCustomers);
   const [search, setSearch] = useState(searchQuery);
-  const { open: showForm, toggle: toggleForm, close: closeForm, openPanel } =
-    useQuickCreate();
+  const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -103,13 +97,14 @@ export function FinanceCustomerPanel({
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setCustomers(initialCustomers);
-  }, [initialCustomers]);
+  useEffect(() => { setCustomers(initialCustomers); }, [initialCustomers]);
+  useEffect(() => { setSearch(searchQuery); }, [searchQuery]);
 
   useEffect(() => {
-    setSearch(searchQuery);
-  }, [searchQuery]);
+    const handler = () => setShowForm(true);
+    window.addEventListener("finance:add-customer", handler);
+    return () => window.removeEventListener("finance:add-customer", handler);
+  }, []);
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
@@ -147,7 +142,7 @@ export function FinanceCustomerPanel({
         setName("");
         setPhone("");
         setEmail("");
-        closeForm();
+        setShowForm(false);
         router.push("/finance/customers");
         refresh();
       } catch (err) {
@@ -234,56 +229,42 @@ export function FinanceCustomerPanel({
       </section>
       ) : null}
 
-      <QuickActionBar
-        open={showForm}
-        onToggle={() => {
-          if (showForm) closeForm();
-          else toggleForm();
-        }}
-        actionLabel="Add customer"
-      />
-
-      <QuickCreatePanel
-        open={showForm}
-        onSubmit={onCreate}
-        title="New billing contact"
-        subtitle="Reuse on every invoice and quote."
-        icon={User}
-        accent="violet"
-      >
-          <div className="grid gap-3 sm:grid-cols-3">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Name or company *"
-              required
-              className={inputCx}
-            />
-            <input
-              type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Phone / WhatsApp"
-              className={inputCx}
-            />
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
-              className={inputCx}
-            />
+      {showForm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-16 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowForm(false); setFormError(null); } }}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-cream-200 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-center justify-between border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-violet-600 dark:text-violet-300" />
+                <p className="text-sm font-bold text-ink dark:text-cream-100">New billing contact</p>
+              </div>
+              <button type="button" onClick={() => { setShowForm(false); setFormError(null); }} className="rounded-lg p-1.5 text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/40" aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={onCreate} className="space-y-4 p-5">
+              <p className="text-xs text-ink-muted dark:text-cream-400">Reuse on every invoice and quote.</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name or company *" required className={inputCx} />
+                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone / WhatsApp" className={inputCx} />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className={inputCx} />
+              </div>
+              {formError ? <p className="text-sm text-status-danger">{formError}</p> : null}
+              <div className="flex justify-end gap-2 border-t border-cream-200 pt-4 dark:border-hairline-dark">
+                <button type="button" onClick={() => { setShowForm(false); setFormError(null); }} className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted hover:bg-cream-100 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-hairline-dark/40">
+                  Cancel
+                </button>
+                <button type="submit" disabled={creating} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60">
+                  {creating ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : null}
+                  Save customer
+                </button>
+              </div>
+            </form>
           </div>
-          {formError ? (
-            <p className="text-sm text-status-danger">{formError}</p>
-          ) : null}
-          <QuickCreateActions
-            submitLabel="Save"
-            loading={creating}
-            onCancel={closeForm}
-          />
-      </QuickCreatePanel>
+        </div>
+      ) : null}
 
       {customers.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-cream-300 bg-white/50 py-14 text-center dark:border-hairline-dark dark:bg-panel-dark/40">
@@ -303,7 +284,7 @@ export function FinanceCustomerPanel({
           {!searchQuery ? (
             <button
               type="button"
-              onClick={openPanel}
+              onClick={() => setShowForm(true)}
               className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
             >
               <Plus className="h-4 w-4" />

@@ -27,7 +27,7 @@ export const tableTextareaCx =
   "h-8 md:h-auto md:min-h-[52px] w-full resize-none rounded border-0 bg-transparent px-2 py-1 text-sm leading-snug text-ink placeholder:text-ink-muted/60 focus:bg-cream-50 focus:outline-none focus:ring-1 focus:ring-brand-400/40 dark:text-cream-100 dark:focus:bg-panel-dark/80";
 
 export const summaryInputCx =
-  "h-8 w-full rounded border border-cream-300 bg-white px-2 text-right text-sm tabular-nums focus:border-brand-500 focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
+  "h-8 w-28 rounded border border-cream-300 bg-white px-2 text-right text-sm tabular-nums focus:border-brand-500 focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100";
 
 // ─── Field ─────────────────────────────────────────────────────────────────────
 

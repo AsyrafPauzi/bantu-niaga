@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type DragEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import {
   Calendar,
   ClipboardList,
@@ -8,6 +8,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  X,
 } from "lucide-react";
 import { AdminTaskDetailModal } from "@/components/admin/AdminTaskDetailModal";
 import { SimpleRichTextEditor } from "@/components/admin/SimpleRichTextEditor";
@@ -16,11 +17,6 @@ import {
   ModuleListPanel,
   ModuleListPanelFilters,
 } from "@/components/dashboard/module-list-panel";
-import {
-  QuickActionBar,
-  QuickCreateActions,
-  QuickCreatePanel,
-} from "@/components/ui/quick-create";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -97,7 +93,13 @@ export function AdminTaskBoard({
   const [tasks, setTasks] = useState(initialTasks);
   const [busyId, setBusyId] = useState<string | null>(null);
   const { open: showForm, toggle: toggleForm, close: closeForm } =
-    useQuickCreate({ listenForCreateParam: true });
+    useQuickCreate({ listenForCreateParam: false });
+
+  useEffect(() => {
+    const handler = () => toggleForm();
+    window.addEventListener("admin:add-task", handler);
+    return () => window.removeEventListener("admin:add-task", handler);
+  }, [toggleForm]);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [newColumnLabel, setNewColumnLabel] = useState("");
   const [newColumnIsDone, setNewColumnIsDone] = useState(false);
@@ -108,6 +110,7 @@ export function AdminTaskBoard({
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
+  const [targetColumnId, setTargetColumnId] = useState(() => initialColumns[0]?.id ?? "");
   const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
@@ -421,6 +424,7 @@ export function AdminTaskBoard({
             description: safeDescription,
             due_date: dueDate || null,
             assignee_user_id: assigneeId || null,
+            column_id: targetColumnId || null,
           }),
         });
         const json = (await res.json()) as {
@@ -436,6 +440,7 @@ export function AdminTaskBoard({
         setDescription("");
         setDueDate("");
         setAssigneeId("");
+        setTargetColumnId(columns[0]?.id ?? "");
         closeForm();
       } catch (err) {
         setFormError(err instanceof Error ? err.message : "Create failed.");
@@ -443,107 +448,118 @@ export function AdminTaskBoard({
         setCreating(false);
       }
     },
-    [assigneeId, canManage, description, dueDate, title],
+    [assigneeId, canManage, columns, description, dueDate, targetColumnId, title],
   );
 
   return (
     <div className="space-y-5">
-      {canManage ? (
-        <QuickActionBar
-          open={showForm}
-          onToggle={toggleForm}
-          actionLabel="Add task"
-        />
-      ) : null}
-
+      {/* Add task modal */}
       {showForm && canManage ? (
-        <QuickCreatePanel
-          open={showForm}
-          onSubmit={onCreate}
-          title="New task"
-          subtitle="Lands in your first column — drag to progress."
-          icon={ClipboardList}
-          accent="brand"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) closeForm(); }}
         >
-          <div className="space-y-1.5">
-            <label
-              htmlFor="admin-task-title"
-              className="text-xs font-semibold text-ink dark:text-cream-100"
-            >
-              Task title <span className="text-status-danger">*</span>
-            </label>
-            <input
-              id="admin-task-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Chase supplier invoice, file SSM renewal"
-              required
-              className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm text-ink focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100 dark:focus:ring-brand-800"
-            />
-          </div>
-
-          <SimpleRichTextEditor
-            id="admin-task-details"
-            label="Details"
-            value={description}
-            onChange={setDescription}
-            placeholder="Steps to complete, supplier contact, document links…"
-          />
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="admin-task-due-date"
-                className="text-xs font-semibold text-ink dark:text-cream-100"
+          <div className="w-full max-w-lg rounded-2xl border border-cream-200 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-center justify-between border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-brand-600 dark:text-brand-300" />
+                <p className="text-sm font-bold text-ink dark:text-cream-100">New task</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeForm}
+                className="rounded-lg p-1.5 text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/40"
+                aria-label="Close"
               >
-                Due date{" "}
-                <span className="font-normal text-ink-muted dark:text-cream-400">
-                  (optional)
-                </span>
-              </label>
-              <input
-                id="admin-task-due-date"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={onCreate} className="space-y-4 p-5">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="admin-task-title"
+                  className="text-xs font-semibold text-ink dark:text-cream-100"
+                >
+                  Task title <span className="text-status-danger">*</span>
+                </label>
+                <input
+                  id="admin-task-title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Chase supplier invoice, file SSM renewal"
+                  required
+                  autoFocus
+                  className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm text-ink focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100 dark:focus:ring-brand-800"
+                />
+              </div>
+              {columns.length > 1 ? (
+                <div className="space-y-1.5">
+                  <label htmlFor="admin-task-column" className="text-xs font-semibold text-ink dark:text-cream-100">
+                    Add to column
+                  </label>
+                  <select
+                    id="admin-task-column"
+                    value={targetColumnId}
+                    onChange={(e) => setTargetColumnId(e.target.value)}
+                    className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                  >
+                    {columns.map((col) => (
+                      <option key={col.id} value={col.id}>{col.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <SimpleRichTextEditor
+                id="admin-task-details"
+                label="Details"
+                value={description}
+                onChange={setDescription}
+                placeholder="Steps to complete, supplier contact, document links…"
               />
-            </div>
-            <div className="space-y-1.5">
-              <label
-                htmlFor="admin-task-assignee"
-                className="text-xs font-semibold text-ink dark:text-cream-100"
-              >
-                Assign to{" "}
-                <span className="font-normal text-ink-muted dark:text-cream-400">
-                  (optional)
-                </span>
-              </label>
-              <select
-                id="admin-task-assignee"
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
-              >
-                <option value="">Unassigned</option>
-                {teamMembers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label htmlFor="admin-task-due-date" className="text-xs font-semibold text-ink dark:text-cream-100">
+                    Due date <span className="font-normal text-ink-muted dark:text-cream-400">(optional)</span>
+                  </label>
+                  <input
+                    id="admin-task-due-date"
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="h-[38px] w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="admin-task-assignee" className="text-xs font-semibold text-ink dark:text-cream-100">
+                    Assign to <span className="font-normal text-ink-muted dark:text-cream-400">(optional)</span>
+                  </label>
+                  <select
+                    id="admin-task-assignee"
+                    value={assigneeId}
+                    onChange={(e) => setAssigneeId(e.target.value)}
+                    className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                  >
+                    <option value="">Unassigned</option>
+                    {teamMembers.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {formError ? <p className="text-sm text-status-danger">{formError}</p> : null}
+              <div className="flex justify-end gap-2 border-t border-cream-200 pt-4 dark:border-hairline-dark">
+                <button type="button" onClick={closeForm} className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted hover:bg-cream-100 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-hairline-dark/40">
+                  Cancel
+                </button>
+                <button type="submit" disabled={creating} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
+                  {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Save task
+                </button>
+              </div>
+            </form>
           </div>
-          {formError ? (
-            <p className="text-sm text-status-danger">{formError}</p>
-          ) : null}
-          <QuickCreateActions
-            submitLabel="Save task"
-            loading={creating}
-            onCancel={closeForm}
-          />
-        </QuickCreatePanel>
+        </div>
       ) : null}
 
       {columnError ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Banknote,
@@ -21,10 +21,7 @@ import { ModuleListFilterChipButton } from "@/components/dashboard/module-list-s
 import { FinanceTxnExportButton } from "@/components/finance/FinanceTxnExportButton";
 import { FinanceTxnDocumentField } from "@/components/finance/FinanceTxnDocumentField";
 import { useStagedReceipt } from "@/components/finance/use-staged-receipt";
-import {
-  QuickCreateActions,
-  QuickCreatePanel,
-} from "@/components/ui/quick-create";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { todayMytYmd } from "@/lib/utils/today-ymd";
 import type { CategoryInsight } from "@/lib/finance/helpers";
@@ -153,9 +150,17 @@ export function FinanceIncomePanel({
   } = useStagedReceipt();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [listFilter, setListFilter] = useState<string>("all");
+
+  useEffect(() => {
+    const handler = () => { resetForm(); setShowForm(true); };
+    window.addEventListener("finance:log-income", handler);
+    return () => window.removeEventListener("finance:log-income", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
@@ -197,6 +202,7 @@ export function FinanceIncomePanel({
     setEditingId(null);
     setShowMore(false);
     setFormError(null);
+    setShowForm(false);
   }, [clearReceipt]);
 
   const startEdit = useCallback((row: FinanceTransactionRow) => {
@@ -207,6 +213,7 @@ export function FinanceIncomePanel({
     setCounterparty(row.counterparty ?? "");
     setPaymentMethod(row.payment_method ?? "");
     setTxnDate(row.txn_date);
+    setShowForm(true);
     loadReceiptFromRow(row);
     setShowMore(true);
     setFormError(null);
@@ -328,7 +335,10 @@ export function FinanceIncomePanel({
         const res = await fetch(`/api/finance/transactions/${id}`, {
           method: "DELETE",
         });
-        if (!res.ok) throw new Error("Delete failed.");
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({})) as { error?: { message?: string } };
+          throw new Error(json?.error?.message ?? "Delete failed.");
+        }
         setTransactions((prev) => prev.filter((t) => t.id !== id));
         setMonthTotal((m) => m - amt);
         setLoggedCount((c) => Math.max(0, c - 1));
@@ -447,14 +457,24 @@ export function FinanceIncomePanel({
         </div>
       ) : null}
 
-      <QuickCreatePanel
-        open
-        onSubmit={onSave}
-        title={editingId ? "Edit income" : "Quick log"}
-        subtitle="Amount, description, category — add proof of payment if you have one."
-        icon={Banknote}
-        accent="emerald"
-      >
+      {showForm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-16 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) resetForm(); }}
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-cream-200 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-center justify-between border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
+              <div className="flex items-center gap-2">
+                <Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                <p className="text-sm font-bold text-ink dark:text-cream-100">
+                  {editingId ? "Edit income" : "Log income"}
+                </p>
+              </div>
+              <button type="button" onClick={resetForm} className="rounded-lg p-1.5 text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/40" aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={onSave} className="space-y-4 p-5">
           <div className="flex flex-wrap gap-1.5">
             {QUICK_AMOUNTS.map((n) => (
               <button
@@ -586,19 +606,22 @@ export function FinanceIncomePanel({
             fileName={adminFileName}
             onAttach={stageReceipt}
             label="Supporting document (optional)"
-            hint="Transfer slip, loan letter, or receipt — saved with this income."
           />
 
-          {formError ? (
-            <p className="text-sm text-status-danger">{formError}</p>
-          ) : null}
-
-          <QuickCreateActions
-            submitLabel={editingId ? "Update income" : "Log income"}
-            loading={creating}
-            onCancel={resetForm}
-          />
-      </QuickCreatePanel>
+          {formError ? <p className="text-sm text-status-danger">{formError}</p> : null}
+          <div className="flex justify-end gap-2 border-t border-cream-200 pt-4 dark:border-hairline-dark">
+            <button type="button" onClick={resetForm} className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted hover:bg-cream-100 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-hairline-dark/40">
+              Cancel
+            </button>
+            <button type="submit" disabled={creating} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+              {creating ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : null}
+              {editingId ? "Update income" : "Log income"}
+            </button>
+          </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       <FinanceTxnCompactList
         title="Recent income"

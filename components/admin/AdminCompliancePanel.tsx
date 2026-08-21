@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   Bell,
@@ -18,6 +18,7 @@ import {
 import {
   AdminComplianceCalendar,
 } from "@/components/admin/AdminComplianceCalendar";
+import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import {
   AdminComplianceDetailModal,
 } from "@/components/admin/AdminComplianceDetailModal";
@@ -29,12 +30,6 @@ import {
   ModuleListPanel,
   ModuleListPanelFilters,
 } from "@/components/dashboard/module-list-panel";
-import {
-  QuickActionBar,
-  QuickCreateActions,
-  QuickCreatePanel,
-} from "@/components/ui/quick-create";
-import { useQuickCreate } from "@/hooks/use-quick-create";
 import {
   ADMIN_COMPLIANCE_CATEGORIES,
   categoryLabel,
@@ -96,8 +91,15 @@ export function AdminCompliancePanel({
 }: AdminCompliancePanelProps) {
   const [items, setItems] = useState(initialItems);
   const [alerts, setAlerts] = useState(initialAlerts);
-  const { open: showForm, toggle: toggleForm, close: closeForm, openPanel } =
-    useQuickCreate();
+  const [showForm, setShowForm] = useState(false);
+  const [attachedFileId, setAttachedFileId] = useState<string | null>(null);
+  const closeForm = useCallback(() => { setShowForm(false); setAttachedFileId(null); }, []);
+
+  useEffect(() => {
+    const handler = () => { setFormError(null); setShowForm(true); };
+    window.addEventListener("admin:compliance-custom-entry", handler);
+    return () => window.removeEventListener("admin:compliance-custom-entry", handler);
+  }, []);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<AdminComplianceCategory>("other");
   const [authority, setAuthority] = useState("");
@@ -145,10 +147,10 @@ export function AdminCompliancePanel({
       setTitle(preset.title);
       setCategory(preset.category);
       setAuthority(preset.authority);
-      openPanel();
       setFormError(null);
+      setShowForm(true);
     },
-    [openPanel],
+    [],
   );
 
   const patchItem = useCallback(
@@ -190,6 +192,7 @@ export function AdminCompliancePanel({
             reference_number: referenceNumber || null,
             expires_on: expiresOn,
             notes: notes || null,
+            admin_file_id: attachedFileId || null,
           }),
         });
         const json = (await res.json()) as {
@@ -213,6 +216,7 @@ export function AdminCompliancePanel({
         setReferenceNumber("");
         setExpiresOn("");
         setNotes("");
+        setAttachedFileId(null);
         closeForm();
       } catch (err) {
         setFormError(err instanceof Error ? err.message : "Save failed.");
@@ -220,7 +224,7 @@ export function AdminCompliancePanel({
         setCreating(false);
       }
     },
-    [authority, category, expiresOn, notes, referenceNumber, title],
+    [attachedFileId, authority, category, closeForm, expiresOn, notes, referenceNumber, title],
   );
 
   const dismissAlert = useCallback(async (alertId: string) => {
@@ -420,135 +424,122 @@ export function AdminCompliancePanel({
         </div>
       </div>
 
-      <QuickActionBar
-        open={showForm}
-        onToggle={() => {
-          setFormError(null);
-          toggleForm();
-        }}
-        actionLabel="Custom entry"
-      />
-
-      <QuickCreatePanel
-        open={showForm}
-        onSubmit={onCreate}
-        title="New licence or permit"
-        subtitle="We'll remind you before expiry."
-        icon={ShieldCheck}
-        accent="amber"
-      >
-          <div className="space-y-1.5">
-            <label
-              htmlFor="compliance-title"
-              className="text-xs font-semibold text-ink dark:text-cream-100"
-            >
-              Name <span className="text-status-danger">*</span>
-            </label>
-            <input
-              id="compliance-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="compliance-category"
-                className="text-xs font-semibold text-ink dark:text-cream-100"
-              >
-                Category
-              </label>
-              <select
-                id="compliance-category"
-                value={category}
-                onChange={(e) =>
-                  setCategory(e.target.value as AdminComplianceCategory)
-                }
-                className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
-              >
-                {ADMIN_COMPLIANCE_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {categoryLabel(c)}
-                  </option>
-                ))}
-              </select>
+      {/* Custom entry modal */}
+      {showForm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) closeForm(); }}
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-cream-200 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-center justify-between border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <p className="text-sm font-bold text-ink dark:text-cream-100">New licence or permit</p>
+              </div>
+              <button type="button" onClick={closeForm} className="rounded-lg p-1.5 text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/40" aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <div className="space-y-1.5">
-              <label
-                htmlFor="compliance-expires"
-                className="text-xs font-semibold text-ink dark:text-cream-100"
-              >
-                Expiry date <span className="text-status-danger">*</span>
-              </label>
-              <input
-                id="compliance-expires"
-                type="date"
-                value={expiresOn}
-                onChange={(e) => setExpiresOn(e.target.value)}
-                required
-                className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
-              />
-            </div>
+            <form onSubmit={onCreate} className="space-y-4 p-5">
+              <div className="space-y-1.5">
+                <label htmlFor="compliance-title" className="text-xs font-semibold text-ink dark:text-cream-100">
+                  Name <span className="text-status-danger">*</span>
+                </label>
+                <input
+                  id="compliance-title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  autoFocus
+                  className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm text-ink focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200 dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label htmlFor="compliance-category" className="text-xs font-semibold text-ink dark:text-cream-100">Category</label>
+                  <select
+                    id="compliance-category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as AdminComplianceCategory)}
+                    className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                  >
+                    {ADMIN_COMPLIANCE_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{categoryLabel(c)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="compliance-expires" className="text-xs font-semibold text-ink dark:text-cream-100">
+                    Expiry date <span className="text-status-danger">*</span>
+                  </label>
+                  <input
+                    id="compliance-expires"
+                    type="date"
+                    value={expiresOn}
+                    onChange={(e) => setExpiresOn(e.target.value)}
+                    required
+                    className="h-[38px] w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label htmlFor="compliance-authority" className="text-xs font-semibold text-ink dark:text-cream-100">Authority</label>
+                  <input
+                    id="compliance-authority"
+                    type="text"
+                    value={authority}
+                    onChange={(e) => setAuthority(e.target.value)}
+                    className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="compliance-ref" className="text-xs font-semibold text-ink dark:text-cream-100">Reference no.</label>
+                  <input
+                    id="compliance-ref"
+                    type="text"
+                    value={referenceNumber}
+                    onChange={(e) => setReferenceNumber(e.target.value)}
+                    className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="compliance-notes" className="text-xs font-semibold text-ink dark:text-cream-100">Notes</label>
+                <textarea
+                  id="compliance-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-ink dark:text-cream-100">
+                  Document <span className="font-normal text-ink-muted dark:text-cream-400">(optional)</span>
+                </p>
+                <AdminStorageFileAttach
+                  fileId={attachedFileId}
+                  category="compliance"
+                  compact
+                  onAttach={async (id) => setAttachedFileId(id)}
+                />
+              </div>
+              {formError ? <p className="text-sm text-status-danger">{formError}</p> : null}
+              <div className="flex justify-end gap-2 border-t border-cream-200 pt-4 dark:border-hairline-dark">
+                <button type="button" onClick={closeForm} className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted hover:bg-cream-100 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-hairline-dark/40">
+                  Cancel
+                </button>
+                <button type="submit" disabled={creating} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
+                  {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Save licence
+                </button>
+              </div>
+            </form>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="compliance-authority"
-                className="text-xs font-semibold text-ink dark:text-cream-100"
-              >
-                Authority
-              </label>
-              <input
-                id="compliance-authority"
-                type="text"
-                value={authority}
-                onChange={(e) => setAuthority(e.target.value)}
-                className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label
-                htmlFor="compliance-ref"
-                className="text-xs font-semibold text-ink dark:text-cream-100"
-              >
-                Reference no.
-              </label>
-              <input
-                id="compliance-ref"
-                type="text"
-                value={referenceNumber}
-                onChange={(e) => setReferenceNumber(e.target.value)}
-                className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <label
-              htmlFor="compliance-notes"
-              className="text-xs font-semibold text-ink dark:text-cream-100"
-            >
-              Notes
-            </label>
-            <textarea
-              id="compliance-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              className="w-full rounded-lg border border-cream-300 bg-cream-50/50 px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-hairline-dark/30 dark:text-cream-100"
-            />
-          </div>
-          {formError ? (
-            <p className="text-sm text-status-danger">{formError}</p>
-          ) : null}
-          <QuickCreateActions
-            submitLabel="Save licence"
-            loading={creating}
-            onCancel={closeForm}
-          />
-      </QuickCreatePanel>
+        </div>
+      ) : null}
 
       {items.length === 0 ? (
         <AdminCatalogEmpty

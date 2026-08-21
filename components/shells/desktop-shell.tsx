@@ -77,7 +77,7 @@ export function DesktopShell({
   const pageContentClass = cn(
     "mx-auto h-full min-h-0 overflow-y-auto px-4 py-4 md:px-6 md:py-5 lg:px-10 lg:py-6",
     sidebarCollapsed ? "max-w-none" : "max-w-6xl",
-    sidebarCollapsed && "pt-14",
+    sidebarCollapsed && "pt-14 md:pl-14",
   );
 
   return (

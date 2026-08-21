@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { AdminSubpageShell } from "@/components/admin/AdminSubpageShell";
+import { AdminUploadButton } from "@/components/admin/AdminUploadButton";
 import {
   AdminStoragePanel,
   type AdminStorageFileRow,
@@ -207,6 +208,7 @@ export default async function StoragePage({ searchParams }: PageProps) {
       headline={heroHeadline}
       subcopy={heroSub}
       variant={quotaNearFull ? "attention" : "calm"}
+      action={<AdminUploadButton />}
     >
       <AdminStoragePanel
         rows={rows}

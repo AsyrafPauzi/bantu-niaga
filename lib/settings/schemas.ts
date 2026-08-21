@@ -180,6 +180,7 @@ export const twoFaVerifySchema = z
 export const twoFaDisableSchema = z
   .object({
     factor_id: z.string().min(1),
+    code: z.string().length(6).optional(),
   })
   .strict();
 

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminAddTaskButton } from "@/components/admin/AdminAddTaskButton";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { AdminSubpageShell } from "@/components/admin/AdminSubpageShell";
 import { AdminTaskBoard } from "@/components/admin/AdminTaskBoard";
@@ -149,6 +150,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
       headline={heroHeadline}
       subcopy={heroSub}
       variant={overdue > 0 ? "attention" : "calm"}
+      action={canManage ? <AdminAddTaskButton /> : undefined}
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat

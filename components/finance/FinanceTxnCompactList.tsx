@@ -216,7 +216,7 @@ export function FinanceTxnCompactList({
                   </div>
 
                   {editable ? (
-                    <div className="flex shrink-0 gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                    <div className="flex shrink-0 gap-0.5">
                       <button
                         type="button"
                         onClick={() => onEdit(row)}

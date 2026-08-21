@@ -115,6 +115,9 @@ export function SecurityView({
     qr: string;
     secret: string;
   }>(null);
+  const [disableModal, setDisableModal] = useState(false);
+  const [disableCode, setDisableCode] = useState("");
+  const [disableError, setDisableError] = useState<string | null>(null);
   const [twoFaCode, setTwoFaCode] = useState("");
   const [twoFaError, setTwoFaError] = useState<string | null>(null);
   const [twoFaPending, startTwoFaTransition] = useTransition();
@@ -233,24 +236,31 @@ export function SecurityView({
 
   function disable2fa() {
     if (!verifiedFactor) return;
-    if (
-      !confirm(
-        "Turn off two-factor auth? Your account will be protected by password only.",
-      )
-    )
+    setDisableCode("");
+    setDisableError(null);
+    setDisableModal(true);
+  }
+
+  function confirmDisable2fa() {
+    if (!verifiedFactor) return;
+    if (!/^\d{6}$/.test(disableCode)) {
+      setDisableError("Enter the 6-digit code from your authenticator.");
       return;
-    setTwoFaError(null);
+    }
+    setDisableError(null);
     startTwoFaTransition(async () => {
       const res = await fetch("/api/settings/security/2fa/disable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ factor_id: verifiedFactor.id }),
+        body: JSON.stringify({ factor_id: verifiedFactor.id, code: disableCode }),
       });
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        setTwoFaError(json?.message ?? "Could not disable 2FA.");
+        setDisableError(json?.message ?? "Could not disable 2FA.");
         return;
       }
+      setDisableModal(false);
+      setDisableCode("");
       await refreshFactors();
       router.refresh();
     });
@@ -598,6 +608,69 @@ export function SecurityView({
           </section>
         </aside>
       </div>
+
+      {disableModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-cream-200 bg-white p-6 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-ink dark:text-cream-100">
+                  Turn off 2FA
+                </h3>
+                <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+                  Enter the 6-digit code from your authenticator to confirm.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDisableModal(false); setDisableCode(""); setDisableError(null); }}
+                aria-label="Close"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/40"
+              >
+                <X className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <Field label="6-digit code">
+                <input
+                  value={disableCode}
+                  onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  placeholder="123456"
+                  autoFocus
+                  className={`${inputCx} text-center font-mono text-lg tracking-[0.4em]`}
+                />
+              </Field>
+              {disableError ? <Alert tone="danger">{disableError}</Alert> : null}
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => { setDisableModal(false); setDisableCode(""); setDisableError(null); }}
+                disabled={twoFaPending}
+                className="rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDisable2fa}
+                disabled={twoFaPending || disableCode.length !== 6}
+                className="inline-flex items-center gap-2 rounded-lg bg-status-danger px-4 py-2 text-sm font-semibold text-white shadow-card hover:opacity-90 disabled:opacity-60"
+              >
+                {twoFaPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+                ) : (
+                  <ShieldOff className="h-4 w-4" strokeWidth={2} />
+                )}
+                Turn off 2FA
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {enrolModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">

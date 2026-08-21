@@ -203,6 +203,23 @@ export function FinanceInvoiceComposer({
   const [documentNumber, setDocumentNumber] = useState(
     invoice?.number ?? nextNumberPreview ?? "",
   );
+  const [numberUserEdited, setNumberUserEdited] = useState(!!invoice?.number);
+
+  // Refresh next number from server on mount (for new invoices only) to avoid
+  // stale numbers when another invoice was created since the page loaded.
+  useEffect(() => {
+    if (invoice?.number) return; // editing existing — don't override
+    const prefix = documentKind === "quote" ? "QUO" : "INV";
+    fetch(`/api/finance/invoices/next-number?prefix=${prefix}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => {
+        if (j?.number && !numberUserEdited) {
+          setDocumentNumber(j.number as string);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [invoiceDate, setInvoiceDate] = useState(startInvoiceDate);
   const [dueDate, setDueDate] = useState(startDueDate);
   const [status, setStatus] = useState<FinanceInvoiceStatus>(
@@ -891,6 +908,7 @@ export function FinanceInvoiceComposer({
               value={documentNumber}
               onChange={(e) => {
                 setDocumentNumber(e.target.value.toUpperCase());
+                setNumberUserEdited(true);
                 setFieldErrors((prev) => ({ ...prev, number: undefined }));
               }}
               placeholder={nextNumberPreview ?? "INV-2026-0001"}
@@ -1388,15 +1406,16 @@ export function FinanceInvoiceComposer({
                 <SummaryRow
                   label={sstEnabled ? "SST / tax (%)" : "Tax (%)"}
                   input={
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
+                    <select
                       value={taxPct}
                       onChange={(e) => setTaxPct(e.target.value)}
                       className={summaryInputCx}
-                    />
+                    >
+                      <option value="0">0% — None</option>
+                      <option value="6">6% — SST (Services)</option>
+                      <option value="8">8% — SST (Goods)</option>
+                      <option value="10">10% — Sales Tax (Selected)</option>
+                    </select>
                   }
                 />
                 <SummaryRow
@@ -1522,7 +1541,7 @@ export function FinanceInvoiceComposer({
 
           <div
             className={cn(
-              "min-w-0 space-y-1.5 px-4 py-2.5 sm:px-4",
+              "min-w-0 space-y-2 px-4 py-3 sm:px-4",
               !isQuote && "sm:pl-4",
             )}
           >

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { FinanceBackLink } from "@/components/finance/FinanceBackLink";
 import { FinanceIncomePanel } from "@/components/finance/FinanceIncomePanel";
+import { FinanceLogIncomeButton } from "@/components/finance/FinanceLogIncomeButton";
 import { FinanceSubpageShell } from "@/components/finance/FinanceSubpageShell";
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
@@ -109,6 +110,7 @@ export default async function IncomePage({
       headline={hero.headline}
       subcopy={hero.subcopy}
       variant={hero.variant}
+      action={<FinanceLogIncomeButton />}
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat

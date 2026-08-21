@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   Ban,
   CheckCircle2,
+  Eye,
   ExternalLink,
+  MoreHorizontal,
   FileText,
   Loader2,
   Mail,
@@ -121,6 +123,138 @@ function buildFilterHref(
   if (customerId) params.set("customer_id", customerId);
   const qs = params.toString();
   return qs ? `/finance/invoices?${qs}` : "/finance/invoices";
+}
+
+// ─── InvoiceActionRow ────────────────────────────────────────────────────────
+function InvoiceActionRow({
+  inv,
+  busy,
+  isQuote,
+  links,
+  actionBtn,
+  actionBtnOutline,
+  onEdit,
+  onConvert,
+  onMarkSent,
+  onMarkPaid,
+  onEmail,
+  onVoid,
+}: {
+  inv: FinanceInvoiceRow;
+  busy: boolean;
+  isQuote: boolean;
+  links: { url: string; whatsapp: string };
+  actionBtn: string;
+  actionBtnOutline: string;
+  onEdit: string;
+  onConvert: () => void;
+  onMarkSent: () => void;
+  onMarkPaid: () => void;
+  onEmail: () => void;
+  onVoid: () => void;
+}) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [moreOpen]);
+
+  const canDoMore = inv.status !== "void" && inv.status !== "paid";
+
+  return (
+    <div className="mt-2.5 flex flex-wrap gap-1.5">
+      <Link href={onEdit} className={cn(actionBtn, actionBtnOutline)}>
+        <Pencil className="h-3 w-3" />
+        Edit
+      </Link>
+
+      <a href={links.url} target="_blank" rel="noopener noreferrer" className={cn(actionBtn, actionBtnOutline)}>
+        <Eye className="h-3 w-3" />
+        Preview
+      </a>
+
+      {isQuote ? (
+        <button type="button" disabled={busy} onClick={onConvert} className={cn(actionBtn, "bg-brand-500 text-white hover:bg-brand-600")}>
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+          Convert
+        </button>
+      ) : inv.status === "draft" ? (
+        <button type="button" disabled={busy} onClick={onMarkSent} className={cn(actionBtn, "border border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100")}>
+          <Send className="h-3 w-3" />
+          Mark sent
+        </button>
+      ) : inv.status === "sent" ? (
+        <button type="button" disabled={busy} onClick={onMarkPaid} className={cn(actionBtn, "border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100")}>
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+          Mark paid
+        </button>
+      ) : null}
+
+      {canDoMore ? (
+        <div ref={moreRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((o) => !o)}
+            className={cn(actionBtn, actionBtnOutline, "px-2")}
+            aria-label="More actions"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+          {moreOpen ? (
+            <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-cream-200 bg-white shadow-lg dark:border-hairline-dark dark:bg-panel-dark">
+              <a
+                href={links.whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-cream-50 dark:text-emerald-200 dark:hover:bg-hairline-dark/40"
+                onClick={() => setMoreOpen(false)}
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                WhatsApp
+              </a>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { setMoreOpen(false); onEmail(); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs font-semibold text-ink hover:bg-cream-50 dark:text-cream-100 dark:hover:bg-hairline-dark/40"
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                Email
+              </button>
+              <a
+                href={links.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-ink hover:bg-cream-50 dark:text-cream-100 dark:hover:bg-hairline-dark/40"
+                onClick={() => setMoreOpen(false)}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Pay link
+              </a>
+              <div className="my-1 border-t border-cream-200 dark:border-hairline-dark" />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { setMoreOpen(false); onVoid(); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs font-semibold text-status-danger hover:bg-rose-50 dark:hover:bg-rose-950/30"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Void
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function FinanceInvoicePanel({
@@ -428,29 +562,7 @@ export function FinanceInvoicePanel({
 
   return (
     <div className="space-y-4">
-      {shellMode ? (
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={
-              customerIdFilter
-                ? `/finance/invoices/new?customer_id=${encodeURIComponent(customerIdFilter)}`
-                : "/finance/invoices/new"
-            }
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-600"
-          >
-            <Plus className="h-4 w-4" />
-            {tFinance("newInvoice")}
-          </Link>
-          <Link
-            href="/finance/invoices/new?kind=quote"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50 dark:border-violet-800 dark:bg-panel-dark dark:text-violet-100"
-          >
-            <MessageSquareQuote className="h-4 w-4" />
-            {tFinance("newQuote")}
-          </Link>
-        </div>
-      ) : (
-      <section
+      {!shellMode ? (<section
         className={cn(
           "relative overflow-hidden rounded-2xl border p-5 shadow-card",
           summary.outstanding_myr > 0
@@ -532,7 +644,7 @@ export function FinanceInvoicePanel({
           </div>
         </div>
       </section>
-      )}
+      ) : null}
 
       {customerIdFilter ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-200 bg-sky-50/80 px-3 py-2.5 dark:border-sky-900 dark:bg-sky-950/30">
@@ -760,119 +872,20 @@ export function FinanceInvoicePanel({
                       </p>
                     </div>
 
-                    <div className="mt-2.5 flex flex-wrap gap-1.5">
-                      <Link
-                        href={`/finance/invoices/${inv.id}/edit`}
-                        className={cn(actionBtn, actionBtnOutline)}
-                      >
-                        <Pencil className="h-3 w-3" />
-                        Edit
-                      </Link>
-
-                      {isQuote ? (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => openConvert(inv)}
-                          className={cn(
-                            actionBtn,
-                            "bg-brand-500 text-white hover:bg-brand-600",
-                          )}
-                        >
-                          {busy ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <FileText className="h-3 w-3" />
-                          )}
-                          Convert
-                        </button>
-                      ) : null}
-
-                      {inv.status === "draft" ? (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void patchInvoice(inv.id, "sent")}
-                          className={cn(
-                            actionBtn,
-                            "border border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100",
-                          )}
-                        >
-                          <Send className="h-3 w-3" />
-                          Mark sent
-                        </button>
-                      ) : null}
-
-                      {inv.status === "sent" ? (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void patchInvoice(inv.id, "paid")}
-                          className={cn(
-                            actionBtn,
-                            "border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100",
-                          )}
-                        >
-                          {busy ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="h-3 w-3" />
-                          )}
-                          Mark paid
-                        </button>
-                      ) : null}
-
-                      {inv.status !== "void" && inv.status !== "paid" ? (
-                        <>
-                          <a
-                            href={links.whatsapp}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn(
-                              actionBtn,
-                              "border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100",
-                            )}
-                          >
-                            <MessageCircle className="h-3 w-3" />
-                            WhatsApp
-                          </a>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void sendInvoiceEmail(inv)}
-                            className={cn(actionBtn, actionBtnOutline)}
-                          >
-                            {busy ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Mail className="h-3 w-3" />
-                            )}
-                            Email
-                          </button>
-                          <a
-                            href={links.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn(actionBtn, actionBtnOutline)}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Pay link
-                          </a>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void patchInvoice(inv.id, "void")}
-                            className={cn(
-                              actionBtn,
-                              "text-ink-muted hover:text-status-danger dark:text-cream-400",
-                            )}
-                          >
-                            <Ban className="h-3 w-3" />
-                            Void
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
+                    <InvoiceActionRow
+                      inv={inv}
+                      busy={busy}
+                      isQuote={isQuote}
+                      links={links}
+                      actionBtn={actionBtn}
+                      actionBtnOutline={actionBtnOutline}
+                      onEdit={`/finance/invoices/${inv.id}/edit`}
+                      onConvert={() => openConvert(inv)}
+                      onMarkSent={() => void patchInvoice(inv.id, "sent")}
+                      onMarkPaid={() => void patchInvoice(inv.id, "paid")}
+                      onEmail={() => void sendInvoiceEmail(inv)}
+                      onVoid={() => void patchInvoice(inv.id, "void")}
+                    />
                   </div>
                 </div>
               </li>

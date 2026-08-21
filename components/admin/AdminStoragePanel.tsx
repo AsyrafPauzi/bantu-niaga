@@ -317,6 +317,12 @@ export function AdminStoragePanel({
   const [uploadOpen, setUploadOpen] = useState(false);
 
   useEffect(() => {
+    const handler = () => setUploadOpen(true);
+    window.addEventListener("admin:upload", handler);
+    return () => window.removeEventListener("admin:upload", handler);
+  }, []);
+
+  useEffect(() => {
     setRows(initialRows);
     setNextCursor(initialCursor);
     setUsageByFileId(usageByFileIdProp);
@@ -424,17 +430,6 @@ export function AdminStoragePanel({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setUploadOpen((o) => !o)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
-                "border border-brand-300 bg-brand-50 text-brand-800 hover:bg-brand-100 dark:border-brand-600 dark:bg-brand-700/30 dark:text-brand-100",
-              )}
-            >
-              <CloudUpload className="h-3.5 w-3.5" />
-              Upload
-            </button>
             <Link
               href="/admin/compliance"
               className="inline-flex items-center gap-1 rounded-lg border border-cream-300 px-3 py-2 text-xs font-semibold text-ink-muted hover:text-ink dark:border-hairline-dark dark:text-cream-400"

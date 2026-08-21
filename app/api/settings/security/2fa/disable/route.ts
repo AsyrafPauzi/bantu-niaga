@@ -49,13 +49,39 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+
+  // Supabase requires AAL2 to unenroll. If a `code` was provided,
+  // challenge + verify first to elevate the session before unenrolling.
+  if (parsed.code) {
+    const { data: ch, error: chErr } = await supabase.auth.mfa.challenge({
+      factorId: parsed.factor_id,
+    });
+    if (chErr || !ch) {
+      return NextResponse.json(
+        { error: "challenge_failed", message: chErr?.message ?? "Could not start challenge." },
+        { status: 500 },
+      );
+    }
+    const { error: verErr } = await supabase.auth.mfa.verify({
+      factorId: parsed.factor_id,
+      challengeId: ch.id,
+      code: parsed.code,
+    });
+    if (verErr) {
+      return NextResponse.json(
+        { error: "verify_failed", message: "Code didn't match. Check your authenticator app." },
+        { status: 400 },
+      );
+    }
+  }
+
   const { error } = await supabase.auth.mfa.unenroll({
     factorId: parsed.factor_id,
   });
 
   if (error) {
     return NextResponse.json(
-      { error: "disable_failed" },
+      { error: "disable_failed", message: error.message },
       { status: 500 },
     );
   }

@@ -119,21 +119,15 @@ function PillarAssistantPanelInner({
         )}
       >
         <Sparkles className={cn(isMobile ? "h-4 w-4" : "h-4 w-4")} />
-        {isMobile ? (
-          <span
-            className="text-[10px] font-bold leading-none tracking-wide"
-            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
-          >
-            AI
-          </span>
-        ) : (
-          <span
-            className="text-[11px] font-bold leading-none tracking-wide"
-            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
-          >
-            Ask AI
-          </span>
-        )}
+        <span
+          className={cn(
+            "font-bold leading-none tracking-wide",
+            isMobile ? "text-[10px]" : "text-[11px]",
+          )}
+          style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+        >
+          {isMobile ? displayName : `Ask ${displayName}`}
+        </span>
       </button>
     );
   }

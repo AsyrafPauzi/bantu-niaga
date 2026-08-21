@@ -9,6 +9,7 @@ interface FinanceSubpageShellProps {
   subcopy: string;
   variant?: LegacyModuleHeroVariant;
   stats: React.ReactNode;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -17,11 +18,15 @@ export function FinanceSubpageShell({
   subcopy,
   variant = "default",
   stats,
+  action,
   children,
 }: FinanceSubpageShellProps) {
   return (
     <div className="space-y-4 pb-20 md:pb-8">
-      <FinanceBackLink />
+      <div className="flex items-center justify-between gap-3">
+        <FinanceBackLink />
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
       <ModuleDashboardHero
         module="Finance"
         pillar="finance"

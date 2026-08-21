@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
+import { AdminCustomEntryButton } from "@/components/admin/AdminCustomEntryButton";
 import { AdminSubpageShell } from "@/components/admin/AdminSubpageShell";
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
@@ -115,6 +116,7 @@ export default async function CompliancePage() {
       headline={heroHeadline}
       subcopy={heroSub}
       variant={overdue > 0 ? "attention" : dueSoon > 0 ? "attention" : "calm"}
+      action={<AdminCustomEntryButton />}
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat

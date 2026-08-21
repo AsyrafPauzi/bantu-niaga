@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { FinanceBackLink } from "@/components/finance/FinanceBackLink";
 import { FinanceInvoicePanel } from "@/components/finance/FinanceInvoicePanel";
+import { FinanceNewInvoiceButtons } from "@/components/finance/FinanceNewInvoiceButtons";
 import { FinanceSubpageShell } from "@/components/finance/FinanceSubpageShell";
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
@@ -142,6 +143,7 @@ export default async function InvoicesPage({
       headline={hero.headline}
       subcopy={hero.subcopy}
       variant={hero.variant}
+      action={<FinanceNewInvoiceButtons customerIdFilter={customerIdFilter || undefined} />}
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat
