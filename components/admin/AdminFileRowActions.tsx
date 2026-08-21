@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Download,
@@ -54,9 +54,21 @@ export function AdminFileRowActions({
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
-  // Close on outside click
+  const openMenu = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setMenuPos({
+      top: rect.bottom + 6,
+      right: window.innerWidth - rect.right,
+    });
+    setOpen(true);
+  }, []);
+
+  // Close on outside click or scroll
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -65,6 +77,7 @@ export function AdminFileRowActions({
       }
     };
     document.addEventListener("mousedown", handler);
+    document.addEventListener("scroll", () => setOpen(false), { capture: true, once: true });
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
@@ -171,7 +184,7 @@ export function AdminFileRowActions({
 
   /* ── Compact icon-only trigger + dropdown ──────────────────── */
   return (
-    <div className="relative flex items-center gap-1.5" ref={menuRef}>
+    <div className="relative flex items-center gap-1.5">
       {/* Quick-access: Download (always visible) */}
       <button
         type="button"
@@ -190,8 +203,9 @@ export function AdminFileRowActions({
 
       {/* More actions trigger */}
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={openMenu}
         disabled={busy !== null}
         className={cn(
           "grid h-7 w-7 place-items-center rounded-md border border-cream-300 bg-white text-ink-muted hover:bg-cream-100 disabled:opacity-60 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-300 dark:hover:bg-hairline-dark/50",
@@ -203,15 +217,12 @@ export function AdminFileRowActions({
         <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={2} />
       </button>
 
-      {/* Dropdown menu */}
-      {open && (
+      {/* Dropdown — fixed position to escape overflow:hidden/auto containers */}
+      {open && menuPos && (
         <div
-          className={cn(
-            "absolute z-50 w-44 rounded-xl border border-cream-200 bg-white p-1.5 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark",
-            showLabels
-              ? "right-0 top-full mt-1"   // table row: drop down aligned right
-              : "bottom-full right-0 mb-1", // card overlay: pop up
-          )}
+          ref={menuRef}
+          className="fixed z-[9999] w-44 rounded-xl border border-cream-200 bg-white p-1.5 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark"
+          style={{ top: menuPos.top, right: menuPos.right }}
         >
           {canPreview && (
             <button
