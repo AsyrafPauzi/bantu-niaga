@@ -113,8 +113,8 @@ function PillarAssistantPanelInner({
           isMobile
             ? /* Mobile: edge tab — flush to right side, rotated label */
               "right-0 flex flex-col items-center gap-1 rounded-l-xl px-2 py-3"
-            : /* Desktop / tablet: floating pill with text */
-              "right-6 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold",
+            : /* Desktop: edge tab flush to right side with horizontal text */
+              "right-0 flex flex-col items-center gap-1.5 rounded-l-xl px-3 py-4 text-sm font-semibold",
           fabClassName,
         )}
       >
@@ -127,7 +127,12 @@ function PillarAssistantPanelInner({
             AI
           </span>
         ) : (
-          <span>Ask {displayName}</span>
+          <span
+            className="text-[11px] font-bold leading-none tracking-wide"
+            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+          >
+            Ask AI
+          </span>
         )}
       </button>
     );
@@ -249,7 +254,7 @@ function PillarAssistantPanelInner({
   return (
     <div
       className={cn(
-        "fixed right-6 z-40 flex h-[min(520px,80vh)] w-[min(400px,92vw)] flex-col overflow-hidden rounded-2xl border border-cream-300 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark",
+        "fixed right-0 z-40 flex h-[min(520px,80vh)] w-[min(400px,92vw)] flex-col overflow-hidden rounded-l-2xl border-l border-y border-cream-300 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark",
         MOBILE_FLOAT_ABOVE_NAV,
       )}
     >
