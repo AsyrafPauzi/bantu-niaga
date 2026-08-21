@@ -510,16 +510,8 @@ export function AdminStoragePanel({
           </button>
         </form>
 
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-muted dark:text-cream-400">
-          <span className="inline-flex items-center gap-1">
-            <Megaphone className="h-3 w-3" />
-            Social creatives live in
-            <Link href="/marketing/content" className="font-semibold text-brand-700 hover:underline dark:text-brand-200">
-              Marketing Content
-            </Link>
-          </span>
-          <span className="text-ink-subtle">·</span>
-          <span>Max {maxMb} MB per file</span>
+        <p className="text-[11px] text-ink-muted dark:text-cream-400">
+          Max {maxMb} MB per file
         </p>
       </div>
 
