@@ -159,7 +159,7 @@ export function ListPagination({
             <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
               Per page
             </span>
-            <div className="inline-flex overflow-hidden rounded-lg border border-cream-300 bg-white">
+            <div className="inline-flex overflow-hidden rounded-lg border border-cream-300 bg-white dark:border-hairline-dark dark:bg-panel-dark">
               {pageSizeOptions.map((size) => {
                 const active = size === pageSize;
                 return (

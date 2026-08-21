@@ -31,7 +31,7 @@ export function KpiCard({
         : "text-ink-muted bg-cream-200";
 
   return (
-    <div className="flex-1 rounded-xl border border-cream-300 bg-white p-4 shadow-card">
+    <div className="flex-1 rounded-xl border border-cream-300 bg-white p-4 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
           {label}
@@ -47,7 +47,7 @@ export function KpiCard({
           </span>
         ) : null}
       </div>
-      <p className="mt-2 text-2xl font-bold text-ink leading-tight">{value}</p>
+      <p className="mt-2 text-2xl font-bold text-ink dark:text-cream-100 leading-tight">{value}</p>
       {(delta || subtle) && (
         <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
           {delta ? (
@@ -153,7 +153,7 @@ export function Section({
   return (
     <section
       className={cn(
-        "rounded-xl border border-cream-300 bg-white p-5 shadow-card",
+        "rounded-xl border border-cream-300 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark",
         className,
       )}
     >
@@ -161,12 +161,12 @@ export function Section({
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             {title ? (
-              <h2 className="text-base font-bold text-ink leading-tight">
+              <h2 className="text-base font-bold text-ink dark:text-cream-100 leading-tight">
                 {title}
               </h2>
             ) : null}
             {description ? (
-              <p className="mt-1 text-xs text-ink-muted">{description}</p>
+              <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">{description}</p>
             ) : null}
           </div>
           {right ?? null}
