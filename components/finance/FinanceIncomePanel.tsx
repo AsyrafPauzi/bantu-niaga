@@ -159,7 +159,6 @@ export function FinanceIncomePanel({
     const handler = () => { resetForm(); setShowForm(true); };
     window.addEventListener("finance:log-income", handler);
     return () => window.removeEventListener("finance:log-income", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refresh = useCallback(() => router.refresh(), [router]);

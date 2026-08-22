@@ -6,8 +6,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadBusiness } from "@/lib/settings/business";
 import { seatQuota } from "@/lib/settings/team-shared";
 import { teamInviteSchema } from "@/lib/settings/schemas";
-import { authCallbackUrl } from "@/lib/auth/site-url";
 import { ensureMembership } from "@/lib/auth/memberships";
+import {
+  hasAppResendConfigured,
+  isSupabaseInviteEmailEnabled,
+  shouldDeliverInviteViaAppResend,
+} from "@/lib/auth/invite-email";
+import { authCallbackUrl } from "@/lib/auth/site-url";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -158,67 +163,22 @@ export async function POST(request: Request) {
   let authUserId: string | null = null;
   let inviteEmailSent = true;
   let devInviteLink: string | null = null;
+  let reattachedExisting = false;
 
   try {
-    const { data, error } = await svc.auth.admin.inviteUserByEmail(email, {
-      redirectTo: siteUrl,
-      data: inviteMetadata,
+    const provisioned = await provisionTeamAuthUser({
+      svc,
+      email,
+      siteUrl,
+      homeRedirect: authCallbackUrl("/home", request.headers.get("origin")),
+      inviteMetadata,
+      businessName: business.name ?? "your team",
+      inviterName: "A teammate",
     });
-
-    if (error || !data?.user) {
-      const msg = error?.message ?? "invite_failed";
-      if (
-        msg.toLowerCase().includes("already") ||
-        msg.toLowerCase().includes("registered")
-      ) {
-        await svc
-          .from("team_invites")
-          .update({ status: "cancelled" })
-          .eq("id", inviteRow.id);
-        return NextResponse.json(
-          {
-            error: "email_in_use",
-            message:
-              "This email already has a NiagaX account. Use a different email or ask them to contact support.",
-          },
-          { status: 409 },
-        );
-      }
-      if (
-        process.env.NODE_ENV === "development" &&
-        !process.env.SUPABASE_INVITE_EMAIL_ENABLED
-      ) {
-        const { data: created, error: createErr } =
-          await svc.auth.admin.createUser({
-            email,
-            email_confirm: true,
-            user_metadata: inviteMetadata,
-          });
-        if (createErr || !created.user) {
-          throw new Error(createErr?.message ?? msg);
-        }
-        authUserId = created.user.id;
-
-        const { data: linkData, error: linkErr } =
-          await svc.auth.admin.generateLink({
-            type: "invite",
-            email,
-            options: {
-              redirectTo: siteUrl,
-              data: inviteMetadata,
-            },
-          });
-        if (linkErr || !linkData?.properties?.action_link) {
-          throw new Error(linkErr?.message ?? "Could not generate invite link.");
-        }
-        devInviteLink = linkData.properties.action_link;
-        inviteEmailSent = false;
-      } else {
-        throw new Error(msg);
-      }
-    } else {
-      authUserId = data.user.id;
-    }
+    authUserId = provisioned.authUserId;
+    devInviteLink = provisioned.actionLink;
+    inviteEmailSent = provisioned.inviteEmailSent;
+    reattachedExisting = provisioned.reattachedExisting;
   } catch (e) {
     await svc
       .from("team_invites")
@@ -248,6 +208,16 @@ export async function POST(request: Request) {
         display_name: parsed.display_name ?? email,
         role: parsed.role,
       });
+    } else {
+      await svc
+        .from("users")
+        .update({
+          business_id: user.businessId,
+          role: parsed.role,
+          display_name: parsed.display_name ?? email,
+          email,
+        })
+        .eq("id", authUserId);
     }
 
     await ensureMembership(authUserId, user.businessId, parsed.role, {
@@ -259,8 +229,8 @@ export async function POST(request: Request) {
       .from("team_invites")
       .update({
         auth_user_id: authUserId,
-        status: "pending",
-        accepted_at: null,
+        status: reattachedExisting ? "accepted" : "pending",
+        accepted_at: reattachedExisting ? new Date().toISOString() : null,
       })
       .eq("id", inviteRow.id);
   }
@@ -272,16 +242,440 @@ export async function POST(request: Request) {
     action: "team.invite",
     entity_type: "team_invite",
     entity_id: inviteRow.id,
-    diff: { email, role: parsed.role, invite_email_sent: inviteEmailSent },
+    diff: {
+      email,
+      role: parsed.role,
+      invite_email_sent: inviteEmailSent,
+      reattached_existing: reattachedExisting,
+    },
   });
 
   return NextResponse.json(
     {
-      invite: inviteRow,
+      invite: {
+        ...inviteRow,
+        status: reattachedExisting ? "accepted" : inviteRow.status,
+      },
       invite_email_sent: inviteEmailSent,
-      dev_bypass: !inviteEmailSent && process.env.NODE_ENV === "development",
-      dev_invite_link: devInviteLink,
+      reattached_existing: reattachedExisting,
+      message: reattachedExisting
+        ? "Member re-added. They can sign in with their existing password."
+        : undefined,
+      dev_bypass: Boolean(devInviteLink) && !inviteEmailSent && !isSupabaseInviteEmailEnabled(),
+      join_link: inviteEmailSent ? null : devInviteLink,
+      dev_invite_link: inviteEmailSent ? null : devInviteLink,
     },
     { status: 201 },
   );
+}
+
+/**
+ * Create or reuse an Auth user for a team invite.
+ * When invite email is enabled, prefer inviteUserByEmail (triggers Supabase
+ * Send Email hook / SMTP). generateLink alone never sends mail.
+ */
+async function provisionTeamAuthUser(opts: {
+  svc: ReturnType<typeof createServiceRoleClient>;
+  email: string;
+  siteUrl: string;
+  homeRedirect: string;
+  inviteMetadata: Record<string, unknown>;
+  businessName: string;
+  inviterName: string;
+}): Promise<{
+  authUserId: string;
+  actionLink: string | null;
+  inviteEmailSent: boolean;
+  reattachedExisting: boolean;
+}> {
+  const {
+    svc,
+    email,
+    siteUrl,
+    homeRedirect,
+    inviteMetadata,
+    businessName,
+    inviterName,
+  } = opts;
+  const emailEnabled = isSupabaseInviteEmailEnabled();
+
+  if (emailEnabled) {
+    // Local + Resend: provision Auth user without inviteUserByEmail so GoTrue
+    // does not also send (that caused duplicate invites).
+    const appResendOnly =
+      shouldDeliverInviteViaAppResend(siteUrl) && hasAppResendConfigured();
+
+    if (appResendOnly) {
+      return provisionInviteViaAppResend({
+        svc,
+        email,
+        siteUrl,
+        inviteMetadata,
+        businessName,
+        inviterName,
+      });
+    }
+
+    const invited = await svc.auth.admin.inviteUserByEmail(email, {
+      redirectTo: siteUrl,
+      data: inviteMetadata,
+    });
+
+    if (!invited.error && invited.data?.user?.id) {
+      return {
+        authUserId: invited.data.user.id,
+        actionLink: null,
+        inviteEmailSent: true,
+        reattachedExisting: false,
+      };
+    }
+
+    const msg = invited.error?.message ?? "invite_failed";
+    const already =
+      msg.toLowerCase().includes("already") ||
+      msg.toLowerCase().includes("registered");
+
+    if (!already) {
+      throw new Error(msg);
+    }
+
+    const existing = await findAuthUserByEmail(svc, email);
+    if (!existing) {
+      throw new Error(
+        "This email exists in Auth but could not be linked. Delete it in Supabase → Authentication → Users, then invite again.",
+      );
+    }
+
+    const { data: profile } = await svc
+      .from("users")
+      .select("last_password_change_at")
+      .eq("id", existing.id)
+      .maybeSingle();
+    const hasPassword = Boolean(profile?.last_password_change_at);
+
+    if (hasPassword) {
+      await svc.auth.admin.updateUserById(existing.id, {
+        user_metadata: inviteMetadata,
+        email_confirm: true,
+      });
+      return {
+        authUserId: existing.id,
+        actionLink: null,
+        inviteEmailSent: false,
+        reattachedExisting: true,
+      };
+    }
+
+    // Incomplete prior invite — remove Auth user and send a fresh invite email.
+    await svc.from("users").delete().eq("id", existing.id);
+    const { error: delErr } = await svc.auth.admin.deleteUser(existing.id);
+    if (delErr) {
+      await svc.auth.admin.updateUserById(existing.id, {
+        user_metadata: inviteMetadata,
+        email_confirm: true,
+      });
+      if (hasAppResendConfigured()) {
+        return deliverInviteViaAppResendOnly({
+          svc,
+          email,
+          siteUrl,
+          inviteMetadata,
+          businessName,
+          inviterName,
+          authUserId: existing.id,
+        });
+      }
+      throw new Error(
+        delErr.message ||
+          "Could not recreate invite. Delete the Auth user in Supabase, then try again.",
+      );
+    }
+
+    const retried = await svc.auth.admin.inviteUserByEmail(email, {
+      redirectTo: siteUrl,
+      data: inviteMetadata,
+    });
+    if (retried.error || !retried.data?.user?.id) {
+      throw new Error(retried.error?.message ?? msg);
+    }
+    return {
+      authUserId: retried.data.user.id,
+      actionLink: null,
+      inviteEmailSent: true,
+      reattachedExisting: false,
+    };
+  }
+
+  // Local / no-email mode: create or reuse Auth user and return a copyable link.
+  const magic = await svc.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+    options: { redirectTo: siteUrl, data: inviteMetadata },
+  });
+
+  if (!magic.error && magic.data?.user?.id) {
+    const authUserId = magic.data.user.id;
+    await svc.auth.admin.updateUserById(authUserId, {
+      user_metadata: inviteMetadata,
+      email_confirm: true,
+    });
+    const { data: profile } = await svc
+      .from("users")
+      .select("last_password_change_at")
+      .eq("id", authUserId)
+      .maybeSingle();
+    if (profile?.last_password_change_at) {
+      const homeLink = await svc.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+        options: { redirectTo: homeRedirect },
+      });
+      return {
+        authUserId,
+        actionLink:
+          homeLink.data?.properties?.action_link ??
+          magic.data.properties?.action_link ??
+          null,
+        inviteEmailSent: false,
+        reattachedExisting: true,
+      };
+    }
+    return {
+      authUserId,
+      actionLink: magic.data.properties?.action_link ?? null,
+      inviteEmailSent: false,
+      reattachedExisting: false,
+    };
+  }
+
+  const created = await svc.auth.admin.createUser({
+    email,
+    email_confirm: true,
+    user_metadata: inviteMetadata,
+  });
+  if (created.error || !created.data.user) {
+    const existing = await findAuthUserByEmail(svc, email);
+    if (!existing) throw new Error(created.error?.message ?? "invite_failed");
+    const link = await svc.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: { redirectTo: siteUrl, data: inviteMetadata },
+    });
+    return {
+      authUserId: existing.id,
+      actionLink: link.data?.properties?.action_link ?? null,
+      inviteEmailSent: false,
+      reattachedExisting: false,
+    };
+  }
+  const link = await svc.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo: siteUrl, data: inviteMetadata },
+  });
+  return {
+    authUserId: created.data.user.id,
+    actionLink: link.data?.properties?.action_link ?? null,
+    inviteEmailSent: false,
+    reattachedExisting: false,
+  };
+}
+
+async function provisionInviteViaAppResend(opts: {
+  svc: ReturnType<typeof createServiceRoleClient>;
+  email: string;
+  siteUrl: string;
+  inviteMetadata: Record<string, unknown>;
+  businessName: string;
+  inviterName: string;
+}): Promise<{
+  authUserId: string;
+  actionLink: string | null;
+  inviteEmailSent: boolean;
+  reattachedExisting: boolean;
+}> {
+  const { svc, email, siteUrl, inviteMetadata, businessName, inviterName } =
+    opts;
+
+  const existing = await findAuthUserByEmail(svc, email);
+  if (existing) {
+    const { data: profile } = await svc
+      .from("users")
+      .select("last_password_change_at")
+      .eq("id", existing.id)
+      .maybeSingle();
+    if (profile?.last_password_change_at) {
+      await svc.auth.admin.updateUserById(existing.id, {
+        user_metadata: inviteMetadata,
+        email_confirm: true,
+      });
+      return {
+        authUserId: existing.id,
+        actionLink: null,
+        inviteEmailSent: false,
+        reattachedExisting: true,
+      };
+    }
+    await svc.auth.admin.updateUserById(existing.id, {
+      user_metadata: inviteMetadata,
+      email_confirm: true,
+    });
+    return deliverInviteViaAppResendOnly({
+      svc,
+      email,
+      siteUrl,
+      inviteMetadata,
+      businessName,
+      inviterName,
+      authUserId: existing.id,
+    });
+  }
+
+  const created = await svc.auth.admin.createUser({
+    email,
+    email_confirm: true,
+    user_metadata: inviteMetadata,
+  });
+  if (created.error || !created.data.user) {
+    throw new Error(created.error?.message ?? "invite_failed");
+  }
+  return deliverInviteViaAppResendOnly({
+    svc,
+    email,
+    siteUrl,
+    inviteMetadata,
+    businessName,
+    inviterName,
+    authUserId: created.data.user.id,
+  });
+}
+
+/** Send exactly one invite email via Resend (no GoTrue mail). */
+async function deliverInviteViaAppResendOnly(opts: {
+  svc: ReturnType<typeof createServiceRoleClient>;
+  email: string;
+  siteUrl: string;
+  inviteMetadata: Record<string, unknown>;
+  businessName: string;
+  inviterName: string;
+  authUserId: string;
+}): Promise<{
+  authUserId: string;
+  actionLink: string | null;
+  inviteEmailSent: boolean;
+  reattachedExisting: boolean;
+}> {
+  // After createUser({ email_confirm: true }), type "invite" often returns no
+  // action_link. Prefer magiclink (same accept-invite redirect).
+  let actionLink: string | null = null;
+  let lastError = "";
+
+  for (const type of ["magiclink", "invite"] as const) {
+    const link = await opts.svc.auth.admin.generateLink({
+      type,
+      email: opts.email,
+      options: {
+        redirectTo: opts.siteUrl,
+        data: opts.inviteMetadata,
+      },
+    });
+    actionLink = link.data?.properties?.action_link ?? null;
+    if (actionLink) break;
+    lastError = link.error?.message ?? "no action_link";
+  }
+
+  if (!actionLink) {
+    throw new Error(
+      lastError
+        ? `Could not create invite join link: ${lastError}`
+        : "Could not create invite join link.",
+    );
+  }
+  const sent = await sendTeamInviteJoinEmail({
+    to: opts.email,
+    actionLink,
+    businessName: opts.businessName,
+    inviterName: opts.inviterName,
+  });
+  return {
+    authUserId: opts.authUserId,
+    actionLink: sent ? null : actionLink,
+    inviteEmailSent: sent,
+    reattachedExisting: false,
+  };
+}
+
+async function sendTeamInviteJoinEmail(opts: {
+  to: string;
+  actionLink: string;
+  businessName: string;
+  inviterName: string;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY?.trim() ?? "";
+  const fromEmail = process.env.MARKETING_FROM_EMAIL?.trim() ?? "";
+  if (!apiKey || !fromEmail) return false;
+
+  const { authEmailCopy } = await import("@/lib/email/copy");
+  const { renderNiagaXEmail } = await import("@/lib/email/layout");
+  const { sendEmail } = await import("@/lib/marketing/email-resend");
+
+  const copy = authEmailCopy("invite", "en", {
+    businessName: opts.businessName,
+    inviterName: opts.inviterName,
+  });
+  const html = renderNiagaXEmail({
+    locale: "en",
+    brandName: "NiagaX",
+    subject: copy.subject,
+    heading: copy.heading,
+    bodyText: copy.bodyText,
+    footerText: copy.footerText,
+    ctaHref: opts.actionLink,
+    ctaLabel: copy.ctaLabel,
+    previewText: copy.bodyText,
+  });
+
+  const result = await sendEmail({
+    to: opts.to,
+    subject: copy.subject,
+    body: `${copy.bodyText}\n\n${opts.actionLink}`,
+    html,
+    fromEmail,
+    apiKey,
+  });
+  return result.ok === true;
+}
+
+async function findAuthUserByEmail(
+  svc: ReturnType<typeof createServiceRoleClient>,
+  email: string,
+): Promise<{ id: string } | null> {
+  const normalized = email.trim().toLowerCase();
+
+  // Do not probe with generateLink — it burns Auth email rate limits and can
+  // make the real invite link generation fail.
+  const { data: profile } = await svc
+    .from("users")
+    .select("id")
+    .ilike("email", normalized)
+    .maybeSingle();
+  if (profile?.id) {
+    const { data } = await svc.auth.admin.getUserById(profile.id);
+    if (data?.user) return { id: data.user.id };
+  }
+
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await svc.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+    if (error || !data?.users?.length) break;
+    const hit = data.users.find(
+      (u) => (u.email ?? "").trim().toLowerCase() === normalized,
+    );
+    if (hit) return { id: hit.id };
+    if (data.users.length < 200) break;
+  }
+
+  return null;
 }

@@ -29,6 +29,15 @@ describe("incompleteSessionDecision", () => {
     ).toBe("forbidden_api");
   });
 
+  it("allows accept-invite without a profile", () => {
+    expect(
+      incompleteSessionDecision({
+        pathname: "/accept-invite",
+        hasProfile: false,
+      }),
+    ).toBe("allow");
+  });
+
   it("redirects app and auth pages", () => {
     expect(
       incompleteSessionDecision({ pathname: "/home", hasProfile: false }),
@@ -53,6 +62,7 @@ describe("isPublicAuthPath", () => {
     expect(isPublicAuthPath("/sign-in")).toBe(true);
     expect(isPublicAuthPath("/sign-up")).toBe(true);
     expect(isPublicAuthPath("/sign-up/complete")).toBe(true);
+    expect(isPublicAuthPath("/accept-invite")).toBe(true);
     expect(isPublicAuthPath("/legal/terms")).toBe(true);
     expect(isPublicAuthPath("/home")).toBe(false);
   });

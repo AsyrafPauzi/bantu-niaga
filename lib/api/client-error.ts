@@ -38,6 +38,9 @@ const ERROR_CODE_MESSAGES: Record<string, string> = {
 
   // Generic
   invalid_json: "The request couldn't be read. Please try again.",
+  invalid_team_login: "That login is not a member of this business.",
+  team_login_already_linked:
+    "That login is already linked to another employee.",
 };
 
 /**

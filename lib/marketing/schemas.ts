@@ -80,7 +80,7 @@ export const ListQuerySchema = z.object({
   sort: z.enum(LIST_SORT_FIELDS).default("last_purchase_at"),
   order: z.enum(LIST_SORT_ORDERS).default("desc"),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).default(50),
+  pageSize: z.coerce.number().int().min(1).max(200).default(10),
 });
 
 export type ListQuery = z.infer<typeof ListQuerySchema>;

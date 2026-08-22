@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { AdminGuideJourney } from "@/components/admin/AdminGuideJourney";
-import { AdminMobileFab } from "@/components/admin/AdminMobileFab";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import {
   getCurrentUser,
@@ -50,7 +49,6 @@ export default async function AdminPage() {
         canTasks={canTasks}
         canCompliance={canCompliance}
       />
-      <AdminMobileFab canStorage={canStorage} canTasks={canTasks} />
     </div>
   );
 }

@@ -12,6 +12,8 @@ import {
   loadHrOnboardingItems,
 } from "@/lib/hr/load";
 import { loadHrWarningLetters } from "@/lib/hr/warning-letters";
+import { loadTeamMembers } from "@/lib/settings/team";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Employee" };
 export const dynamic = "force-dynamic";
@@ -44,7 +46,7 @@ export default async function EmployeeDetailPage({ params }: PageProps) {
   const employee = await loadHrEmployee(user.businessId, id);
   if (!employee) notFound();
 
-  const [allDocuments, onboardingItems, leaveBalance, allLeave, warningLetters] =
+  const [allDocuments, onboardingItems, leaveBalance, allLeave, warningLetters, teamMembers, linkedRows] =
     await Promise.all([
       loadHrDocuments(user.businessId),
       loadHrOnboardingItems(user.businessId),
@@ -55,6 +57,16 @@ export default async function EmployeeDetailPage({ params }: PageProps) {
       ),
       loadHrLeaveRecords(user.businessId),
       loadHrWarningLetters(user.businessId, id),
+      loadTeamMembers(user.businessId),
+      (async () => {
+        const supabase = await createSupabaseServerClient();
+        const { data } = await supabase
+          .from("hr_employees")
+          .select("id, user_id")
+          .eq("business_id", user.businessId)
+          .not("user_id", "is", null);
+        return data ?? [];
+      })(),
     ]);
 
   const employeeDocuments = allDocuments.filter((d) => d.employee_id === employee.id);
@@ -62,6 +74,10 @@ export default async function EmployeeDetailPage({ params }: PageProps) {
   const employeeLeave = allLeave
     .filter((row) => row.employee_id === employee.id)
     .slice(0, 8);
+
+  const takenUserIds = linkedRows
+    .filter((r) => r.user_id && r.id !== employee.id)
+    .map((r) => r.user_id as string);
 
   return (
     <Suspense fallback={null}>
@@ -72,6 +88,13 @@ export default async function EmployeeDetailPage({ params }: PageProps) {
         leaveBalance={leaveBalance}
         leaveRecords={employeeLeave}
         warningLetters={warningLetters}
+        teamMembers={teamMembers.map((m) => ({
+          id: m.id,
+          email: m.email,
+          display_name: m.display_name,
+          role: m.role,
+        }))}
+        takenUserIds={takenUserIds}
       />
     </Suspense>
   );

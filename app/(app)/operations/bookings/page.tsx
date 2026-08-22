@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { OperationsAddResourceButton } from "@/components/operations/OperationsAddResourceButton";
 import { OperationsBookingPanel } from "@/components/operations/OperationsBookingPanel";
+import { OperationsNewBookingButton } from "@/components/operations/OperationsNewBookingButton";
 import { OperationsSubpageShell } from "@/components/operations/OperationsSubpageShell";
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
@@ -10,6 +12,7 @@ import {
 } from "@/lib/auth/current-user";
 import { computeOperationsSummary } from "@/lib/operations/helpers";
 import { loadActiveLeaveBlocks } from "@/lib/operations/leave-blocks";
+import { parsePagination } from "@/lib/pagination";
 import { can } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
@@ -21,7 +24,11 @@ import type {
 export const metadata = { title: "Bookings" };
 export const dynamic = "force-dynamic";
 
-export default async function BookingsPage() {
+export default async function BookingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   let user;
   try {
     user = await getCurrentUser();
@@ -34,7 +41,13 @@ export default async function BookingsPage() {
     redirect("/home");
   }
 
+  const params = await searchParams;
+  const pagination = parsePagination(params, { defaultPageSize: 10 });
+
   const supabase = await createSupabaseServerClient();
+
+  const from = (pagination.page - 1) * pagination.pageSize;
+  const to = from + pagination.pageSize - 1;
 
   const [bookingsRes, resourcesRes, servicesRes, employeesRes, leaveBlocks, summary] =
     await Promise.all([
@@ -44,10 +57,12 @@ export default async function BookingsPage() {
         "id, business_id, number, resource_id, service_id, customer_name, customer_phone, " +
           "service_title, starts_at, ends_at, status, amount_myr, notes, " +
           "completed_at, created_by, created_at, updated_at",
+        { count: "exact" },
       )
       .eq("business_id", user.businessId)
       .is("deleted_at", null)
-      .order("starts_at", { ascending: true }),
+      .order("starts_at", { ascending: true })
+      .range(from, to),
     supabase
       .from("operations_booking_resources")
       .select(
@@ -78,6 +93,7 @@ export default async function BookingsPage() {
   ]);
 
   const bookings = (bookingsRes.data ?? []) as unknown as OperationsBookingRow[];
+  const bookingsTotal = bookingsRes.count ?? 0;
   const resources = (resourcesRes.data ??
     []) as unknown as OperationsBookingResourceRow[];
   const services = (servicesRes.data ??
@@ -133,7 +149,13 @@ export default async function BookingsPage() {
     <OperationsSubpageShell
       headline={heroHeadline}
       subcopy={heroSub}
-      variant={summary.upcoming_bookings > 0 ? "calm" : "calm"}
+      variant="calm"
+      action={
+        <div className="flex items-center gap-2">
+          <OperationsAddResourceButton />
+          <OperationsNewBookingButton />
+        </div>
+      }
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
           <ModuleHeroStat
@@ -160,6 +182,9 @@ export default async function BookingsPage() {
         initialServices={services}
         employees={employees}
         leaveBlocks={leaveBlocks}
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={bookingsTotal}
       />
     </OperationsSubpageShell>
   );

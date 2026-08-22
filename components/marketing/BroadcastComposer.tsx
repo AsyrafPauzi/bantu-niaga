@@ -294,22 +294,37 @@ export function BroadcastComposer({
     setBusy(true);
     setError(null);
     try {
+      if (!name.trim()) {
+        throw new Error("Give this broadcast a name first (step 1).");
+      }
+      if (!segmentId) throw new Error("Pick a segment first.");
+      if (!template.trim()) throw new Error("Write a message first.");
+      if (channel === "email" && !subject.trim()) {
+        throw new Error("Email subject is required.");
+      }
       const id = await createDraft();
       router.push(`/marketing/broadcasts/${id}`);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "save failed");
+      setError(e instanceof Error ? e.message : "Could not save draft.");
     } finally {
       setBusy(false);
     }
-    // we use a refs-free closure deliberately so the latest form values flow in
-  }, [busy, channel, couponId, name, router, segmentId, subject, template]);  
+  }, [busy, channel, couponId, name, router, segmentId, subject, template]);
 
   const onSendNow = useCallback(async () => {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
+      if (!name.trim()) {
+        throw new Error("Give this broadcast a name first (step 1).");
+      }
+      if (!segmentId) throw new Error("Pick a segment first.");
+      if (!template.trim()) throw new Error("Write a message first.");
+      if (channel === "email" && !subject.trim()) {
+        throw new Error("Email subject is required.");
+      }
       const id = await createDraft();
       const res = await fetch(`/api/marketing/broadcasts/${id}/send`, {
         method: "POST",
@@ -317,13 +332,17 @@ export function BroadcastComposer({
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(
-          body.message ?? body.error ?? `send failed (${res.status})`,
+          typeof body.message === "string"
+            ? body.message
+            : typeof body.error === "string"
+              ? body.error
+              : `send failed (${res.status})`,
         );
       }
       router.push(`/marketing/broadcasts/${id}`);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "send failed");
+      setError(e instanceof Error ? e.message : "Could not send.");
     } finally {
       setBusy(false);
     }
@@ -574,14 +593,14 @@ function Step1Channel({
           onClick={() => onChannelChange("whatsapp_ctc")}
           icon={MessageCircle}
           title="WhatsApp (click-to-chat)"
-          body="Open prefilled wa.me links one-by-one from your phone. No Meta API required."
+          body="Opens a prefilled chat per customer. You tap Send in WhatsApp — nothing auto-sends."
         />
         <ChannelTile
           active={channel === "email"}
           onClick={() => onChannelChange("email")}
           icon={Mail}
-          title="Email (Resend)"
-          body="Server-sent via Resend. Needs RESEND_API_KEY + MARKETING_FROM_EMAIL set."
+          title="Email"
+          body="Sends to each customer’s email from your business. Delivered automatically."
         />
       </div>
     </div>

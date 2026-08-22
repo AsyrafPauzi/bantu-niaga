@@ -11,14 +11,10 @@ import {
   Pencil,
   Plus,
   Search,
-  Tag,
   Trash2,
 } from "lucide-react";
 import { ModuleListFilterChipLink } from "@/components/dashboard/module-list-search";
-import {
-  OperationsCatalogEditShell,
-  OperationsCatalogList,
-} from "@/components/operations/OperationsCatalogUi";
+import { OperationsCatalogList } from "@/components/operations/OperationsCatalogUi";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import {
   CategoryIcon,
@@ -26,11 +22,13 @@ import {
 } from "@/components/operations/OperationsProductThumb";
 import { mergeCategoryPresets } from "@/lib/operations/vertical";
 import { ListPagination } from "@/components/ui/list-pagination";
+import { QuickCreateActions } from "@/components/ui/quick-create";
 import {
-  QuickActionBar,
-  QuickCreateActions,
-  QuickCreatePanel,
-} from "@/components/ui/quick-create";
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+} from "@/components/ui/modal";
 import { InlineFeedback } from "@/components/ui/alert";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
@@ -72,8 +70,9 @@ export function OperationsProductPanel({
   const router = useRouter();
   const [products, setProducts] = useState(initialProducts);
   const [search, setSearch] = useState(searchQuery);
-  const { open: showForm, toggle: toggleForm, close: closeForm } =
+  const { open: showForm, close: closeForm, openPanel: openForm } =
     useQuickCreate();
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
@@ -144,6 +143,12 @@ export function OperationsProductPanel({
     setEditingId(null);
     setFormError(null);
   }, []);
+
+  useEffect(() => {
+    const handler = () => { resetForm(); openForm(); };
+    window.addEventListener("operations:add-product", handler);
+    return () => window.removeEventListener("operations:add-product", handler);
+  }, [resetForm, openForm]);
 
   const startEdit = useCallback((product: OperationsProductRow) => {
     setEditingId(product.id);
@@ -430,11 +435,12 @@ export function OperationsProductPanel({
       fileName={imageFileName}
       category="operations"
       imagesOnly
+      uploadOnly
       disabled={creating || Boolean(busyId)}
       label="Product photo"
-      onAttach={async (fileId) => {
+      onAttach={async (fileId, fileName) => {
         setImageFileId(fileId);
-        setImageFileName(null);
+        setImageFileName(fileName ?? null);
       }}
     />
   );
@@ -446,9 +452,9 @@ export function OperationsProductPanel({
       category="operations"
       disabled={creating || Boolean(busyId)}
       label="Spec sheet / datasheet"
-      onAttach={async (fileId) => {
+      onAttach={async (fileId, fileName) => {
         setSpecFileId(fileId);
-        setSpecFileName(null);
+        setSpecFileName(fileName ?? null);
       }}
     />
   );
@@ -542,72 +548,61 @@ export function OperationsProductPanel({
 
   return (
     <div className="space-y-4">
-      <QuickActionBar
+      <Modal
         open={showForm}
-        onToggle={() => {
-          if (showForm) {
-            closeForm();
-            resetForm();
-          } else {
-            resetForm();
-            toggleForm();
-          }
-        }}
-        actionLabel="Add product"
-      />
-
-      <QuickCreatePanel
-        open={showForm}
-        onSubmit={onCreate}
-        title="New product"
-        subtitle="SKU, price, and stock — shows up in Sales POS too."
-        icon={Tag}
-        accent="emerald"
+        onClose={() => { closeForm(); resetForm(); }}
+        size="lg"
       >
-        {formFields}
-        {imagePicker}
-        {specPicker}
-        <QuickCreateActions
-          submitLabel="Save product"
-          loading={creating}
-          onCancel={() => {
-            closeForm();
-            resetForm();
-          }}
+        <ModalHeader
+          title="New product"
+          description="SKU, price, and stock — shows up in Sales POS too."
+          onClose={() => { closeForm(); resetForm(); }}
         />
-      </QuickCreatePanel>
-
-      {editingId && editingProduct ? (
-        <OperationsCatalogEditShell
-          title={`Editing ${editingProduct.name}`}
-          accent="emerald"
-        >
-          <form onSubmit={onUpdate} className="space-y-3">
+        <ModalBody>
+          <form id="add-product-form" onSubmit={onCreate} className="space-y-3">
             {formFields}
             {imagePicker}
             {specPicker}
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={creating}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-              >
-                {creating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
-                Save changes
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
-              >
-                Cancel
-              </button>
-            </div>
           </form>
-        </OperationsCatalogEditShell>
-      ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <QuickCreateActions
+            submitLabel="Save product"
+            loading={creating}
+            onCancel={() => { closeForm(); resetForm(); }}
+            cancelLabel="Cancel"
+            form="add-product-form"
+          />
+        </ModalFooter>
+      </Modal>
+
+      <Modal
+        open={Boolean(editingId && editingProduct)}
+        onClose={resetForm}
+        size="lg"
+      >
+        <ModalHeader
+          title={editingProduct ? `Edit ${editingProduct.name}` : "Edit product"}
+          description="Update SKU, price, stock, or any other detail."
+          onClose={resetForm}
+        />
+        <ModalBody>
+          <form id="edit-product-form" onSubmit={onUpdate} className="space-y-3">
+            {formFields}
+            {imagePicker}
+            {specPicker}
+          </form>
+        </ModalBody>
+        <ModalFooter>
+          <QuickCreateActions
+            submitLabel="Save changes"
+            loading={creating}
+            onCancel={resetForm}
+            cancelLabel="Cancel"
+            form="edit-product-form"
+          />
+        </ModalFooter>
+      </Modal>
 
       <OperationsCatalogList
         title="Catalog"

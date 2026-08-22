@@ -9,8 +9,10 @@ import { loadHrStaffAppraisals } from "@/lib/hr/load";
 import { loadHrDashboardCached } from "@/lib/cache/dashboard-cache";
 import {
   hasHrReminderPackAddon,
+  hasHrShiftAttendanceAddon,
   hasStaffAppraisalAddon,
 } from "@/lib/marketplace/entitlements";
+import { loadOpenClockEvents } from "@/lib/hr/attendance";
 
 export const metadata = { title: "People & Leave" };
 export const dynamic = "force-dynamic";
@@ -37,19 +39,25 @@ export default async function HrPage() {
     );
   }
 
-  const [appraisalAddonActive, reminderPackActive] = await Promise.all([
-    hasStaffAppraisalAddon(user.businessId),
-    hasHrReminderPackAddon(user.businessId),
-  ]);
-  const [dashboard, appraisals, contractExpiring] = await Promise.all([
-    loadHrDashboardCached(user.businessId),
-    appraisalAddonActive
-      ? loadHrStaffAppraisals(user.businessId)
-      : Promise.resolve([]),
-    reminderPackActive
-      ? loadContractExpiringForOverview(user.businessId)
-      : Promise.resolve([]),
-  ]);
+  const [appraisalAddonActive, reminderPackActive, attendanceAddonActive] =
+    await Promise.all([
+      hasStaffAppraisalAddon(user.businessId),
+      hasHrReminderPackAddon(user.businessId),
+      hasHrShiftAttendanceAddon(user.businessId),
+    ]);
+  const [dashboard, appraisals, contractExpiring, onShiftEvents] =
+    await Promise.all([
+      loadHrDashboardCached(user.businessId),
+      appraisalAddonActive
+        ? loadHrStaffAppraisals(user.businessId)
+        : Promise.resolve([]),
+      reminderPackActive
+        ? loadContractExpiringForOverview(user.businessId)
+        : Promise.resolve([]),
+      attendanceAddonActive
+        ? loadOpenClockEvents(user.businessId)
+        : Promise.resolve([]),
+    ]);
 
   return (
     <>
@@ -59,6 +67,8 @@ export default async function HrPage() {
         appraisalAddonActive={appraisalAddonActive}
         appraisals={appraisals}
         contractExpiring={contractExpiring}
+        onShiftEvents={onShiftEvents}
+        attendanceAddonActive={attendanceAddonActive}
       />
     </>
   );

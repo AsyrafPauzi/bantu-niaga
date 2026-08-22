@@ -4,17 +4,18 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronDown,
   FileText,
   Loader2,
   Mail,
   MessageCircle,
+  Pencil,
   Plus,
   Receipt,
   Trash2,
   User,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
@@ -22,7 +23,6 @@ import {
   ModuleListPanelFilters,
 } from "@/components/dashboard/module-list-panel";
 import { ModuleListSearchBar } from "@/components/dashboard/module-list-search";
-import { X } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api/client-error";
 import type {
   FinanceCustomerWithStats,
@@ -90,21 +90,49 @@ export function FinanceCustomerPanel({
   const [customers, setCustomers] = useState(initialCustomers);
   const [search, setSearch] = useState(searchQuery);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<FinanceCustomerWithStats | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => { setCustomers(initialCustomers); }, [initialCustomers]);
   useEffect(() => { setSearch(searchQuery); }, [searchQuery]);
 
+  const resetForm = useCallback(() => {
+    setName("");
+    setPhone("");
+    setEmail("");
+    setEditing(null);
+    setFormError(null);
+    setShowForm(false);
+  }, []);
+
+  const openCreate = useCallback(() => {
+    setEditing(null);
+    setName("");
+    setPhone("");
+    setEmail("");
+    setFormError(null);
+    setShowForm(true);
+  }, []);
+
+  const openEdit = useCallback((c: FinanceCustomerWithStats) => {
+    setEditing(c);
+    setName(c.name);
+    setPhone(c.phone_e164 ?? "");
+    setEmail(c.email ?? "");
+    setFormError(null);
+    setShowForm(true);
+  }, []);
+
   useEffect(() => {
-    const handler = () => setShowForm(true);
+    const handler = () => openCreate();
     window.addEventListener("finance:add-customer", handler);
     return () => window.removeEventListener("finance:add-customer", handler);
-  }, []);
+  }, [openCreate]);
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
@@ -120,38 +148,57 @@ export function FinanceCustomerPanel({
     [router, search],
   );
 
-  const onCreate = useCallback(
+  const onSave = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
       setFormError(null);
-      setCreating(true);
+      setSaving(true);
       try {
-        const res = await fetch("/api/finance/customers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            phone: phone || null,
-            email: email || null,
-          }),
-        });
+        const body = {
+          name,
+          phone: phone || null,
+          email: email || null,
+        };
+        const res = await fetch(
+          editing
+            ? `/api/finance/customers/${editing.id}`
+            : "/api/finance/customers",
+          {
+            method: editing ? "PATCH" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
         const json = await res.json();
         if (!res.ok || !json.ok || !json.data) {
           throw new Error(apiErrorMessage(json, "Could not save customer."));
         }
-        setName("");
-        setPhone("");
-        setEmail("");
-        setShowForm(false);
-        router.push("/finance/customers");
+        if (editing) {
+          setCustomers((prev) =>
+            prev.map((c) =>
+              c.id === editing.id
+                ? {
+                    ...c,
+                    name: json.data.name as string,
+                    phone_e164: (json.data.phone_e164 as string | null) ?? null,
+                    email: (json.data.email as string | null) ?? null,
+                    updated_at: json.data.updated_at as string,
+                  }
+                : c,
+            ),
+          );
+        } else {
+          router.push("/finance/customers");
+        }
+        resetForm();
         refresh();
       } catch (err) {
         setFormError(err instanceof Error ? err.message : "Save failed.");
       } finally {
-        setCreating(false);
+        setSaving(false);
       }
     },
-    [email, name, phone, refresh],
+    [editing, email, name, phone, refresh, resetForm, router],
   );
 
   const deleteCustomer = useCallback(
@@ -232,20 +279,26 @@ export function FinanceCustomerPanel({
       {showForm ? (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-16 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) { setShowForm(false); setFormError(null); } }}
+          onClick={(e) => { if (e.target === e.currentTarget) resetForm(); }}
         >
           <div className="w-full max-w-md rounded-2xl border border-cream-200 bg-white shadow-2xl dark:border-hairline-dark dark:bg-panel-dark">
             <div className="flex items-center justify-between border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-violet-600 dark:text-violet-300" />
-                <p className="text-sm font-bold text-ink dark:text-cream-100">New billing contact</p>
+                <p className="text-sm font-bold text-ink dark:text-cream-100">
+                  {editing ? "Edit customer" : "New billing contact"}
+                </p>
               </div>
-              <button type="button" onClick={() => { setShowForm(false); setFormError(null); }} className="rounded-lg p-1.5 text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/40" aria-label="Close">
+              <button type="button" onClick={resetForm} className="rounded-lg p-1.5 text-ink-muted hover:bg-cream-100 dark:hover:bg-hairline-dark/40" aria-label="Close">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form onSubmit={onCreate} className="space-y-4 p-5">
-              <p className="text-xs text-ink-muted dark:text-cream-400">Reuse on every invoice and quote.</p>
+            <form onSubmit={onSave} className="space-y-4 p-5">
+              <p className="text-xs text-ink-muted dark:text-cream-400">
+                {editing
+                  ? "Update name or contact details used on invoices."
+                  : "Reuse on every invoice and quote."}
+              </p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name or company *" required className={inputCx} />
                 <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone / WhatsApp" className={inputCx} />
@@ -253,12 +306,12 @@ export function FinanceCustomerPanel({
               </div>
               {formError ? <p className="text-sm text-status-danger">{formError}</p> : null}
               <div className="flex justify-end gap-2 border-t border-cream-200 pt-4 dark:border-hairline-dark">
-                <button type="button" onClick={() => { setShowForm(false); setFormError(null); }} className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted hover:bg-cream-100 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-hairline-dark/40">
+                <button type="button" onClick={resetForm} className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted hover:bg-cream-100 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-hairline-dark/40">
                   Cancel
                 </button>
-                <button type="submit" disabled={creating} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60">
-                  {creating ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : null}
-                  Save customer
+                <button type="submit" disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60">
+                  {saving ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : null}
+                  {editing ? "Save changes" : "Save customer"}
                 </button>
               </div>
             </form>
@@ -284,7 +337,7 @@ export function FinanceCustomerPanel({
           {!searchQuery ? (
             <button
               type="button"
-              onClick={() => setShowForm(true)}
+              onClick={openCreate}
               className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
             >
               <Plus className="h-4 w-4" />
@@ -382,6 +435,14 @@ export function FinanceCustomerPanel({
                             Statement
                           </Link>
                         ) : null}
+                        <button
+                          type="button"
+                          onClick={() => openEdit(c)}
+                          className="inline-flex items-center justify-center rounded-full border border-cream-300 p-1.5 text-ink-muted hover:border-brand-300 hover:text-brand-700 dark:border-hairline-dark dark:text-cream-400"
+                          aria-label={`Edit ${c.name}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
                         <button
                           type="button"
                           disabled={busy}

@@ -14,7 +14,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const BOOKING_SELECT =
-  "id, business_id, number, resource_id, customer_name, customer_phone, " +
+  "id, business_id, number, resource_id, customer_id, customer_name, customer_phone, " +
   "service_title, starts_at, ends_at, status, amount_myr, notes, completed_at, " +
   "created_by, created_at, updated_at";
 
@@ -186,6 +186,7 @@ export async function POST(request: Request) {
       business_id: user.businessId,
       number,
       resource_id: parsed.resource_id ?? null,
+      customer_id: parsed.customer_id ?? null,
       customer_name: parsed.customer_name,
       customer_phone: parsed.customer_phone ?? null,
       service_title: parsed.service_title,

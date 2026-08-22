@@ -13,6 +13,7 @@ import {
   MODULE_LIST_TABLE_ROW_CLASS,
 } from "@/components/dashboard/module-list-panel";
 import { ModuleListFilterChipLink } from "@/components/dashboard/module-list-search";
+import { ListPagination } from "@/components/ui/list-pagination";
 import { Card, CardBody } from "@/components/ui/card";
 import {
   getCurrentUser,
@@ -21,9 +22,9 @@ import {
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatMyr } from "@/lib/marketing/metrics";
-import { CouponStatusBadge } from "@/components/marketing/CouponStatusBadge";
 import { CouponStatusToggle } from "./status-toggle";
 import { couponsSubpageHero } from "@/lib/marketing/subpage-hero";
+import { parsePagination } from "@/lib/pagination";
 
 export const metadata = { title: "Coupons" };
 export const dynamic = "force-dynamic";
@@ -84,36 +85,64 @@ export default async function MarketingCouponsPage({
     );
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("coupons")
-    .select(
-      "id, code, name, type, value, min_subtotal_myr, valid_from, valid_until, total_limit, per_customer_limit, status, redeemed_count",
-    )
-    .eq("business_id", user.businessId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
-
-  const rows = (data ?? []) as CouponListRow[];
-  const statusParam = (await searchParams).status;
+  const params = await searchParams;
+  const pagination = parsePagination(params, {
+    defaultPageSize: 10,
+    allowedPageSizes: [10, 25, 50],
+  });
+  const statusParam = typeof params.status === "string" ? params.status : null;
   const statusFilter =
     statusParam === "active" ||
     statusParam === "paused" ||
     statusParam === "expired"
       ? statusParam
       : null;
-  const filtered = statusFilter
-    ? rows.filter((r) => r.status === statusFilter)
-    : rows;
 
-  function statusHref(status: CouponListRow["status"] | null) {
-    return status ? `/marketing/coupons?status=${status}` : "/marketing/coupons";
+  const supabase = await createSupabaseServerClient();
+
+  const { data: statusRows } = await supabase
+    .from("coupons")
+    .select("status, redeemed_count")
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null);
+
+  const allRows = statusRows ?? [];
+  const activeCount = allRows.filter((r) => r.status === "active").length;
+  const pausedCount = allRows.filter((r) => r.status === "paused").length;
+  const expiredCount = allRows.filter((r) => r.status === "expired").length;
+  const redeemedTotal = allRows.reduce(
+    (n, r) => n + Number(r.redeemed_count ?? 0),
+    0,
+  );
+  const totalAll = allRows.length;
+
+  let listQuery = supabase
+    .from("coupons")
+    .select(
+      "id, code, name, type, value, min_subtotal_myr, valid_from, valid_until, total_limit, per_customer_limit, status, redeemed_count",
+      { count: "exact" },
+    )
+    .eq("business_id", user.businessId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .range(pagination.from, pagination.to);
+
+  if (statusFilter) {
+    listQuery = listQuery.eq("status", statusFilter);
   }
 
-  const activeCount = rows.filter((r) => r.status === "active").length;
-  const redeemedTotal = rows.reduce((n, r) => n + r.redeemed_count, 0);
+  const { data, error, count } = await listQuery;
+  const rows = (data ?? []) as CouponListRow[];
+  const listTotal = count ?? rows.length;
+
+  function statusHref(status: CouponListRow["status"] | null) {
+    return status
+      ? `/marketing/coupons?status=${status}`
+      : "/marketing/coupons";
+  }
+
   const hero = couponsSubpageHero({
-    total: rows.length,
+    total: totalAll,
     activeCount,
     redeemedTotal,
   });
@@ -123,11 +152,20 @@ export default async function MarketingCouponsPage({
       headline={hero.headline}
       subcopy={hero.subcopy}
       variant={hero.variant}
+      action={
+        <Link
+          href="/marketing/coupons/new"
+          className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2} />
+          New coupon
+        </Link>
+      }
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat
             label="Total"
-            value={rows.length}
+            value={totalAll}
             iconClassName="text-violet-700 dark:text-violet-300"
           />
           <ModuleHeroStat
@@ -142,7 +180,7 @@ export default async function MarketingCouponsPage({
           />
           <ModuleHeroStat
             label="Paused"
-            value={rows.filter((r) => r.status === "paused").length}
+            value={pausedCount}
             iconClassName="text-sky-700 dark:text-sky-300"
           />
         </div>
@@ -159,39 +197,42 @@ export default async function MarketingCouponsPage({
       <ModuleListPanel>
         <ModuleListPanelHeader
           title="Promo codes"
-          subtitle={`${filtered.length} shown`}
-          action={
-            <Link
-              href="/marketing/coupons/new"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
-            >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-              New coupon
-            </Link>
+          subtitle={
+            listTotal === 0
+              ? "No codes yet"
+              : `${listTotal} matching · page ${pagination.page}`
           }
         />
         <ModuleListPanelFilters>
-          <nav
-            aria-label="Filter coupons"
-            className="flex flex-wrap gap-2"
-          >
+          <nav aria-label="Filter coupons" className="flex flex-wrap gap-2">
             <ModuleListFilterChipLink
               href={statusHref(null)}
               active={!statusFilter}
               accent="violet"
               label="All"
-              count={rows.length}
+              count={totalAll}
             />
-            {(["active", "paused", "expired"] as const).map((s) => (
-              <ModuleListFilterChipLink
-                key={s}
-                href={statusHref(s)}
-                active={statusFilter === s}
-                accent="violet"
-                label={s[0].toUpperCase() + s.slice(1)}
-                count={rows.filter((r) => r.status === s).length}
-              />
-            ))}
+            <ModuleListFilterChipLink
+              href={statusHref("active")}
+              active={statusFilter === "active"}
+              accent="violet"
+              label="Active"
+              count={activeCount}
+            />
+            <ModuleListFilterChipLink
+              href={statusHref("paused")}
+              active={statusFilter === "paused"}
+              accent="violet"
+              label="Paused"
+              count={pausedCount}
+            />
+            <ModuleListFilterChipLink
+              href={statusHref("expired")}
+              active={statusFilter === "expired"}
+              accent="violet"
+              label="Expired"
+              count={expiredCount}
+            />
           </nav>
         </ModuleListPanelFilters>
         <ModuleListTable>
@@ -205,18 +246,19 @@ export default async function MarketingCouponsPage({
             </tr>
           </ModuleListTableHead>
           <ModuleListTableBody>
-            {filtered.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={5}
                   className="px-5 py-10 text-center text-sm text-ink-muted dark:text-cream-400"
                 >
-                  No coupons yet. Create your first promo code to start tracking
-                  redemptions.
+                  {statusFilter
+                    ? `No ${statusFilter} coupons.`
+                    : "No coupons yet. Create your first promo code to start tracking redemptions."}
                 </td>
               </tr>
             ) : (
-              filtered.map((row) => (
+              rows.map((row) => (
                 <tr key={row.id} className={MODULE_LIST_TABLE_ROW_CLASS}>
                   <td className="px-5 py-3">
                     <Link
@@ -267,6 +309,17 @@ export default async function MarketingCouponsPage({
             )}
           </ModuleListTableBody>
         </ModuleListTable>
+        <ListPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={listTotal}
+          basePath="/marketing/coupons"
+          searchParams={{
+            status: statusFilter ?? undefined,
+          }}
+          pageSizeOptions={[10, 25, 50]}
+          className="border-t border-cream-200 dark:border-hairline-dark"
+        />
       </ModuleListPanel>
     </MarketingSubpageShell>
   );

@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /api/
+Disallow: /super-admin/
+Disallow: /admin/
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /onboarding/
+Disallow: /verify-email
+Allow: /
+
+Sitemap: https://app.niagax.my/sitemap.xml

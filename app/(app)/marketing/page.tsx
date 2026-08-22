@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { MarketingFollowUpDesk } from "@/components/marketing/MarketingFollowUpDesk";
 import { MarketingGuideJourney } from "@/components/marketing/MarketingGuideJourney";
-import { MarketingMobileFab } from "@/components/marketing/MarketingMobileFab";
 import { MarketingOverview } from "@/components/marketing/MarketingOverview";
 import { Card, CardBody } from "@/components/ui/card";
 import {
@@ -87,7 +86,6 @@ export default async function MarketingOverviewPage() {
         activity={activity}
         teamNotifications={teamNotifications}
       />
-      <MarketingMobileFab />
     </div>
   );
 }

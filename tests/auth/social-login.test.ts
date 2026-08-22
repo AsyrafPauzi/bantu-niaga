@@ -30,9 +30,7 @@ describe("socialAuthErrorMessage", () => {
     expect(socialAuthErrorMessage("oauth_cancelled")).toMatch(/cancelled/i);
   });
 
-  it("maps email_taken", () => {
-    expect(socialAuthErrorMessage("email_taken")).toMatch(
-      /already belongs to a NiagaX account/i,
-    );
+  it("maps missing_code", () => {
+    expect(socialAuthErrorMessage("missing_code")).toMatch(/invite or sign-in link/i);
   });
 });

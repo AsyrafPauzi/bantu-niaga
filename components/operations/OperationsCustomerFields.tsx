@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, UserCheck, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { OperationsCustomerHint } from "@/lib/operations/customer-hints";
 
@@ -17,12 +17,16 @@ interface OperationsCustomerFieldsProps {
   phone: string;
   onNameChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
+  linkedCustomerId?: string | null;
+  onLink?: (customerId: string, name: string, phone: string | null) => void;
+  onUnlink?: () => void;
   localHints?: OperationsCustomerHint[];
   nameRequired?: boolean;
   className?: string;
 }
 
 interface CustomerSuggestion {
+  id?: string;
   name: string;
   phone: string | null;
   source: "local" | "db";
@@ -33,6 +37,9 @@ export function OperationsCustomerFields({
   phone,
   onNameChange,
   onPhoneChange,
+  linkedCustomerId,
+  onLink,
+  onUnlink,
   localHints = [],
   nameRequired = true,
   className,
@@ -83,13 +90,13 @@ export function OperationsCustomerFields({
     const timer = window.setTimeout(() => {
       setLoading(true);
       void fetch(
-        `/api/operations/customers/search?q=${encodeURIComponent(q)}&limit=8`,
+        `/api/operations/customer-search?q=${encodeURIComponent(q)}`,
       )
         .then((res) => res.json())
         .then(
           (json: {
             ok?: boolean;
-            data?: Array<{ name: string; phone: string | null }>;
+            data?: Array<{ id: string; name: string; phone_e164: string | null }>;
           }) => {
             if (!json.ok || !json.data) {
               setRemote([]);
@@ -97,8 +104,9 @@ export function OperationsCustomerFields({
             }
             setRemote(
               json.data.map((row) => ({
+                id: row.id,
                 name: row.name,
-                phone: row.phone,
+                phone: row.phone_e164,
                 source: "db" as const,
               })),
             );
@@ -126,8 +134,13 @@ export function OperationsCustomerFields({
       onNameChange(item.name);
       onPhoneChange(item.phone ?? "");
       setOpen(false);
+      if (item.id && onLink) {
+        onLink(item.id, item.name, item.phone ?? null);
+      } else if (onUnlink) {
+        onUnlink();
+      }
     },
-    [onNameChange, onPhoneChange],
+    [onNameChange, onPhoneChange, onLink, onUnlink],
   );
 
   const showList = open && (suggestions.length > 0 || loading);
@@ -148,6 +161,7 @@ export function OperationsCustomerFields({
           onChange={(e) => {
             onNameChange(e.target.value);
             setOpen(true);
+            if (linkedCustomerId && onUnlink) onUnlink();
           }}
           onFocus={() => setOpen(true)}
           placeholder="Start typing a name…"
@@ -158,6 +172,17 @@ export function OperationsCustomerFields({
           aria-controls={showList ? listId : undefined}
           className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
         />
+        {linkedCustomerId ? (
+          <p className="flex items-center gap-1 text-[11px] text-brand-700 dark:text-brand-300">
+            <UserCheck className="h-3 w-3" />
+            Linked to customer record
+            {onUnlink ? (
+              <button type="button" onClick={onUnlink} className="ml-1" aria-label="Unlink">
+                <X className="h-3 w-3 text-status-danger" />
+              </button>
+            ) : null}
+          </p>
+        ) : null}
         {showList ? (
           <ul
             id={listId}

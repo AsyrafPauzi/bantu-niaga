@@ -67,7 +67,7 @@ const QUICK_ACTIONS = [
     subtitle: "Capital, loans & sales",
   },
   {
-    href: "/finance/invoices?kind=quote",
+    href: "/finance/invoices/new?kind=quote",
     icon: <MessageSquareQuote />,
     title: "Quotes",
     subtitle: "Send before billing",
@@ -226,7 +226,7 @@ export function FinanceOverview({
     counts.openQuotes > 0
       ? {
           label: `${counts.openQuotes} open quote${counts.openQuotes === 1 ? "" : "s"}`,
-          href: "/finance/invoices?kind=quote",
+          href: "/finance/invoices/new?kind=quote",
           tone: "neutral" as const,
         }
       : null,

@@ -4,6 +4,7 @@ import {
   ContentCalendarDesktop,
   ContentCalendarMobileList,
   ContentCalendarShell,
+  type ContentCalendarViewMode,
 } from "@/components/marketing/ContentCalendarView";
 import { ContentCalendarAdaptive } from "@/app/(app)/marketing/content/ContentCalendarAdaptive";
 import { Card, CardBody } from "@/components/ui/card";
@@ -83,6 +84,8 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
   const statusFilter = (
     ["idea", "drafted", "scheduled", "posted"] as const
   ).find((s) => s === raw.status);
+  const viewMode: ContentCalendarViewMode =
+    raw.view === "list" ? "list" : "calendar";
 
   const startOfMonthUtc = new Date(Date.UTC(year, month - 1, 1));
   const endOfMonthUtc = new Date(Date.UTC(year, month, 1));
@@ -118,13 +121,18 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
   const entriesByDate = groupByDate(rows);
   const monthStats = computeMonthStats(rows, year, month);
 
+  const withView = (u: URLSearchParams) => {
+    if (viewMode === "list") u.set("view", "list");
+    return u;
+  };
+
   const buildMonthHref = (y: number, m: number) => {
     const u = new URLSearchParams();
     u.set("year", String(y));
     u.set("month", String(m));
     if (channelFilter) u.set("channel", channelFilter);
     if (statusFilter) u.set("status", statusFilter);
-    return `/marketing/content?${u.toString()}`;
+    return `/marketing/content?${withView(u).toString()}`;
   };
 
   const filterHref = (next: {
@@ -138,10 +146,34 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
     else if (channelFilter) u.set("channel", channelFilter);
     if (next.status !== undefined) u.set("status", next.status);
     else if (statusFilter) u.set("status", statusFilter);
+    return `/marketing/content?${withView(u).toString()}`;
+  };
+
+  const viewHref = (mode: ContentCalendarViewMode) => {
+    const u = new URLSearchParams();
+    u.set("year", String(year));
+    u.set("month", String(month));
+    if (channelFilter) u.set("channel", channelFilter);
+    if (statusFilter) u.set("status", statusFilter);
+    if (mode === "list") u.set("view", "list");
     return `/marketing/content?${u.toString()}`;
   };
 
-  const resetHref = `/marketing/content?year=${year}&month=${month}`;
+  const resetHref = (() => {
+    const u = new URLSearchParams();
+    u.set("year", String(year));
+    u.set("month", String(month));
+    return `/marketing/content?${withView(u).toString()}`;
+  })();
+
+  const listView = (
+    <ContentCalendarMobileList
+      year={year}
+      month={month}
+      todayKey={todayKey}
+      entriesByDate={entriesByDate}
+    />
+  );
 
   return (
     <div className="space-y-4 pb-20 lg:pb-8">
@@ -163,29 +195,28 @@ export default async function ContentCalendarPage({ searchParams }: PageProps) {
         backlogCount={backlogCount}
         channelFilter={channelFilter}
         statusFilter={statusFilter}
+        viewMode={viewMode}
         buildMonthHref={buildMonthHref}
         filterHref={filterHref}
+        viewHref={viewHref}
         resetHref={resetHref}
       >
-        <ContentCalendarAdaptive
-          desktop={
-            <ContentCalendarDesktop
-              year={year}
-              month={month}
-              todayKey={todayKey}
-              cells={cells}
-              entriesByDate={entriesByDate}
-            />
-          }
-          mobile={
-            <ContentCalendarMobileList
-              year={year}
-              month={month}
-              todayKey={todayKey}
-              entriesByDate={entriesByDate}
-            />
-          }
-        />
+        {viewMode === "list" ? (
+          listView
+        ) : (
+          <ContentCalendarAdaptive
+            desktop={
+              <ContentCalendarDesktop
+                year={year}
+                month={month}
+                todayKey={todayKey}
+                cells={cells}
+                entriesByDate={entriesByDate}
+              />
+            }
+            mobile={listView}
+          />
+        )}
       </ContentCalendarShell>
     </div>
   );

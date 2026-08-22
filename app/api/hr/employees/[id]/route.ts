@@ -87,6 +87,45 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const supabase = await createSupabaseServerClient();
 
+  if (parsed.user_id !== undefined) {
+    if (parsed.user_id === null) {
+      updatePayload.user_id = null;
+    } else {
+      const { data: membership } = await supabase
+        .from("user_business_memberships")
+        .select("user_id")
+        .eq("business_id", user.businessId)
+        .eq("user_id", parsed.user_id)
+        .maybeSingle();
+      if (!membership) {
+        return NextResponse.json(
+          {
+            error: "invalid_team_login",
+            message: "That login is not a member of this business.",
+          },
+          { status: 400 },
+        );
+      }
+      const { data: taken } = await supabase
+        .from("hr_employees")
+        .select("id, full_name")
+        .eq("business_id", user.businessId)
+        .eq("user_id", parsed.user_id)
+        .neq("id", id)
+        .maybeSingle();
+      if (taken) {
+        return NextResponse.json(
+          {
+            error: "team_login_already_linked",
+            message: `That login is already linked to ${taken.full_name ?? "another employee"}.`,
+          },
+          { status: 409 },
+        );
+      }
+      updatePayload.user_id = parsed.user_id;
+    }
+  }
+
   if (parsed.employee_number !== undefined) {
     const resolvedNumber = parsed.employee_number?.trim() || null;
     if (

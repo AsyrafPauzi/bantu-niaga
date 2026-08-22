@@ -187,19 +187,25 @@ export async function PATCH(
       status: row.status,
     });
 
-    if (
-      parsed.status === "done" &&
-      existing.status !== "done" &&
-      can(user.role, "finance")
-    ) {
-      void dispatchOrderCompleted({
-        supabase,
-        payload: {
-          business_id: user.businessId,
-          order_id: id,
-          user_id: user.id,
-          can_finance: true,
-        },
+    if (parsed.status === "done" && existing.status !== "done") {
+      if (can(user.role, "finance")) {
+        void dispatchOrderCompleted({
+          supabase,
+          payload: {
+            business_id: user.businessId,
+            order_id: id,
+            user_id: user.id,
+            can_finance: true,
+          },
+        });
+      }
+      const { recordIncomeFromOrder } = await import(
+        "@/lib/operations/order-income"
+      );
+      void recordIncomeFromOrder(supabase, {
+        businessId: user.businessId,
+        orderId: id,
+        userId: user.id,
       });
     }
   }

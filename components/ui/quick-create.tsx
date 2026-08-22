@@ -194,6 +194,8 @@ interface QuickCreateActionsProps {
   loading?: boolean;
   onCancel: () => void;
   cancelLabel?: string;
+  /** Associate submit button with a <form id> when the button lives outside the form */
+  form?: string;
 }
 
 export function QuickCreateActions({
@@ -201,11 +203,13 @@ export function QuickCreateActions({
   loading = false,
   onCancel,
   cancelLabel = "Cancel",
+  form,
 }: QuickCreateActionsProps) {
   return (
     <div className="flex flex-wrap gap-2 pt-1">
       <button
         type="submit"
+        form={form}
         disabled={loading}
         className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
       >

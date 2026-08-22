@@ -1,123 +1,84 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { headers } from "next/headers";
-import {
-  registerNewSession,
-  sessionCookieOptions,
-  SESSION_COOKIE_NAME,
-} from "@/lib/auth/sessions";
-import { resolveGoogleCallbackTarget } from "@/lib/auth/google-callback";
-import { sanitizeAuthNextPath } from "@/lib/auth/social-login";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
 
 /**
- * GET /auth/callback — handles Supabase auth returns:
- *   - email links (recovery, signup confirm, magic link)
- *   - Google OAuth (social login)
+ * GET /auth/callback — plain HTML + public script.
  *
- * Existing `public.users` rows continue to `next`. New Google users keep
- * the session and finish on `/sign-up/complete`.
+ * Invite/magiclink redirects put tokens in the URL hash (invisible to the
+ * server). A React page here was blank because this path is outside the
+ * nonce middleware matcher and the static CSP blocked Next hydration.
  */
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const code = url.searchParams.get("code");
-  const next = sanitizeAuthNextPath(url.searchParams.get("next"));
-  const error = url.searchParams.get("error_description");
-  const oauthError = url.searchParams.get("error");
+export async function GET() {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Signing you in · NiagaX</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px;
+      font-family: system-ui, sans-serif;
+      background: #faf8f5;
+      color: #1c1917;
+    }
+    .spin {
+      width: 28px;
+      height: 28px;
+      border: 3px solid #d6d3d1;
+      border-top-color: #0d9488;
+      border-radius: 50%;
+      animation: bn-spin 0.8s linear infinite;
+    }
+    @keyframes bn-spin { to { transform: rotate(360deg); } }
+    #auth-callback-status { margin: 0; font-size: 14px; color: #78716c; }
+    #auth-callback-error {
+      margin: 0;
+      max-width: 420px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    #auth-callback-signin {
+      color: #0f766e;
+      font-weight: 600;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="spin" aria-hidden="true"></div>
+  <p id="auth-callback-status">Signing you in…</p>
+  <p id="auth-callback-error" hidden></p>
+  <a id="auth-callback-signin" href="/sign-in" hidden>Back to sign in</a>
+  <script src="/auth-callback.js"></script>
+</body>
+</html>`;
 
-  if (error || oauthError) {
-    const redirect = new URL("/sign-in", url.origin);
-    redirect.searchParams.set(
-      "auth_error",
-      error ?? oauthError ?? "oauth_cancelled",
-    );
-    return NextResponse.redirect(redirect);
-  }
-
-  if (!code) {
-    const redirect = new URL("/sign-in", url.origin);
-    redirect.searchParams.set("auth_error", "missing_code");
-    return NextResponse.redirect(redirect);
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-  if (exchangeError) {
-    const redirect = new URL("/sign-in", url.origin);
-    redirect.searchParams.set("auth_error", exchangeError.message);
-    return NextResponse.redirect(redirect);
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    const redirect = new URL("/sign-in", url.origin);
-    redirect.searchParams.set("auth_error", "missing_code");
-    return NextResponse.redirect(redirect);
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    const redirect = new URL("/sign-in", url.origin);
-    redirect.searchParams.set("auth_error", "missing_code");
-    return NextResponse.redirect(redirect);
-  }
-
-  let emailOwnerId: string | null = null;
-  if (!profile?.id && user.email) {
-    const admin = createServiceRoleClient();
-    const email = user.email.trim().toLowerCase();
-    const { data: emailOwner } = await admin
-      .from("users")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
-    emailOwnerId = emailOwner?.id ?? null;
-  }
-
-  const target = resolveGoogleCallbackTarget({
-    authUserId: user.id,
-    profileId: profile?.id ?? null,
-    emailOwnerId,
-    nextPath: next,
+  return new NextResponse(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      // Allow this page's own public script under the static CSP fallback.
+      "Content-Security-Policy": [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+        "connect-src 'self'",
+        "img-src 'self' data:",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+      ].join("; "),
+    },
   });
-
-  if (target.kind === "email_taken") {
-    await supabase.auth.signOut();
-    const redirect = new URL("/sign-in", url.origin);
-    redirect.searchParams.set("auth_error", "email_taken");
-    return NextResponse.redirect(redirect);
-  }
-
-  if (target.kind === "complete") {
-    return NextResponse.redirect(new URL("/sign-up/complete", url.origin));
-  }
-
-  const h = await headers();
-  let sessionId: string | undefined;
-  try {
-    sessionId = await registerNewSession(supabase, user.id, {
-      userAgent: h.get("user-agent"),
-      forwardedFor: h.get("x-forwarded-for"),
-      realIp: h.get("x-real-ip"),
-    });
-  } catch {
-    // Session tracking is best-effort; auth still succeeds.
-  }
-
-  const response = NextResponse.redirect(new URL(target.nextPath, url.origin));
-  if (sessionId) {
-    response.cookies.set(SESSION_COOKIE_NAME, sessionId, sessionCookieOptions());
-  }
-  return response;
 }

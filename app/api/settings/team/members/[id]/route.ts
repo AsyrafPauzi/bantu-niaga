@@ -204,10 +204,23 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   if ((remainingMemberships ?? 0) === 0) {
     await svc.from("users").delete().eq("id", memberId);
-    try {
+    // Also cancel any leftover pending invites for this email.
+    if (member.email) {
+      await svc
+        .from("team_invites")
+        .update({ status: "cancelled" })
+        .eq("business_id", user.businessId)
+        .ilike("email", member.email)
+        .eq("status", "pending");
+    }
+    const { error: authDeleteError } =
       await svc.auth.admin.deleteUser(memberId);
-    } catch {
-      // Profile removed; auth row may already be gone.
+    if (authDeleteError) {
+      console.error(
+        "[team.member_remove] auth.admin.deleteUser failed:",
+        authDeleteError.message,
+        memberId,
+      );
     }
   } else {
     const { data: activeProfile } = await svc

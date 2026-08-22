@@ -1,0 +1,5 @@
+Contact: mailto:security@niagax.my
+Expires: 2027-08-22T00:00:00.000Z
+Preferred-Languages: en, ms
+Canonical: https://app.niagax.my/.well-known/security.txt
+Policy: https://app.niagax.my/legal/security-policy

@@ -51,6 +51,7 @@ export function AdaptiveShell({
       memberships={memberships}
       canCreateCompany={canCreateCompany}
       businessType={businessType}
+      role={role}
     >
       {children}
     </DesktopShell>

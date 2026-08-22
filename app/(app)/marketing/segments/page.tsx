@@ -96,12 +96,12 @@ export default async function MarketingSegmentsPage() {
       headline={hero.headline}
       subcopy={hero.subcopy}
       variant={hero.variant}
-      cta={
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+      action={
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           {totalMembers > 0 ? (
             <Link
               href="/marketing/broadcasts/new"
-              className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-violet-800 shadow-sm transition-colors hover:bg-white dark:border-violet-900/50 dark:bg-panel-dark/80 dark:text-violet-200"
+              className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-violet-800 shadow-sm transition-colors hover:bg-violet-50 dark:border-violet-900/50 dark:bg-panel-dark dark:text-violet-200 dark:hover:bg-hairline-dark/40"
             >
               <Send className="h-4 w-4" strokeWidth={2} />
               Send broadcast

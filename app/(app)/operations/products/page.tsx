@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { OperationsAddProductButton } from "@/components/operations/OperationsAddProductButton";
 import { OperationsProductPanel } from "@/components/operations/OperationsProductPanel";
 import { OperationsSubpageShell } from "@/components/operations/OperationsSubpageShell";
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
@@ -128,6 +129,7 @@ export default async function ProductsPage({
       headline={heroHeadline}
       subcopy={heroSub}
       variant={summary.low_stock > 0 ? "attention" : "calm"}
+      action={<OperationsAddProductButton />}
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
           <ModuleHeroStat

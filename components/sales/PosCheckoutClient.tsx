@@ -5,24 +5,37 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
+  AlertTriangle,
   Banknote,
   Check,
   ChevronDown,
   Copy,
   Loader2,
+  LogIn,
   Minus,
   Plus,
   QrCode,
   Receipt,
+  RefreshCw,
   ScanBarcode,
   Search,
   Share2,
   ShoppingBag,
   Sparkles,
   Trash2,
+  WifiOff,
   X,
   Zap,
 } from "lucide-react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  enqueueSale,
+  loadCatalog,
+  pendingCount,
+  saveCatalog,
+  syncPendingSales,
+  type SyncResult,
+} from "@/lib/sales/pos-offline";
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner";
 import { SalesBackLink } from "@/components/sales/SalesBackLink";
 import { BarcodeScanModal } from "@/components/sales/BarcodeScanModal";
@@ -86,6 +99,32 @@ function money(n: number) {
   return `RM ${n.toFixed(2)}`;
 }
 
+/**
+ * POS-safe fetch wrapper.
+ * On a 401, attempts a silent Supabase token refresh and retries once.
+ * If the refresh itself fails, returns the original 401 so callers can
+ * surface the session-expired UI without losing the in-progress cart.
+ */
+async function posFetch(
+  input: RequestInfo,
+  init?: RequestInit,
+): Promise<Response> {
+  const res = await fetch(input, init);
+  if (res.status !== 401) return res;
+
+  // Attempt silent refresh
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.refreshSession();
+    if (error) return res; // refresh failed — return the 401
+  } catch {
+    return res;
+  }
+
+  // Retry with refreshed session cookies
+  return fetch(input, init);
+}
+
 export function PosCheckoutClient({
   businessName,
   sstEnabled,
@@ -142,6 +181,16 @@ export function PosCheckoutClient({
     message: string;
   } | null>(null);
   const [showScanModal, setShowScanModal] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [reAuthEmail, setReAuthEmail] = useState("");
+  const [reAuthPassword, setReAuthPassword] = useState("");
+  const [reAuthError, setReAuthError] = useState<string | null>(null);
+  const [reAuthBusy, setReAuthBusy] = useState(false);
+  // Offline support
+  const [isOnline, setIsOnline] = useState(true); // optimistic; corrected in effect
+  const [offlineQueue, setOfflineQueue] = useState(0); // count of pending offline sales
+  const [syncing, setSyncing] = useState(false);
+  const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
   const barcodeToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -159,13 +208,114 @@ export function PosCheckoutClient({
     setShowTour(false);
   }
 
+  /** Called when any posFetch still returns 401 after the silent refresh attempt. */
+  const handleSessionExpired = useCallback(() => {
+    setSessionExpired(true);
+  }, []);
+
+  // ── Offline / sync helpers ─────────────────────────────────────────────────
+
+  const refreshQueueCount = useCallback(async () => {
+    const n = await pendingCount();
+    setOfflineQueue(n);
+  }, []);
+
+  const runSync = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncResults([]);
+    try {
+      const results = await syncPendingSales();
+      setSyncResults(results);
+      await refreshQueueCount();
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, refreshQueueCount]);
+
+  // Track online status and auto-sync when connectivity returns
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      void runSync();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // On mount: load pending queue count
+  useEffect(() => {
+    void refreshQueueCount();
+  }, [refreshQueueCount]);
+
+  const reAuthenticate = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setReAuthError(null);
+      setReAuthBusy(true);
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { error } = await supabase.auth.signInWithPassword({
+          email: reAuthEmail,
+          password: reAuthPassword,
+        });
+        if (error) {
+          setReAuthError("Incorrect email or password. Try again.");
+          return;
+        }
+        setSessionExpired(false);
+        setReAuthEmail("");
+        setReAuthPassword("");
+      } catch {
+        setReAuthError("Sign-in failed. Please try again.");
+      } finally {
+        setReAuthBusy(false);
+      }
+    },
+    [reAuthEmail, reAuthPassword],
+  );
+
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
+      // If offline, load from IndexedDB cache immediately
+      if (!navigator.onLine) {
+        const cached = await loadCatalog();
+        if (cached) {
+          setProducts(
+            (cached.products as PosProduct[]).map((p) => ({
+              ...p,
+              price_myr: Number(p.price_myr),
+            })),
+          );
+          setServices(
+            (cached.services as PosService[]).map((s) => ({
+              ...s,
+              price_myr: Number(s.price_myr),
+            })),
+          );
+          return;
+        }
+        setError("You're offline and no catalog cache exists yet. Connect to the internet first.");
+        return;
+      }
+
       const [prodRes, svcRes] = await Promise.all([
-        fetch("/api/sales/pos/products"),
-        fetch("/api/sales/pos/services"),
+        posFetch("/api/sales/pos/products"),
+        posFetch("/api/sales/pos/services"),
       ]);
+      if (prodRes.status === 401 || svcRes.status === 401) {
+        handleSessionExpired();
+        return;
+      }
       const prodJson = (await prodRes.json()) as {
         data?: PosProduct[];
         error?: string;
@@ -175,24 +325,48 @@ export function PosCheckoutClient({
         error?: string;
       };
       if (!prodRes.ok) throw new Error(prodJson.error ?? "Failed to load products");
-      setProducts(
-        (prodJson.data ?? []).map((p) => ({
-          ...p,
-          price_myr: Number(p.price_myr),
-        })),
-      );
-      setServices(
-        (svcJson.data ?? []).map((s) => ({
-          ...s,
-          price_myr: Number(s.price_myr),
-        })),
-      );
+
+      const mappedProducts = (prodJson.data ?? []).map((p) => ({
+        ...p,
+        price_myr: Number(p.price_myr),
+      }));
+      const mappedServices = (svcJson.data ?? []).map((s) => ({
+        ...s,
+        price_myr: Number(s.price_myr),
+      }));
+
+      setProducts(mappedProducts);
+      setServices(mappedServices);
+
+      // Persist to IndexedDB so we can serve it when offline
+      await saveCatalog({
+        products: mappedProducts,
+        services: mappedServices,
+        cachedAt: Date.now(),
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load catalog");
+      // Network error while offline — try cache fallback
+      const cached = await loadCatalog();
+      if (cached) {
+        setProducts(
+          (cached.products as PosProduct[]).map((p) => ({
+            ...p,
+            price_myr: Number(p.price_myr),
+          })),
+        );
+        setServices(
+          (cached.services as PosService[]).map((s) => ({
+            ...s,
+            price_myr: Number(s.price_myr),
+          })),
+        );
+      } else {
+        setError(e instanceof Error ? e.message : "Failed to load catalog");
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleSessionExpired]);
 
   useEffect(() => {
     void loadProducts();
@@ -208,9 +382,10 @@ export function PosCheckoutClient({
       void (async () => {
         setCustomerSearching(true);
         try {
-          const res = await fetch(
+          const res = await posFetch(
             `/api/sales/pos/customer-search?q=${encodeURIComponent(needle)}`,
           );
+          if (res.status === 401) { handleSessionExpired(); return; }
           const json = (await res.json()) as { data?: CustomerHit[] };
           setCustomerHits(json.data ?? []);
         } catch {
@@ -265,14 +440,6 @@ export function PosCheckoutClient({
     } catch {
       // clipboard unavailable
     }
-  }
-
-  function shareWhatsApp(data: ReceiptData) {
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(receiptText(data))}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
   }
 
   const filtered = useMemo(() => {
@@ -367,9 +534,10 @@ export function PosCheckoutClient({
   const handleBarcodeScan = useCallback(
     async (code: string) => {
       try {
-        const res = await fetch(
+        const res = await posFetch(
           `/api/sales/pos/barcode?code=${encodeURIComponent(code)}`,
         );
+        if (res.status === 401) { handleSessionExpired(); return; }
         if (res.status === 404) {
           showBarcodeToast(
             "error",
@@ -438,11 +606,64 @@ export function PosCheckoutClient({
         customer_name: customerName.trim() || null,
       };
 
-      const res = await fetch("/api/sales/pos/checkout", {
+      // ── Offline path: queue the sale locally ─────────────────────────────
+      if (!navigator.onLine) {
+        const offlineId = `offline-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        await enqueueSale({
+          id: offlineId,
+          payload: body,
+          createdAt: Date.now(),
+        });
+        await refreshQueueCount();
+        // Show a lightweight offline receipt confirmation
+        const cashIn = cashReceived !== "" ? Number(cashReceived) : total;
+        setReceipt({
+          sale: {
+            id: offlineId,
+            sale_number: `OFFLINE-${offlineId.slice(-6).toUpperCase()}`,
+            subtotal_myr: lineSubtotal,
+            discount_amount_myr: discountAmount,
+            sst_amount_myr: sst,
+            total_myr: total,
+            payment_method: payMethod,
+            payment_received_myr: payMethod === "cash" ? cashIn : null,
+            change_myr: payMethod === "cash" ? Math.max(0, cashIn - total) : 0,
+            customer_name: customerName.trim() || null,
+            created_at: new Date().toISOString(),
+          },
+          items: cart.map((l) => ({
+            product_name: l.name,
+            quantity: l.quantity,
+            unit_price_myr: l.price_myr,
+            line_total_myr: l.price_myr * l.quantity,
+          })),
+          finance_warning: "Saved offline — will sync automatically when internet returns.",
+          is_offline: true,
+        } as ReceiptData);
+        setCart([]);
+        setDiscountType(null);
+        setDiscountValue("");
+        setCouponCode("");
+        setCashReceived("");
+        if (!initialLeadId && !initialCustomerId) {
+          setCustomerName("");
+          setCustomerId("");
+        }
+        setCustomerQuery("");
+        return;
+      }
+
+      // ── Online path ───────────────────────────────────────────────────────
+      const res = await posFetch("/api/sales/pos/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (res.status === 401) {
+        handleSessionExpired();
+        setBusy(false);
+        return;
+      }
       const json = (await res.json()) as {
         data?: ReceiptData;
         message?: string;
@@ -480,13 +701,113 @@ export function PosCheckoutClient({
           setShareDone(false);
         }}
         onCopy={() => void copyReceipt(receipt)}
-        onWhatsApp={() => shareWhatsApp(receipt)}
       />
     );
   }
 
   return (
     <div className="space-y-4 pb-20 md:pb-8">
+      {/* Session-expired re-auth dialog */}
+      {sessionExpired ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-cream-200 bg-white p-6 shadow-elevated dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/50">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-300" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-ink dark:text-cream-100">Session expired</p>
+                <p className="text-xs text-ink-muted dark:text-cream-400">
+                  Your cart is safe — sign in again to continue.
+                </p>
+              </div>
+            </div>
+            <form onSubmit={(e) => void reAuthenticate(e)} className="mt-4 space-y-3">
+              <label className="block text-xs font-semibold text-ink dark:text-cream-100">
+                Email
+                <input
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={reAuthEmail}
+                  onChange={(e) => setReAuthEmail(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                />
+              </label>
+              <label className="block text-xs font-semibold text-ink dark:text-cream-100">
+                Password
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={reAuthPassword}
+                  onChange={(e) => setReAuthPassword(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                />
+              </label>
+              {reAuthError ? (
+                <p className="rounded-md border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-xs text-status-danger">
+                  {reAuthError}
+                </p>
+              ) : null}
+              <button
+                type="submit"
+                disabled={reAuthBusy}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-brand-500 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+              >
+                {reAuthBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                {reAuthBusy ? "Signing in…" : "Resume session"}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Offline banner */}
+      {!isOnline ? (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/40">
+          <WifiOff className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+              You&apos;re offline
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              Sales are saved on this device and will sync automatically when internet returns.
+              {offlineQueue > 0 ? ` ${offlineQueue} sale${offlineQueue === 1 ? "" : "s"} waiting to sync.` : ""}
+            </p>
+          </div>
+        </div>
+      ) : offlineQueue > 0 ? (
+        <div className="flex items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-800 dark:bg-sky-950/40">
+          <RefreshCw className={cn("h-5 w-5 shrink-0 text-sky-600 dark:text-sky-300", syncing && "animate-spin")} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-sky-800 dark:text-sky-200">
+              {syncing
+                ? "Syncing offline sales…"
+                : `${offlineQueue} offline sale${offlineQueue === 1 ? "" : "s"} ready to sync`}
+            </p>
+            {syncResults.filter((r) => !r.ok).length > 0 ? (
+              <p className="text-xs text-status-danger">
+                {syncResults.filter((r) => !r.ok).length} failed — check your connection and retry.
+              </p>
+            ) : (
+              <p className="text-xs text-sky-600 dark:text-sky-400">
+                {syncing ? "Please wait…" : "Syncing automatically — or tap to sync now."}
+              </p>
+            )}
+          </div>
+          {!syncing ? (
+            <button
+              type="button"
+              onClick={() => void runSync()}
+              className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
+            >
+              Sync now
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Camera scan modal */}
       {showScanModal ? (
         <BarcodeScanModal

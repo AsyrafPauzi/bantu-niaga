@@ -1,23 +1,33 @@
-import Link from "next/link";
-import { SectionCard } from "@/components/dashboard/section-card";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { HrAttendanceGate } from "@/components/hr/HrAttendanceGate";
 import { HrMeAttendancePanel } from "@/components/hr/me/HrMeAttendancePanel";
-import { MeMobileSubnav } from "@/components/hr/me/MeMobileSubnav";
-import { HrPageBody } from "@/components/hr/layout/hr-page-body";
-import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
-import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
+import { MePageFrame } from "@/components/hr/me/MePageFrame";
 import {
-  loadHrClockEvents,
+  loadHrClockEventsPage,
   loadOpenClockEvent,
+  type HrClockShiftFilter,
 } from "@/lib/hr/attendance";
 import { resolveStaffMePage } from "@/lib/hr/staff-self-service";
 import { hasHrShiftAttendanceAddon } from "@/lib/marketplace/entitlements";
+import { ADMIN_DEFAULT_PAGE_SIZE, parsePagination } from "@/lib/pagination";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
-export const metadata = { title: "My attendance" };
+export const metadata = { title: "Attendance" };
 export const dynamic = "force-dynamic";
 
-export default async function HrMeAttendancePage() {
+function parseShift(
+  raw: string | string[] | undefined,
+): HrClockShiftFilter {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === "open" || value === "closed") return value;
+  return "all";
+}
+
+export default async function HrMeAttendancePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const ctx = await resolveStaffMePage();
   if (!ctx) return null;
 
@@ -25,55 +35,81 @@ export default async function HrMeAttendancePage() {
 
   if (!addonActive) {
     return (
-      <HrPageShell
-        header={
-          <HrPageHeader
-            title="My attendance"
-            subtitle={`${ctx.employee.full_name} · ${ctx.employee.role_title}`}
-          />
-        }
+      <MePageFrame
+        pathname="/hr/me/attendance"
+        title="Attendance"
+        subtitle="Clock in and out for your shifts"
       >
-        <HrPageBody>
-          <MeMobileSubnav pathname="/hr/me/attendance" />
+        <div className="rounded-xl border border-cream-200 bg-white p-2 dark:border-hairline-dark dark:bg-panel-dark">
           <HrAttendanceGate />
-        </HrPageBody>
-      </HrPageShell>
+        </div>
+        <p className="text-center text-xs text-ink-muted dark:text-cream-500">
+          Ask your owner to turn on Shift Attendance if you need to clock in
+          here.
+        </p>
+      </MePageFrame>
     );
   }
 
+  const params = await searchParams;
+  const pagination = parsePagination(params, {
+    defaultPageSize: ADMIN_DEFAULT_PAGE_SIZE,
+  });
+  const shiftFilter = parseShift(params.shift);
+
   const admin = createServiceRoleClient();
-  const [events, openEvent] = await Promise.all([
-    loadHrClockEvents(ctx.user.businessId, {
+  const [pageResult, openEvent] = await Promise.all([
+    loadHrClockEventsPage(ctx.user.businessId, {
       employeeId: ctx.employee.id,
-      limit: 30,
+      shift: shiftFilter,
+      from: pagination.from,
+      to: pagination.to,
     }),
     loadOpenClockEvent(admin, ctx.user.businessId, ctx.employee.id),
   ]);
 
   return (
-    <HrPageShell
-      header={
-        <HrPageHeader
-          title="My attendance"
-          subtitle={`${ctx.employee.full_name} · ${ctx.employee.role_title}`}
-          action={
-            <Link
-              href="/hr/me"
-              className="text-[13px] font-semibold text-brand-700 dark:text-brand-200"
-            >
-              Back to overview
-            </Link>
-          }
-        />
+    <MePageFrame
+      pathname="/hr/me/attendance"
+      title="Attendance"
+      subtitle="Clock in when you start · clock out when you finish"
+      stats={
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+          <ModuleHeroStat
+            label="Status"
+            value={openEvent ? "On shift" : "Off"}
+            pillar="hr"
+            iconClassName="text-[#0F766E] dark:text-teal-300"
+          />
+          <ModuleHeroStat
+            label="Records"
+            value={pageResult.total}
+            pillar="hr"
+            iconClassName="text-sky-700 dark:text-sky-300"
+          />
+          <ModuleHeroStat
+            label="Filter"
+            value={
+              shiftFilter === "all"
+                ? "All"
+                : shiftFilter === "open"
+                  ? "On shift"
+                  : "Completed"
+            }
+            pillar="hr"
+            iconClassName="text-ink-muted dark:text-cream-400"
+          />
+        </div>
       }
     >
-      <HrPageBody>
-        <MeMobileSubnav pathname="/hr/me/attendance" />
-
-        <SectionCard title="Clock in / out" subtitle="Record your shift times">
-          <HrMeAttendancePanel events={events} openEvent={openEvent} />
-        </SectionCard>
-      </HrPageBody>
-    </HrPageShell>
+      <HrMeAttendancePanel
+        events={pageResult.rows}
+        openEvent={openEvent}
+        shiftFilter={shiftFilter}
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pageResult.total}
+      />
+    </MePageFrame>
   );
 }

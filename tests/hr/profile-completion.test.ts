@@ -9,6 +9,7 @@ import {
 
 const baseEmployee: HrEmployeeRow = {
   id: "emp-1",
+  user_id: null,
   full_name: "Aisyah Rahman",
   employee_number: "EMP-001",
   employment_type: "full_time",

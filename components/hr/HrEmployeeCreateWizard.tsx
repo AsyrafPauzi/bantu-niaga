@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrToast } from "@/components/hr/HrToast";
@@ -13,6 +13,47 @@ import { cn } from "@/lib/utils/cn";
 const STEPS = ["Who", "Contact", "Payroll"] as const;
 
 type Step = 0 | 1 | 2;
+
+function FieldLabel({
+  children,
+  recommended,
+  optional,
+  htmlFor,
+}: {
+  children: ReactNode;
+  recommended?: boolean;
+  optional?: boolean;
+  htmlFor?: string;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="mb-1.5 flex min-h-[1.25rem] flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted dark:text-cream-400"
+    >
+      <span>{children}</span>
+      {recommended ? (
+        <span className="rounded-full bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#0F766E] dark:bg-teal-950/40 dark:text-teal-300">
+          Recommended
+        </span>
+      ) : null}
+      {optional ? (
+        <span className="text-[10px] font-normal normal-case text-ink-subtle dark:text-cream-500">
+          Optional
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function Field({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={cn("min-w-0", className)}>{children}</div>;
+}
 
 export function HrEmployeeCreateWizard() {
   const router = useRouter();
@@ -87,6 +128,8 @@ export function HrEmployeeCreateWizard() {
           ...restForm,
           employee_number: form.employee_number.trim() || undefined,
           contract_end_date: form.contract_end_date.trim() || undefined,
+          email: form.email.trim() || undefined,
+          phone_e164: form.phone_e164.trim() || undefined,
           base_salary_myr: form.base_salary_myr.trim()
             ? Number(form.base_salary_myr)
             : undefined,
@@ -157,46 +200,49 @@ export function HrEmployeeCreateWizard() {
 
       <div className="mt-6 rounded-2xl border border-cream-200 bg-white p-6 sm:p-8 dark:border-hairline-dark dark:bg-panel-dark">
         {step === 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
               <h2 className={hrClasses.sectionTitle}>Who is joining?</h2>
               <p className={cn("mt-1", hrClasses.sectionHint)}>Basic job details for your roster.</p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className={hrClasses.label}>
-                Full name
+            <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+              <Field>
+                <FieldLabel htmlFor="full_name">Full name</FieldLabel>
                 <input
+                  id="full_name"
                   required
                   value={form.full_name}
                   onChange={(e) => update("full_name", e.target.value)}
                   className={hrClasses.input}
                 />
-              </label>
-              <label className={hrClasses.label}>
-                Employee number{" "}
-                <span className="font-normal text-ink-subtle">(optional)</span>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="employee_number" optional>
+                  Employee number
+                </FieldLabel>
                 <input
+                  id="employee_number"
                   value={form.employee_number}
                   onChange={(e) => update("employee_number", e.target.value)}
                   placeholder="Auto-assigns EMP-001 if blank"
                   maxLength={40}
                   className={hrClasses.input}
                 />
-              </label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className={hrClasses.label}>
-                Job title
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="role_title">Job title</FieldLabel>
                 <input
+                  id="role_title"
                   required
                   value={form.role_title}
                   onChange={(e) => update("role_title", e.target.value)}
                   className={hrClasses.input}
                 />
-              </label>
-              <label className={hrClasses.label}>
-                Employment type
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="employment_type">Employment type</FieldLabel>
                 <select
+                  id="employment_type"
                   value={form.employment_type}
                   onChange={(e) => update("employment_type", e.target.value)}
                   className={hrClasses.input}
@@ -206,124 +252,163 @@ export function HrEmployeeCreateWizard() {
                   <option value="contract">Contract</option>
                   <option value="intern">Intern</option>
                 </select>
-              </label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className={hrClasses.label}>
-                Start date
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="start_date">Start date</FieldLabel>
                 <input
+                  id="start_date"
                   type="date"
                   required
                   value={form.start_date}
                   onChange={(e) => update("start_date", e.target.value)}
                   className={hrClasses.input}
                 />
-              </label>
-              <label className={hrClasses.label}>
-                Contract end date{" "}
-                <span className="font-normal text-ink-subtle">(optional)</span>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="contract_end_date" optional>
+                  Contract end date
+                </FieldLabel>
                 <input
+                  id="contract_end_date"
                   type="date"
                   value={form.contract_end_date}
                   onChange={(e) => update("contract_end_date", e.target.value)}
                   className={hrClasses.input}
                 />
-              </label>
+              </Field>
             </div>
           </div>
         ) : null}
 
         {step === 1 ? (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
               <h2 className={hrClasses.sectionTitle}>How do we reach them?</h2>
               <p className={cn("mt-1", hrClasses.sectionHint)}>
-                Phone is recommended for WhatsApp leave links.
+                Email is optional for the roster. Staff who clock in or apply leave
+                themselves sign in with a team login linked on their profile — use
+                the same email when you invite them.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className={hrClasses.label}>
-                Phone
+
+            <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+              <Field>
+                <FieldLabel htmlFor="phone_e164" recommended>
+                  Phone
+                </FieldLabel>
                 <input
+                  id="phone_e164"
                   value={form.phone_e164}
                   onChange={(e) => update("phone_e164", e.target.value)}
                   placeholder="+60123456789"
                   className={hrClasses.input}
                 />
-              </label>
-              <label className={hrClasses.label}>
-                Email <span className="font-normal text-ink-subtle">(optional)</span>
+                <p className="mt-1.5 text-[11px] text-ink-muted dark:text-cream-500">
+                  Best for WhatsApp leave links.
+                </p>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="email" optional>
+                  Email
+                </FieldLabel>
                 <input
+                  id="email"
                   type="email"
                   value={form.email}
                   onChange={(e) => update("email", e.target.value)}
+                  placeholder="name@company.com"
                   className={hrClasses.input}
                 />
-              </label>
+                <p className="mt-1.5 text-[11px] text-ink-muted dark:text-cream-500">
+                  Recommended if they will clock in at /hr/me.
+                </p>
+              </Field>
             </div>
-            <label className={hrClasses.label}>
-              Emergency contact <span className="font-normal text-ink-subtle">(optional)</span>
-              <input
-                value={form.emergency_contact_name}
-                onChange={(e) => update("emergency_contact_name", e.target.value)}
-                className={hrClasses.input}
-              />
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className={hrClasses.label}>
-                Relationship
-                <select
-                  value={form.emergency_contact_relationship}
-                  onChange={(e) => {
-                    update("emergency_contact_relationship", e.target.value);
-                    if (e.target.value !== "Other") setRelationshipOther("");
-                  }}
-                  className={hrClasses.input}
-                >
-                  <option value="">Not set</option>
-                  {EMERGENCY_CONTACT_RELATIONSHIPS.map((rel) => (
-                    <option key={rel} value={rel}>
-                      {rel}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={hrClasses.label}>
-                Emergency phone
-                <input
-                  value={form.emergency_contact_phone}
-                  onChange={(e) => update("emergency_contact_phone", e.target.value)}
-                  className={hrClasses.input}
-                />
-              </label>
+
+            <div className="border-t border-cream-200 pt-5 dark:border-hairline-dark">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-subtle dark:text-cream-500">
+                Emergency contact
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="emergency_contact_name" optional>
+                    Contact name
+                  </FieldLabel>
+                  <input
+                    id="emergency_contact_name"
+                    value={form.emergency_contact_name}
+                    onChange={(e) => update("emergency_contact_name", e.target.value)}
+                    className={hrClasses.input}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="emergency_contact_relationship" optional>
+                    Relationship
+                  </FieldLabel>
+                  <select
+                    id="emergency_contact_relationship"
+                    value={form.emergency_contact_relationship}
+                    onChange={(e) => {
+                      update("emergency_contact_relationship", e.target.value);
+                      if (e.target.value !== "Other") setRelationshipOther("");
+                    }}
+                    className={hrClasses.input}
+                  >
+                    <option value="">Not set</option>
+                    {EMERGENCY_CONTACT_RELATIONSHIPS.map((rel) => (
+                      <option key={rel} value={rel}>
+                        {rel}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="emergency_contact_phone" optional>
+                    Emergency phone
+                  </FieldLabel>
+                  <input
+                    id="emergency_contact_phone"
+                    value={form.emergency_contact_phone}
+                    onChange={(e) => update("emergency_contact_phone", e.target.value)}
+                    placeholder="+60123456789"
+                    className={hrClasses.input}
+                  />
+                </Field>
+                {form.emergency_contact_relationship === "Other" ? (
+                  <Field className="sm:col-span-2">
+                    <FieldLabel htmlFor="relationship_other">
+                      Specify relationship
+                    </FieldLabel>
+                    <input
+                      id="relationship_other"
+                      value={relationshipOther}
+                      onChange={(e) => setRelationshipOther(e.target.value)}
+                      placeholder="e.g. Aunt, Guardian"
+                      maxLength={80}
+                      className={hrClasses.input}
+                    />
+                  </Field>
+                ) : null}
+              </div>
             </div>
-            {form.emergency_contact_relationship === "Other" ? (
-              <label className={hrClasses.label}>
-                Specify relationship
-                <input
-                  value={relationshipOther}
-                  onChange={(e) => setRelationshipOther(e.target.value)}
-                  placeholder="e.g. Aunt, Guardian"
-                  maxLength={80}
-                  className={hrClasses.input}
-                />
-              </label>
-            ) : null}
           </div>
         ) : null}
 
         {step === 2 ? (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
               <h2 className={hrClasses.sectionTitle}>Payroll basics</h2>
               <p className={cn("mt-1", hrClasses.sectionHint)}>
                 Optional now — you can upload IC and contract on their profile after saving.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className={cn(hrClasses.label, "sm:col-span-2")}>
-                Bank name
+            <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="bank_name" optional>
+                  Bank name
+                </FieldLabel>
                 <select
+                  id="bank_name"
                   value={form.bank_name}
                   onChange={(e) => {
                     update("bank_name", e.target.value);
@@ -338,39 +423,48 @@ export function HrEmployeeCreateWizard() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </Field>
               {form.bank_name === "Other" ? (
-                <label className={cn(hrClasses.label, "sm:col-span-2")}>
-                  Specify bank name
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="bank_other">Specify bank name</FieldLabel>
                   <input
+                    id="bank_other"
                     value={bankOther}
                     onChange={(e) => setBankOther(e.target.value)}
                     placeholder="e.g. Bank Muamalat"
                     maxLength={120}
                     className={hrClasses.input}
                   />
-                </label>
+                </Field>
               ) : null}
-              <label className={hrClasses.label}>
-                Bank account number
+              <Field>
+                <FieldLabel htmlFor="bank_account_no" optional>
+                  Bank account number
+                </FieldLabel>
                 <input
+                  id="bank_account_no"
                   value={form.bank_account_no}
                   onChange={(e) => update("bank_account_no", e.target.value)}
                   className={hrClasses.input}
                 />
-              </label>
-              <label className={hrClasses.label}>
-                Account holder name
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="bank_account_holder" optional>
+                  Account holder name
+                </FieldLabel>
                 <input
+                  id="bank_account_holder"
                   value={form.bank_account_holder}
                   onChange={(e) => update("bank_account_holder", e.target.value)}
                   className={hrClasses.input}
                 />
-              </label>
-              <label className={hrClasses.label}>
-                Base salary (MYR/month){" "}
-                <span className="font-normal text-ink-subtle">(optional)</span>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="base_salary_myr" optional>
+                  Base salary (MYR/month)
+                </FieldLabel>
                 <input
+                  id="base_salary_myr"
                   type="number"
                   min={0}
                   step={0.01}
@@ -379,17 +473,20 @@ export function HrEmployeeCreateWizard() {
                   placeholder="e.g. 3500"
                   className={hrClasses.input}
                 />
-              </label>
+              </Field>
             </div>
-            <div className="border-t border-cream-200 pt-4 dark:border-hairline-dark">
+            <div className="border-t border-cream-200 pt-5 dark:border-hairline-dark">
               <h3 className={hrClasses.sectionTitle}>Leave entitlements</h3>
               <p className={cn("mt-1", hrClasses.sectionHint)}>
                 Blank MC / emergency / hospitalisation uses company leave policy defaults.
               </p>
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <label className={hrClasses.label}>
-                  Annual leave (days/year)
+              <div className="mt-3 grid gap-4 sm:grid-cols-2 sm:items-start">
+                <Field>
+                  <FieldLabel htmlFor="annual_leave_entitlement_days">
+                    Annual leave (days/year)
+                  </FieldLabel>
                   <input
+                    id="annual_leave_entitlement_days"
                     type="number"
                     min={0}
                     max={365}
@@ -400,11 +497,13 @@ export function HrEmployeeCreateWizard() {
                     }
                     className={hrClasses.input}
                   />
-                </label>
-                <label className={hrClasses.label}>
-                  MC days{" "}
-                  <span className="font-normal text-ink-subtle">(optional)</span>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="leave_entitlements_mc" optional>
+                    MC days
+                  </FieldLabel>
                   <input
+                    id="leave_entitlements_mc"
                     type="number"
                     min={0}
                     max={365}
@@ -416,11 +515,13 @@ export function HrEmployeeCreateWizard() {
                     placeholder="Company default"
                     className={hrClasses.input}
                   />
-                </label>
-                <label className={hrClasses.label}>
-                  Emergency leave days{" "}
-                  <span className="font-normal text-ink-subtle">(optional)</span>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="leave_entitlements_emergency" optional>
+                    Emergency leave days
+                  </FieldLabel>
                   <input
+                    id="leave_entitlements_emergency"
                     type="number"
                     min={0}
                     max={365}
@@ -432,11 +533,13 @@ export function HrEmployeeCreateWizard() {
                     placeholder="Company default"
                     className={hrClasses.input}
                   />
-                </label>
-                <label className={hrClasses.label}>
-                  Hospitalisation days{" "}
-                  <span className="font-normal text-ink-subtle">(optional)</span>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="leave_entitlements_hospitalisation" optional>
+                    Hospitalisation days
+                  </FieldLabel>
                   <input
+                    id="leave_entitlements_hospitalisation"
                     type="number"
                     min={0}
                     max={365}
@@ -448,7 +551,7 @@ export function HrEmployeeCreateWizard() {
                     placeholder="Company default"
                     className={hrClasses.input}
                   />
-                </label>
+                </Field>
               </div>
             </div>
           </div>

@@ -42,7 +42,7 @@ export async function loadCustomerStatement(
     .select(
       "id, business_id, number, share_hash, share_issued_at, share_expires_at, customer_id, customer_name, customer_email, " +
         "customer_phone, customer_address, title, description, invoice_date, amount_myr, discount_myr, " +
-        "discount_pct, tax_myr, tax_pct, shipping_myr, total_myr, status, due_date, notes, " +
+        "discount_pct, tax_myr, tax_pct, shipping_myr, total_myr, amount_paid_myr, status, due_date, notes, " +
         "paid_at, sent_at, document_kind, show_duitnow, converted_from_id, admin_file_id, created_at, updated_at",
     )
     .eq("business_id", businessId)
@@ -60,11 +60,12 @@ export async function loadCustomerStatement(
 
   for (const inv of rows) {
     const total = Number(inv.total_myr ?? 0);
+    const paid = Number(inv.amount_paid_myr ?? 0);
     total_billed_myr += total;
-    if (inv.status === "paid") {
-      total_paid_myr += total;
-    } else if (inv.status === "sent") {
-      outstanding_myr += total;
+    total_paid_myr += paid;
+    // outstanding = remaining balance on any unpaid or partially-paid invoice
+    if (inv.status !== "paid") {
+      outstanding_myr += Math.max(0, total - paid);
     }
   }
 

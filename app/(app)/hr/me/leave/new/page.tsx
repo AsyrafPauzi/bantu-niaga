@@ -1,13 +1,10 @@
-import Link from "next/link";
-import { SectionCard } from "@/components/dashboard/section-card";
+import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { MeLeaveRequestForm } from "@/components/hr/me/MeLeaveRequestForm";
-import { MeMobileSubnav } from "@/components/hr/me/MeMobileSubnav";
-import { HrPageBody } from "@/components/hr/layout/hr-page-body";
-import { HrPageHeader } from "@/components/hr/layout/hr-page-header";
-import { HrPageShell } from "@/components/hr/layout/hr-page-shell";
+import { MePageFrame } from "@/components/hr/me/MePageFrame";
 import { resolveStaffMePage } from "@/lib/hr/staff-self-service";
 import {
   attachmentRequiredMap,
+  employeeEntitlementDays,
   enabledLeaveTypeKeys,
   loadHrLeaveTypeSettings,
 } from "@/lib/hr/leave-type-settings";
@@ -34,12 +31,32 @@ export default async function HrMeLeaveNewPage() {
   const attachmentRequired = attachmentRequiredMap(leaveSettings);
   const enabledLeaveTypes = enabledLeaveTypeKeys(leaveSettings);
   const entitlement =
-    employee.annual_leave_entitlement_days != null
-      ? employee.annual_leave_entitlement_days
-      : 14;
+    employeeEntitlementDays("annual", employee, leaveSettings) ?? 14;
+
+  const quotaByType = {
+    annual: entitlement,
+    mc: employeeEntitlementDays("mc", employee, leaveSettings),
+    emergency: employeeEntitlementDays("emergency", employee, leaveSettings),
+    hospitalisation: employeeEntitlementDays(
+      "hospitalisation",
+      employee,
+      leaveSettings,
+    ),
+    unpaid: null as number | null,
+  };
+
+  const selectableLeaveTypes = enabledLeaveTypes.filter((key) => {
+    if (key === "unpaid") return true;
+    const q = quotaByType[key];
+    return typeof q === "number" && Number.isFinite(q);
+  });
 
   const [balance, leave] = await Promise.all([
-    loadHrEmployeeLeaveBalanceSummary(user.businessId, employee.id, entitlement),
+    loadHrEmployeeLeaveBalanceSummary(
+      user.businessId,
+      employee.id,
+      entitlement,
+    ),
     loadStaffMeLeaveRecords(user.businessId, employee.id),
   ]);
 
@@ -49,41 +66,45 @@ export default async function HrMeLeaveNewPage() {
       taken: balance.takenDays,
     },
     caps: {
-      mc: employee.leave_entitlements?.mc,
-      emergency: employee.leave_entitlements?.emergency,
-      hospitalisation: employee.leave_entitlements?.hospitalisation,
+      mc: quotaByType.mc ?? undefined,
+      emergency: quotaByType.emergency ?? undefined,
+      hospitalisation: quotaByType.hospitalisation ?? undefined,
     },
     usedByType: countApprovedLeaveDaysByType(leave, balance.leaveYear),
   });
 
+  const configuredLines = balanceLines.filter((l) => l.entitlement != null);
+  const heroStats = configuredLines.slice(0, 4);
+
   return (
-    <HrPageShell
-      header={
-        <HrPageHeader
-          title="Apply for leave"
-          subtitle="Submit annual, emergency, or MC leave for manager approval"
-          action={
-            <Link
-              href="/hr/me"
-              className="inline-flex rounded-[10px] border border-hairline-light bg-cream-100 px-3.5 py-2.5 text-[13px] font-semibold text-brand-700 dark:border-hairline-dark dark:bg-panel-dark dark:text-brand-200"
-            >
-              ← Back
-            </Link>
-          }
-        />
+    <MePageFrame
+      pathname="/hr/me/leave/new"
+      title="Apply for leave"
+      subtitle="Pick dates and submit — your manager will review"
+      stats={
+        heroStats.length > 0 ? (
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+            {heroStats.map((line) => (
+              <ModuleHeroStat
+                key={line.key}
+                label={line.label}
+                value={`${line.remaining ?? 0} left`}
+                hint={`${line.used ?? 0} used of ${line.entitlement}`}
+                pillar="hr"
+                iconClassName="text-[#0F766E] dark:text-teal-300"
+              />
+            ))}
+          </div>
+        ) : undefined
       }
     >
-      <HrPageBody>
-        <MeMobileSubnav pathname="/hr/me/leave/new" />
-        <SectionCard title="Leave request" subtitle="All fields are required unless noted">
-          <MeLeaveRequestForm
-            employeeName={employee.full_name}
-            attachmentRequired={attachmentRequired}
-            enabledLeaveTypes={enabledLeaveTypes}
-            balanceLines={balanceLines}
-          />
-        </SectionCard>
-      </HrPageBody>
-    </HrPageShell>
+      <MeLeaveRequestForm
+        employeeName={employee.full_name}
+        attachmentRequired={attachmentRequired}
+        enabledLeaveTypes={enabledLeaveTypes}
+        selectableLeaveTypes={selectableLeaveTypes}
+        balanceLines={balanceLines}
+      />
+    </MePageFrame>
   );
 }

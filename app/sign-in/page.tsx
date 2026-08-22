@@ -56,6 +56,79 @@ function SignInInner() {
     }
   }, [params]);
 
+  // Invite / recovery links put tokens in the URL hash. If we landed here with
+  // missing_code but the hash still has a session, recover instead of failing.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+    if (!accessToken || !refreshToken) return;
+
+    let cancelled = false;
+    void (async () => {
+      setSubmitting(true);
+      setError(null);
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionError) {
+          if (!cancelled) {
+            setError(sessionError.message);
+            setSubmitting(false);
+          }
+          return;
+        }
+        window.history.replaceState(
+          null,
+          "",
+          (() => {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("auth_error");
+            url.hash = "";
+            return `${url.pathname}${url.search}`;
+          })(),
+        );
+        const type = hash.get("type");
+        const next =
+          type === "invite"
+            ? "/accept-invite"
+            : type === "recovery"
+              ? "/reset-password"
+              : params.get("next") || "/home";
+        const finish = await fetch("/api/auth/callback/finish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ next }),
+        });
+        const json = (await finish.json().catch(() => null)) as {
+          redirect?: string;
+        } | null;
+        const target =
+          typeof json?.redirect === "string" && json.redirect.startsWith("/")
+            ? json.redirect
+            : next;
+        if (!cancelled) {
+          router.replace(target);
+          router.refresh();
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Could not open invite link.");
+          setSubmitting(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params, router]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);

@@ -13,8 +13,10 @@ import { HrContractExpiringWidget } from "@/components/hr/HrContractExpiringWidg
 import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrPendingLeaveCard } from "@/components/hr/HrPendingLeaveCard";
 import { HrStaffAppraisalGate } from "@/components/hr/HrStaffAppraisalGate";
+import { HrOnShiftPanel } from "@/components/hr/HrOnShiftPanel";
 import { HrTodayDeskPanels } from "@/components/hr/HrTodayDeskPanels";
 import { OnboardingProgressBar } from "@/components/hr/HrOnboardingProgress";
+import type { HrClockEventRow } from "@/lib/hr/attendance";
 import type { HrDashboardData, HrStaffAppraisalRow } from "@/lib/hr/load";
 import { malaysiaTodayIso } from "@/lib/ai/malaysia-today";
 import type { ContractExpiringEmployee } from "@/lib/hr/contract-reminders";
@@ -86,6 +88,8 @@ export interface HrOverviewProps {
   appraisalAddonActive?: boolean;
   appraisals?: HrStaffAppraisalRow[];
   contractExpiring?: ContractExpiringEmployee[];
+  onShiftEvents?: HrClockEventRow[];
+  attendanceAddonActive?: boolean;
 }
 
 export function HrOverview({
@@ -93,6 +97,8 @@ export function HrOverview({
   appraisalAddonActive = false,
   appraisals = [],
   contractExpiring = [],
+  onShiftEvents = [],
+  attendanceAddonActive = false,
 }: HrOverviewProps) {
   const {
     employees,
@@ -263,6 +269,11 @@ export function HrOverview({
           </ol>
         </section>
       ) : null}
+
+      <HrOnShiftPanel
+        events={onShiftEvents}
+        addonActive={attendanceAddonActive}
+      />
 
       <HrTodayDeskPanels
         leaveOnToday={leaveOnToday}

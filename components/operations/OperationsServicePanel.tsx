@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -9,21 +9,17 @@ import {
   Pencil,
   Search,
   Trash2,
-  Wrench,
 } from "lucide-react";
 import { ModuleListSearchBar } from "@/components/dashboard/module-list-search";
 import {
-  OperationsCatalogEditShell,
   OperationsCatalogEmpty,
   OperationsCatalogList,
 } from "@/components/operations/OperationsCatalogUi";
+import { ListPagination } from "@/components/ui/list-pagination";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import { OperationsProductThumb } from "@/components/operations/OperationsProductThumb";
-import {
-  QuickActionBar,
-  QuickCreateActions,
-  QuickCreatePanel,
-} from "@/components/ui/quick-create";
+import { QuickCreateActions } from "@/components/ui/quick-create";
+import { Modal, ModalBody, ModalFooter, ModalHeader } from "@/components/ui/modal";
 import { InlineFeedback } from "@/components/ui/alert";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
@@ -34,15 +30,23 @@ import {
 
 interface OperationsServicePanelProps {
   initialServices: OperationsServiceRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  searchQuery: string;
 }
 
 export function OperationsServicePanel({
   initialServices,
+  page,
+  pageSize,
+  total,
+  searchQuery,
 }: OperationsServicePanelProps) {
   const router = useRouter();
   const [services, setServices] = useState(initialServices);
-  const [search, setSearch] = useState("");
-  const { open: showForm, toggle: toggleForm, close: closeForm } =
+  const [search, setSearch] = useState(searchQuery);
+  const { open: showForm, close: closeForm, openPanel: openForm } =
     useQuickCreate();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -58,11 +62,17 @@ export function OperationsServicePanel({
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
-  const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return services;
-    return services.filter((s) => s.name.toLowerCase().includes(needle));
-  }, [search, services]);
+  const onSearch = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault();
+      const params = new URLSearchParams();
+      const q = search.trim();
+      if (q) params.set("q", q);
+      const qs = params.toString();
+      router.push(qs ? `/operations/services?${qs}` : "/operations/services");
+    },
+    [router, search],
+  );
 
   const resetForm = useCallback(() => {
     setName("");
@@ -75,6 +85,12 @@ export function OperationsServicePanel({
     setEditingId(null);
     setFormError(null);
   }, []);
+
+  useEffect(() => {
+    const handler = () => { resetForm(); openForm(); };
+    window.addEventListener("operations:add-service", handler);
+    return () => window.removeEventListener("operations:add-service", handler);
+  }, [resetForm, openForm]);
 
   const startEdit = useCallback(
     (service: OperationsServiceRow) => {
@@ -255,9 +271,10 @@ export function OperationsServicePanel({
       imagesOnly
       disabled={creating || Boolean(busyId)}
       label="Service photo"
-      onAttach={async (fileId) => {
+      uploadOnly
+      onAttach={async (fileId, fileName) => {
         setImageFileId(fileId);
-        setImageFileName(null);
+        setImageFileName(fileName ?? null);
       }}
     />
   );
@@ -313,76 +330,59 @@ export function OperationsServicePanel({
     </>
   );
 
-  const hasSearch = Boolean(search.trim());
+  const hasSearch = Boolean(searchQuery.trim());
 
   return (
     <div className="space-y-4">
-      <QuickActionBar
-        open={showForm}
-        onToggle={() => {
-          if (showForm) {
-            closeForm();
-            resetForm();
-          } else {
-            resetForm();
-            toggleForm();
-          }
-        }}
-        actionLabel="Add service"
-      />
-
-      <QuickCreatePanel
-        open={showForm}
-        onSubmit={onCreate}
-        title="New service"
-        subtitle="Duration and price — feeds bookings and quotes."
-        icon={Wrench}
-        accent="violet"
-      >
-        {imagePicker}
-        {formFields}
-        <QuickCreateActions
-          submitLabel="Save service"
-          loading={creating}
-          onCancel={() => {
-            closeForm();
-            resetForm();
-          }}
+      <Modal open={showForm} onClose={() => { closeForm(); resetForm(); }} size="lg">
+        <ModalHeader
+          title="New service"
+          description="Duration and price — feeds bookings and quotes."
+          onClose={() => { closeForm(); resetForm(); }}
         />
-      </QuickCreatePanel>
-
-      {editingId && editingService ? (
-        <OperationsCatalogEditShell
-          title={`Editing ${editingService.name}`}
-          accent="violet"
-        >
-          <form onSubmit={onUpdate} className="space-y-3">
+        <ModalBody>
+          <form id="add-service-form" onSubmit={onCreate} className="space-y-3">
             {imagePicker}
             {formFields}
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={creating}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-              >
-                {creating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
-                Save changes
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
-              >
-                Cancel
-              </button>
-            </div>
           </form>
-        </OperationsCatalogEditShell>
-      ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <QuickCreateActions
+            submitLabel="Save service"
+            loading={creating}
+            onCancel={() => { closeForm(); resetForm(); }}
+            form="add-service-form"
+          />
+        </ModalFooter>
+      </Modal>
 
-      {filtered.length === 0 ? (
+      <Modal
+        open={Boolean(editingId && editingService)}
+        onClose={resetForm}
+        size="lg"
+      >
+        <ModalHeader
+          title={editingService ? `Edit ${editingService.name}` : "Edit service"}
+          description="Update name, duration, price, or photo."
+          onClose={resetForm}
+        />
+        <ModalBody>
+          <form id="edit-service-form" onSubmit={onUpdate} className="space-y-3">
+            {imagePicker}
+            {formFields}
+          </form>
+        </ModalBody>
+        <ModalFooter>
+          <QuickCreateActions
+            submitLabel="Save changes"
+            loading={creating}
+            onCancel={resetForm}
+            form="edit-service-form"
+          />
+        </ModalFooter>
+      </Modal>
+
+      {services.length === 0 ? (
         <OperationsCatalogEmpty
           icon={hasSearch ? <Search className="h-6 w-6" /> : <Bell className="h-6 w-6" />}
           title={
@@ -397,19 +397,20 @@ export function OperationsServicePanel({
       ) : (
         <OperationsCatalogList
           title="Catalog"
-          total={filtered.length}
+          total={total}
           filters={
-            <ModuleListSearchBar
-              value={search}
-              onChange={setSearch}
-              placeholder="Search services…"
-              onClear={hasSearch ? () => setSearch("") : undefined}
-            />
+            <form onSubmit={onSearch} className="flex items-center gap-2">
+              <ModuleListSearchBar
+                value={search}
+                onChange={setSearch}
+                placeholder="Search services…"
+                onClear={hasSearch ? () => { setSearch(""); router.push("/operations/services"); } : undefined}
+              />
+            </form>
           }
         >
           <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
-            {filtered.map((s) => {
-              if (editingId === s.id) return null;
+            {services.map((s) => {
               const busy = busyId === s.id;
               const price = formatOrderAmount(
                 s.price_myr != null ? Number(s.price_myr) : null,
@@ -491,6 +492,15 @@ export function OperationsServicePanel({
           </ul>
         </OperationsCatalogList>
       )}
+
+      <ListPagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        basePath="/operations/services"
+        searchParams={searchQuery ? { q: searchQuery } : {}}
+        pageSizeOptions={[10, 25, 50, 100]}
+      />
     </div>
   );
 }

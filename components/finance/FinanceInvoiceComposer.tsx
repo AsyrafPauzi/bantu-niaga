@@ -70,6 +70,7 @@ const UNITS = [
 const STATUS_LABEL: Record<FinanceInvoiceStatus, string> = {
   draft: "New",
   sent: "Sent",
+  partially_paid: "Partial",
   paid: "Paid",
   void: "Void",
 };
@@ -218,7 +219,6 @@ export function FinanceInvoiceComposer({
         }
       })
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [invoiceDate, setInvoiceDate] = useState(startInvoiceDate);
   const [dueDate, setDueDate] = useState(startDueDate);

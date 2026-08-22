@@ -52,11 +52,14 @@ const supabaseHost = (() => {
  *   - form-action    'self' + facebook.com (Meta OAuth dialog posts back)
  *   - upgrade-insecure-requests   force HTTPS on subresources
  */
+// Static fallback CSP — applied only to routes not covered by the nonce-based
+// middleware CSP (e.g. /_next/static assets). Script execution is not needed
+// on pure static assets, so we can be strict here.
 const csp = [
   "default-src 'self'",
   isProd
-    ? "script-src 'self' 'unsafe-inline' https://www.facebook.com https://connect.facebook.net"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.facebook.com https://connect.facebook.net",
+    ? "script-src 'self' https://www.facebook.com https://connect.facebook.net"
+    : "script-src 'self' 'unsafe-eval' https://www.facebook.com https://connect.facebook.net",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   `img-src 'self' data: blob: https://${supabaseHost} https://*.fbcdn.net https://platform-lookaside.fbsbx.com https://scontent.cdninstagram.com https://*.cdninstagram.com`,
@@ -85,8 +88,9 @@ const csp = [
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
   {
+    // 1-year HSTS — preload-eligible (https://hstspreload.org requires ≥1 year)
     key: "Strict-Transport-Security",
-    value: "max-age=15552000; includeSubDomains; preload",
+    value: "max-age=31536000; includeSubDomains; preload",
   },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -98,6 +102,10 @@ const securityHeaders = [
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
+  // Legacy XSS filter — modern browsers ignore it but scanners still check for it.
+  { key: "X-XSS-Protection", value: "1; mode=block" },
+  // Suppress the Server header where the platform allows header override.
+  { key: "Server", value: "" },
 ];
 
 /**
@@ -106,7 +114,8 @@ const securityHeaders = [
  * it broadly here is the belt-and-suspenders layer.
  */
 const noStoreHeaders = [
-  { key: "Cache-Control", value: "private, no-store, max-age=0" },
+  { key: "Cache-Control", value: "no-store, no-cache, max-age=0, must-revalidate" },
+  { key: "Pragma", value: "no-cache" },
 ];
 
 /**
@@ -169,11 +178,27 @@ const nextConfig = {
   // Reduce bundle size by tree-shaking server-only packages from the client
   // bundle. Next.js 15 does this automatically but this makes the intent explicit.
   serverExternalPackages: [],
+  async redirects() {
+    return [
+      // Serve security.txt from its canonical /.well-known/ location.
+      {
+        source: "/security.txt",
+        destination: "/.well-known/security.txt",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       // Global security headers on every response.
       { source: "/:path*", headers: securityHeaders },
-      // Authenticated routes — never cache.
+      // Authenticated app-shell HTML pages — never cache.
+      {
+        source:
+          "/(sign-in|sign-up|home|finance|operations|sales|hr|marketing|marketplace|settings|boardroom|add-company|more|onboarding|legal|verify-email)/:path*",
+        headers: noStoreHeaders,
+      },
+      // API routes — never cache.
       { source: "/api/:path*", headers: noStoreHeaders },
       { source: "/super-admin/:path*", headers: [...noStoreHeaders, ...noIndexHeaders] },
       { source: "/admin/:path*", headers: noIndexHeaders },

@@ -25,7 +25,13 @@ interface AdminStorageFileAttachProps {
   category?: AdminFileCategory;
   /** Limit picker and upload to image files (e.g. product photos). */
   imagesOnly?: boolean;
-  onAttach: (fileId: string | null) => Promise<void>;
+  /**
+   * Hide the shared-library picker grid and only allow direct upload.
+   * Use when files should not be reused across different records (e.g.
+   * each product has its own unique photo).
+   */
+  uploadOnly?: boolean;
+  onAttach: (fileId: string | null, fileName?: string | null) => Promise<void>;
 }
 
 function buildPickerUrl(category?: AdminFileCategory, imagesOnly?: boolean): string {
@@ -100,6 +106,7 @@ export function AdminStorageFileAttach({
   className,
   category,
   imagesOnly = false,
+  uploadOnly = false,
   onAttach,
 }: AdminStorageFileAttachProps) {
   const inputId = useId();
@@ -113,6 +120,13 @@ export function AdminStorageFileAttach({
   const [error, setError] = useState<string | null>(null);
 
   const reloadFiles = useCallback(() => {
+    // Upload-only mode: never load the shared library (no picker grid).
+    if (uploadOnly) {
+      setFiles([]);
+      setCanUpload(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     void fetch(buildPickerUrl(category, imagesOnly))
       .then((r) => r.json())
@@ -128,7 +142,7 @@ export function AdminStorageFileAttach({
         },
       )
       .finally(() => setLoading(false));
-  }, [category, imagesOnly]);
+  }, [category, imagesOnly, uploadOnly]);
 
   useEffect(() => {
     reloadFiles();
@@ -147,10 +161,11 @@ export function AdminStorageFileAttach({
   const attach = async (id?: string) => {
     const targetId = id ?? pickId;
     if (!targetId) return;
+    const resolvedName = files.find((f) => f.id === targetId)?.file_name ?? null;
     setError(null);
     setBusy(true);
     try {
-      await onAttach(targetId);
+      await onAttach(targetId, resolvedName);
       setPickId("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not attach file.");
@@ -193,7 +208,7 @@ export function AdminStorageFileAttach({
         },
         ...prev,
       ]);
-      await onAttach(uploaded.id);
+      await onAttach(uploaded.id, uploaded.file_name);
       setPickId("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed.");
@@ -211,7 +226,7 @@ export function AdminStorageFileAttach({
 
   const categoryHint = category ? STORAGE_CATEGORY_LABELS[category] : null;
   const imageFiles = files.filter((f) => f.mime_type.startsWith("image/"));
-  const showImageGrid = !compact && imagesOnly && imageFiles.length > 0;
+  const showImageGrid = !compact && !uploadOnly && imagesOnly && imageFiles.length > 0;
 
   const uploadControl =
     canUpload && !disabled && !fileId ? (
@@ -359,58 +374,62 @@ export function AdminStorageFileAttach({
       )}
 
       {!disabled && !fileId ? (
-        <div className="space-y-2">
-          {showImageGrid ? (
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-              {imageFiles.map((f) => (
-                <StorageImageThumb
-                  key={f.id}
-                  file={f}
-                  selected={pickId === f.id}
-                  disabled={busy}
-                  onSelect={() => {
-                    setPickId(f.id);
-                    void attach(f.id);
-                  }}
-                />
-              ))}
-            </div>
-          ) : null}
-          <select
-            value={pickId}
-            disabled={busy || loading}
-            onChange={(e) => setPickId(e.target.value)}
-            className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          >
-            <option value="">
-              {loading
-                ? "Loading files…"
-                : category
-                  ? `Choose from ${categoryHint}…`
-                  : "Choose from Storage…"}
-            </option>
-            {files.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.file_name}
-              </option>
-            ))}
-          </select>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={busy || !pickId}
-              onClick={() => void attach()}
-              className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+        uploadOnly ? (
+          <div className="flex flex-wrap items-center gap-2">{uploadControl}</div>
+        ) : (
+          <div className="space-y-2">
+            {showImageGrid ? (
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {imageFiles.map((f) => (
+                  <StorageImageThumb
+                    key={f.id}
+                    file={f}
+                    selected={pickId === f.id}
+                    disabled={busy}
+                    onSelect={() => {
+                      setPickId(f.id);
+                      void attach(f.id);
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
+            <select
+              value={pickId}
+              disabled={busy || loading}
+              onChange={(e) => setPickId(e.target.value)}
+              className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
             >
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Attach"}
-            </button>
-            {uploadControl ?? (
-              <span className="text-xs text-ink-muted dark:text-cream-400">
-                {category ? "Upload saves to this module category." : null}
-              </span>
-            )}
+              <option value="">
+                {loading
+                  ? "Loading files…"
+                  : category
+                    ? `Choose from ${categoryHint}…`
+                    : "Choose from Storage…"}
+              </option>
+              {files.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.file_name}
+                </option>
+              ))}
+            </select>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={busy || !pickId}
+                onClick={() => void attach()}
+                className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Attach"}
+              </button>
+              {uploadControl ?? (
+                <span className="text-xs text-ink-muted dark:text-cream-400">
+                  {category ? "Upload saves to this module category." : null}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )
       ) : null}
 
       {error ? <p className="text-xs text-status-danger">{error}</p> : null}

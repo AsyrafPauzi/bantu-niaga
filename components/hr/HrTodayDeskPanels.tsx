@@ -92,7 +92,7 @@ export function HrTodayDeskPanels({
           <Empty icon={Calendar} title={t("deskInboxClear")} />
         ) : (
           <div className="space-y-2 p-2 sm:p-3">
-            {leavePending.slice(0, 3).map((row) => (
+            {leavePending.map((row) => (
               <HrPendingLeaveCard key={row.id} row={row} />
             ))}
           </div>
@@ -210,7 +210,9 @@ function DeskPanel({
           Open
         </Link>
       </div>
-      <div className="min-h-[8rem]">{children}</div>
+      <div className="min-h-[8rem] max-h-[22rem] overflow-y-auto overscroll-contain">
+        {children}
+      </div>
     </section>
   );
 }

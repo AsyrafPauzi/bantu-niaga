@@ -24,6 +24,10 @@ import { HrMobileSubnav } from "@/components/hr/layout/hr-mobile-subnav";
 import { HrOnboardingPanel } from "@/components/hr/HrOnboardingPanel";
 import { HrSetupChecklist } from "@/components/hr/HrSetupChecklist";
 import { HrWarningLettersSection } from "@/components/hr/HrWarningLettersSection";
+import {
+  HrEmployeeTeamLoginCard,
+  type TeamLoginOption,
+} from "@/components/hr/HrEmployeeTeamLoginCard";
 import type {
   HrDocumentRow,
   HrEmployeeLeaveBalance,
@@ -88,6 +92,8 @@ export interface HrEmployeeProfileViewProps {
   leaveBalance: HrEmployeeLeaveBalance;
   leaveRecords: HrLeaveRow[];
   warningLetters: HrWarningLetterRow[];
+  teamMembers: TeamLoginOption[];
+  takenUserIds: string[];
 }
 
 export function HrEmployeeProfileView({
@@ -97,6 +103,8 @@ export function HrEmployeeProfileView({
   leaveBalance,
   leaveRecords,
   warningLetters,
+  teamMembers,
+  takenUserIds,
 }: HrEmployeeProfileViewProps) {
   const searchParams = useSearchParams();
   const welcome = searchParams.get("welcome") === "1";
@@ -425,7 +433,14 @@ export function HrEmployeeProfileView({
 
       <div className="mt-5 pb-16 lg:pb-6">
         {tab === "profile" ? (
-          <div className="space-y-0">
+          <div className="space-y-4">
+            <HrEmployeeTeamLoginCard
+              employeeId={employee.id}
+              employeeEmail={employee.email}
+              linkedUserId={employee.user_id ?? null}
+              teamMembers={teamMembers}
+              takenUserIds={takenUserIds}
+            />
             <div className="rounded-2xl border border-cream-200 bg-white p-5 sm:p-6 dark:border-hairline-dark dark:bg-panel-dark">
               <HrEmployeeUpdateForm employee={employee} />
             </div>

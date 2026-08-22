@@ -139,10 +139,19 @@ export const employeeCreateSchema = z
   })
   .strict();
 
-export const employeeUpdateSchema = employeeCreateSchema.partial().refine(
-  (value) => Object.keys(value).length > 0,
-  "At least one employee field is required",
-);
+export const employeeUpdateSchema = employeeCreateSchema
+  .partial()
+  .extend({
+    /** Link / unlink Settings → Team login for /hr/me self-service. */
+    user_id: z.preprocess(
+      emptyToNull,
+      z.string().uuid().nullable().optional(),
+    ),
+  })
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    "At least one employee field is required",
+  );
 
 const leaveDateFields = {
   leave_type: z.enum(LEAVE_TYPES),

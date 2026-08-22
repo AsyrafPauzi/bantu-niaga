@@ -13,6 +13,7 @@ const refresh = vi.fn();
 const employees: HrEmployeeRow[] = [
   {
     id: "employee-1",
+    user_id: null,
     full_name: "Aisyah Rahman",
     employee_number: "EMP-001",
     employment_type: "full_time",

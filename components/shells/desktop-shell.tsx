@@ -17,6 +17,7 @@ import { NiagaXLogo } from "@/components/brand/NiagaXLogo";
 import { useSidebarCollapsed } from "@/lib/navigation/use-sidebar-collapsed";
 import {
   buildAppNavGroups,
+  filterAppNavGroupsForRole,
   isNavSectionActive,
   isNavSubItemActive,
 } from "@/lib/navigation/app-nav";
@@ -34,18 +35,21 @@ import { tierBy } from "@/lib/settings/plans";
 import { isAssistantChatRoute } from "@/lib/navigation/assistant-routes";
 import { useTranslations } from "next-intl";
 import { navGroupMessageKey, navLabelFor } from "@/lib/i18n/nav-labels";
+import type { Role } from "@/lib/permissions";
 
 export function DesktopShell({
   tier,
   memberships,
   canCreateCompany,
   businessType = "other",
+  role = "manager",
   children,
 }: {
   tier: TierKey;
   memberships: BusinessMembership[];
   canCreateCompany: boolean;
   businessType?: BusinessType;
+  role?: Role;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -57,8 +61,8 @@ export function DesktopShell({
     Record<string, boolean>
   >({});
   const sidebarGroups = useMemo(
-    () => buildAppNavGroups(businessType),
-    [businessType],
+    () => filterAppNavGroupsForRole(buildAppNavGroups(businessType), role),
+    [businessType, role],
   );
 
   useEffect(() => {
@@ -73,10 +77,12 @@ export function DesktopShell({
   }, [pathname, sidebarGroups]);
 
   const isAssistantRoute = isAssistantChatRoute(pathname);
+  const isStaffMeRoute =
+    pathname === "/hr/me" || pathname.startsWith("/hr/me/");
 
   const pageContentClass = cn(
     "mx-auto h-full min-h-0 overflow-y-auto px-4 py-4 md:px-6 md:py-5 lg:px-10 lg:py-6",
-    sidebarCollapsed ? "max-w-none" : "max-w-6xl",
+    sidebarCollapsed || isStaffMeRoute ? "max-w-none" : "max-w-6xl",
     sidebarCollapsed && "pt-14 md:pl-14",
   );
 

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Calendar, Camera, Video } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { MarketingContentBackLink } from "@/components/marketing/MarketingContentBackLink";
 import { NewContentFormPencil } from "@/components/marketing/NewContentFormPencil";
@@ -14,12 +14,34 @@ import {
 import { canSurface } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { newContentSubpageHero } from "@/lib/marketing/subpage-hero";
+import { loadActiveSocialAccounts } from "@/lib/social/load";
+import {
+  hasMarketingAssistantAddon,
+  loadBusinessAgentSettings,
+} from "@/lib/marketplace/entitlements";
+import { MARKETING_AGENT_SLUG } from "@/lib/marketplace/agent-types";
+import { chatCreditsForReasoning } from "@/lib/settings/reasoning-credits";
 
 export const metadata = { title: "New post" };
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function slugHandle(raw: string): string {
+  const cleaned = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 30);
+  return cleaned || "business";
+}
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "BN";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
 }
 
 export default async function NewContentPage({ searchParams }: PageProps) {
@@ -56,10 +78,30 @@ export default async function NewContentPage({ searchParams }: PageProps) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data: contentRows } = await supabase
-    .from("content_plan")
-    .select("status")
-    .eq("business_id", user.businessId);
+  const [
+    { data: contentRows },
+    { data: business },
+    socialAccounts,
+    mayaEnabled,
+    mayaSettings,
+  ] = await Promise.all([
+    supabase
+      .from("content_plan")
+      .select("status")
+      .eq("business_id", user.businessId),
+    supabase
+      .from("businesses")
+      .select("name, idcompany")
+      .eq("id", user.businessId)
+      .maybeSingle(),
+    loadActiveSocialAccounts(user.businessId),
+    hasMarketingAssistantAddon(user.businessId),
+    loadBusinessAgentSettings(user.businessId, MARKETING_AGENT_SLUG),
+  ]);
+
+  const rewriteCreditCost = chatCreditsForReasoning(
+    mayaSettings.reasoningMode,
+  );
 
   const rows = contentRows ?? [];
   const scheduledCount = rows.filter((r) => r.status === "scheduled").length;
@@ -69,15 +111,23 @@ export default async function NewContentPage({ searchParams }: PageProps) {
   const postedCount = rows.filter((r) => r.status === "posted").length;
   const hero = newContentSubpageHero({ prefillDateLabel });
 
+  const businessName = business?.name?.trim() || "Business";
+  const fallbackHandle = slugHandle(
+    business?.idcompany?.trim() || businessName,
+  );
+  const ig = socialAccounts.find((a) => a.provider === "instagram");
+  const fb = socialAccounts.find((a) => a.provider === "facebook");
+
   return (
     <div className="space-y-4 pb-20 lg:pb-8">
       <MarketingContentBackLink />
 
       <ModuleDashboardHero
         module="Marketing · Content"
+        pillar="marketing"
         headline={hero.headline}
         subcopy={hero.subcopy}
-        variant={hero.variant}
+        variant="calm"
       >
         <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
           <ModuleHeroStat
@@ -94,67 +144,22 @@ export default async function NewContentPage({ searchParams }: PageProps) {
           <ModuleHeroStat
             label="Posted"
             value={postedCount}
-            iconClassName="text-violet-700 dark:text-violet-300"
+            iconClassName="text-purple-700 dark:text-purple-300"
           />
         </div>
       </ModuleDashboardHero>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
-        <div className="lg:col-span-2">
-          <NewContentFormPencil prefillDateIso={prefillIso} />
-        </div>
-
-        <aside className="space-y-4">
-          <div className="rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-5 shadow-card dark:border-violet-900/40 dark:from-violet-950/30 dark:via-panel-dark dark:to-fuchsia-950/20">
-            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
-              Planning tips
-            </p>
-            <ul className="mt-3 space-y-2.5 text-sm text-ink dark:text-cream-100">
-              <li className="flex gap-2">
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
-                <span>
-                  Start with a hook — the first line is what shows in the
-                  calendar and list views.
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
-                <span>
-                  Schedule ahead so you can batch-create captions on quiet
-                  days, then post manually when ready.
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
-                <span>
-                  Mark as posted after you publish — engagement metrics sync
-                  when platform webhooks are connected.
-                </span>
-              </li>
-            </ul>
-          </div>
-
-          <div className="rounded-2xl border border-cream-200 bg-panel-light p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-400">
-              Channels
-            </p>
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2 text-sm text-ink dark:text-cream-100">
-                <Video className="h-4 w-4 text-accent-700" strokeWidth={2} />
-                TikTok
-              </div>
-              <div className="flex items-center gap-2 text-sm text-ink dark:text-cream-100">
-                <Camera className="h-4 w-4 text-brand-700" strokeWidth={2} />
-                Instagram
-              </div>
-              <div className="flex items-center gap-2 text-sm text-ink dark:text-cream-100">
-                <Calendar className="h-4 w-4 text-amber-700" strokeWidth={2} />
-                Facebook
-              </div>
-            </div>
-          </div>
-        </aside>
-      </div>
+      <NewContentFormPencil
+        prefillDateIso={prefillIso}
+        mayaEnabled={mayaEnabled}
+        rewriteCreditCost={rewriteCreditCost}
+        previewInitials={initialsFromName(businessName)}
+        previewHandles={{
+          instagram: ig?.username ?? null,
+          facebook: fb?.username ?? (fb?.name ? slugHandle(fb.name) : null),
+          fallback: fallbackHandle,
+        }}
+      />
     </div>
   );
 }

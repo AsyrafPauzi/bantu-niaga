@@ -44,6 +44,56 @@ export async function loadHrClockEvents(
   return (data ?? []) as unknown as HrClockEventRow[];
 }
 
+export type HrClockShiftFilter = "all" | "open" | "closed";
+
+export async function loadHrClockEventsPage(
+  businessId: string,
+  options: {
+    employeeId: string;
+    shift?: HrClockShiftFilter;
+    from: number;
+    to: number;
+  },
+): Promise<{ rows: HrClockEventRow[]; total: number }> {
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from("hr_clock_events")
+    .select(CLOCK_EVENT_SELECT, { count: "exact" })
+    .eq("business_id", businessId)
+    .eq("employee_id", options.employeeId)
+    .order("clock_in", { ascending: false })
+    .range(options.from, options.to);
+
+  if (options.shift === "open") {
+    query = query.is("clock_out", null);
+  } else if (options.shift === "closed") {
+    query = query.not("clock_out", "is", null);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(error.message);
+  return {
+    rows: (data ?? []) as unknown as HrClockEventRow[],
+    total: count ?? data?.length ?? 0,
+  };
+}
+
+export async function loadOpenClockEvents(
+  businessId: string,
+): Promise<HrClockEventRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("hr_clock_events")
+    .select(CLOCK_EVENT_SELECT)
+    .eq("business_id", businessId)
+    .is("clock_out", null)
+    .order("clock_in", { ascending: true })
+    .limit(100);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as HrClockEventRow[];
+}
+
 export async function loadOpenClockEvent(
   admin: SupabaseClient,
   businessId: string,

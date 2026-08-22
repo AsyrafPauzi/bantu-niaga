@@ -4,9 +4,12 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  Archive,
   ArrowRight,
   Calendar,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   FileText,
   GripVertical,
@@ -16,12 +19,12 @@ import {
   MessageCircle,
   Package,
   PartyPopper,
-  Plus,
   Receipt,
   Search,
   Trash2,
   UserPlus,
   Wrench,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
@@ -30,13 +33,8 @@ import {
   ModuleListPanelFilters,
 } from "@/components/dashboard/module-list-panel";
 import { OperationsCustomerFields } from "@/components/operations/OperationsCustomerFields";
-import {
-  QuickActionBar,
-  QuickCreateActions,
-  QuickCreatePanel,
-} from "@/components/ui/quick-create";
+import { QuickCreateActions } from "@/components/ui/quick-create";
 import { InlineFeedback } from "@/components/ui/alert";
-import { useQuickCreate } from "@/hooks/use-quick-create";
 import { customerHintsFromOrders } from "@/lib/operations/customer-hints";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -157,10 +155,12 @@ export function OperationsOrderBoard({
   const [orders, setOrders] = useState(initialOrders);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const { open: showForm, toggle: toggleForm, close: closeForm } =
-    useQuickCreate({ listenForCreateParam: true });
+  const [showForm, setShowForm] = useState(false);
+  const [listPage, setListPage] = useState(1);
+  const LIST_PAGE_SIZE = 20;
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [fulfillmentType, setFulfillmentType] =
     useState<OperationsFulfillmentType>("pickup");
@@ -180,6 +180,12 @@ export function OperationsOrderBoard({
   const [linkedLeads, setLinkedLeads] = useState(leadLinks);
 
   useEffect(() => {
+    const handler = () => setShowForm(true);
+    window.addEventListener("operations:new-order", handler);
+    return () => window.removeEventListener("operations:new-order", handler);
+  }, []);
+
+  useEffect(() => {
     setLinkedLeads(leadLinks);
   }, [leadLinks]);
 
@@ -194,6 +200,10 @@ export function OperationsOrderBoard({
     () => customerHintsFromOrders(orders),
     [orders],
   );
+
+  useEffect(() => {
+    setListPage(1);
+  }, [query]);
 
   const filteredOrders = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -285,6 +295,27 @@ export function OperationsOrderBoard({
     [refresh],
   );
 
+  const archiveOrder = useCallback(
+    async (id: string) => {
+      setBusyId(id);
+      try {
+        const res = await fetch(`/api/operations/orders/${id}/archive`, {
+          method: "POST",
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({})) as { error?: { message?: string } };
+          throw new Error(json?.error?.message ?? "Archive failed.");
+        }
+        setOrders((prev) => prev.filter((o) => o.id !== id));
+        setExpandedId((cur) => (cur === id ? null : cur));
+        refresh();
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [refresh],
+  );
+
   const onCreate = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
@@ -295,6 +326,7 @@ export function OperationsOrderBoard({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            customer_id: linkedCustomerId || null,
             customer_name: customerName,
             customer_phone: customerPhone || null,
             title,
@@ -315,12 +347,13 @@ export function OperationsOrderBoard({
         setOrders((prev) => [json.data!, ...prev]);
         setCustomerName("");
         setCustomerPhone("");
+        setLinkedCustomerId(null);
         setTitle("");
         setFulfillmentType("pickup");
         setDueDate("");
         setAmount("");
         setSupplierId("");
-        closeForm();
+        setShowForm(false);
         refresh();
       } catch (err) {
         setFormError(err instanceof Error ? err.message : "Create failed.");
@@ -337,7 +370,6 @@ export function OperationsOrderBoard({
       refresh,
       supplierId,
       title,
-      closeForm,
     ],
   );
 
@@ -406,7 +438,9 @@ export function OperationsOrderBoard({
   const renderExpandedDetails = (
     order: OperationsOrderRow,
     busy: boolean,
-  ) => (
+  ) => {
+    const isDone = order.status === "done";
+    return (
     <div
       className="space-y-3 border-t border-cream-100 px-3 py-3 dark:border-hairline-dark"
       onClick={(e) => e.stopPropagation()}
@@ -475,6 +509,21 @@ export function OperationsOrderBoard({
           await patchOrder(order.id, { admin_file_id: fileId });
         }}
       />
+      {isDone ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void archiveOrder(order.id)}
+          className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-amber-200 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30"
+        >
+          {busy ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Archive className="h-3 w-3" />
+          )}
+          Archive order
+        </button>
+      ) : null}
       <button
         type="button"
         disabled={busy}
@@ -489,140 +538,132 @@ export function OperationsOrderBoard({
         Remove order
       </button>
     </div>
-  );
+    );
+  };
+
+  const pagedListOrders = useMemo(() => {
+    const start = (listPage - 1) * LIST_PAGE_SIZE;
+    return sortedListOrders.slice(start, start + LIST_PAGE_SIZE);
+  }, [sortedListOrders, listPage]);
+  const totalListPages = Math.max(1, Math.ceil(sortedListOrders.length / LIST_PAGE_SIZE));
 
   return (
     <div className="space-y-4">
-      <QuickActionBar
-        open={showForm}
-        onToggle={toggleForm}
-        actionLabel="New order"
-      />
-
-      <QuickCreatePanel
-        open={showForm}
-        onSubmit={onCreate}
-        title="New customer order"
-        subtitle="Lands in To do — advance it as you work."
-        icon={Package}
-        accent="sky"
-      >
-          <OperationsCustomerFields
-            name={customerName}
-            phone={customerPhone}
-            onNameChange={setCustomerName}
-            onPhoneChange={setCustomerPhone}
-            localHints={customerHints}
-          />
-          <div className="space-y-1">
-            <label
-              htmlFor="order-title"
-              className="text-xs font-semibold text-ink dark:text-cream-100"
-            >
-              Order details <span className="text-status-danger">*</span>
-            </label>
-            <input
-              id="order-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What did they order?"
-              required
-              className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            />
-          </div>
-          <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-            <div className="space-y-1">
-              <label
-                htmlFor="order-due-date"
-                className="text-xs font-semibold text-ink dark:text-cream-100"
-              >
-                Due date{" "}
-                <span className="font-normal text-ink-muted dark:text-cream-400">
-                  (optional)
-                </span>
-              </label>
-              <input
-                id="order-due-date"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor="order-amount"
-                className="text-xs font-semibold text-ink dark:text-cream-100"
-              >
-                Amount (RM)
-              </label>
-              <input
-                id="order-amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor="order-fulfillment"
-                className="text-xs font-semibold text-ink dark:text-cream-100"
-              >
-                Fulfillment
-              </label>
-              <select
-                id="order-fulfillment"
-                value={fulfillmentType}
-                onChange={(e) =>
-                  setFulfillmentType(e.target.value as OperationsFulfillmentType)
-                }
-                className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-              >
-                {OPERATIONS_FULFILLMENT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t === "pickup" ? "Pickup" : "Delivery"}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {suppliers.length > 0 ? (
-              <div className="space-y-1">
-                <label
-                  htmlFor="order-supplier"
-                  className="text-xs font-semibold text-ink dark:text-cream-100"
-                >
-                  Supplier
-                </label>
-                <select
-                  id="order-supplier"
-                  value={supplierId}
-                  onChange={(e) => setSupplierId(e.target.value)}
-                  className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-                >
-                  <option value="">No supplier</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+      {showForm ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-2xl rounded-2xl border border-cream-200 bg-white shadow-elevated dark:border-hairline-dark dark:bg-panel-dark">
+            <div className="flex items-center justify-between border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
+              <div>
+                <p className="text-sm font-bold text-ink dark:text-cream-100">New customer order</p>
+                <p className="text-xs text-ink-muted dark:text-cream-400">Lands in To do — advance it as you work.</p>
               </div>
-            ) : null}
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="rounded-lg p-1.5 text-ink-muted hover:bg-cream-100 hover:text-ink dark:hover:bg-hairline-dark/60 dark:hover:text-cream-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={onCreate} className="space-y-4 p-5">
+              <OperationsCustomerFields
+                name={customerName}
+                phone={customerPhone}
+                onNameChange={setCustomerName}
+                onPhoneChange={setCustomerPhone}
+                linkedCustomerId={linkedCustomerId}
+                onLink={(id, name, phone) => { setLinkedCustomerId(id); setCustomerName(name); setCustomerPhone(phone ?? ""); }}
+                onUnlink={() => setLinkedCustomerId(null)}
+                localHints={customerHints}
+              />
+              <div className="space-y-1">
+                <label htmlFor="order-title" className="text-xs font-semibold text-ink dark:text-cream-100">
+                  Order details <span className="text-status-danger">*</span>
+                </label>
+                <input
+                  id="order-title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="What did they order?"
+                  required
+                  className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                />
+              </div>
+              <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+                <div className="space-y-1">
+                  <label htmlFor="order-due-date" className="text-xs font-semibold text-ink dark:text-cream-100">
+                    Due date <span className="font-normal text-ink-muted dark:text-cream-400">(optional)</span>
+                  </label>
+                  <input
+                    id="order-due-date"
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="order-amount" className="text-xs font-semibold text-ink dark:text-cream-100">
+                    Amount (RM)
+                  </label>
+                  <input
+                    id="order-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="order-fulfillment" className="text-xs font-semibold text-ink dark:text-cream-100">
+                    Fulfillment
+                  </label>
+                  <select
+                    id="order-fulfillment"
+                    value={fulfillmentType}
+                    onChange={(e) => setFulfillmentType(e.target.value as OperationsFulfillmentType)}
+                    className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                  >
+                    {OPERATIONS_FULFILLMENT_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t === "pickup" ? "Pickup" : "Delivery"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {suppliers.length > 0 ? (
+                  <div className="space-y-1">
+                    <label htmlFor="order-supplier" className="text-xs font-semibold text-ink dark:text-cream-100">
+                      Supplier
+                    </label>
+                    <select
+                      id="order-supplier"
+                      value={supplierId}
+                      onChange={(e) => setSupplierId(e.target.value)}
+                      className="w-full rounded-xl border border-cream-300 bg-white px-3 py-2.5 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                    >
+                      <option value="">No supplier</option>
+                      {suppliers.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+              </div>
+              {formError ? <InlineFeedback>{formError}</InlineFeedback> : null}
+              <QuickCreateActions
+                submitLabel="Add to board"
+                loading={creating}
+                onCancel={() => setShowForm(false)}
+              />
+            </form>
           </div>
-          {formError ? (
-            <InlineFeedback>{formError}</InlineFeedback>
-          ) : null}
-          <QuickCreateActions
-            submitLabel="Add to board"
-            loading={creating}
-            onCancel={closeForm}
-          />
-      </QuickCreatePanel>
+        </div>
+      ) : null}
 
       <ModuleListPanel>
         <ModuleListPanelFilters>
@@ -700,8 +741,9 @@ export function OperationsOrderBoard({
             </p>
           </div>
         ) : (
+          <>
           <ul className="divide-y divide-cream-200 dark:divide-hairline-dark">
-              {sortedListOrders.map((order) => {
+              {pagedListOrders.map((order) => {
                 const overdue = isOverdue(order.due_date, order.status);
                 const busy = busyId === order.id;
                 const expanded = expandedId === order.id;
@@ -818,6 +860,32 @@ export function OperationsOrderBoard({
                 );
               })}
             </ul>
+            {totalListPages > 1 ? (
+              <div className="flex items-center justify-between border-t border-cream-200 px-4 py-3 dark:border-hairline-dark">
+                <p className="text-xs text-ink-muted dark:text-cream-400">
+                  Page {listPage} of {totalListPages} · {sortedListOrders.length} orders
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={listPage <= 1}
+                    onClick={() => setListPage((p) => p - 1)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cream-300 text-ink-muted hover:bg-cream-50 disabled:opacity-40 dark:border-hairline-dark dark:hover:bg-hairline-dark/40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={listPage >= totalListPages}
+                    onClick={() => setListPage((p) => p + 1)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cream-300 text-ink-muted hover:bg-cream-50 disabled:opacity-40 dark:border-hairline-dark dark:hover:bg-hairline-dark/40"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
         )
       ) : (
       <div

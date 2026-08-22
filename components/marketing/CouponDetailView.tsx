@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { Gift, Ticket } from "lucide-react";
+import { CalendarRange, Gift, Ticket } from "lucide-react";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import {
   ModuleDashboardHero,
   ModuleHeroStat,
 } from "@/components/dashboard/module-layout";
-import { CouponStatusBadge } from "@/components/marketing/CouponStatusBadge";
 import { formatMyr } from "@/lib/marketing/metrics";
 import { couponDetailSubpageHero } from "@/lib/marketing/subpage-hero";
 import { CouponDetailEditor } from "@/app/(app)/marketing/coupons/[id]/detail-editor";
@@ -71,7 +70,10 @@ interface CouponDetailViewProps {
   redemptions: CouponRedemptionRow[];
 }
 
-export function CouponDetailView({ coupon, redemptions }: CouponDetailViewProps) {
+export function CouponDetailView({
+  coupon,
+  redemptions,
+}: CouponDetailViewProps) {
   const hero = couponDetailSubpageHero({
     code: coupon.code,
     name: coupon.name,
@@ -93,28 +95,26 @@ export function CouponDetailView({ coupon, redemptions }: CouponDetailViewProps)
       : null;
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-4">
       <ModuleDashboardHero
         module="Marketing · Coupons"
+        pillar="marketing"
         headline={hero.headline}
         subcopy={hero.subcopy}
-        variant={hero.variant}
+        variant="calm"
         headerExtra={
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
             <StatusPill tone={statusToneOf(coupon.status)}>
               {coupon.status}
             </StatusPill>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-semibold text-violet-800 dark:bg-violet-900/40 dark:text-violet-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-cream-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400">
               <Ticket className="h-3 w-3" strokeWidth={2} />
               {coupon.type === "PCT" ? "Percentage" : "Fixed amount"}
             </span>
           </div>
         }
-        cta={
-          <CouponShareLink code={coupon.code} discountLabel={discountLabel} />
-        }
       >
-        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat
             label="Discount"
             value={discountLabel}
@@ -139,71 +139,57 @@ export function CouponDetailView({ coupon, redemptions }: CouponDetailViewProps)
             iconClassName="text-amber-700 dark:text-amber-300"
           />
         </div>
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-purple-200/40 pt-4 dark:border-purple-900/30 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted dark:text-cream-400">
+            <span className="inline-flex items-center gap-1.5 font-medium text-ink dark:text-cream-100">
+              <CalendarRange className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+              {formatValidWindow(coupon.valid_from, coupon.valid_until)}
+            </span>
+            {coupon.min_subtotal_myr > 0 ? (
+              <span>Min order {formatMyr(coupon.min_subtotal_myr)}</span>
+            ) : (
+              <span>No min order</span>
+            )}
+          </div>
+          <CouponShareLink code={coupon.code} discountLabel={discountLabel} />
+        </div>
       </ModuleDashboardHero>
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-cream-200 bg-panel-light px-5 py-4 text-sm shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-            Valid window
-          </p>
-          <p className="font-medium text-ink dark:text-cream-100">
-            {formatValidWindow(coupon.valid_from, coupon.valid_until)}
-          </p>
-        </div>
-        {coupon.min_subtotal_myr > 0 ? (
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-              Min subtotal
-            </p>
-            <p className="font-medium text-ink dark:text-cream-100">
-              {formatMyr(coupon.min_subtotal_myr)}
-            </p>
-          </div>
-        ) : null}
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:text-cream-400">
-            Status
-          </p>
-          <CouponStatusBadge status={coupon.status} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:items-start">
-        <div className="overflow-hidden rounded-2xl border border-cream-200 bg-panel-light shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <div className="border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-5">
+        <section className="overflow-hidden rounded-xl border border-cream-200 bg-panel-light shadow-sm dark:border-hairline-dark dark:bg-panel-dark">
+          <header className="border-b border-cream-200 px-4 py-3 dark:border-hairline-dark sm:px-5">
             <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
               Edit coupon
             </h2>
-            <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-              Code is immutable. Edit value, dates, limits, status, or scope
-              below.
+            <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+              Code is locked. Update value, dates, limits, or status below.
             </p>
-          </div>
-          <div className="p-5">
+          </header>
+          <div className="p-4 sm:p-5">
             <CouponDetailEditor coupon={coupon} />
           </div>
-        </div>
+        </section>
 
-        <div className="overflow-hidden rounded-2xl border border-cream-200 bg-panel-light shadow-card dark:border-hairline-dark dark:bg-panel-dark">
-          <div className="border-b border-cream-200 px-5 py-4 dark:border-hairline-dark">
+        <section className="overflow-hidden rounded-xl border border-cream-200 bg-panel-light shadow-sm dark:border-hairline-dark dark:bg-panel-dark">
+          <header className="border-b border-cream-200 px-4 py-3 dark:border-hairline-dark sm:px-5">
             <h2 className="text-sm font-semibold text-ink dark:text-cream-100">
               Redemption log
             </h2>
-            <p className="mt-1 text-xs text-ink-muted dark:text-cream-400">
-              {coupon.redeemed_count.toLocaleString()} total redemption
-              {coupon.redeemed_count === 1 ? "" : "s"}
+            <p className="mt-0.5 text-xs text-ink-muted dark:text-cream-400">
+              {coupon.redeemed_count.toLocaleString()} total
               {coupon.total_limit != null
-                ? ` of ${coupon.total_limit.toLocaleString()}`
-                : ""}
+                ? ` · ${coupon.total_limit.toLocaleString()} cap`
+                : " · unlimited"}
             </p>
-          </div>
+          </header>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-cream-100/60 text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:bg-hairline-dark/30 dark:text-cream-400">
+              <thead className="bg-cream-50 text-[11px] font-semibold uppercase tracking-wider text-ink-muted dark:bg-hairline-dark/20 dark:text-cream-400">
                 <tr>
-                  <th className="px-5 py-3 text-left">Customer</th>
-                  <th className="px-3 py-3 text-right">Discount</th>
-                  <th className="px-5 py-3 text-right">When</th>
+                  <th className="px-4 py-2.5 text-left sm:px-5">Customer</th>
+                  <th className="px-3 py-2.5 text-right">Discount</th>
+                  <th className="px-4 py-2.5 text-right sm:px-5">When</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-cream-200 dark:divide-hairline-dark">
@@ -219,11 +205,8 @@ export function CouponDetailView({ coupon, redemptions }: CouponDetailViewProps)
                   </tr>
                 ) : (
                   redemptions.map((r) => (
-                    <tr
-                      key={r.id}
-                      className="bg-panel-light dark:bg-panel-dark"
-                    >
-                      <td className="px-5 py-3">
+                    <tr key={r.id}>
+                      <td className="px-4 py-3 sm:px-5">
                         {r.customer_id ? (
                           <Link
                             href={`/marketing/customers/${r.customer_id}`}
@@ -238,7 +221,7 @@ export function CouponDetailView({ coupon, redemptions }: CouponDetailViewProps)
                         )}
                         {r.order_ref ? (
                           <p className="text-xs text-ink-muted dark:text-cream-400">
-                            Order ref:{" "}
+                            Order{" "}
                             <code className="font-mono">{r.order_ref}</code>
                           </p>
                         ) : null}
@@ -246,7 +229,7 @@ export function CouponDetailView({ coupon, redemptions }: CouponDetailViewProps)
                       <td className="px-3 py-3 text-right font-semibold tabular-nums text-ink dark:text-cream-100">
                         {formatMyr(r.discount_amount_myr)}
                       </td>
-                      <td className="px-5 py-3 text-right text-xs text-ink-muted dark:text-cream-400">
+                      <td className="px-4 py-3 text-right text-xs text-ink-muted dark:text-cream-400 sm:px-5">
                         {relativeTime(r.redeemed_at)}
                       </td>
                     </tr>
@@ -255,7 +238,7 @@ export function CouponDetailView({ coupon, redemptions }: CouponDetailViewProps)
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

@@ -16,6 +16,8 @@ export function isPublicAuthPath(pathname: string): boolean {
     path === "/sign-in" ||
     path === "/sign-up" ||
     path === "/sign-up/complete" ||
+    path === "/auth/callback" ||
+    path === "/accept-invite" ||
     path.startsWith("/legal/")
   );
 }
@@ -30,6 +32,7 @@ export function incompleteSessionDecision(opts: {
     path === "/sign-up/complete" ||
     path === "/api/auth/complete-google-signup" ||
     path === "/auth/callback" ||
+    path === "/accept-invite" ||
     path.startsWith("/legal/")
   ) {
     return "allow";

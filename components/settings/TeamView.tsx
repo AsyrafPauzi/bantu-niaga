@@ -174,15 +174,26 @@ export function TeamView({
         setInviteEmail("");
         setInviteName("");
         setInviteRole("staff");
-        if (json.dev_bypass) {
+        if (json.reattached_existing) {
           setSuccess(
-            json.dev_invite_link
-              ? `Dev invite link (no email sent): ${json.dev_invite_link}`
-              : "Member added (dev mode). Share the invite link from server logs.",
+            json.message ??
+              `${sentTo} was re-added. They can sign in with their existing password.`,
+          );
+        } else if (json.invite_email_sent) {
+          setSuccess(
+            `Invite email sent to ${sentTo}. They can set a password from the link (valid ~1 hour).`,
+          );
+        } else if (json.dev_bypass && json.dev_invite_link) {
+          setSuccess(
+            `Join link (email not sent — check RESEND / Supabase SMTP): ${json.dev_invite_link}`,
+          );
+        } else if (json.join_link || json.dev_invite_link) {
+          setSuccess(
+            `Invite ready for ${sentTo}. Share this join link: ${json.join_link ?? json.dev_invite_link}`,
           );
         } else {
           setSuccess(
-            `Invite email sent to ${sentTo}. They can set a password from the link (valid 7 days).`,
+            `Invite created for ${sentTo}. Ask them to check email, or share a new invite if nothing arrives.`,
           );
         }
         router.refresh();

@@ -17,6 +17,7 @@ export interface HrEmployeeLeaveBalance {
 
 export interface HrEmployeeRow {
   id: string;
+  user_id: string | null;
   full_name: string;
   employee_number: string | null;
   employment_type: string;
@@ -241,6 +242,10 @@ export async function loadHrLeaveRecordsForMonth(
   return (data ?? []) as unknown as HrLeaveRow[];
 }
 
+const STAFF_ME_LEAVE_SELECT =
+  "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
+  "mc_document_path, mc_document_name, mc_document_mime";
+
 export async function loadStaffMeLeaveRecords(
   businessId: string,
   employeeId: string,
@@ -248,10 +253,7 @@ export async function loadStaffMeLeaveRecords(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("hr_leave_records")
-    .select(
-      "id, employee_id, leave_type, start_date, end_date, reason, status, decision_note, created_at, " +
-        "mc_document_path, mc_document_name, mc_document_mime",
-    )
+    .select(STAFF_ME_LEAVE_SELECT)
     .eq("business_id", businessId)
     .eq("employee_id", employeeId)
     .order("start_date", { ascending: false })
@@ -259,6 +261,42 @@ export async function loadStaffMeLeaveRecords(
 
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as HrLeaveRow[];
+}
+
+export type StaffMeLeaveStatusFilter =
+  | "all"
+  | "pending"
+  | "approved"
+  | "rejected";
+
+export async function loadStaffMeLeaveRecordsPage(
+  businessId: string,
+  employeeId: string,
+  options: {
+    status?: StaffMeLeaveStatusFilter;
+    from: number;
+    to: number;
+  },
+): Promise<{ rows: HrLeaveRow[]; total: number }> {
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from("hr_leave_records")
+    .select(STAFF_ME_LEAVE_SELECT, { count: "exact" })
+    .eq("business_id", businessId)
+    .eq("employee_id", employeeId)
+    .order("start_date", { ascending: false })
+    .range(options.from, options.to);
+
+  if (options.status && options.status !== "all") {
+    query = query.eq("status", options.status);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(error.message);
+  return {
+    rows: (data ?? []) as unknown as HrLeaveRow[],
+    total: count ?? data?.length ?? 0,
+  };
 }
 
 export async function loadStaffMeLeaveRecord(
@@ -297,6 +335,40 @@ export async function loadStaffMeOnboardingItems(
 
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as HrOnboardingRow[];
+}
+
+export type StaffMeOnboardingFilter = "all" | "open" | "done";
+
+export async function loadStaffMeOnboardingItemsPage(
+  businessId: string,
+  employeeId: string,
+  options: {
+    filter?: StaffMeOnboardingFilter;
+    from: number;
+    to: number;
+  },
+): Promise<{ rows: HrOnboardingRow[]; total: number }> {
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from("hr_onboarding_items")
+    .select("id, employee_id, label, is_done", { count: "exact" })
+    .eq("business_id", businessId)
+    .eq("employee_id", employeeId)
+    .order("created_at", { ascending: true })
+    .range(options.from, options.to);
+
+  if (options.filter === "open") {
+    query = query.eq("is_done", false);
+  } else if (options.filter === "done") {
+    query = query.eq("is_done", true);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(error.message);
+  return {
+    rows: (data ?? []) as unknown as HrOnboardingRow[],
+    total: count ?? data?.length ?? 0,
+  };
 }
 
 export async function loadHrDocuments(

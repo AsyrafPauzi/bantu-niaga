@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, Paperclip, Pencil, Trash2, type LucideIcon } from "lucide-react";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
+import { FinanceTxnDetailDrawer } from "@/components/finance/FinanceTxnDetailDrawer";
 import { FinanceTxnExportButton } from "@/components/finance/FinanceTxnExportButton";
 import {
   ModuleListPanel,
@@ -67,6 +68,7 @@ export function FinanceTxnCompactList({
   highlightTxnId = null,
 }: FinanceTxnCompactListProps) {
   const [attachRowId, setAttachRowId] = useState<string | null>(null);
+  const [detailRow, setDetailRow] = useState<FinanceTransactionRow | null>(null);
   const isIncome = kind === "income";
   const amountClass = isIncome
     ? "text-emerald-700 dark:text-emerald-300"
@@ -126,10 +128,15 @@ export function FinanceTxnCompactList({
                 key={row.id}
                 id={`txn-${row.id}`}
                 className={cn(
-                  "group px-3 py-2 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60",
+                  "group cursor-pointer px-3 py-2 transition-colors hover:bg-cream-50/80 dark:hover:bg-panel-dark/60",
                   highlightTxnId === row.id &&
                     "bg-amber-50/90 ring-2 ring-inset ring-amber-300 dark:bg-amber-950/30 dark:ring-amber-700",
                 )}
+                onClick={(e) => {
+                  // Don't open drawer when clicking action buttons
+                  if ((e.target as HTMLElement).closest("button,a")) return;
+                  setDetailRow(row);
+                }}
               >
                 <div className="flex items-start gap-2">
                   <span
@@ -246,6 +253,14 @@ export function FinanceTxnCompactList({
           })}
         </ul>
       )}
+      {detailRow ? (
+        <FinanceTxnDetailDrawer
+          row={detailRow}
+          kind={kind}
+          categoryChipClass={categoryMeta(detailRow.category ?? "other").chip}
+          onClose={() => setDetailRow(null)}
+        />
+      ) : null}
     </ModuleListPanel>
   );
 }

@@ -13,6 +13,7 @@ import {
   MODULE_LIST_TABLE_ROW_CLASS,
 } from "@/components/dashboard/module-list-panel";
 import { ModuleListFilterChipLink } from "@/components/dashboard/module-list-search";
+import { ListPagination } from "@/components/ui/list-pagination";
 import { Card, CardBody } from "@/components/ui/card";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import {
@@ -20,6 +21,7 @@ import {
   UnauthorizedError,
 } from "@/lib/auth/current-user";
 import { canSurface } from "@/lib/permissions";
+import { parsePagination } from "@/lib/pagination";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { BroadcastRow } from "@/lib/marketing/broadcasts";
 import { broadcastsSubpageHero } from "@/lib/marketing/subpage-hero";
@@ -38,6 +40,8 @@ const BROADCAST_STATUS_FILTERS = [
   "partially_sent",
   "failed",
 ] as const;
+
+type BroadcastStatus = (typeof BROADCAST_STATUS_FILTERS)[number];
 
 interface ListRow extends BroadcastRow {
   customer_segments: { id: string; name: string } | null;
@@ -93,37 +97,61 @@ export default async function MarketingBroadcastsPage({
     );
   }
 
+  const params = await searchParams;
+  const pagination = parsePagination(params, { defaultPageSize: 10 });
+  const statusFilter = BROADCAST_STATUS_FILTERS.find((s) => s === params.status);
+
   const supabase = await createSupabaseServerClient();
-  const { data: dataRaw, error } = await supabase
+
+  // Summary counts across all broadcasts (for hero + filter chips).
+  const { data: statusRows } = await supabase
+    .from("broadcasts")
+    .select("status, total_recipients")
+    .eq("business_id", user.businessId);
+
+  const allRows = statusRows ?? [];
+  const countByStatus = Object.fromEntries(
+    BROADCAST_STATUS_FILTERS.map((s) => [s, 0]),
+  ) as Record<BroadcastStatus, number>;
+  let recipientsTotal = 0;
+  for (const row of allRows) {
+    const status = row.status as BroadcastStatus;
+    if (status in countByStatus) countByStatus[status] += 1;
+    recipientsTotal += Number(row.total_recipients ?? 0);
+  }
+  const totalAll = allRows.length;
+  const draftCount = countByStatus.draft;
+  const sentCount = countByStatus.sent + countByStatus.partially_sent;
+
+  let listQuery = supabase
     .from("broadcasts")
     .select(
       "id, business_id, name, channel, segment_id, subject, message_template, " +
         "coupon_id, status, total_recipients, sent_count, failed_count, " +
         "scheduled_at, sent_at, created_by, created_at, updated_at, " +
         "customer_segments:segment_id (id, name)",
+      { count: "exact" },
     )
     .eq("business_id", user.businessId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(pagination.from, pagination.to);
 
-  const rows = (dataRaw ?? []) as unknown as ListRow[];
-  const statusParam = (await searchParams).status;
-  const statusFilter = BROADCAST_STATUS_FILTERS.find((s) => s === statusParam);
-  const filtered = statusFilter
-    ? rows.filter((r) => r.status === statusFilter)
-    : rows;
+  if (statusFilter) {
+    listQuery = listQuery.eq("status", statusFilter);
+  }
 
-  function statusHref(status: (typeof BROADCAST_STATUS_FILTERS)[number] | null) {
+  const { data: dataRaw, error, count } = await listQuery;
+  const filtered = (dataRaw ?? []) as unknown as ListRow[];
+  const listTotal = count ?? filtered.length;
+
+  function statusHref(status: BroadcastStatus | null) {
     return status
       ? `/marketing/broadcasts?status=${status}`
       : "/marketing/broadcasts";
   }
 
-  const draftCount = rows.filter((r) => r.status === "draft").length;
-  const sentCount = rows.filter(
-    (r) => r.status === "sent" || r.status === "partially_sent",
-  ).length;
   const hero = broadcastsSubpageHero({
-    total: rows.length,
+    total: totalAll,
     draftCount,
     sentCount,
   });
@@ -133,11 +161,20 @@ export default async function MarketingBroadcastsPage({
       headline={hero.headline}
       subcopy={hero.subcopy}
       variant={hero.variant}
+      action={
+        <Link
+          href="/marketing/broadcasts/new"
+          className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-700"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.25} />
+          New broadcast
+        </Link>
+      }
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat
             label="Total"
-            value={rows.length}
+            value={totalAll}
             iconClassName="text-violet-700 dark:text-violet-300"
           />
           <ModuleHeroStat
@@ -152,7 +189,7 @@ export default async function MarketingBroadcastsPage({
           />
           <ModuleHeroStat
             label="Recipients"
-            value={rows.reduce((n, r) => n + (r.total_recipients ?? 0), 0)}
+            value={recipientsTotal}
             iconClassName="text-amber-700 dark:text-amber-300"
           />
         </div>
@@ -169,16 +206,7 @@ export default async function MarketingBroadcastsPage({
       <ModuleListPanel>
         <ModuleListPanelHeader
           title="Broadcasts"
-          subtitle={`${filtered.length} shown`}
-          action={
-            <Link
-              href="/marketing/broadcasts/new"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
-            >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-              New broadcast
-            </Link>
-          }
+          subtitle={`${listTotal} shown`}
         />
         <ModuleListPanelFilters>
           <nav
@@ -190,7 +218,7 @@ export default async function MarketingBroadcastsPage({
               active={!statusFilter}
               accent="violet"
               label="All"
-              count={rows.length}
+              count={totalAll}
             />
             {BROADCAST_STATUS_FILTERS.map((s) => (
               <ModuleListFilterChipLink
@@ -199,7 +227,7 @@ export default async function MarketingBroadcastsPage({
                 active={statusFilter === s}
                 accent="violet"
                 label={s.replace("_", " ")}
-                count={rows.filter((r) => r.status === s).length}
+                count={countByStatus[s]}
               />
             ))}
           </nav>
@@ -291,6 +319,17 @@ export default async function MarketingBroadcastsPage({
             )}
           </ModuleListTableBody>
         </ModuleListTable>
+        <ListPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={listTotal}
+          basePath="/marketing/broadcasts"
+          searchParams={{
+            status: statusFilter ?? undefined,
+          }}
+          pageSizeOptions={[10, 25, 50]}
+          className="border-t border-cream-200 dark:border-hairline-dark"
+        />
       </ModuleListPanel>
     </MarketingSubpageShell>
   );

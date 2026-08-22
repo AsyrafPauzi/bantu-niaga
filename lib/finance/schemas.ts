@@ -17,6 +17,7 @@ export const FINANCE_INVOICE_STATUSES = [
   "sent",
   "paid",
   "void",
+  "partially_paid",
 ] as const;
 export type FinanceInvoiceStatus = (typeof FINANCE_INVOICE_STATUSES)[number];
 
@@ -216,6 +217,8 @@ export interface FinanceTransactionRow {
   txn_date: string;
   finance_invoice_id: string | null;
   operations_order_id?: string | null;
+  operations_booking_id?: string | null;
+  customer_id?: string | null;
   admin_file_id: string | null;
   admin_file_name?: string | null;
   created_by: string;
@@ -271,6 +274,7 @@ export interface FinanceInvoiceRow {
   tax_pct: number;
   shipping_myr: number;
   total_myr: number;
+  amount_paid_myr: number;
   status: FinanceInvoiceStatus;
   due_date: string | null;
   notes: string | null;

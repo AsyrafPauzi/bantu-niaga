@@ -9,7 +9,7 @@ import { notifyOperationsBookingStatusChanged } from "@/lib/operations/notify";
 export const dynamic = "force-dynamic";
 
 const BOOKING_SELECT =
-  "id, business_id, number, resource_id, customer_name, customer_phone, " +
+  "id, business_id, number, resource_id, customer_id, customer_name, customer_phone, " +
   "service_title, starts_at, ends_at, status, amount_myr, notes, completed_at, " +
   "created_by, created_at, updated_at";
 
@@ -200,6 +200,17 @@ export async function PATCH(
       serviceTitle: row.service_title,
       status: row.status,
     });
+
+    if (parsed.status === "completed" && existing.status !== "completed") {
+      const { recordIncomeFromBooking } = await import(
+        "@/lib/operations/booking-income"
+      );
+      void recordIncomeFromBooking(supabase, {
+        businessId: user.businessId,
+        bookingId: id,
+        userId: user.id,
+      });
+    }
   }
 
   return NextResponse.json({ ok: true, data }, { status: 200 });

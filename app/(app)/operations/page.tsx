@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { OperationsGuideJourney } from "@/components/operations/OperationsGuideJourney";
-import { OperationsMobileFab } from "@/components/operations/OperationsMobileFab";
 import { OperationsOverview } from "@/components/operations/OperationsOverview";
 import { getCurrentUser, UnauthorizedError } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
@@ -45,7 +44,6 @@ export default async function OperationsPage() {
     <div className="space-y-4">
       <OperationsGuideJourney businessId={user.businessId} />
       <OperationsOverview data={data} profile={profile} />
-      <OperationsMobileFab />
     </div>
   );
 }

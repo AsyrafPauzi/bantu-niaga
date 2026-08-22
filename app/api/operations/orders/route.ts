@@ -149,6 +149,7 @@ export async function POST(request: Request) {
     .insert({
       business_id: user.businessId,
       number,
+      customer_id: parsed.customer_id ?? null,
       customer_name: parsed.customer_name,
       customer_phone: parsed.customer_phone ?? null,
       title: parsed.title,

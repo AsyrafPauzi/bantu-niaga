@@ -21,7 +21,6 @@ import {
   ModuleQuickActions,
 } from "@/components/dashboard/module-layout";
 import { SalesBackLink } from "@/components/sales/SalesBackLink";
-import { SalesMobileFab } from "@/components/sales/SalesMobileFab";
 import { getSessionLocale } from "@/lib/i18n/session-locale";
 import { createNamespacedTranslator } from "@/lib/i18n/translator";
 import { formatMyr } from "@/lib/marketing/metrics";
@@ -165,27 +164,27 @@ export async function SalesOverview({
 
   return (
     <ModuleDashboardShell className="pb-20 md:pb-8">
-      <SalesBackLink href="/home" label="Home" />
+      <div className="flex items-center justify-between gap-3">
+        <SalesBackLink href="/home" label="Home" />
+        {showPos ? (
+          <Link
+            href="/sales/pos"
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
+              salesTheme.btnPrimary,
+            )}
+          >
+            <Plus className="h-4 w-4" strokeWidth={2} />
+            {t("newSale")}
+          </Link>
+        ) : null}
+      </div>
 
       <ModuleDashboardHero
         module="Sales"
         pillar="sales"
         headline={heroHeadline}
         subcopy={heroSub}
-        cta={
-          showPos ? (
-            <Link
-              href="/sales/pos"
-              className={cn(
-                "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors",
-                salesTheme.btnPrimary,
-              )}
-            >
-              <Plus className="h-4 w-4" strokeWidth={2} />
-              {t("newSale")}
-            </Link>
-          ) : null
-        }
       >
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat
@@ -422,7 +421,6 @@ export async function SalesOverview({
         <ModuleQuickActions module="Sales" pillar="sales" actions={quickActions} />
       ) : null}
 
-      {showPos ? <SalesMobileFab /> : null}
     </ModuleDashboardShell>
   );
 }

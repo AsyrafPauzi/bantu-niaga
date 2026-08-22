@@ -34,3 +34,19 @@ export function filterLeaveTypesByEnabled<T extends { key: LeaveTypeKey }>(
   const filtered = types.filter((t) => set.has(t.key));
   return filtered.length > 0 ? filtered : [...types];
 }
+
+/**
+ * Staff may only apply for leave types that have a quota (or unpaid).
+ * Unconfigured types (e.g. Emergency with no days set) stay hidden.
+ */
+export function filterLeaveTypesWithQuota<T extends { key: LeaveTypeKey }>(
+  types: readonly T[],
+  quotaByType: Readonly<Partial<Record<LeaveTypeKey, number | null>>>,
+): T[] {
+  return types.filter((t) => {
+    if (t.key === "unpaid") return true;
+    const quota = quotaByType[t.key];
+    return typeof quota === "number" && Number.isFinite(quota);
+  });
+}
+

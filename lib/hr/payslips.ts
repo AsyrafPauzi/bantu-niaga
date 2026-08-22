@@ -147,6 +147,40 @@ export async function listHrPayslips(
   );
 }
 
+export async function listHrPayslipsPage(
+  businessId: string,
+  options: {
+    employeeId: string;
+    year?: number | "all";
+    from: number;
+    to: number;
+  },
+): Promise<{ rows: HrPayslipRow[]; total: number }> {
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from("hr_payslips")
+    .select(PAYSLIP_SELECT, { count: "exact" })
+    .eq("business_id", businessId)
+    .eq("employee_id", options.employeeId)
+    .order("period_start", { ascending: false })
+    .range(options.from, options.to);
+
+  if (typeof options.year === "number" && Number.isFinite(options.year)) {
+    const start = `${options.year}-01-01`;
+    const end = `${options.year}-12-31`;
+    query = query.gte("period_start", start).lte("period_start", end);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(error.message);
+  return {
+    rows: (data ?? []).map((row) =>
+      mapPayslipRow(row as unknown as Record<string, unknown>),
+    ),
+    total: count ?? data?.length ?? 0,
+  };
+}
+
 export async function loadHrPayslip(
   businessId: string,
   payslipId: string,

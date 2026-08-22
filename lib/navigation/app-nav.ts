@@ -19,7 +19,7 @@ import {
 import type { Pillar } from "@/lib/auth/entitlements";
 import type { BusinessType } from "@/lib/onboarding/plan-quiz";
 import { getOperationsNavSubItems } from "@/lib/operations/vertical";
-import type { Role } from "@/lib/permissions";
+import { can, canSurface, type Role } from "@/lib/permissions";
 
 export interface NavSubItem {
   href: string;
@@ -161,9 +161,121 @@ export function buildAppNavGroups(
   ];
 }
 
+/**
+ * Hide nav the current Team role cannot use. Subscription locks still apply
+ * separately via `hasPillar` in the shell.
+ */
+export function filterAppNavGroupsForRole(
+  groups: NavGroup[],
+  role: Role,
+): NavGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .map((item) => filterNavItemForRole(item, role))
+        .filter((item): item is NavItem => item !== null),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+function filterNavItemForRole(item: NavItem, role: Role): NavItem | null {
+  if (item.href === "/") return item;
+  if (item.href === "/settings") return item;
+
+  if (item.href === "/boardroom") {
+    return can(role, "boardroom") ? item : null;
+  }
+  if (item.href === "/marketplace") {
+    return can(role, "marketplace") ? item : null;
+  }
+
+  if (!item.pillar) return item;
+  if (!can(role, item.pillar)) return null;
+
+  // Narrow roles: deep-link to the one surface they actually use.
+  if (role === "staff" && item.pillar === "hr") {
+    return {
+      ...item,
+      href: "/hr/me",
+      label: "My HR",
+      subItems: undefined,
+    };
+  }
+  if (role === "staff" && item.pillar === "admin") {
+    return {
+      ...item,
+      href: "/admin/tasks",
+      label: "Tasks",
+      subItems: undefined,
+    };
+  }
+  if (role === "cashier" && item.pillar === "sales") {
+    return {
+      ...item,
+      href: "/sales/pos",
+      label: "POS",
+      subItems: undefined,
+    };
+  }
+
+  if (!item.subItems?.length) return item;
+
+  const filteredSubs = item.subItems.filter((sub) =>
+    navSubItemAllowed(role, item.pillar!, sub.href),
+  );
+
+  // If they only have partial surface access and every overview sub-route
+  // was stripped, keep the pillar root when any surface remains — otherwise
+  // drop empty modules.
+  if (filteredSubs.length === 0) {
+    // Operations / full-* pillars with unknown sub paths: keep root.
+    if (item.pillar === "operations") return item;
+    return null;
+  }
+
+  return { ...item, subItems: filteredSubs };
+}
+
+function navSubItemAllowed(
+  role: Role,
+  pillar: Pillar,
+  href: string,
+): boolean {
+  const surface = surfaceKeyFromHref(href);
+  if (!surface) {
+    // Pillar overview link (e.g. /hr) — allow when role has any access.
+    return can(role, pillar);
+  }
+  return canSurface(role, pillar, surface);
+}
+
+function surfaceKeyFromHref(href: string): string | null {
+  const parts = href.split("/").filter(Boolean);
+  if (parts.length < 2) return null;
+  // /hr → overview (no surface key)
+  if (parts.length === 1) return null;
+  const leaf = parts[parts.length - 1]!;
+  // Map path segments that differ from permission surface keys.
+  if (leaf === "storage") return "storage";
+  if (leaf === "tasks") return "tasks";
+  if (leaf === "compliance") return "compliance";
+  if (leaf === "documents") return "documents";
+  if (href === "/hr") return null;
+  if (href.startsWith("/hr/")) {
+    if (leaf === "employees") return "employees";
+    if (leaf === "leave") return "leave";
+    if (leaf === "holidays") return "holidays";
+    if (leaf === "me") return "leave";
+  }
+  return leaf;
+}
+
 export function isNavSectionActive(href: string, pathname: string): boolean {
   if (href === "/") return pathname === "/";
   if (href === "/hr") {
+    // Full HR module — do not treat /hr/me as the manager HR section.
+    if (pathname === "/hr/me" || pathname.startsWith("/hr/me/")) return false;
     return pathname === "/hr" || pathname.startsWith("/hr/");
   }
   return pathname === href || pathname.startsWith(`${href}/`);

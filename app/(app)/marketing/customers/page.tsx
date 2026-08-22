@@ -2,8 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Plus,
   Search,
@@ -20,8 +18,8 @@ import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import {
   ModuleListPanel,
   ModuleListPanelFilters,
-  ModuleListPanelFooter,
 } from "@/components/dashboard/module-list-panel";
+import { ListPagination } from "@/components/ui/list-pagination";
 import { Card, CardBody } from "@/components/ui/card";
 import { AiBanner } from "@/components/dashboard/ai-banner";
 import { cn } from "@/lib/utils/cn";
@@ -156,9 +154,6 @@ export default async function CustomersPage({ searchParams }: PageProps) {
 
   const rows = (data ?? []) as unknown as CustomerListRow[];
   const total = count ?? 0;
-  const pageStart = total === 0 ? 0 : (query.page - 1) * query.pageSize + 1;
-  const pageEnd = Math.min(total, query.page * query.pageSize);
-  const pageCount = Math.max(1, Math.ceil(total / query.pageSize));
 
   // Build base href that preserves filters between pages.
   const baseParams = new URLSearchParams();
@@ -170,14 +165,8 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     baseParams.set("min_spend", String(query.min_spend));
   if (typeof query.max_spend === "number")
     baseParams.set("max_spend", String(query.max_spend));
-  baseParams.set("pageSize", String(query.pageSize));
   baseParams.set("sort", query.sort);
   baseParams.set("order", query.order);
-  const pageHref = (p: number) => {
-    const u = new URLSearchParams(baseParams);
-    u.set("page", String(p));
-    return `/marketing/customers?${u.toString()}`;
-  };
 
   const sortHref = (field: typeof query.sort) => {
     const u = new URLSearchParams(baseParams);
@@ -222,11 +211,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       headline={hero.headline}
       subcopy={hero.subcopy}
       variant={hero.variant}
-      cta={
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+      action={
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <Link
             href="/marketing/customers/import"
-            className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-violet-800 shadow-sm transition-colors hover:bg-white dark:border-violet-900/50 dark:bg-panel-dark/80 dark:text-violet-200"
+            className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-violet-800 shadow-sm transition-colors hover:bg-violet-50 dark:border-violet-900/50 dark:bg-panel-dark dark:text-violet-200 dark:hover:bg-hairline-dark/40"
           >
             <Upload className="h-4 w-4" strokeWidth={2} />
             Import CSV
@@ -429,27 +418,29 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           }}
         />
 
-        <ModuleListPanelFooter>
-          <p>
-            Showing {pageStart}–{pageEnd} of {total}
-          </p>
-          <div className="flex items-center gap-1.5">
-            <Pager
-              disabled={query.page <= 1}
-              href={query.page > 1 ? pageHref(query.page - 1) : undefined}
-              icon={<ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.25} />}
-              label="Previous"
-            />
-            <PageBadge label={String(query.page)} active />
-            <span className="text-[11px] text-ink-subtle">of {pageCount}</span>
-            <Pager
-              disabled={query.page >= pageCount}
-              href={query.page < pageCount ? pageHref(query.page + 1) : undefined}
-              icon={<ChevronRight className="h-3.5 w-3.5" strokeWidth={2.25} />}
-              label="Next"
-            />
-          </div>
-        </ModuleListPanelFooter>
+        <ListPagination
+          page={query.page}
+          pageSize={query.pageSize}
+          total={total}
+          basePath="/marketing/customers"
+          searchParams={{
+            q: query.q || undefined,
+            tags: query.tags?.length ? query.tags.join(",") : undefined,
+            source: query.source || undefined,
+            min_spend:
+              typeof query.min_spend === "number"
+                ? String(query.min_spend)
+                : undefined,
+            max_spend:
+              typeof query.max_spend === "number"
+                ? String(query.max_spend)
+                : undefined,
+            sort: query.sort,
+            order: query.order,
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
+          className="border-t border-cream-200 dark:border-hairline-dark"
+        />
       </ModuleListPanel>
 
         {(snapshot.dormantCount > 0 || snapshot.atRiskCount > 0) &&
@@ -463,47 +454,5 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         ) : null}
       </div>
     </MarketingSubpageShell>
-  );
-}
-
-function PageBadge({ label, active }: { label: string; active?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-7 min-w-7 items-center justify-center rounded-md border px-2 text-[11px] font-semibold",
-        active
-          ? "border-brand-500 bg-brand-500 text-white"
-          : "border-cream-300 bg-white text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function Pager({
-  disabled,
-  href,
-  icon,
-  label,
-}: {
-  disabled: boolean;
-  href?: string;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  const base =
-    "inline-flex h-7 w-7 items-center justify-center rounded-md border border-cream-300 bg-white text-ink-muted dark:border-hairline-dark dark:bg-panel-dark";
-  if (disabled || !href) {
-    return (
-      <span aria-label={label} className={`${base} opacity-40`}>
-        {icon}
-      </span>
-    );
-  }
-  return (
-    <Link href={href} aria-label={label} className={`${base} hover:text-ink`}>
-      {icon}
-    </Link>
   );
 }

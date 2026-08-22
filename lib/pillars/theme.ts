@@ -137,9 +137,9 @@ export const pillarClasses: Record<Pillar, PillarClasses> = {
     link: "font-semibold text-[#9333EA] hover:underline dark:text-purple-400",
     avatar:
       "bg-purple-50 text-[#9333EA] dark:bg-purple-950/50 dark:text-purple-300",
-    heroBorder: "border-purple-200/80 dark:border-purple-900/50",
+    heroBorder: "border-purple-200/80 dark:border-purple-900/40",
     heroBg:
-      "bg-gradient-to-br from-purple-50/90 via-white to-cream-100 dark:from-purple-950/30 dark:via-panel-dark dark:to-surface-dark",
+      "bg-gradient-to-br from-purple-50/90 via-white to-cream-100 dark:from-purple-950/15 dark:via-panel-dark dark:to-surface-dark",
     iconBox:
       "bg-purple-50 text-[#9333EA] dark:bg-purple-950/50 dark:text-purple-300",
     chip: "bg-purple-50 text-[#7E22CE] dark:bg-purple-950/40 dark:text-purple-300",

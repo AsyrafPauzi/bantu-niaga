@@ -31,11 +31,16 @@ import { cn } from "@/lib/utils/cn";
 
 type StatusFilter = "all" | "active" | "inactive" | "incomplete";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+const DEFAULT_PAGE_SIZE = 10;
 const FILTER_CHIP_ACTIVE =
   "border-[#0D9488] bg-[#0D9488] text-white shadow-sm";
 const FILTER_CHIP_IDLE =
   "border-cream-300 bg-white text-ink-muted hover:border-teal-300 hover:text-teal-800 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400 dark:hover:border-teal-700 dark:hover:text-teal-200";
+
+const TH =
+  "px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-cream-500";
+const TD = "px-3 py-2 align-middle text-xs text-ink-muted dark:text-cream-400";
 
 function employmentLabel(type: string): string {
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -72,6 +77,7 @@ export function HrEmployeesView({
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
   const stats = useMemo(() => {
     const active = employees.filter((e) => e.status === "active").length;
@@ -119,14 +125,14 @@ export function HrEmployeesView({
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter]);
+  }, [query, statusFilter, pageSize]);
 
   const { items: pageItems, total: filteredTotal } = useMemo(
-    () => paginateArray(filtered, page, PAGE_SIZE),
-    [filtered, page],
+    () => paginateArray(filtered, page, pageSize),
+    [filtered, page, pageSize],
   );
 
-  const pageCount = totalPages(filteredTotal, PAGE_SIZE);
+  const pageCount = totalPages(filteredTotal, pageSize);
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
@@ -151,8 +157,8 @@ export function HrEmployeesView({
   }, [stats]);
 
   const pageStart =
-    filteredTotal === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const pageEnd = Math.min(filteredTotal, page * PAGE_SIZE);
+    filteredTotal === 0 ? 0 : (page - 1) * pageSize + 1;
+  const pageEnd = Math.min(filteredTotal, page * pageSize);
 
   function clearFilters() {
     setQuery("");
@@ -290,18 +296,31 @@ export function HrEmployeesView({
               </div>
             ) : (
               <>
-                <div className="hidden md:block">
+                <div className="hidden overflow-x-auto md:block">
                   <ModuleListTable>
                     <ModuleListTableHead>
                       <tr>
-                        <th className="px-5 py-3 text-left">Employee</th>
-                        <th className="px-3 py-3 text-left">Role</th>
-                        <ThHide at="lg">Type</ThHide>
-                        <th className="px-3 py-3 text-left">Status</th>
-                        <ThHide at="lg">Setup</ThHide>
-                        <ThHide at="lg">Onboarding</ThHide>
-                        <ThHide at="lg">Email</ThHide>
-                        <ThHide at="lg" className="px-5 py-3 text-right">Joined</ThHide>
+                        <th className={cn(TH, "min-w-[11rem] pl-4")}>Employee</th>
+                        <th className={cn(TH, "min-w-[8rem]")}>Role</th>
+                        <ThHide at="lg" className={cn(TH, "min-w-[5.5rem]")}>
+                          Type
+                        </ThHide>
+                        <th className={cn(TH, "min-w-[5rem]")}>Status</th>
+                        <ThHide at="lg" className={cn(TH, "min-w-[5rem]")}>
+                          Setup
+                        </ThHide>
+                        <ThHide at="lg" className={cn(TH, "min-w-[4.5rem]")}>
+                          Onboard
+                        </ThHide>
+                        <ThHide at="lg" className={cn(TH, "min-w-[9rem]")}>
+                          Email
+                        </ThHide>
+                        <ThHide
+                          at="lg"
+                          className={cn(TH, "min-w-[6.75rem] pr-4 text-right")}
+                        >
+                          Joined
+                        </ThHide>
                       </tr>
                     </ModuleListTableHead>
                     <ModuleListTableBody>
@@ -332,20 +351,48 @@ export function HrEmployeesView({
                   ))}
                 </div>
 
-                {filteredTotal > PAGE_SIZE ? (
-                  <ModuleListPanelFooter>
-                    <p>
+                <ModuleListPanelFooter className="justify-between">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-xs text-ink-muted dark:text-cream-400">
                       Showing {pageStart}–{pageEnd} of {filteredTotal}
                     </p>
-                    <RosterPagination
-                      page={page}
-                      pageSize={PAGE_SIZE}
-                      total={filteredTotal}
-                      onPageChange={setPage}
-                      embedded
-                    />
-                  </ModuleListPanelFooter>
-                ) : null}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
+                        Per page
+                      </span>
+                      <div className="inline-flex overflow-hidden rounded-lg border border-cream-300 bg-white dark:border-hairline-dark dark:bg-panel-dark">
+                        {PAGE_SIZE_OPTIONS.map((size, i) => {
+                          const active = size === pageSize;
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => setPageSize(size)}
+                              aria-current={active ? "page" : undefined}
+                              className={cn(
+                                "inline-flex h-7 min-w-8 items-center justify-center px-2 text-[11px] font-semibold transition-colors",
+                                active
+                                  ? "bg-ink text-white dark:bg-cream-100 dark:text-ink"
+                                  : "text-ink-muted hover:bg-cream-100 hover:text-ink dark:hover:bg-hairline-dark",
+                                i > 0 &&
+                                  "border-l border-cream-300 dark:border-hairline-dark",
+                              )}
+                            >
+                              {size}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <RosterPagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={filteredTotal}
+                    onPageChange={setPage}
+                    embedded
+                  />
+                </ModuleListPanelFooter>
               </>
             )}
           </ModuleListPanel>
@@ -390,60 +437,65 @@ function EmployeeTableRow({
 
   return (
     <tr className={MODULE_LIST_TABLE_ROW_CLASS}>
-      <td className="px-5 py-3">
+      <td className={cn(TD, "pl-4")}>
         <Link
           href={`/hr/employees/${employee.id}`}
-          className="flex items-center gap-3"
+          className="flex min-w-0 items-center gap-2"
         >
           <span
             className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold uppercase",
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold uppercase",
               hrClasses.avatar,
             )}
           >
             {initials(employee.full_name)}
           </span>
           <div className="min-w-0">
-            <span className="font-semibold text-ink hover:text-[#0D9488] dark:text-cream-100 dark:hover:text-teal-300">
+            <p className="truncate text-xs font-semibold text-ink hover:text-[#0D9488] dark:text-cream-100 dark:hover:text-teal-300">
               {employee.full_name}
-            </span>
+            </p>
             {employee.employee_number ? (
-              <p className="text-[11px] font-medium text-ink-muted dark:text-cream-500">
+              <p className="truncate text-[10px] tabular-nums text-ink-subtle dark:text-cream-500">
                 {employee.employee_number}
               </p>
             ) : null}
           </div>
         </Link>
       </td>
-      <td className="px-3 py-3 text-sm text-ink-muted dark:text-cream-400">
-        {employee.role_title}
+      <td className={TD}>
+        <span className="line-clamp-2">{employee.role_title}</span>
       </td>
-      <TableColHide at="lg" className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
-        {employmentLabel(employee.employment_type)}
+      <TableColHide at="lg" className={TD}>
+        <span className="whitespace-nowrap">
+          {employmentLabel(employee.employment_type)}
+        </span>
       </TableColHide>
-      <td className="px-3 py-3">
-        <StatusPill tone={statusTone(employee.status)}>
+      <td className={cn(TD, "text-ink dark:text-cream-100")}>
+        <StatusPill
+          tone={statusTone(employee.status)}
+          className="px-1.5 py-0 text-[10px]"
+        >
           {statusLabel(employee.status)}
         </StatusPill>
       </td>
-      <TableColHide at="lg" className="px-3 py-3 text-xs">
+      <TableColHide at="lg" className={TD}>
         {incomplete ? (
-          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <span className="whitespace-nowrap font-semibold text-amber-800 dark:text-amber-200">
             {pendingSetup} pending
           </span>
         ) : (
-          <span className="text-ink-subtle dark:text-cream-500">Complete</span>
+          <span className="text-ink-subtle dark:text-cream-500">—</span>
         )}
       </TableColHide>
-      <TableColHide at="lg" className="px-3 py-3 text-xs">
+      <TableColHide at="lg" className={TD}>
         {onboardingPercent != null ? (
           <Link
             href={`/hr/employees/${employee.id}?tab=onboarding`}
             className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 font-semibold tabular-nums",
+              "font-semibold tabular-nums",
               onboardingPercent >= 100
-                ? "bg-teal-50 text-[#0F766E] dark:bg-teal-950/40 dark:text-teal-200"
-                : "bg-cream-100 text-ink-muted dark:bg-hairline-dark dark:text-cream-300",
+                ? "text-[#0F766E] dark:text-teal-200"
+                : "text-ink-muted dark:text-cream-300",
             )}
           >
             {onboardingPercent}%
@@ -452,10 +504,15 @@ function EmployeeTableRow({
           <span className="text-ink-subtle dark:text-cream-500">—</span>
         )}
       </TableColHide>
-      <TableColHide at="lg" className="px-3 py-3 text-xs text-ink-muted dark:text-cream-400">
-        {employee.email ?? "—"}
+      <TableColHide at="lg" className={cn(TD, "max-w-[11rem]")}>
+        <span className="block truncate" title={employee.email ?? undefined}>
+          {employee.email ?? "—"}
+        </span>
       </TableColHide>
-      <TableColHide at="lg" className="px-5 py-3 text-right text-xs text-ink-muted dark:text-cream-400">
+      <TableColHide
+        at="lg"
+        className={cn(TD, "pr-4 text-right tabular-nums whitespace-nowrap")}
+      >
         {fmtJoined(employee.start_date)}
       </TableColHide>
     </tr>

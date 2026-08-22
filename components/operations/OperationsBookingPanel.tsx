@@ -1,21 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar } from "lucide-react";
 import { BookingEditForm } from "@/components/operations/BookingEditForm";
 import { BookingListFilters } from "@/components/operations/BookingListFilters";
 import { BookingListItem } from "@/components/operations/BookingListItem";
 import { BookingResourcesSection } from "@/components/operations/BookingResourcesSection";
-import {
-  OperationsCatalogList,
-} from "@/components/operations/OperationsCatalogUi";
-import {
-  QuickActionBar,
-  QuickCreateActions,
-  QuickCreatePanel,
-} from "@/components/ui/quick-create";
+import { OperationsCatalogList } from "@/components/operations/OperationsCatalogUi";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { QuickCreateActions } from "@/components/ui/quick-create";
+import { Modal, ModalBody, ModalFooter, ModalHeader } from "@/components/ui/modal";
 import { InlineFeedback } from "@/components/ui/alert";
+import { CustomerPicker, type CustomerPickerValue } from "@/components/operations/CustomerPicker";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import {
   type OperationsBookingResourceRow,
@@ -35,6 +32,9 @@ interface OperationsBookingPanelProps {
   initialServices: OperationsServiceRow[];
   employees?: BookingEmployee[];
   leaveBlocks?: OperationsLeaveBlockRow[];
+  page?: number;
+  pageSize?: number;
+  total?: number;
 }
 
 function toMalaysiaYmd(d: Date): string {
@@ -54,14 +54,18 @@ export function OperationsBookingPanel({
   initialServices,
   employees = [],
   leaveBlocks = [],
+  page = 1,
+  pageSize = 10,
+  total = 0,
 }: OperationsBookingPanelProps) {
   const router = useRouter();
   const [bookings, setBookings] = useState(initialBookings);
   const [resources, setResources] = useState(initialResources);
-  const { open: showForm, toggle: toggleForm, close: closeForm } =
+  const { open: showForm, close: closeForm, openPanel: openForm } =
     useQuickCreate();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [linkedCustomer, setLinkedCustomer] = useState<CustomerPickerValue | null>(null);
   const [serviceTitle, setServiceTitle] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [resourceId, setResourceId] = useState("");
@@ -145,6 +149,11 @@ export function OperationsBookingPanel({
       setEditingBookingId(booking.id);
       setCustomerName(booking.customer_name);
       setCustomerPhone(booking.customer_phone ?? "");
+      setLinkedCustomer(
+        booking.customer_id
+          ? { id: booking.customer_id, name: booking.customer_name, phone_e164: booking.customer_phone }
+          : null,
+      );
       setServiceTitle(booking.service_title);
       setServiceId(booking.service_id ?? "");
       setResourceId(booking.resource_id ?? "");
@@ -172,7 +181,14 @@ export function OperationsBookingPanel({
     setNotes("");
     setEditingBookingId(null);
     setFormError(null);
+    setLinkedCustomer(null);
   }, []);
+
+  useEffect(() => {
+    const handler = () => { resetBookingForm(); openForm(); };
+    window.addEventListener("operations:new-booking", handler);
+    return () => window.removeEventListener("operations:new-booking", handler);
+  }, [resetBookingForm, openForm]);
 
   const upcoming = useMemo(() => {
     const now = Date.now();
@@ -198,6 +214,7 @@ export function OperationsBookingPanel({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            customer_id: linkedCustomer?.id ?? null,
             customer_name: customerName,
             customer_phone: customerPhone || null,
             service_title: serviceTitle,
@@ -271,6 +288,7 @@ export function OperationsBookingPanel({
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              customer_id: linkedCustomer?.id ?? null,
               customer_name: customerName,
               customer_phone: customerPhone || null,
               service_title: serviceTitle,
@@ -445,182 +463,110 @@ export function OperationsBookingPanel({
         onRefresh={refresh}
       />
 
-      <QuickActionBar
-        open={showForm}
-        onToggle={() => {
-          if (showForm) {
-            closeForm();
-            resetBookingForm();
-          } else {
-            resetBookingForm();
-            toggleForm();
-          }
-        }}
-        actionLabel="New booking"
-      />
+      {/* ── New booking modal ─────────────────────────────────────── */}
+      <Modal open={showForm} onClose={() => { closeForm(); resetBookingForm(); }} size="lg">
+        <ModalHeader
+          title="New booking"
+          description="Customer, service, and time slot."
+          onClose={() => { closeForm(); resetBookingForm(); }}
+        />
+        <ModalBody>
+          <form id="new-booking-form" onSubmit={onCreateBooking} className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <CustomerPicker
+                customerName={customerName}
+                onCustomerNameChange={setCustomerName}
+                linkedCustomer={linkedCustomer}
+                onLink={(c) => { setLinkedCustomer(c); setCustomerPhone(c.phone_e164 ?? ""); }}
+                onUnlink={() => setLinkedCustomer(null)}
+                required
+              />
+              <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Phone / WhatsApp" className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+            </div>
+            <input type="text" value={serviceTitle} onChange={(e) => setServiceTitle(e.target.value)} placeholder="Service (e.g. Haircut, Homestay night) *" required className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+            {activeServices.length > 0 ? (
+              <select value={serviceId} onChange={(e) => applyServiceSelection(e.target.value)} className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100">
+                <option value="">Pick from catalogue (optional)</option>
+                {activeServices.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} · {s.duration_minutes}m{s.price_myr != null ? ` · RM${s.price_myr}` : ""}</option>
+                ))}
+              </select>
+            ) : null}
+            <select value={resourceId} onChange={(e) => setResourceId(e.target.value)} className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100">
+              <option value="">No resource / walk-in</option>
+              {resources.filter((r) => r.is_active).map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs">
+                <span className="mb-1 block text-ink-muted dark:text-cream-400">Starts *</span>
+                <input type="datetime-local" value={startsAt} onChange={(e) => { const v = e.target.value; setStartsAt(v); if (serviceId && v) applyServiceSelection(serviceId, v); }} required className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+              </label>
+              <label className="block text-xs">
+                <span className="mb-1 block text-ink-muted dark:text-cream-400">Ends *</span>
+                <input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} required className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+              </label>
+            </div>
+            {startsAt ? (
+              <div className="flex flex-wrap gap-2">
+                {[30, 60, 90].map((mins) => (
+                  <button key={mins} type="button" onClick={() => applySlotMinutes(mins)} className="rounded-md border border-cream-300 px-2.5 py-1 text-xs font-semibold text-ink-muted hover:bg-cream-50 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-panel-dark">{mins}m slot</button>
+                ))}
+              </div>
+            ) : null}
+            <input type="number" min={0} step="0.01" value={amountMyr} onChange={(e) => setAmountMyr(e.target.value)} placeholder="Amount (MYR, optional)" className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" rows={2} className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+            {formError ? <InlineFeedback>{formError}</InlineFeedback> : null}
+          </form>
+        </ModalBody>
+        <ModalFooter>
+          <QuickCreateActions submitLabel="Save booking" loading={creating} onCancel={() => { closeForm(); resetBookingForm(); }} form="new-booking-form" />
+        </ModalFooter>
+      </Modal>
 
-      <QuickCreatePanel
-        open={showForm}
-        onSubmit={onCreateBooking}
-        title="New booking"
-        subtitle="Customer, service, and time slot."
-        icon={Calendar}
-        accent="violet"
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Customer name *"
-            required
-            className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          />
-          <input
-            type="tel"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-            placeholder="Phone / WhatsApp"
-            className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          />
-        </div>
-        <input
-          type="text"
-          value={serviceTitle}
-          onChange={(e) => setServiceTitle(e.target.value)}
-          placeholder="Service (e.g. Haircut, Homestay night) *"
-          required
-          className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-        />
-        {activeServices.length > 0 ? (
-          <select
-            value={serviceId}
-            onChange={(e) => applyServiceSelection(e.target.value)}
-            className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-          >
-            <option value="">Pick from catalogue (optional)</option>
-            {activeServices.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} · {s.duration_minutes}m
-                {s.price_myr != null ? ` · RM${s.price_myr}` : ""}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        <select
-          value={resourceId}
-          onChange={(e) => setResourceId(e.target.value)}
-          className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-        >
-          <option value="">No resource / walk-in</option>
-          {resources
-            .filter((r) => r.is_active)
-            .map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-        </select>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block text-xs">
-            <span className="mb-1 block text-ink-muted dark:text-cream-400">
-              Starts *
-            </span>
-            <input
-              type="datetime-local"
-              value={startsAt}
-              onChange={(e) => {
-                const value = e.target.value;
-                setStartsAt(value);
-                if (serviceId && value) {
-                  applyServiceSelection(serviceId, value);
-                }
-              }}
-              required
-              className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block text-ink-muted dark:text-cream-400">
-              Ends *
-            </span>
-            <input
-              type="datetime-local"
-              value={endsAt}
-              onChange={(e) => setEndsAt(e.target.value)}
-              required
-              className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-            />
-          </label>
-        </div>
-        {startsAt ? (
-          <div className="flex flex-wrap gap-2">
-            {[30, 60, 90].map((mins) => (
-              <button
-                key={mins}
-                type="button"
-                onClick={() => applySlotMinutes(mins)}
-                className="rounded-md border border-cream-300 px-2.5 py-1 text-xs font-semibold text-ink-muted hover:bg-cream-50 dark:border-hairline-dark dark:text-cream-400 dark:hover:bg-panel-dark"
-              >
-                {mins}m slot
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <input
-          type="number"
-          min={0}
-          step="0.01"
-          value={amountMyr}
-          onChange={(e) => setAmountMyr(e.target.value)}
-          placeholder="Amount (MYR, optional)"
-          className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-        />
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Notes"
-          rows={2}
-          className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
-        />
-        {formError ? (
-          <InlineFeedback>{formError}</InlineFeedback>
-        ) : null}
-        <QuickCreateActions
-          submitLabel="Save booking"
-          loading={creating}
-          onCancel={() => {
-            closeForm();
-            resetBookingForm();
-          }}
-        />
-      </QuickCreatePanel>
-
-      {editingBookingId ? (
-        <BookingEditForm
-          resources={resources}
-          customerName={customerName}
-          onCustomerNameChange={setCustomerName}
-          customerPhone={customerPhone}
-          onCustomerPhoneChange={setCustomerPhone}
-          serviceTitle={serviceTitle}
-          onServiceTitleChange={setServiceTitle}
-          resourceId={resourceId}
-          onResourceIdChange={setResourceId}
-          startsAt={startsAt}
-          onStartsAtChange={setStartsAt}
-          endsAt={endsAt}
-          onEndsAtChange={setEndsAt}
-          amountMyr={amountMyr}
-          onAmountMyrChange={setAmountMyr}
-          notes={notes}
-          onNotesChange={setNotes}
-          creating={creating}
-          formError={formError}
-          onSubmit={onUpdateBooking}
-          onCancel={resetBookingForm}
-        />
-      ) : null}
+      {/* ── Reschedule modal ──────────────────────────────────────── */}
+      <Modal open={Boolean(editingBookingId)} onClose={resetBookingForm} size="lg">
+        <ModalHeader title="Reschedule booking" description="Update customer, time, or resource." onClose={resetBookingForm} />
+        <ModalBody>
+          <form id="reschedule-form" onSubmit={onUpdateBooking} className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <CustomerPicker
+                customerName={customerName}
+                onCustomerNameChange={setCustomerName}
+                linkedCustomer={linkedCustomer}
+                onLink={(c) => { setLinkedCustomer(c); setCustomerPhone(c.phone_e164 ?? ""); }}
+                onUnlink={() => setLinkedCustomer(null)}
+                required
+              />
+              <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Phone / WhatsApp" className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+            </div>
+            <input type="text" value={serviceTitle} onChange={(e) => setServiceTitle(e.target.value)} placeholder="Service *" required className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+            <select value={resourceId} onChange={(e) => setResourceId(e.target.value)} className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100">
+              <option value="">No resource / walk-in</option>
+              {resources.filter((r) => r.is_active).map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs">
+                <span className="mb-1 block text-ink-muted dark:text-cream-400">Starts *</span>
+                <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+              </label>
+              <label className="block text-xs">
+                <span className="mb-1 block text-ink-muted dark:text-cream-400">Ends *</span>
+                <input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} required className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+              </label>
+            </div>
+            <input type="number" min={0} step="0.01" value={amountMyr} onChange={(e) => setAmountMyr(e.target.value)} placeholder="Amount (MYR, optional)" className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" rows={2} className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100" />
+            {formError ? <InlineFeedback>{formError}</InlineFeedback> : null}
+          </form>
+        </ModalBody>
+        <ModalFooter>
+          <QuickCreateActions submitLabel="Save changes" loading={creating} onCancel={resetBookingForm} form="reschedule-form" />
+        </ModalFooter>
+      </Modal>
 
       {displayedBookings.length === 0 ? (
         <OperationsCatalogList
@@ -647,7 +593,7 @@ export function OperationsBookingPanel({
       ) : (
         <OperationsCatalogList
           title={viewMode === "week" ? "Day schedule" : "Schedule"}
-          total={displayedBookings.length}
+          total={viewMode === "list" ? total : displayedBookings.length}
           filters={bookingListFilters}
         >
           <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
@@ -664,6 +610,17 @@ export function OperationsBookingPanel({
           </ul>
         </OperationsCatalogList>
       )}
+
+      {viewMode === "list" ? (
+        <ListPagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          basePath="/operations/bookings"
+          searchParams={{}}
+          pageSizeOptions={[10, 25, 50, 100]}
+        />
+      ) : null}
     </div>
   );
 }

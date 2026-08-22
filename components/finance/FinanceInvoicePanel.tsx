@@ -25,6 +25,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { ListPagination } from "@/components/ui/list-pagination";
+import { RecordPaymentModal } from "@/components/finance/RecordPaymentModal";
 import {
   ModuleListPanel,
   ModuleListPanelFilters,
@@ -83,6 +84,9 @@ function invoiceStatusClasses(
   if (status === "paid") {
     return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100";
   }
+  if (status === "partially_paid") {
+    return "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-100";
+  }
   if (status === "draft") {
     return "border-cream-300 bg-cream-50 text-ink-muted dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-300";
   }
@@ -105,6 +109,7 @@ function invoiceStatusLabel(
     return "Overdue";
   }
   if (status === "sent") return "Awaiting pay";
+  if (status === "partially_paid") return "Partial";
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
@@ -137,6 +142,7 @@ function InvoiceActionRow({
   onConvert,
   onMarkSent,
   onMarkPaid,
+  onRecordPayment,
   onEmail,
   onVoid,
 }: {
@@ -150,6 +156,7 @@ function InvoiceActionRow({
   onConvert: () => void;
   onMarkSent: () => void;
   onMarkPaid: () => void;
+  onRecordPayment: () => void;
   onEmail: () => void;
   onVoid: () => void;
 }) {
@@ -167,7 +174,7 @@ function InvoiceActionRow({
     return () => document.removeEventListener("mousedown", handler);
   }, [moreOpen]);
 
-  const canDoMore = inv.status !== "void" && inv.status !== "paid";
+  const canDoMore = inv.status !== "void" && inv.status !== "paid" && inv.status !== "partially_paid";
 
   return (
     <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -191,10 +198,10 @@ function InvoiceActionRow({
           <Send className="h-3 w-3" />
           Mark sent
         </button>
-      ) : inv.status === "sent" ? (
-        <button type="button" disabled={busy} onClick={onMarkPaid} className={cn(actionBtn, "border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100")}>
+      ) : inv.status === "sent" || inv.status === "partially_paid" ? (
+        <button type="button" disabled={busy} onClick={onRecordPayment} className={cn(actionBtn, "border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100")}>
           {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-          Mark paid
+          {inv.status === "partially_paid" ? "Record payment" : "Record payment"}
         </button>
       ) : null}
 
@@ -286,6 +293,7 @@ export function FinanceInvoicePanel({
     null,
   );
   const [convertDueDate, setConvertDueDate] = useState("");
+  const [paymentTarget, setPaymentTarget] = useState<FinanceInvoiceRow | null>(null);
 
   useEffect(() => {
     setInvoices(initialInvoices);
@@ -872,6 +880,20 @@ export function FinanceInvoicePanel({
                       </p>
                     </div>
 
+                    {inv.status === "partially_paid" && total > 0 ? (
+                      <div className="mt-1.5 space-y-0.5">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-cream-100 dark:bg-hairline-dark">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-teal-400 to-emerald-400"
+                            style={{ width: `${Math.min(100, (Number(inv.amount_paid_myr) / total) * 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-ink-muted dark:text-cream-400">
+                          {formatMyr(Number(inv.amount_paid_myr))} paid · {formatMyr(total - Number(inv.amount_paid_myr))} remaining
+                        </p>
+                      </div>
+                    ) : null}
+
                     <InvoiceActionRow
                       inv={inv}
                       busy={busy}
@@ -883,6 +905,7 @@ export function FinanceInvoicePanel({
                       onConvert={() => openConvert(inv)}
                       onMarkSent={() => void patchInvoice(inv.id, "sent")}
                       onMarkPaid={() => void patchInvoice(inv.id, "paid")}
+                      onRecordPayment={() => setPaymentTarget(inv)}
                       onEmail={() => void sendInvoiceEmail(inv)}
                       onVoid={() => void patchInvoice(inv.id, "void")}
                     />
@@ -962,6 +985,24 @@ export function FinanceInvoicePanel({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {paymentTarget ? (
+        <RecordPaymentModal
+          invoice={paymentTarget}
+          onClose={() => setPaymentTarget(null)}
+          onSuccess={(invoiceId, newAmountPaid, newStatus) => {
+            setInvoices((prev) =>
+              prev.map((inv) =>
+                inv.id === invoiceId
+                  ? { ...inv, amount_paid_myr: newAmountPaid, status: newStatus }
+                  : inv,
+              ),
+            );
+            setPaymentTarget(null);
+            refresh();
+          }}
+        />
       ) : null}
     </div>
   );

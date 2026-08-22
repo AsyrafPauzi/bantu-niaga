@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { loadStaffMeLeaveRecords } from "@/lib/hr/load";
 import {
+  employeeEntitlementDays,
   isLeaveTypeEnabled,
   loadHrLeaveTypeSettings,
 } from "@/lib/hr/leave-type-settings";
+import type { LeaveTypeKey } from "@/lib/hr/leave-labels";
 import { parseStaffLeaveRequest } from "@/lib/hr/parse-staff-leave-request";
 import { processLeaveDocumentUpload } from "@/lib/hr/process-leave-document";
 import { requireStaffMeContext } from "@/lib/hr/staff-self-service";
@@ -57,6 +59,26 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  // Block types with no quota (except unpaid).
+  if (fields.leave_type !== "unpaid") {
+    const quota = employeeEntitlementDays(
+      fields.leave_type as LeaveTypeKey,
+      ctx.employee,
+      leaveSettings,
+    );
+    if (quota == null) {
+      return NextResponse.json(
+        {
+          error: "leave_type_not_configured",
+          message:
+            "That leave type has no quota set. Ask HR to configure it on your profile.",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const docResult = await processLeaveDocumentUpload(admin, {
     leaveType: fields.leave_type,
     mcFile,

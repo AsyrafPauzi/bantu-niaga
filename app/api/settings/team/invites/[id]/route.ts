@@ -68,11 +68,23 @@ export async function DELETE(_request: Request, context: RouteContext) {
       .maybeSingle();
 
     if (profile && !profile.last_password_change_at) {
-      await svc.from("users").delete().eq("id", invite.auth_user_id);
-      try {
-        await svc.auth.admin.deleteUser(invite.auth_user_id);
-      } catch {
-        // Best-effort cleanup for unactivated invites.
+      const { count: remainingMemberships } = await svc
+        .from("user_business_memberships")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", invite.auth_user_id);
+
+      if ((remainingMemberships ?? 0) === 0) {
+        await svc.from("users").delete().eq("id", invite.auth_user_id);
+        const { error: authDeleteError } = await svc.auth.admin.deleteUser(
+          invite.auth_user_id,
+        );
+        if (authDeleteError) {
+          console.error(
+            "[team.invite_cancel] auth.admin.deleteUser failed:",
+            authDeleteError.message,
+            invite.auth_user_id,
+          );
+        }
       }
     }
   }

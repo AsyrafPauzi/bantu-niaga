@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Lock, LogOut, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { signOutAction } from "@/app/sign-in/actions";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth/entitlements";
 import {
   buildAppNavGroups,
+  filterAppNavGroupsForRole,
   isNavSectionActive,
   isNavSubItemActive,
   type NavGroup,
@@ -22,12 +23,14 @@ import { tierBy, type TierKey } from "@/lib/settings/plans";
 import { cn } from "@/lib/utils/cn";
 import { Tooltip } from "@/components/ui/tooltip";
 import { navGroupMessageKey, navLabelFor } from "@/lib/i18n/nav-labels";
+import type { Role } from "@/lib/permissions";
 
 interface MobileNavDrawerProps {
   open: boolean;
   onClose: () => void;
   tier: TierKey;
   businessType?: BusinessType;
+  role?: Role;
 }
 
 function lockedHref(pillar: Pillar): string {
@@ -39,11 +42,15 @@ export function MobileNavDrawer({
   onClose,
   tier,
   businessType = "other",
+  role = "manager",
 }: MobileNavDrawerProps) {
   const pathname = usePathname();
   const tNav = useTranslations("nav");
   const tShell = useTranslations("shell");
-  const groups = buildAppNavGroups(businessType);
+  const groups = useMemo(
+    () => filterAppNavGroupsForRole(buildAppNavGroups(businessType), role),
+    [businessType, role],
+  );
 
   // Only expand the section that contains the current route; all others collapsed.
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {

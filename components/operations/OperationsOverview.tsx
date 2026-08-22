@@ -4,7 +4,6 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  Download,
   Package,
   Plus,
   ShoppingBag,
@@ -342,13 +341,6 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
             >
               Open board
             </Link>
-            <a
-              href="/api/operations/export"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-200"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Export CSV
-            </a>
           </div>
         </div>
         <div className="mt-4 space-y-3">
@@ -437,7 +429,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
                 return (
                   <Link
                     key={row.id}
-                    href="/operations/orders"
+                    href={`/operations/orders?highlight=${row.id}`}
                     className="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-cream-50 dark:hover:bg-panel-dark/60 sm:px-5"
                   >
                     <div className="min-w-0">
@@ -508,9 +500,10 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
                 </p>
               ) : (
                 upcomingBookings.map((row) => (
-                  <div
+                  <Link
                     key={row.id}
-                    className="flex items-start justify-between gap-3 px-4 py-3 sm:px-5"
+                    href={`/operations/bookings?highlight=${row.id}`}
+                    className="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-cream-50 dark:hover:bg-panel-dark/60 sm:px-5"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink dark:text-cream-100">
@@ -528,7 +521,7 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
                     <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold", opsTheme.chip)}>
                       {bookingStatusLabel(row.status)}
                     </span>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>
@@ -583,10 +576,18 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
               Orders, bookings, stock alerts, and exports will appear here.
             </div>
           ) : (
-            notifications.map((item) => (
-              <div
+            notifications.map((item) => {
+              const notifHref =
+                item.event_type?.includes("order") ? "/operations/orders"
+                : item.event_type?.includes("booking") ? "/operations/bookings"
+                : item.event_type?.includes("product") || item.event_type?.includes("stock") ? "/operations/products"
+                : item.event_type?.includes("service") ? "/operations/services"
+                : "/operations";
+              return (
+              <Link
                 key={item.id}
-                className="flex items-start gap-3 px-4 py-3 sm:px-5"
+                href={notifHref}
+                className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-cream-50 dark:hover:bg-panel-dark/60 sm:px-5"
               >
                 <span
                   className={cn(
@@ -604,8 +605,9 @@ export function OperationsOverview({ data, profile }: OperationsOverviewProps) {
                     {fmtRelTime(item.created_at)}
                   </p>
                 </div>
-              </div>
-            ))
+              </Link>
+              );
+            })
           )}
         </div>
       </AdminOverviewPanel>

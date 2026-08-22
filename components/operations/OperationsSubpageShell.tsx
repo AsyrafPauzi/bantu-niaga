@@ -9,6 +9,7 @@ interface OperationsSubpageShellProps {
   subcopy: string;
   variant?: LegacyModuleHeroVariant;
   stats: React.ReactNode;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -17,11 +18,15 @@ export function OperationsSubpageShell({
   subcopy,
   variant = "default",
   stats,
+  action,
   children,
 }: OperationsSubpageShellProps) {
   return (
     <div className="space-y-4 pb-20 md:pb-8">
-      <OperationsBackLink />
+      <div className="flex items-center justify-between gap-3">
+        <OperationsBackLink />
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
       <ModuleDashboardHero
         module="Operations"
         pillar="operations"

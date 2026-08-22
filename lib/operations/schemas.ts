@@ -24,6 +24,7 @@ export type OperationsFulfillmentStatus =
 
 export const operationsOrderCreateSchema = z
   .object({
+    customer_id: z.string().uuid().optional().nullable(),
     customer_name: z
       .string()
       .trim()
@@ -55,6 +56,7 @@ export const operationsOrderCreateSchema = z
 
 export const operationsOrderUpdateSchema = z
   .object({
+    customer_id: z.string().uuid().optional().nullable(),
     customer_name: z.string().trim().min(1).max(200).optional(),
     customer_phone: z.string().trim().max(40).optional().nullable(),
     title: z.string().trim().min(1).max(300).optional(),
@@ -78,6 +80,7 @@ export interface OperationsOrderRow {
   id: string;
   business_id: string;
   number: string;
+  customer_id: string | null;
   customer_name: string;
   customer_phone: string | null;
   title: string;
@@ -92,6 +95,7 @@ export interface OperationsOrderRow {
   admin_file_id: string | null;
   admin_file_name?: string | null;
   completed_at: string | null;
+  archived_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -272,6 +276,7 @@ export const operationsBookingCreateSchema = z
   .object({
     resource_id: z.string().uuid().optional().nullable(),
     service_id: z.string().uuid().optional().nullable(),
+    customer_id: z.string().uuid().optional().nullable(),
     customer_name: z
       .string()
       .trim()
@@ -295,6 +300,7 @@ export const operationsBookingUpdateSchema = z
   .object({
     resource_id: z.string().uuid().optional().nullable(),
     service_id: z.string().uuid().optional().nullable(),
+    customer_id: z.string().uuid().optional().nullable(),
     customer_name: z.string().trim().min(1).max(200).optional(),
     customer_phone: z.string().trim().max(40).optional().nullable(),
     service_title: z.string().trim().min(1).max(300).optional(),
@@ -312,6 +318,7 @@ export interface OperationsBookingRow {
   number: string;
   resource_id: string | null;
   service_id: string | null;
+  customer_id: string | null;
   customer_name: string;
   customer_phone: string | null;
   service_title: string;

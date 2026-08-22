@@ -133,6 +133,10 @@ export async function middleware(request: NextRequest) {
   response.headers.set("x-request-id", requestId);
   // Override the static CSP set in next.config.mjs with the nonce-bearing one.
   response.headers.set("Content-Security-Policy", csp);
+  // Belt-and-suspenders: ensure authenticated responses are never publicly cached.
+  response.headers.set("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("X-XSS-Protection", "1; mode=block");
 
   // ── CSRF origin check (state-mutating API routes only) ────────────────────
   // Validates Origin / Referer header for POST/PUT/PATCH/DELETE requests.
@@ -184,7 +188,14 @@ export async function middleware(request: NextRequest) {
         .eq("id", user.id)
         .maybeSingle();
       if (profileLookupError) {
-        user = null;
+        // A transient DB error (connection blip, cold start, rate limit) must
+        // NOT log the user out — the Supabase JWT is still valid. Assume they
+        // have a profile so they aren't incorrectly bounced to /sign-up/complete.
+        console.warn(
+          "[middleware] profile lookup failed; assuming hasProfile=true to avoid spurious logout:",
+          profileLookupError.message,
+        );
+        hasProfile = true;
       } else {
         hasProfile = Boolean(profileRow);
       }
@@ -212,6 +223,7 @@ export async function middleware(request: NextRequest) {
         pathname === "/api/auth/resend-verification" ||
         pathname === "/sign-up/complete" ||
         pathname === "/api/auth/complete-google-signup" ||
+        pathname === "/accept-invite" ||
         pathname.startsWith("/auth/callback");
 
       if (!allowedWhileUnverified) {
@@ -321,7 +333,10 @@ export async function middleware(request: NextRequest) {
     pathname === "/api/auth/forgot-password" ||
     pathname === "/api/auth/reset-password" ||
     pathname === "/api/auth/resend-verification" ||
-    pathname === "/api/auth/accept-invite"
+    pathname === "/api/auth/accept-invite" ||
+    pathname === "/api/auth/callback/finish" ||
+    pathname === "/api/auth/callback/establish" ||
+    pathname === "/api/auth/callback/exchange"
   ) {
     return response;
   }
@@ -384,6 +399,8 @@ export const config = {
     "/sign-in",
     "/sign-up",
     "/sign-up/:path*",
+    "/accept-invite",
+    "/verify-email",
     "/legal/:path*",
     "/onboarding/:path*",
     "/api/((?!health|webhooks).*)",

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   employeeDocumentCreateSchema,
   employeeCreateSchema,
+  employeeUpdateSchema,
   holidayCreateSchema,
   leaveCreateSchema,
   leaveStatusUpdateSchema,
@@ -88,5 +89,11 @@ describe("HR schemas", () => {
     expect(
       appraisalUpdateSchema.parse({ status: "completed", rating: 4 }).rating,
     ).toBe(4);
+  });
+
+  it("accepts linking a team login user_id", () => {
+    const id = "00000000-0000-0000-0000-000000000099";
+    expect(employeeUpdateSchema.parse({ user_id: id }).user_id).toBe(id);
+    expect(employeeUpdateSchema.parse({ user_id: null }).user_id).toBeNull();
   });
 });

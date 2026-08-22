@@ -1,7 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   Bookmark,
   Camera,
@@ -21,27 +28,30 @@ import {
   type ContentMediaUploaderHandle,
 } from "@/components/marketing/ContentMediaUploader";
 
-/**
- * Pencil-aligned New Content form. Channel tile picker, Hook + Caption
- * + Hashtags + Media slots on the left, Schedule + Preview on the right.
- * Calls the same POST /api/marketing/content API as the legacy
- * ContentEntryForm (mode="create").
- */
-
 type Channel = "tiktok" | "instagram" | "facebook";
 type Status = "idea" | "drafted" | "scheduled" | "posted";
 
 interface FormState {
   channel: Channel;
   status: Status;
-  scheduledDate: string; // YYYY-MM-DD MYT
-  scheduledTime: string; // HH:mm MYT
+  scheduledDate: string;
+  scheduledTime: string;
   hook: string;
   caption: string;
 }
 
-interface NewContentFormPencilProps {
+export interface NewContentFormPencilProps {
   prefillDateIso?: string;
+  /** @handle without the @ — from connected Meta account or business slug. */
+  previewHandles: {
+    instagram: string | null;
+    facebook: string | null;
+    fallback: string;
+  };
+  previewInitials: string;
+  mayaEnabled?: boolean;
+  /** Credits charged per Maya rewrite (from reasoning mode). */
+  rewriteCreditCost?: number;
 }
 
 const MYT_OFFSET = "+08:00";
@@ -115,19 +125,21 @@ const STATUS_TONE: Record<Status, { dot: string; text: string; bg: string }> = {
   },
 };
 
-const HASHTAG_SUGGESTIONS = [
-  "#nasilemak",
-  "#shahalam",
-  "#ramadhanmubarak",
-  "#hariraya",
-  "#kedaisaya",
-  "#malaysianfood",
-  "#sambal",
-  "#viral",
-];
+interface BestTimeState {
+  loading: boolean;
+  available: boolean;
+  label?: string;
+  suggestTimeMyt?: string;
+  message?: string;
+  connectHref?: string;
+}
 
 export function NewContentFormPencil({
   prefillDateIso,
+  previewHandles,
+  previewInitials,
+  mayaEnabled = true,
+  rewriteCreditCost = 1,
 }: NewContentFormPencilProps) {
   const router = useRouter();
   const prefill = utcIsoToMytParts(prefillDateIso);
@@ -141,7 +153,9 @@ export function NewContentFormPencil({
     caption: "",
   });
   const [hashtags, setHashtags] = useState<string[]>([]);
+  const [hashtagInput, setHashtagInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [rewriteBusy, setRewriteBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mediaState, setMediaState] = useState<{
     uploadingCount: number;
@@ -149,14 +163,28 @@ export function NewContentFormPencil({
     firstImagePreviewUrl: string | null;
   }>({ uploadingCount: 0, uploadedCount: 0, firstImagePreviewUrl: null });
   const [warning, setWarning] = useState<string | null>(null);
+  const [bestTime, setBestTime] = useState<BestTimeState>({
+    loading: true,
+    available: false,
+  });
   const mediaRef = useRef<ContentMediaUploaderHandle | null>(null);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((s) => ({ ...s, [key]: value }));
   }
 
-  function toggleHashtag(tag: string) {
-    setHashtags((s) => (s.includes(tag) ? s.filter((t) => t !== tag) : [...s, tag]));
+  function addHashtagFromInput() {
+    const raw = hashtagInput.trim();
+    if (!raw) return;
+    const tag = raw.startsWith("#") ? raw : `#${raw}`;
+    const cleaned = tag.replace(/\s+/g, "").slice(0, 64);
+    if (!cleaned || cleaned === "#") return;
+    setHashtags((s) => (s.includes(cleaned) ? s : [...s, cleaned].slice(0, 20)));
+    setHashtagInput("");
+  }
+
+  function removeHashtag(tag: string) {
+    setHashtags((s) => s.filter((t) => t !== tag));
   }
 
   const handleMediaChange = useCallback(
@@ -169,6 +197,101 @@ export function NewContentFormPencil({
     },
     [],
   );
+
+  const previewHandle = (() => {
+    if (form.channel === "instagram" && previewHandles.instagram) {
+      return previewHandles.instagram;
+    }
+    if (form.channel === "facebook" && previewHandles.facebook) {
+      return previewHandles.facebook;
+    }
+    return previewHandles.fallback;
+  })();
+
+  useEffect(() => {
+    let cancelled = false;
+    setBestTime({ loading: true, available: false });
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/marketing/content/best-time?channel=${form.channel}`,
+        );
+        const body = (await res.json().catch(() => null)) as BestTimeState & {
+          error?: string;
+        } | null;
+        if (cancelled) return;
+        if (!res.ok || !body) {
+          setBestTime({
+            loading: false,
+            available: false,
+            message: "Could not load audience timing.",
+          });
+          return;
+        }
+        setBestTime({
+          loading: false,
+          available: Boolean(body.available),
+          label: body.label,
+          suggestTimeMyt: body.suggestTimeMyt,
+          message: body.message,
+          connectHref: body.connectHref,
+        });
+      } catch {
+        if (!cancelled) {
+          setBestTime({
+            loading: false,
+            available: false,
+            message: "Could not load audience timing.",
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.channel]);
+
+  async function rewriteCaption() {
+    if (rewriteBusy || busy) return;
+    if (!form.caption.trim()) {
+      setError("Write a caption first, then ask Maya to rewrite it.");
+      return;
+    }
+    setRewriteBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/marketing/content/rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: form.channel,
+          caption: form.caption,
+          hook: form.hook || null,
+          hashtags,
+        }),
+      });
+      const body = (await res.json().catch(() => null)) as {
+        caption?: string;
+        message?: string;
+        error?: string;
+        marketplace_href?: string;
+        billing_href?: string;
+      } | null;
+      if (!res.ok) {
+        setError(body?.message ?? body?.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      if (body?.caption) {
+        update("caption", body.caption);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setRewriteBusy(false);
+    }
+  }
 
   async function submit(status: Status): Promise<void> {
     if (busy) return;
@@ -225,8 +348,6 @@ export function NewContentFormPencil({
             const attachBody = (await attachRes
               .json()
               .catch(() => null)) as { error?: { message?: string } } | null;
-            // The post itself was saved — surface a soft warning so the
-            // operator knows the link step failed but the row exists.
             setWarning(
               attachBody?.error?.message ??
                 "Post saved, but linking media failed. You can re-attach from the post page.",
@@ -262,27 +383,15 @@ export function NewContentFormPencil({
   }
 
   const channelMeta = CHANNEL_META[form.channel];
-
   const previewCaptionLines = (() => {
     const cap = form.caption.trim();
     return cap ? cap.split("\n").slice(0, 4) : [];
   })();
-
   const statusTone = STATUS_TONE[form.status];
 
   return (
-    <form onSubmit={handleSchedule} className="space-y-5">
-      {/* Header row */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-ink dark:text-cream-100">
-            Plan a new post
-          </h2>
-          <p className="mt-1 text-sm text-ink-muted dark:text-cream-400">
-            Draft once — publish to TikTok, Instagram, or Facebook with one
-            click later.
-          </p>
-        </div>
+    <form onSubmit={handleSchedule} className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span
           className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${statusTone.bg} ${statusTone.text}`}
         >
@@ -291,15 +400,13 @@ export function NewContentFormPencil({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_360px] md:items-start">
-        {/* LEFT — Channel + Content + Media */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
-          {/* CHANNEL */}
-          <div className="rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+          <div className="rounded-xl border border-cream-200 bg-white p-4 shadow-sm dark:border-hairline-dark dark:bg-panel-dark sm:p-5">
             <p className="mb-3 text-[10px] font-bold uppercase tracking-[1.4px] text-ink-subtle">
               Channel
             </p>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-3 gap-2">
               {(["tiktok", "instagram", "facebook"] as const).map((c) => {
                 const meta = CHANNEL_META[c];
                 const Icon = meta.icon;
@@ -309,25 +416,23 @@ export function NewContentFormPencil({
                     key={c}
                     type="button"
                     onClick={() => update("channel", c)}
-                    className={`relative flex flex-col items-center gap-1.5 rounded-xl border-2 p-3.5 transition-all ${
+                    className={`relative flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition-all ${
                       active
                         ? meta.tone
                         : "border-cream-200 bg-cream-50/50 text-ink-muted hover:border-cream-300 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
                     }`}
                   >
-                    <Icon className="h-6 w-6" strokeWidth={1.5} />
-                    <span className="text-sm font-semibold">{meta.label}</span>
-                    {active ? (
-                      <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-accent-500" />
-                    ) : null}
+                    <Icon className="h-5 w-5" strokeWidth={1.5} />
+                    <span className="text-xs font-semibold sm:text-sm">
+                      {meta.label}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* CONTENT */}
-          <div className="space-y-3.5 rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+          <div className="space-y-3.5 rounded-xl border border-cream-200 bg-white p-4 shadow-sm dark:border-hairline-dark dark:bg-panel-dark sm:p-5">
             <p className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-subtle">
               Content
             </p>
@@ -345,73 +450,101 @@ export function NewContentFormPencil({
                 className={inputCx}
               />
               <span className="block text-[11px] text-ink-subtle">
-                One-line idea (≤ 280 chars). Used as the title in the calendar
-                chip.
+                One-line idea (≤ 280 chars). Shown on the calendar chip.
               </span>
             </label>
 
             <label className="block space-y-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-ink dark:text-cream-100">
                   Caption
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-700 dark:bg-accent-700/20 dark:text-accent-200">
-                  <Sparkles className="h-2.5 w-2.5" strokeWidth={2.5} />
-                  Maya rewrite
-                </span>
+                {mayaEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => void rewriteCaption()}
+                    disabled={rewriteBusy || busy || !form.caption.trim()}
+                    title={`${rewriteCreditCost} credit${rewriteCreditCost === 1 ? "" : "s"} per rewrite`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-accent-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-accent-700 transition hover:bg-accent-100 disabled:opacity-50 dark:bg-accent-700/20 dark:text-accent-200 dark:hover:bg-accent-700/30"
+                  >
+                    <Sparkles className="h-2.5 w-2.5" strokeWidth={2.5} />
+                    {rewriteBusy ? "Rewriting…" : "Maya rewrite"}
+                    <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-accent-800 dark:bg-panel-dark/80 dark:text-accent-100">
+                      {rewriteCreditCost} cr
+                    </span>
+                  </button>
+                ) : (
+                  <Link
+                    href="/marketplace"
+                    className="inline-flex items-center gap-1 rounded-full border border-cream-300 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted hover:border-accent-400 dark:border-hairline-dark dark:text-cream-400"
+                  >
+                    Get Maya
+                  </Link>
+                )}
               </div>
               <textarea
                 value={form.caption}
                 onChange={(e) => update("caption", e.target.value)}
-                placeholder="Sambal kering, sambal basah, sambal bawang, sambal hijau — sumber Hari Raya kami dah ready. Tunggu apa lagi?"
-                rows={4}
+                placeholder="Write your caption…"
+                rows={5}
                 className={`${inputCx} resize-y`}
                 maxLength={4000}
               />
-              <div className="rounded-lg bg-accent-50 px-3 py-2 text-[12px] dark:bg-accent-700/15">
-                <p className="font-semibold text-accent-700 dark:text-accent-200">
-                  Maya suggestion
-                </p>
-                <p className="mt-0.5 text-ink-muted dark:text-cream-400">
-                  Add a sensory hook in the first line (smell, taste). Mention
-                  scarcity (&quot;limited batch&quot;) to drive urgency.
-                </p>
-              </div>
+              <span className="block text-[11px] text-ink-subtle">
+                Rewrites polish your caption in the same language you wrote
+                (EN / BM / others) — {rewriteCreditCost} credit
+                {rewriteCreditCost === 1 ? "" : "s"} each from your Maya pool.
+              </span>
             </label>
 
-            {/* Hashtags */}
             <div className="space-y-1.5">
               <p className="text-[13px] font-semibold text-ink dark:text-cream-100">
                 Hashtags
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {HASHTAG_SUGGESTIONS.map((h) => {
-                  const active = hashtags.includes(h);
-                  return (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={hashtagInput}
+                  onChange={(e) => setHashtagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addHashtagFromInput();
+                    }
+                  }}
+                  placeholder="#yourtag"
+                  className={inputCx}
+                  maxLength={64}
+                />
+                <button
+                  type="button"
+                  onClick={addHashtagFromInput}
+                  className="shrink-0 rounded-lg border border-cream-300 bg-white px-3 text-xs font-semibold text-ink hover:bg-cream-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
+                >
+                  Add
+                </button>
+              </div>
+              {hashtags.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {hashtags.map((h) => (
                     <button
                       key={h}
                       type="button"
-                      onClick={() => toggleHashtag(h)}
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                        active
-                          ? "bg-brand-500 text-white"
-                          : "border border-cream-300 bg-white text-ink-muted hover:border-brand-300 hover:text-brand-700 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-400"
-                      }`}
+                      onClick={() => removeHashtag(h)}
+                      className="inline-flex items-center rounded-full bg-brand-500 px-2.5 py-1 text-[11px] font-semibold text-white"
+                      title="Remove"
                     >
-                      {h}
+                      {h} ×
                     </button>
-                  );
-                })}
-              </div>
-              {hashtags.length > 0 ? (
+                  ))}
+                </div>
+              ) : (
                 <p className="text-[11px] text-ink-subtle">
-                  {hashtags.length} hashtag{hashtags.length === 1 ? "" : "s"}{" "}
-                  will be appended to the caption.
+                  Optional — added under the caption in the preview.
                 </p>
-              ) : null}
+              )}
             </div>
 
-            {/* Media slots */}
             <div className="space-y-1.5">
               <p className="text-[13px] font-semibold text-ink dark:text-cream-100">
                 Media
@@ -441,10 +574,8 @@ export function NewContentFormPencil({
           ) : null}
         </div>
 
-        {/* RIGHT — Schedule + Preview */}
         <div className="space-y-4">
-          {/* SCHEDULE */}
-          <div className="space-y-3 rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+          <div className="space-y-3 rounded-xl border border-cream-200 bg-white p-4 shadow-sm dark:border-hairline-dark dark:bg-panel-dark sm:p-5">
             <p className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-subtle">
               Schedule
             </p>
@@ -477,7 +608,7 @@ export function NewContentFormPencil({
 
             <div className="space-y-1.5">
               <p className="text-[13px] font-semibold text-ink dark:text-cream-100">
-                Scheduled date &amp; time (MYT)
+                Date &amp; time (MYT)
               </p>
               <div className="grid grid-cols-[1fr_auto] gap-2">
                 <input
@@ -496,48 +627,82 @@ export function NewContentFormPencil({
               </div>
             </div>
 
-            <div className="rounded-lg bg-accent-50 p-3 dark:bg-accent-700/15">
+            <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 dark:border-hairline-dark dark:bg-panel-dark/80">
               <div className="flex items-start gap-2">
                 <Sparkles
                   className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-700 dark:text-accent-200"
                   strokeWidth={2.5}
                 />
-                <p className="text-[12px] leading-snug text-ink dark:text-cream-100">
-                  <span className="font-semibold text-accent-700 dark:text-accent-200">
-                    Maya · Best time:
-                  </span>{" "}
-                  Tue–Thu, 9–11 AM MYT for {channelMeta.label}. Your audience is
-                  most active then.
-                </p>
+                <div className="min-w-0 flex-1 text-[12px] leading-snug text-ink dark:text-cream-100">
+                  {bestTime.loading ? (
+                    <p className="text-ink-muted dark:text-cream-400">
+                      Loading audience timing from Meta…
+                    </p>
+                  ) : bestTime.available && bestTime.label ? (
+                    <>
+                      <p>
+                        <span className="font-semibold text-accent-700 dark:text-accent-200">
+                          Best time ({channelMeta.label}):
+                        </span>{" "}
+                        {bestTime.label}
+                      </p>
+                      {bestTime.suggestTimeMyt ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            update("scheduledTime", bestTime.suggestTimeMyt!)
+                          }
+                          className="mt-1.5 text-[11px] font-semibold text-brand-700 underline dark:text-brand-200"
+                        >
+                          Use {bestTime.suggestTimeMyt} MYT
+                        </button>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="text-ink-muted dark:text-cream-400">
+                      {bestTime.message ??
+                        "Audience timing unavailable for this channel."}
+                      {bestTime.connectHref ? (
+                        <>
+                          {" "}
+                          <Link
+                            href={bestTime.connectHref}
+                            className="font-semibold text-brand-700 underline dark:text-brand-200"
+                          >
+                            Connect Meta
+                          </Link>
+                        </>
+                      ) : null}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* PREVIEW */}
-          <div className="space-y-3 rounded-xl border border-cream-200 bg-white p-5 shadow-card dark:border-hairline-dark dark:bg-panel-dark">
+          <div className="space-y-3 rounded-xl border border-cream-200 bg-white p-4 shadow-sm dark:border-hairline-dark dark:bg-panel-dark sm:p-5">
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-subtle">
                 Preview
               </p>
-              <span className={`text-[11px] font-semibold ${channelMeta.tone.split(" ").find((c) => c.startsWith("text-")) ?? "text-ink-muted"}`}>
+              <span className="text-[11px] font-semibold text-ink-muted dark:text-cream-400">
                 {channelMeta.label}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-200 text-[10px] font-bold uppercase text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-                BN
+                {previewInitials}
               </span>
               <span className="text-xs font-semibold text-ink dark:text-cream-100">
-                @bantuniaga
+                @{previewHandle}
               </span>
               <MoreHorizontal
                 className="ml-auto h-4 w-4 text-ink-muted"
                 strokeWidth={2}
               />
             </div>
-            <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-accent-100 dark:bg-accent-700/20">
+            <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-cream-100 dark:bg-hairline-dark/40">
               {mediaState.firstImagePreviewUrl ? (
-                 
                 <img
                   src={mediaState.firstImagePreviewUrl}
                   alt="Post preview"
@@ -545,7 +710,7 @@ export function NewContentFormPencil({
                 />
               ) : (
                 <ImageIcon
-                  className="h-10 w-10 text-accent-500 opacity-60"
+                  className="h-10 w-10 text-ink-subtle opacity-60"
                   strokeWidth={1.5}
                 />
               )}
@@ -558,7 +723,7 @@ export function NewContentFormPencil({
             </div>
             <div className="text-[12px] leading-snug">
               <p className="text-ink dark:text-cream-100">
-                <span className="font-semibold">@bantuniaga</span>{" "}
+                <span className="font-semibold">@{previewHandle}</span>{" "}
                 {previewCaptionLines.length === 0 ? (
                   <span className="italic text-ink-subtle">
                     Your caption will appear here…
@@ -577,18 +742,17 @@ export function NewContentFormPencil({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-t border-cream-200 pt-4 dark:border-hairline-dark sm:flex-row sm:items-center sm:justify-between">
         <p className="inline-flex items-center gap-1.5 text-xs text-ink-subtle">
           <Info className="h-3.5 w-3.5" strokeWidth={2} />
-          Auto-saves on submit. Status: <strong>{form.status}</strong>
+          Saves on submit · Status: <strong>{form.status}</strong>
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => router.push("/marketing/content")}
             disabled={busy}
-            className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+            className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
           >
             Cancel
           </button>
@@ -596,24 +760,14 @@ export function NewContentFormPencil({
             type="button"
             onClick={() => submit("drafted")}
             disabled={busy || mediaState.uploadingCount > 0}
-            title={
-              mediaState.uploadingCount > 0
-                ? "Wait for media uploads to finish."
-                : undefined
-            }
-            className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
+            className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-cream-100 disabled:opacity-50 dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100 dark:hover:bg-hairline-dark/60"
           >
             Save as draft
           </button>
           <button
             type="submit"
             disabled={busy || mediaState.uploadingCount > 0}
-            title={
-              mediaState.uploadingCount > 0
-                ? "Wait for media uploads to finish."
-                : undefined
-            }
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-accent-600 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-accent-600 disabled:opacity-60"
           >
             {busy
               ? "Saving…"

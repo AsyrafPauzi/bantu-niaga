@@ -158,7 +158,6 @@ export function FinanceExpensesPanel({
     const handler = () => { resetForm(); setShowForm(true); };
     window.addEventListener("finance:log-expense", handler);
     return () => window.removeEventListener("finance:log-expense", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refresh = useCallback(() => router.refresh(), [router]);

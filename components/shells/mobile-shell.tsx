@@ -190,6 +190,7 @@ export function MobileShell({
         onClose={() => setMenuOpen(false)}
         tier={tier}
         businessType={businessType}
+        role={role}
       />
     </div>
   );

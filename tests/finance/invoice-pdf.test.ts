@@ -24,6 +24,7 @@ const sampleInvoice: FinanceInvoiceRow = {
   tax_pct: 8,
   shipping_myr: 0,
   total_myr: 108,
+  amount_paid_myr: 0,
   status: "sent",
   due_date: "2026-07-15",
   notes: null,

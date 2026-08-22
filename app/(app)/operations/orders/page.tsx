@@ -4,6 +4,7 @@ import { OperationsSubpageShell } from "@/components/operations/OperationsSubpag
 import { ModuleHeroStat } from "@/components/dashboard/module-layout";
 import { Card, CardBody } from "@/components/ui/card";
 import { OperationsBackLink } from "@/components/operations/OperationsBackLink";
+import { OperationsNewOrderButton } from "@/components/operations/OperationsNewOrderButton";
 import {
   getCurrentUser,
   UnauthorizedError,
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 const ORDER_SELECT =
   "id, business_id, number, customer_name, customer_phone, title, description, " +
-  "status, fulfillment_type, fulfillment_status, due_date, amount_myr, supplier_id, notes, admin_file_id, completed_at, " +
+  "status, fulfillment_type, fulfillment_status, due_date, amount_myr, supplier_id, notes, admin_file_id, completed_at, archived_at, " +
   "created_by, created_at, updated_at";
 
 export default async function OrdersPage({
@@ -55,6 +56,7 @@ export default async function OrdersPage({
         .select(ORDER_SELECT)
         .eq("business_id", user.businessId)
         .is("deleted_at", null)
+        .is("archived_at", null)
         .order("created_at", { ascending: false }),
       admin
         .from("operations_suppliers")
@@ -132,6 +134,7 @@ export default async function OrdersPage({
       headline={heroHeadline}
       subcopy={heroSub}
       variant={summary.overdue_count > 0 ? "attention" : "calm"}
+      action={<OperationsNewOrderButton />}
       stats={
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <ModuleHeroStat

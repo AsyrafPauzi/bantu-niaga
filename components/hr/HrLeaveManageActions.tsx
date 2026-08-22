@@ -117,8 +117,8 @@ export function HrLeaveManageActions({
 
   if (editing) {
     return (
-      <div className="mt-3 space-y-2 rounded-lg border border-cream-200 p-3 dark:border-hairline-dark">
-        <div className="grid gap-2 sm:grid-cols-2">
+      <div className="mt-3 w-full basis-full space-y-2 rounded-lg border border-cream-200 p-3 dark:border-hairline-dark">
+        <div className="grid gap-2">
           <label className="block text-xs">
             <span className="font-semibold text-ink-muted">Type</span>
             <select

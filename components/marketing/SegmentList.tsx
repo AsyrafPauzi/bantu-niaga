@@ -157,14 +157,6 @@ export function SegmentList({ autoRows, customRows }: SegmentListProps) {
         <ModuleListPanelHeader
           title="Segments"
           subtitle="Group customers for targeted broadcasts"
-          action={
-            <Link
-              href="/marketing/segments/new"
-              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
-            >
-              New segment
-            </Link>
-          }
         />
         <div className="px-4 py-12 text-center sm:px-5">
           <p className="text-sm font-semibold text-ink dark:text-cream-100">
@@ -183,14 +175,6 @@ export function SegmentList({ autoRows, customRows }: SegmentListProps) {
       <ModuleListPanelHeader
         title="Segments"
         subtitle={`${autoRows.length + customRows.length} total · ${autoRows.length} built-in`}
-        action={
-          <Link
-            href="/marketing/segments/new"
-            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
-          >
-            New segment
-          </Link>
-        }
       />
       <div className="space-y-8 p-4 sm:p-5">
       {autoRows.length > 0 ? (
@@ -246,9 +230,9 @@ export function SegmentList({ autoRows, customRows }: SegmentListProps) {
             </p>
             <Link
               href="/marketing/segments/new"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 hover:text-purple-800 dark:text-purple-300 dark:hover:text-purple-200"
             >
-              New segment
+              Create a custom segment
             </Link>
           </div>
         )}

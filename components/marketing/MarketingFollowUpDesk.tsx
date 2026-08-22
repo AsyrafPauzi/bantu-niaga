@@ -83,7 +83,7 @@ export function MarketingFollowUpDesk({
                   {meta.empty}
                 </p>
               ) : (
-                <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
+                <ul className="max-h-[17.5rem] divide-y divide-cream-100 overflow-y-auto overscroll-contain dark:divide-hairline-dark">
                   {rows.map((row) => (
                     <li
                       key={`${key}-${row.id}`}

@@ -5,14 +5,10 @@ import {
   Calendar,
   Camera,
   Clock,
-  Eye,
   Facebook,
   Gift,
-  Heart,
-  MessageSquare,
   Plus,
   Send,
-  Share2,
   Star,
   Tag,
   TrendingUp,
@@ -342,7 +338,6 @@ export function MarketingOverview({
             hint={vipCount > 0 ? "top spenders" : "none yet"}
             icon={<Star />}
             iconClassName={marketingTheme.eyebrow}
-            href="/marketing/customers?tags=vip"
           />
           <ModuleHeroStat
             label="Lifetime spend"
@@ -647,11 +642,6 @@ export function MarketingOverview({
             {topContent.map((post) => {
               const meta = CHANNEL_META[post.channel];
               const Icon = meta.icon;
-              const hasEngagement =
-                post.views > 0 ||
-                post.likes > 0 ||
-                post.comments_count > 0 ||
-                post.shares > 0;
               return (
                 <Link
                   key={post.id}
@@ -669,28 +659,6 @@ export function MarketingOverview({
                       {meta.label}
                     </p>
                   </div>
-                  {hasEngagement ? (
-                    <div className="grid grid-cols-4 gap-1 border-t border-cream-200 pt-2 text-[10px] dark:border-hairline-dark">
-                      {[
-                        { icon: Eye, value: post.views },
-                        { icon: Heart, value: post.likes },
-                        { icon: MessageSquare, value: post.comments_count },
-                        { icon: Share2, value: post.shares },
-                      ].map((m, i) => (
-                        <div
-                          key={i}
-                          className="flex flex-col items-center gap-0.5 text-ink-muted dark:text-cream-400"
-                        >
-                          <m.icon className="h-3 w-3" strokeWidth={2} />
-                          <span className="tabular-nums">{formatCount(m.value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-ink-muted dark:text-cream-400">
-                      Log engagement when posted
-                    </p>
-                  )}
                 </Link>
               );
             })}

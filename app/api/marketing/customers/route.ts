@@ -31,7 +31,7 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/marketing/customers — desktop CRM list (Marketing M2 §4.A).
  *
- * Pagination via `?page=&pageSize=` (default 50, max 200).
+ * Pagination via `?page=&pageSize=` (default 10, max 200).
  * Filters: `q` (name / phone fuzzy), `tags` (CSV — matches against either
  * `auto_tags` or `manual_tags`), `source`, `last_purchase_{before,after}`,
  * `min_spend`, `max_spend`. Sort: `name | last_purchase_at |

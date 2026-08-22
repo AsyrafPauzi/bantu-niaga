@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -16,16 +16,13 @@ import {
 import { ModuleListSearchBar } from "@/components/dashboard/module-list-search";
 import { AdminStorageFileAttach } from "@/components/admin/AdminStorageFileAttach";
 import {
-  OperationsCatalogEditShell,
   OperationsCatalogEmpty,
   OperationsCatalogList,
   OperationsCatalogThumb,
 } from "@/components/operations/OperationsCatalogUi";
-import {
-  QuickActionBar,
-  QuickCreateActions,
-  QuickCreatePanel,
-} from "@/components/ui/quick-create";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { QuickCreateActions } from "@/components/ui/quick-create";
+import { Modal, ModalBody, ModalFooter, ModalHeader } from "@/components/ui/modal";
 import { InlineFeedback } from "@/components/ui/alert";
 import { useQuickCreate } from "@/hooks/use-quick-create";
 import { cn } from "@/lib/utils/cn";
@@ -34,32 +31,26 @@ import type { OperationsSupplierRow } from "@/lib/operations/schemas";
 interface OperationsSupplierPanelProps {
   initialSuppliers: OperationsSupplierRow[];
   highlightSupplierId?: string | null;
+  page: number;
+  pageSize: number;
+  total: number;
+  searchQuery: string;
 }
 
 const PAYMENT_TERM_PRESETS = ["COD", "Net 7", "Net 14", "Net 30", "Net 60"];
 
-function supplierMatchesSearch(s: OperationsSupplierRow, needle: string): boolean {
-  const haystack = [
-    s.name,
-    s.contact_name,
-    s.phone,
-    s.email,
-    s.payment_terms,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(needle);
-}
-
 export function OperationsSupplierPanel({
   initialSuppliers,
   highlightSupplierId = null,
+  page,
+  pageSize,
+  total,
+  searchQuery,
 }: OperationsSupplierPanelProps) {
   const router = useRouter();
   const [suppliers, setSuppliers] = useState(initialSuppliers);
-  const [search, setSearch] = useState("");
-  const { open: showForm, toggle: toggleForm, close: closeForm } =
+  const [search, setSearch] = useState(searchQuery);
+  const { open: showForm, close: closeForm, openPanel: openForm } =
     useQuickCreate();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -78,16 +69,30 @@ export function OperationsSupplierPanel({
   const refresh = useCallback(() => router.refresh(), [router]);
 
   useEffect(() => {
+    setSuppliers(initialSuppliers);
+  }, [initialSuppliers]);
+
+  useEffect(() => {
+    setSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
     if (!highlightSupplierId) return;
     const el = document.getElementById(`supplier-${highlightSupplierId}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightSupplierId]);
 
-  const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return suppliers;
-    return suppliers.filter((s) => supplierMatchesSearch(s, needle));
-  }, [search, suppliers]);
+  const onSearch = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault();
+      const params = new URLSearchParams();
+      const q = search.trim();
+      if (q) params.set("q", q);
+      const qs = params.toString();
+      router.push(qs ? `/operations/suppliers?${qs}` : "/operations/suppliers");
+    },
+    [router, search],
+  );
 
   const resetForm = useCallback(() => {
     setName("");
@@ -102,6 +107,15 @@ export function OperationsSupplierPanel({
     setEditingId(null);
     setFormError(null);
   }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      resetForm();
+      openForm();
+    };
+    window.addEventListener("operations:add-supplier", handler);
+    return () => window.removeEventListener("operations:add-supplier", handler);
+  }, [resetForm, openForm]);
 
   const startEdit = useCallback((supplier: OperationsSupplierRow) => {
     setEditingId(supplier.id);
@@ -146,9 +160,6 @@ export function OperationsSupplierPanel({
         if (!res.ok || !json.ok || !json.data) {
           throw new Error(json.error?.message ?? "Could not save supplier.");
         }
-        setSuppliers((prev) =>
-          [...prev, json.data!].sort((a, b) => a.name.localeCompare(b.name)),
-        );
         resetForm();
         closeForm();
         refresh();
@@ -204,7 +215,14 @@ export function OperationsSupplierPanel({
         }
         setSuppliers((prev) =>
           prev
-            .map((s) => (s.id === editingId ? json.data! : s))
+            .map((s) =>
+              s.id === editingId
+                ? {
+                    ...json.data!,
+                    admin_file_name: adminFileName,
+                  }
+                : s,
+            )
             .sort((a, b) => a.name.localeCompare(b.name)),
         );
         resetForm();
@@ -218,6 +236,7 @@ export function OperationsSupplierPanel({
     [
       address,
       adminFileId,
+      adminFileName,
       contactName,
       editingId,
       email,
@@ -259,9 +278,9 @@ export function OperationsSupplierPanel({
       category="contract"
       disabled={creating || Boolean(busyId)}
       label="Contract / agreement"
-      onAttach={async (fileId) => {
+      onAttach={async (fileId, fileName) => {
         setAdminFileId(fileId);
-        setAdminFileName(null);
+        setAdminFileName(fileName ?? null);
       }}
     />
   );
@@ -345,82 +364,76 @@ export function OperationsSupplierPanel({
         rows={2}
         className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-hairline-dark dark:bg-panel-dark dark:text-cream-100"
       />
-      {formError ? (
-        <InlineFeedback>{formError}</InlineFeedback>
-      ) : null}
+      {formError ? <InlineFeedback>{formError}</InlineFeedback> : null}
     </>
   );
 
-  const hasSearch = Boolean(search.trim());
+  const hasSearch = Boolean(searchQuery.trim());
 
   return (
     <div className="space-y-4">
-      <QuickActionBar
+      <Modal
         open={showForm}
-        onToggle={() => {
-          if (showForm) {
-            closeForm();
-            resetForm();
-          } else {
-            resetForm();
-            toggleForm();
-          }
+        onClose={() => {
+          closeForm();
+          resetForm();
         }}
-        actionLabel="Add supplier"
-      />
-
-      <QuickCreatePanel
-        open={showForm}
-        onSubmit={onCreate}
-        title="New supplier"
-        subtitle="Who you buy from — reach them fast when stock runs low."
-        icon={Truck}
-        accent="amber"
+        size="lg"
       >
-        {formFields}
-        {contractPicker}
-        <QuickCreateActions
-          submitLabel="Save supplier"
-          loading={creating}
-          onCancel={() => {
+        <ModalHeader
+          title="New supplier"
+          description="Who you buy from — reach them fast when stock runs low."
+          onClose={() => {
             closeForm();
             resetForm();
           }}
         />
-      </QuickCreatePanel>
-
-      {editingId && editingSupplier ? (
-        <OperationsCatalogEditShell
-          title={`Editing ${editingSupplier.name}`}
-          accent="brand"
-        >
-          <form onSubmit={onUpdate} className="space-y-3">
+        <ModalBody>
+          <form id="add-supplier-form" onSubmit={onCreate} className="space-y-3">
             {formFields}
             {contractPicker}
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={creating}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-              >
-                {creating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
-                Save changes
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-lg border border-cream-300 px-4 py-2 text-sm font-semibold text-ink-muted dark:border-hairline-dark dark:text-cream-400"
-              >
-                Cancel
-              </button>
-            </div>
           </form>
-        </OperationsCatalogEditShell>
-      ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <QuickCreateActions
+            submitLabel="Save supplier"
+            loading={creating}
+            onCancel={() => {
+              closeForm();
+              resetForm();
+            }}
+            form="add-supplier-form"
+          />
+        </ModalFooter>
+      </Modal>
 
-      {filtered.length === 0 ? (
+      <Modal
+        open={Boolean(editingId && editingSupplier)}
+        onClose={resetForm}
+        size="lg"
+      >
+        <ModalHeader
+          title={editingSupplier ? `Edit ${editingSupplier.name}` : "Edit supplier"}
+          description="Update contact, payment terms, or contract."
+          onClose={resetForm}
+        />
+        <ModalBody>
+          <form id="edit-supplier-form" onSubmit={onUpdate} className="space-y-3">
+            {formFields}
+            {contractPicker}
+          </form>
+        </ModalBody>
+        <ModalFooter>
+          <QuickCreateActions
+            submitLabel="Save changes"
+            loading={creating}
+            onCancel={resetForm}
+            form="edit-supplier-form"
+          />
+        </ModalFooter>
+      </Modal>
+
+      {suppliers.length === 0 ? (
         <OperationsCatalogEmpty
           icon={hasSearch ? <Search className="h-6 w-6" /> : <Truck className="h-6 w-6" />}
           title={
@@ -435,19 +448,27 @@ export function OperationsSupplierPanel({
       ) : (
         <OperationsCatalogList
           title="Vendor list"
-          total={filtered.length}
+          total={total}
           filters={
-            <ModuleListSearchBar
-              value={search}
-              onChange={setSearch}
-              placeholder="Search vendors…"
-              onClear={hasSearch ? () => setSearch("") : undefined}
-            />
+            <form onSubmit={onSearch}>
+              <ModuleListSearchBar
+                value={search}
+                onChange={setSearch}
+                placeholder="Search vendors…"
+                onClear={
+                  search.trim()
+                    ? () => {
+                        setSearch("");
+                        router.push("/operations/suppliers");
+                      }
+                    : undefined
+                }
+              />
+            </form>
           }
         >
           <ul className="divide-y divide-cream-100 dark:divide-hairline-dark">
-            {filtered.map((s) => {
-              if (editingId === s.id) return null;
+            {suppliers.map((s) => {
               const busy = busyId === s.id;
 
               return (
@@ -540,6 +561,15 @@ export function OperationsSupplierPanel({
               );
             })}
           </ul>
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            basePath="/operations/suppliers"
+            searchParams={{ q: searchQuery || undefined }}
+            pageSizeOptions={[10, 25, 50]}
+            className="border-t border-cream-200 dark:border-hairline-dark"
+          />
         </OperationsCatalogList>
       )}
     </div>

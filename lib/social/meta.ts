@@ -608,3 +608,77 @@ export async function getIgMediaInsights(
     raw: res,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Audience online — for "best time to post" (account-level, not post-level)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Hour (0–23) → follower count. Hours are in the account's reported timezone
+ * from Meta (typically UTC for Graph timestamps; callers convert to MYT).
+ */
+export type HourlyAudienceMap = Record<number, number>;
+
+/**
+ * Instagram `online_followers` — when followers were online (last ~30 days).
+ * Requires ≥100 followers; otherwise Meta returns an empty dataset.
+ * @see https://developers.facebook.com/docs/instagram-api/reference/ig-user/insights
+ */
+export async function getIgOnlineFollowersByHour(
+  igUserId: string,
+  pageToken: string,
+): Promise<HourlyAudienceMap> {
+  const params = new URLSearchParams({
+    metric: "online_followers",
+    period: "lifetime",
+    access_token: pageToken,
+  });
+  const res = await graphFetch<InsightsEnvelope>(
+    `${GRAPH_BASE}/${encodeURIComponent(igUserId)}/insights?${params.toString()}`,
+  );
+  return aggregateHourlyInsightValues(res);
+}
+
+/**
+ * Facebook Page `page_fans_online` — fans online by hour of day.
+ * Uses the latest day sample Meta returns.
+ */
+export async function getFbFansOnlineByHour(
+  pageId: string,
+  pageToken: string,
+): Promise<HourlyAudienceMap> {
+  const params = new URLSearchParams({
+    metric: "page_fans_online",
+    period: "day",
+    access_token: pageToken,
+  });
+  const res = await graphFetch<InsightsEnvelope>(
+    `${GRAPH_BASE}/${encodeURIComponent(pageId)}/insights?${params.toString()}`,
+  );
+  return aggregateHourlyInsightValues(res);
+}
+
+function aggregateHourlyInsightValues(
+  res: InsightsEnvelope,
+): HourlyAudienceMap {
+  const totals: HourlyAudienceMap = {};
+  for (let h = 0; h < 24; h++) totals[h] = 0;
+
+  for (const datum of res.data ?? []) {
+    for (const entry of datum.values ?? []) {
+      const v = entry.value;
+      if (!v || typeof v !== "object") continue;
+      for (const [hourKey, count] of Object.entries(
+        v as Record<string, unknown>,
+      )) {
+        const hour = Number.parseInt(hourKey, 10);
+        if (!Number.isFinite(hour) || hour < 0 || hour > 23) continue;
+        const n = typeof count === "number" ? count : Number(count);
+        if (!Number.isFinite(n) || n < 0) continue;
+        totals[hour] = (totals[hour] ?? 0) + n;
+      }
+    }
+  }
+
+  return totals;
+}
