@@ -175,9 +175,9 @@ export async function renderCustomerStatementPdf(
   page.drawText("***Opening Balance***", { x: COL.txn, y, size: 8, font: bold, color: INK });
   rightAlign(page, formatMyr(0), COL.amount, y, 8, regular, MUTED);
   rightAlign(page, formatMyr(0), COL.balance, y, 8, regular, INK);
-  y -= 2;
+  y -= 5;
   page.drawLine({ start: { x: MARGIN, y }, end: { x: RIGHT, y }, thickness: 0.3, color: LINE });
-  y -= 16;
+  y -= 20;
 
   // ── Transaction rows ──────────────────────────────────────────────────────
   let runningBalance = 0;
