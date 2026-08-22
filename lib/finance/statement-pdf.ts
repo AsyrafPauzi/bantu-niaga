@@ -141,15 +141,15 @@ export async function renderCustomerStatementPdf(
   // ── Table columns ─────────────────────────────────────────────────────────
   const COL = {
     date:    MARGIN,
-    txn:     MARGIN + 68,
-    details: MARGIN + 140,
-    amount:  RIGHT - 140,
-    payment: RIGHT - 70,
+    txn:     MARGIN + 72,
+    details: MARGIN + 154,
+    amount:  RIGHT - 148,
+    payment: RIGHT - 72,
     balance: RIGHT,
   };
 
   // Dark header row
-  const headerH = 20;
+  const headerH = 22;
   page.drawRectangle({ x: MARGIN, y: y - headerH + 4, width: RIGHT - MARGIN, height: headerH, color: DARK });
 
   const headerY = y - headerH + 9;
@@ -177,7 +177,7 @@ export async function renderCustomerStatementPdf(
   rightAlign(page, formatMyr(0), COL.balance, y, 8, regular, INK);
   y -= 2;
   page.drawLine({ start: { x: MARGIN, y }, end: { x: RIGHT, y }, thickness: 0.3, color: LINE });
-  y -= 13;
+  y -= 16;
 
   // ── Transaction rows ──────────────────────────────────────────────────────
   let runningBalance = 0;
@@ -195,9 +195,9 @@ export async function renderCustomerStatementPdf(
     page.drawText(truncate(details, 32), { x: COL.details, y, size: 8, font: regular, color: MUTED });
     rightAlign(page, formatMyr(total), COL.amount, y, 8, regular, INK);
     rightAlign(page, formatMyr(runningBalance), COL.balance, y, 8, regular, INK);
-    y -= 2;
+    y -= 3;
     page.drawLine({ start: { x: MARGIN, y }, end: { x: RIGHT, y }, thickness: 0.3, color: LINE });
-    y -= 13;
+    y -= 17;
 
     // Payment Received row (if paid)
     if (isPaid) {
@@ -210,9 +210,9 @@ export async function renderCustomerStatementPdf(
       page.drawText(truncate(payDetails, 32), { x: COL.details, y, size: 8, font: regular, color: MUTED });
       rightAlign(page, formatMyr(total), COL.payment, y, 8, regular, GREEN);
       rightAlign(page, formatMyr(runningBalance), COL.balance, y, 8, regular, INK);
-      y -= 2;
+      y -= 3;
       page.drawLine({ start: { x: MARGIN, y }, end: { x: RIGHT, y }, thickness: 0.3, color: LINE });
-      y -= 13;
+      y -= 17;
     }
   }
 
