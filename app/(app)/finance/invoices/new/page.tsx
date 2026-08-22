@@ -13,6 +13,7 @@ import {
 import { loadBusiness } from "@/lib/settings/business";
 import { isFinanceBillplzCheckoutEnabled } from "@/lib/finance/billplz-config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { FinanceCustomerRow } from "@/lib/finance/schemas";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
   if (!business) redirect("/home");
 
   const supabase = await createSupabaseServerClient();
+  const admin = createServiceRoleClient();
   const leadPromise = leadId
     ? supabase
         .from("sales_leads")
@@ -68,7 +70,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
         .is("deleted_at", null)
         .order("name", { ascending: true }),
       nextFinanceInvoiceNumber(
-        supabase,
+        admin,
         user.businessId,
         documentKind === "quote" ? "QUO" : "INV",
       ),

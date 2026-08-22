@@ -25,6 +25,7 @@ import { isEmailVerified } from "@/lib/auth/email-verification-policy";
 import {
   incompleteSessionDecision,
   isPublicAuthPath,
+  isPublicSharePath,
 } from "@/lib/auth/incomplete-session";
 import {
   getSupabasePublicEnv,
@@ -61,7 +62,8 @@ function buildCsp(nonce: string): string {
       ? `script-src 'nonce-${nonce}' 'strict-dynamic' https://www.facebook.com https://connect.facebook.net`
       : `script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' https://www.facebook.com https://connect.facebook.net`,
     // Tailwind arbitrary values require unsafe-inline for styles — known trade-off.
-    "style-src 'self' 'unsafe-inline'",
+    // Google Fonts stylesheet (Funnel Sans) is loaded from fonts.googleapis.com.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com",
     `img-src 'self' data: blob: https://${supabaseHost} https://*.fbcdn.net https://platform-lookaside.fbsbx.com https://scontent.cdninstagram.com https://*.cdninstagram.com`,
     `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://graph.facebook.com https://api.openai.com https://api.ilmu.ai${
@@ -325,6 +327,11 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Public invoice / booking / leave / file share links (no login).
+  if (isPublicSharePath(pathname)) {
+    return response;
+  }
+
   // Registration and password recovery must work while logged out.
   if (
     pathname === "/api/auth/sign-up" ||
@@ -383,15 +390,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   /*
-   * Positive matcher. Only run middleware on the authenticated app shell
-   * (`app/(app)/...`) and protected API routes. This automatically skips:
+   * Positive matcher. Runs on authenticated app shell + APIs, and on public
+   * share URLs so they get a nonce-based CSP (next.config no longer ships a
+   * static CSP that would block Next.js inline scripts on those pages).
    *
-   *   - `_next/static`, `_next/image`            (Next internals)
-   *   - `favicon.ico` and any file in `/public/` (anything with a `.`)
-   *   - `/api/health`                            (uptime probe; anonymous)
-   *   - the public `[idcompany]` route group     (`/[idcompany]/...`)
-   *   - the root landing page (`/`)              (redirects to /home)
-   *   - the `/sign-in` page                      (must be reachable while logged out)
+   * Skips `_next/*`, static files with extensions, and `/api/health`.
    */
   matcher: [
     "/(add-company|admin|boardroom|finance|home|hr|marketing|marketplace|more|operations|sales|settings)/:path*",
@@ -404,5 +407,8 @@ export const config = {
     "/legal/:path*",
     "/onboarding/:path*",
     "/api/((?!health|webhooks).*)",
+    // Public secure-hash pages: /{idcompany}/inv-|book-|leave-|file-…
+    // (auth skipped via isPublicSharePath; needed for nonce CSP)
+    "/:idcompany/:ref",
   ],
 };

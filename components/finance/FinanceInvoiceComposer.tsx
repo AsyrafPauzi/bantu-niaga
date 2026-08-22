@@ -1218,7 +1218,7 @@ export function FinanceInvoiceComposer({
                     parseFloat(line.quantity) || 0,
                   );
                   return (
-                    <tr key={line.key} className="group">
+                    <tr key={line.key} className="group/row">
                       <td className="px-2 py-1.5">
                         <textarea
                           rows={2}
@@ -1330,22 +1330,22 @@ export function FinanceInvoiceComposer({
                       </td>
                       <td className="px-1 py-1.5 text-center">
                         <div className="flex items-center justify-center gap-0.5">
-                          <Tooltip content="Duplicate line" side="top">
+                          <Tooltip content="Duplicate line" side="left">
                             <button
                               type="button"
                               onClick={() => duplicateLine(line)}
-                              className="rounded p-1 text-ink-muted opacity-60 hover:bg-cream-100 hover:text-brand-700 group-hover:opacity-100 dark:hover:bg-panel-dark/80 dark:hover:text-brand-200"
+                              className="rounded p-1 text-ink-muted opacity-60 hover:bg-cream-100 hover:text-brand-700 group-hover/row:opacity-100 dark:hover:bg-panel-dark/80 dark:hover:text-brand-200"
                               aria-label="Duplicate line"
                             >
                               <Copy className="h-3.5 w-3.5" />
                             </button>
                           </Tooltip>
                           {lines.length > 1 ? (
-                            <Tooltip content="Remove line" side="top">
+                            <Tooltip content="Remove line" side="left">
                               <button
                                 type="button"
                                 onClick={() => removeLine(line.key)}
-                                className="rounded p-1 text-ink-muted opacity-60 hover:bg-status-danger/10 hover:text-status-danger group-hover:opacity-100"
+                                className="rounded p-1 text-ink-muted opacity-60 hover:bg-status-danger/10 hover:text-status-danger group-hover/row:opacity-100"
                                 aria-label="Remove line"
                               >
                                 <X className="h-3.5 w-3.5" />

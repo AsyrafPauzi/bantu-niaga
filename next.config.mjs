@@ -6,11 +6,10 @@
  *   - `poweredByHeader: false`              hide Next.js version
  *   - Cross-route security headers          via `headers()` below — applied
  *                                           by Vercel/Node at the edge
- *   - Strict CSP                            deny inline by default; allow
- *                                           Next's hashed runtime scripts +
- *                                           Tailwind's hashed styles, and
- *                                           outbound calls to Supabase
- *                                           (which the app needs to function)
+ *   - Strict CSP                            injected per-request by
+ *                                           middleware.ts with a nonce
+ *                                           (not a static header here —
+ *                                           static CSP blanks public share pages)
  *   - HSTS                                  6-month max-age; preload-eligible
  *   - frame-ancestors 'none'                clickjacking protection (same
  *                                           intent as `X-Frame-Options: DENY`
@@ -27,66 +26,10 @@
  * `scontent.*.fbcdn.net`).
  */
 
-const isProd = process.env.NODE_ENV === "production";
-const supabaseHost = (() => {
-  try {
-    return process.env.NEXT_PUBLIC_SUPABASE_URL
-      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
-      : "*.supabase.co";
-  } catch {
-    return "*.supabase.co";
-  }
-})();
-
-/**
- * The CSP allows:
- *   - script-src     'self' + Next runtime hashes (handled via 'unsafe-inline'
- *                    in dev only; prod uses nonces via React server components)
- *   - style-src      'self' + 'unsafe-inline' (Tailwind injects inline styles
- *                    for arbitrary values; this is the well-known trade-off)
- *   - img-src        'self' + data URIs + Supabase Storage + Meta CDNs
- *   - connect-src    'self' + Supabase REST/Realtime + Meta Graph
- *   - frame-ancestors 'none'   (block clickjacking)
- *   - object-src     'none'    (block legacy Flash/plugin embeds)
- *   - base-uri       'self'    (block <base> tag hijack)
- *   - form-action    'self' + facebook.com (Meta OAuth dialog posts back)
- *   - upgrade-insecure-requests   force HTTPS on subresources
- */
-// Static fallback CSP — applied only to routes not covered by the nonce-based
-// middleware CSP (e.g. /_next/static assets). Script execution is not needed
-// on pure static assets, so we can be strict here.
-const csp = [
-  "default-src 'self'",
-  isProd
-    ? "script-src 'self' https://www.facebook.com https://connect.facebook.net"
-    : "script-src 'self' 'unsafe-eval' https://www.facebook.com https://connect.facebook.net",
-  "style-src 'self' 'unsafe-inline'",
-  "font-src 'self' data:",
-  `img-src 'self' data: blob: https://${supabaseHost} https://*.fbcdn.net https://platform-lookaside.fbsbx.com https://scontent.cdninstagram.com https://*.cdninstagram.com`,
-  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://graph.facebook.com https://api.openai.com https://api.ilmu.ai${
-    isProd
-      ? ""
-      : " http://127.0.0.1:54321 ws://127.0.0.1:54321 https://127.0.0.1:54321 wss://127.0.0.1:54321"
-  }`,
-  "frame-src 'self' https://www.facebook.com",
-  "frame-ancestors 'none'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self' https://www.facebook.com",
-  "manifest-src 'self'",
-  "media-src 'self' blob: data:",
-  "worker-src 'self' blob:",
-  isProd ? "upgrade-insecure-requests" : "",
-]
-  .filter(Boolean)
-  .join("; ");
-
-// Content-Security-Policy is now injected dynamically by middleware.ts with a
-// per-request nonce. The static header below is kept as a fallback only for
-// routes not matched by the middleware (e.g. /_next/static assets — which
-// don't execute scripts so the CSP there is less critical).
+// Content-Security-Policy is injected per-request by middleware.ts (nonce).
+// Do NOT set a static CSP here — it applies to public share pages that skip
+// auth middleware matchers and blocks Next.js inline scripts (blank page).
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   {
     // 1-year HSTS — preload-eligible (https://hstspreload.org requires ≥1 year)
     key: "Strict-Transport-Security",

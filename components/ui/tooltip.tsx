@@ -16,6 +16,9 @@ interface TooltipProps {
  * Pure-CSS hover tooltip — wraps any element (button, link, icon…)
  * and shows a styled label on hover/focus-visible.
  *
+ * Uses a named group (`group/tooltip`) so nested parents that also use
+ * `group` (e.g. table rows) do not incorrectly show the tip.
+ *
  * Usage:
  *   <Tooltip content="Delete item">
  *     <button aria-label="Delete item"><Trash2 /></button>
@@ -23,7 +26,7 @@ interface TooltipProps {
  */
 export function Tooltip({ content, children, side = "top", className }: TooltipProps) {
   return (
-    <div className={cn("group relative inline-flex", className)}>
+    <div className={cn("group/tooltip relative inline-flex", className)}>
       {children}
       <span
         role="tooltip"
@@ -33,12 +36,13 @@ export function Tooltip({ content, children, side = "top", className }: TooltipP
           "bg-ink text-xs font-medium text-white shadow-elevated",
           "dark:bg-cream-50 dark:text-ink",
           // transition
-          "opacity-0 transition-opacity delay-75 duration-150 group-hover:opacity-100 group-focus-within:opacity-100",
+          "opacity-0 transition-opacity delay-75 duration-150",
+          "group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100",
           // positioning
-          side === "top"    && "bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2",
+          side === "top" && "bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2",
           side === "bottom" && "top-[calc(100%+6px)] left-1/2 -translate-x-1/2",
-          side === "left"   && "right-[calc(100%+6px)] top-1/2 -translate-y-1/2",
-          side === "right"  && "left-[calc(100%+6px)] top-1/2 -translate-y-1/2",
+          side === "left" && "right-[calc(100%+6px)] top-1/2 -translate-y-1/2",
+          side === "right" && "left-[calc(100%+6px)] top-1/2 -translate-y-1/2",
         )}
       >
         {content}
@@ -47,10 +51,14 @@ export function Tooltip({ content, children, side = "top", className }: TooltipP
           aria-hidden
           className={cn(
             "absolute border-4 border-transparent",
-            side === "top"    && "left-1/2 top-full -translate-x-1/2 border-t-ink dark:border-t-cream-50",
-            side === "bottom" && "bottom-full left-1/2 -translate-x-1/2 border-b-ink dark:border-b-cream-50",
-            side === "left"   && "left-full top-1/2 -translate-y-1/2 border-l-ink dark:border-l-cream-50",
-            side === "right"  && "right-full top-1/2 -translate-y-1/2 border-r-ink dark:border-r-cream-50",
+            side === "top" &&
+              "left-1/2 top-full -translate-x-1/2 border-t-ink dark:border-t-cream-50",
+            side === "bottom" &&
+              "bottom-full left-1/2 -translate-x-1/2 border-b-ink dark:border-b-cream-50",
+            side === "left" &&
+              "left-full top-1/2 -translate-y-1/2 border-l-ink dark:border-l-cream-50",
+            side === "right" &&
+              "right-full top-1/2 -translate-y-1/2 border-r-ink dark:border-r-cream-50",
           )}
         />
       </span>

@@ -1,31 +1,42 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FinanceMonthSummary, FinancePnLLine, FinancePnLStatement } from "@/lib/finance/schemas";
 import { FINANCE_INCOME_REVENUE_CATEGORIES } from "@/lib/finance/schemas";
+import {
+  formatInvoiceNumber,
+  invoiceNumberPattern,
+  malaysiaInvoiceYear,
+  nextInvoiceSequenceFromNumbers,
+} from "@/lib/finance/invoice-number";
 
 export { generateShareHash } from "@/lib/utils/share-hash";
 
+/**
+ * Next INV/QUO number for the business in the current MY calendar year.
+ * Uses numeric max of the suffix (not lexicographic ORDER BY), so
+ * INV-2026-99 does not sort above INV-2026-100 incorrectly.
+ * Soft-deleted rows are ignored (same as uniqueness checks).
+ */
 export async function nextFinanceInvoiceNumber(
   admin: SupabaseClient,
   businessId: string,
   prefix = "INV",
 ): Promise<string> {
-  const year = new Date().getFullYear();
-  const pattern = `${prefix}-${year}-`;
-  const { data } = await admin
+  const year = malaysiaInvoiceYear();
+  const pattern = invoiceNumberPattern(prefix, year);
+  const { data, error } = await admin
     .from("finance_invoices")
     .select("number")
     .eq("business_id", businessId)
-    .like("number", `${pattern}%`)
-    .order("number", { ascending: false })
-    .limit(1);
+    .is("deleted_at", null)
+    .like("number", `${pattern}%`);
 
-  const last = (data?.[0] as { number: string } | undefined)?.number;
-  let seq = 1;
-  if (last?.startsWith(pattern)) {
-    const tail = parseInt(last.slice(pattern.length), 10);
-    if (Number.isFinite(tail)) seq = tail + 1;
-  }
-  return `${pattern}${String(seq).padStart(4, "0")}`;
+  if (error) throw new Error(error.message);
+
+  const numbers = ((data ?? []) as Array<{ number: string }>).map(
+    (row) => row.number,
+  );
+  const seq = nextInvoiceSequenceFromNumbers(numbers, pattern);
+  return formatInvoiceNumber(prefix, year, seq);
 }
 
 export async function isFinanceInvoiceNumberTaken(

@@ -22,6 +22,15 @@ export function isPublicAuthPath(pathname: string): boolean {
   );
 }
 
+/**
+ * Unauthenticated secure-hash surfaces under `app/(public)/[idcompany]/[ref]`:
+ *   /{idcompany}/inv-… | book-… | leave-… | file-…
+ */
+export function isPublicSharePath(pathname: string): boolean {
+  const path = normalizePath(pathname);
+  return /^\/[^/]+\/(inv|book|leave|file)-[^/]+$/.test(path);
+}
+
 export function incompleteSessionDecision(opts: {
   pathname: string;
   hasProfile: boolean;

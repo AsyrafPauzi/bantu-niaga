@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   incompleteSessionDecision,
   isPublicAuthPath,
+  isPublicSharePath,
 } from "@/lib/auth/incomplete-session";
 
 describe("incompleteSessionDecision", () => {
@@ -65,5 +66,16 @@ describe("isPublicAuthPath", () => {
     expect(isPublicAuthPath("/accept-invite")).toBe(true);
     expect(isPublicAuthPath("/legal/terms")).toBe(true);
     expect(isPublicAuthPath("/home")).toBe(false);
+  });
+});
+
+describe("isPublicSharePath", () => {
+  it("allows secure-hash public surfaces", () => {
+    expect(isPublicSharePath("/demo/inv-abc123xyz")).toBe(true);
+    expect(isPublicSharePath("/demo/book-abc123xyz")).toBe(true);
+    expect(isPublicSharePath("/demo/leave-abc123xyz")).toBe(true);
+    expect(isPublicSharePath("/demo/file-abc123xyz")).toBe(true);
+    expect(isPublicSharePath("/finance/invoices")).toBe(false);
+    expect(isPublicSharePath("/demo/inv-")).toBe(false);
   });
 });
